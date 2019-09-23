@@ -1060,6 +1060,7 @@ char const *op_name(op o) {
         case SETS:  return "SETS";
         case SETI:  return "SETI";
     }
+    return "";
 };
 std::ostream &operator<< (std::ostream &out, fop const &fop) {
     bool use_ansi = use_ansi_escapes && (&out == &std::cerr || &out == &std::cout);

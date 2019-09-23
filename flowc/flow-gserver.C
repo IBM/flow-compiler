@@ -483,6 +483,7 @@ std::ostream &operator <<(std::ostream &out, accessor_type at) {
         case SIZE:
             return out << "SIZE";
     }
+    return out;
 }
 
 static std::set<std::string> reserved_cc = {
