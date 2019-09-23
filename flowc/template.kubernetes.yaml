@@ -1,0 +1,181 @@
+{R:REST_NODE_NAME{
+apiVersion: v1
+data:
+{P:PROTO_FILE{
+  {{PROTO_FILE}}: {{PROTO_FILE_YAMLSTR}}
+}P}
+{E:REST_ENTRY{
+  {{REST_ENTRY}}.svg: {{ENTRY_SVG_YAMLSTR}}
+}E}
+kind: ConfigMap
+metadata:
+  name: {{NAME}}-protos
+---
+}R}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{NAME}}-{{MAIN_POD}}
+  labels:
+    app: {{NAME}}
+    flow-group: {{NAME}}
+spec:
+  replicas: ${replicas_{{NAME_UPPERID}}}
+  selector:
+    matchLabels:
+      app: {{NAME}}
+  template:
+    metadata:
+      labels:
+        app: {{NAME}}
+        flow-group: {{NAME}}
+    spec:
+{X:HAVE_IMAGE_PULL_SECRETS{
+      imagePullSecrets:{{HAVE_IMAGE_PULL_SECRETS}}}X}
+{S:IMAGE_PULL_SECRET{
+      - name: "{{IMAGE_PULL_SECRET}}"
+}S}
+      initContainers:
+{I:G_INIT_CONTAINER{
+      - {{G_INIT_CONTAINER}}
+}I}
+{W:VOLUME_NAME{
+${{{VOLUME_UPPERID}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{VOLUME_UPPERID}}}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
+${{{VOLUME_UPPERID}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/cosget.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
+${{{VOLUME_UPPERID}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
+        image:  "{{PUSH_REPO:}}{{IMAGE}}" 
+        securityContext: {privileged: true, runAsUser: 0} 
+        name: volumes-init-{{VOLUME_OPTION}}
+        volumeMounts:
+${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_PVC}          mountPath: "/from-1"
+${{{VOLUME_UPPERID}}_PVC}          readOnly: true
+${{{VOLUME_UPPERID}}_COS}        - name: cos-access-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_COS}          mountPath: "/etc/cos-access"
+${{{VOLUME_UPPERID}}_COS}          readOnly: true
+${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_ART}          mountPath: "/etc/artifactory"
+${{{VOLUME_UPPERID}}_ART}          readOnly: true
+
+        - name: scratch-{{VOLUME_OPTION}}
+          mountPath: "/to-1"
+          readOnly: false
+}W}
+$enable_htdocs$htdocs_ART      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{NAME_UPPERID}}_HTDOCS}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
+$enable_htdocs$htdocs_COS      - command: ["/bin/sh", "-c", "/usr/local/bin/cosget.sh '${{{NAME_UPPERID}}_HTDOCS}' -d /etc/cos-access -u -o /to-1"]
+$enable_htdocs$htdocs_PVC      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
+$enable_htdocs        image:  "{{PUSH_REPO:}}{{IMAGE}}" 
+$enable_htdocs        securityContext: {privileged: true, runAsUser: 0} 
+$enable_htdocs        name: volumes-init-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs        volumeMounts:
+$enable_htdocs$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_PVC          mountPath: "/from-1"
+$enable_htdocs$htdocs_PVC          readOnly: true
+$enable_htdocs$htdocs_COS        - name: cos-access-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_COS          mountPath: "/etc/cos-access"
+$enable_htdocs$htdocs_COS          readOnly: true
+$enable_htdocs$htdocs_ART        - name: api-key-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_ART          mountPath: "/etc/artifactory"
+$enable_htdocs$htdocs_ART          readOnly: true
+$enable_htdocs        - name: scratch-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs          mountPath: "/to-1"
+$enable_htdocs          readOnly: false
+      containers:
+      - name: {{NAME}}
+        image: "{{PUSH_REPO:}}{{IMAGE}}"
+        command: ["/home/worker/{{NAME}}/{{NAME}}-server"]
+        args: ["{{MAIN_PORT}}"]
+        ports:
+          - name: grpc
+            containerPort: {{MAIN_PORT}}
+{E:HAVE_NODES{
+        env:{{HAVE_NODES}}
+          - name: {{NAME_UPPERID}}_TRACE
+            value: "0"
+          - name: {{NAME_UPPERID}}_DEBUG
+            value: "1"
+          - name: {{NAME_UPPERID}}_ASYNC
+            value: "1"
+{K:ORCHESTRATOR_ENVIRONMENT_KEY{
+          - name: {{ORCHESTRATOR_ENVIRONMENT_KEY}}
+            value: "{{ORCHESTRATOR_ENVIRONMENT_VALUE}}"
+}K}}E}
+{R:REST_NODE_NAME{
+      - name: {{REST_NODE_NAME}}
+        image: "{{REST_NODE_IMAGE}}"
+        ports: 
+          - name: rest
+            containerPort: {{REST_IMAGE_PORT}}
+        command: ["/home/worker/pr/bin/runpr3.sh"]
+        args: ["--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION}}, "--hostport", "localhost:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
+        volumeMounts:
+        - name: {{REST_VOLUME_NAME}}
+          mountPath: "/home/worker/pr/input"
+          readOnly: true
+$enable_htdocs        - name: {{HTDOCS_VOLUME_NAME}}
+$enable_htdocs          mountPath: "/home/worker/pr/htdocs"
+$enable_htdocs          readOnly: true
+}R}
+{N:G_NODE_NAME{
+      - name: {{G_NODE_OPTION}}
+        image: "{{G_NODE_IMAGE}}"
+        {{G_NODE_ENVIRONMENT}}
+        {{G_NODE_MOUNTS}}
+        {{G_NODE_LIMITS}}
+}N}
+{V:HAVE_VOLUMES_OR_REST{
+      volumes:{{HAVE_VOLUMES_OR_REST}}
+}V}
+{R:REST_NODE_NAME{
+        - name: {{REST_VOLUME_NAME}}
+          configMap:
+            name: {{NAME}}-protos
+$enable_htdocs$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}    
+$enable_htdocs$htdocs_PVC          persistentVolumeClaim:
+$enable_htdocs$htdocs_PVC            claimName: ${{{NAME_UPPERID}}_HTDOCS}
+$enable_htdocs$htdocs_COS        - name: cos-access-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_COS          secret:
+$enable_htdocs$htdocs_COS            secretName: ${{{NAME_UPPERID}}_HTDOCS_SECRET_NAME}
+$enable_htdocs$htdocs_ART        - name: api-key-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_ART          secret:
+$enable_htdocs$htdocs_ART            secretName: ${{{NAME_UPPERID}}_HTDOCS_SECRET_NAME}
+$enable_htdocs$htdocs_COS        - name: scratch-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_COS          emptyDir: {}
+$enable_htdocs$htdocs_ART        - name: scratch-{{HTDOCS_VOLUME_NAME}}
+$enable_htdocs$htdocs_ART          emptyDir: {}
+}R}
+{W:VOLUME_NAME{
+${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_PVC}          persistentVolumeClaim:
+${{{VOLUME_UPPERID}}_PVC}            claimName: ${{{VOLUME_UPPERID}}}
+${{{VOLUME_UPPERID}}_COS}        - name: cos-access-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_COS}          secret:
+${{{VOLUME_UPPERID}}_COS}            secretName: ${{{VOLUME_UPPERID}}_SECRET_NAME}
+${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_ART}          secret:
+${{{VOLUME_UPPERID}}_ART}            secretName: ${{{VOLUME_UPPERID}}_SECRET_NAME}
+${{{VOLUME_UPPERID}}_COS}        - name: scratch-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_COS}          emptyDir: {}
+${{{VOLUME_UPPERID}}_ART}        - name: scratch-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_ART}          emptyDir: {}
+}W}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{NAME}}
+  labels:
+    flow-group: {{NAME}}
+    app: {{NAME}}
+spec:
+  ports:
+  - port: {{MAIN_PORT}}
+    protocol: TCP
+    name: grpc
+{R:REST_NODE_NAME{
+  - port:  {{REST_IMAGE_PORT}}
+    protocol: TCP
+    name: http
+}R}
+  selector:
+    app: {{NAME}}

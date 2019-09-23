@@ -1,0 +1,92 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{NAME}}-{{G_NODE_GROUP}}
+  labels:
+    app: {{NAME}}-{{G_NODE_GROUP}}
+    flow-group: {{NAME}}
+spec:
+  replicas: ${replicas_{{NAME_UPPERID}}_{{G_NODE_GROUP_UPPER}}}
+  selector:
+    matchLabels:
+      app: {{NAME}}-{{G_NODE_GROUP}}
+  template:
+    metadata:
+      labels:
+        app: {{NAME}}-{{G_NODE_GROUP}}
+        flow-group: {{NAME}}
+    spec:
+{X:HAVE_IMAGE_PULL_SECRETS{
+      imagePullSecrets:{{HAVE_IMAGE_PULL_SECRETS}}}X}
+{S:IMAGE_PULL_SECRET{
+      - name: "{{IMAGE_PULL_SECRET}}"
+}S}
+{X:HAVE_INIT_CONTAINERS{
+      initContainers:{{HAVE_INIT_CONTAINERS}}}X}
+{I:G_INIT_CONTAINER{
+      - {{G_INIT_CONTAINER}}
+}I}
+{W:VOLUME_NAME{
+${{{VOLUME_UPPERID}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{VOLUME_UPPERID}}}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
+${{{VOLUME_UPPERID}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/cosget.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
+${{{VOLUME_UPPERID}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
+        image:  "{{PUSH_REPO:}}{{IMAGE}}" 
+        securityContext: {privileged: true, runAsUser: 0} 
+        name: volumes-init-{{VOLUME_OPTION}}
+        volumeMounts:
+${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_PVC}          mountPath: "/from-1"
+${{{VOLUME_UPPERID}}_PVC}          readOnly: true
+${{{VOLUME_UPPERID}}_COS}        - name: cos-access-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_COS}          mountPath: "/etc/cos-access"
+${{{VOLUME_UPPERID}}_COS}          readOnly: true
+${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_ART}          mountPath: "/etc/artifactory"
+${{{VOLUME_UPPERID}}_ART}          readOnly: true
+
+        - name: scratch-{{VOLUME_OPTION}}
+          mountPath: "/to-1"
+          readOnly: false
+}W}
+      containers:
+{N:G_NODE_NAME{
+      - name: {{G_NODE_OPTION}}
+        image: "{{G_NODE_IMAGE}}"
+        {{G_NODE_ENVIRONMENT}}
+        {{G_NODE_MOUNTS}}
+        {{G_NODE_LIMITS}}
+}N}
+{V:HAVE_VOLUMES{
+      volumes:{{HAVE_VOLUMES}}
+}V}
+{W:VOLUME_NAME{
+${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_PVC}          persistentVolumeClaim:
+${{{VOLUME_UPPERID}}_PVC}            claimName: ${{{VOLUME_UPPERID}}}
+${{{VOLUME_UPPERID}}_COS}        - name: cos-access-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_COS}          secret:
+${{{VOLUME_UPPERID}}_COS}            secretName: ${{{VOLUME_UPPERID}}_SECRET_NAME}
+${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
+${{{VOLUME_UPPERID}}_ART}          secret:
+${{{VOLUME_UPPERID}}_ART}            secretName: ${{{VOLUME_UPPERID}}_SECRET_NAME}
+        - name: scratch-{{VOLUME_OPTION}}
+          emptyDir: {}
+}W}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{NAME}}-{{G_NODE_GROUP}}
+  labels:
+    app: {{NAME}}-{{G_NODE_GROUP}}
+    flow-group: {{NAME}}
+spec:
+  ports:
+{N:G_NODE_NAME{
+  - port: {{G_IMAGE_PORT}}
+    protocol: TCP
+    name: {{G_NODE_OPTION}}-port
+}N}
+  selector:
+    app: {{NAME}}-{{G_NODE_GROUP}}

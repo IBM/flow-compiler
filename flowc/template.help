@@ -1,0 +1,151 @@
+flowc - compiler for gRPC microservice aggregation
+
+USAGE  
+       flowc [options] inputfile.flow 
+
+DESCRIPION
+
+       flowc compiles a control flow graph representation of an applicatiom where all the nodes are 
+       "gRPC" calls. The compilation is done in several stages depending on the target type selected:
+      
+       "Protocol Buffers" 
+              protoc, the protocol buffer compiler is invoked to compile the message types used in 
+              the "gRPC" calls. At this stage "C++" source files may be generated if the selected 
+              targets require them.
+
+       "C++" code generation
+              "C++" code is generated for the aggregator service and for an optional client. Along
+              with the "C++" source code, a "makefile" and a "dockerfile" are also generated.
+
+       Deployment tool generation
+              Deployment configuration files and tools are generated for "Docker Compose" and for
+              "Kubernetes"
+OPTIONS
+
+       --base-port=PORT, -P PORT
+              Change the port used for the aggregator "gRPC" service. For "Docker Compose" port 
+              numbers starting from this value are allocated for the each container. 
+
+       --build-image, -i
+              Generate code for the "gRPC" aggregator and invoke docker to build the application 
+              image. See --image and --image-tag for related options.
+
+       --build-client, -c
+              Generate code for a client that can be used in debugging and testing the application,
+              and invoke the "C++" compiler to build it
+
+       --build-server, -s
+              Generate code for the aggregator "gRPC" server and invoke the "C++" compiler to build it
+
+       --client
+              Generate code for a client that can be used in debugging and testing the application
+
+       --color=YES/NO
+              Force or disable ANSI coloring regardless of wheter output is to a terminal or not.
+              By default coloring is enabled only when output is to a terminal.
+
+       --default-client-timeout=TIME
+              Timeout for "gRPC" calls made to any of the nodes. The default unit is seconds. This value is
+              used unless a different timeout is specified for the node.
+
+       --default-client-calls=NUMBER
+              Number of concurent calls that can be ia synchronously made to a "gRPC" service. This value is 
+              used when replicas are not set for a given node.
+
+       --default-entry-timeout=TIME
+              Default timeout for all the "gRPC" entries (servce methods.) If processing of any method exeeds
+              this timeout the method will reply with "DEADLINE_EXCEEDED". The timeout is used when no value
+              was set for a given entry.
+
+       --docker-compose, -d
+              Generate a "Docker Compose" driver tool for managing the application
+
+       --dockerfile, -D
+              Generate a "dockerfile" for the aggregator image
+
+       --entry=NAME, -e NAME
+              Generate code for this entry only. Can be repeated. By default code is genrated for all entries
+              define in the flow.
+
+       --grpc-files, -g
+              Generate ".cc" and ".h" files for both "gRPC" services and "Protocol Buffers" messages.
+              See --protobuf-file for generating code for messages only.
+
+       --help, -h
+              Print this screen and exit
+
+       --help-syntax
+              Display a page with a description of the flow syntax
+
+       --image=IMAGE:TAG
+              Set the image and tag for the aggregator image. The default image name is the 
+              aggregator name and the default tag is "1". See --image-tag for changing only the tag.
+
+       --image-pull-secret=NAME
+              Add NAME to the "imagePullSecrets" section of the "kubernetes" deployments
+
+       --image-tag=TAG
+              Change the image tag only for the docker image. This option is ignored when --image 
+              is set.
+
+       --input-label=NAME
+              Change the name of the input special node. The default is "input".
+
+       --proto-path=PATH, -I PATH, --proto_path=PATH
+              Specify the directory in which to search for the main file and for imports. May be specified
+              multiple times. Directories will be searched in order. If not given, the current working 
+              directory is used.
+
+       --kubernetes, -k
+              Generate configuration tool for "Kubernetes" deployment
+
+       --makefile, -m
+              Generate a "makefile" that can be used to make the client, the server and the docker image
+
+       --name=IDENTIFIER, -n IDENTIFIER
+              Identifier to base the output file names on. Defaults to the filename stripped of 
+              the ".flow" suffix.
+
+       --output-directory=DIRECTORY, -o DIRECTORY
+              Write all the output files in DIRECTORY
+
+       --push-repository=REMOTE-REPO-PREFIX, -p REMOTE-REPO-PREFIX
+              Push the aggregator image to the specified remote repository. If configuration files are
+              generated they will reference the remote repository rather than the local one.
+
+       --protobuf-files
+              Generate ".cc" and ".h" files for the "Protocol Buffers" messages using protoc. 
+              See --grpc-file for generating code for both messages and services.
+
+       --print-ast
+              Print the "Abstract Syntax Tree" generated by the flow parser
+
+       --print-pseudocode
+              Print the intermediate code generated by the flow compiler
+
+       --print-graph=ENTRY
+              Print the flow graph in "dot" format. The "dot" utility can be used to render the graph.
+              For example, to generate a grph in ".svg" format, pipe the output through "dot -Tsvg".
+
+       --python-client
+              Generate "Python" code for a client that can be used in debugging and testing the application
+
+       --rest-image=IMAGE[:TAG] -R IMAGE[:TAG]
+              Add a "REST" gateway to the configuration. Set to an empty string to disable "REST".
+
+       --rest-port=PORT, -r PORT
+              Make "REST" available on "PORT". Must not conflict with the aggregator "gRPC" port.
+              On "Kubernetes" this port must not conflict with any of the ports used in the main pod.
+
+       --server
+              Generate code for the "gRPC" aggregator
+
+       --single-pod
+              Ignore all pod labels and generate a single pod deployment with all the nodes.
+              This is a "Kubernetes" specific option.
+
+       --trace 
+              Very verbose compiler trace
+
+       --version 
+              Display the version and exit
