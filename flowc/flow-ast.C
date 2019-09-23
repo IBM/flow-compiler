@@ -1,0 +1,210 @@
+#include <iostream>
+#include <string>
+#include "flow-ast.H"
+#include "grpc-helpers.H"
+#include "stru1.H"
+
+using namespace stru1;
+
+char const *node_name(int i) {
+    switch(i) {
+        case FTK_ID: return "identifier";
+        case FTK_STRING: return "string";
+        case FTK_INTEGER: return "integer";
+        case FTK_FLOAT:  return "float";
+        case FTK_ACCEPT: return "ACCEPT";
+        case FTK_SYNTAX_ERROR: return "ERROR";
+        case FTK_flow: return "flow";
+        case FTK_stmt: return "stmt";
+        case FTK_blck: return "hash-map";
+        case FTK_lblk: return "lblk";
+        case FTK_elem: return "elem";
+        case FTK_bexp: return "bexp";
+        case FTK_oexp: return "oexp";
+        case FTK_rexp: return "rexp";
+        case FTK_fldm: return "fldm";
+        case FTK_fldd: return "fldd";
+        case FTK_fldx: return "fldx";
+        case FTK_dtid: return "dtid";
+        case FTK_node: return "node";
+        case FTK_SEMICOLON: return ";";
+        case FTK_DOT: return ".";
+        case FTK_COMMA: return ",";
+        case FTK_EQUALS: return "=";
+        case FTK_COLON: return ":";
+        case FTK_HASH: return "#";
+        case FTK_AT: return "@";
+        case FTK_OPENPAR: return "(";
+        case FTK_CLOSEPAR: return ")";
+        case FTK_OPENBRA: return "{";
+        case FTK_CLOSEBRA: return "}";
+        case FTK_OPENSQB: return "[";
+        case FTK_CLOSESQB: return "]";
+        case FTK_CARET: return "^";
+        case FTK_LT: return "<";
+        case FTK_GT: return ">";
+        case FTK_BANG: return "!";
+        case FTK_AMP: return "&";
+        case FTK_BAR: return "|";
+        case FTK_NE: return "!=";
+                     
+        case FTK_LE: return "<=";
+        case FTK_GE: return ">=";
+        case FTK_EQ: return "==";
+        case FTK_OR: return "||";
+        case FTK_AND: return "&&";
+        
+        default: 
+             return "symbol";
+    }
+}
+uint64_t flow_ast::get_integer(int node) const {
+    assert(at(node).type == FTK_INTEGER);
+    return at(node).token.integer_value;
+}
+double flow_ast::get_float(int node) const {
+    assert(at(node).type == FTK_FLOAT);
+    return at(node).token.float_value;
+}
+std::string const &flow_ast::get_value(int node) const {
+    auto type = at(node).type;
+    assert(type == FTK_STRING || type == FTK_INTEGER || type == FTK_FLOAT);
+    return at(node).token.text;
+}
+std::string const &flow_ast::get_string(int node) const {
+    assert(at(node).type == FTK_STRING);
+    return at(node).token.text;
+}
+std::string const &flow_ast::get_id(int node) const {
+    assert(at(node).type == FTK_ID);
+    return at(node).token.text;
+}
+std::string flow_ast::get_joined_id(int node, int start_pos, std::string const &j) const {
+    auto const &n = at(node);
+    if(n.type == FTK_ID) return get_id(node);
+    assert(n.children.size() > start_pos && n.type == FTK_dtid || n.type == FTK_fldx);
+    std::vector<std::string> ids(n.children.size()-start_pos);
+    std::transform(n.children.begin()+start_pos, n.children.end(), ids.begin(), [this](int n)->std::string {return get_text(n);});
+    return stru1::join(ids, j);
+}
+std::ostream &operator << (std::ostream &out, google::protobuf::FieldDescriptor const &d) {
+    out << d.full_name();
+    return out;
+}
+std::ostream &operator << (std::ostream &out, google::protobuf::Descriptor const &d) {
+    out << d.full_name();
+    return out;
+}
+std::ostream &operator << (std::ostream &out, google::protobuf::MethodDescriptor const &d) {
+    out << d.full_name();
+    return out;
+}
+std::ostream &operator << (std::ostream &out, google::protobuf::EnumValueDescriptor const &d) {
+    out << d.full_name();
+    return out;
+}
+int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
+    if(node < 0) node = store.size();
+    if(node > store.size() || node < 1) return indent;
+    auto const &n = store[node-1];
+    sout << std::string(indent, ' ');
+   
+    sout << node_name(n.type);
+    if(flag.has(node)) sout << "|" << node_name(flag(node));
+    sout << "[" << node << "," << n.token.line << "," << n.token.column << "]";
+    sout << node << "-" << n.type;  
+
+    if(n.token.text.length() > 0) sout << " " << n.token.text;
+    if(n.token.type == FTK_FLOAT) sout << "  " << ANSI_YELLOW << n.token.float_value << ANSI_RESET;
+    else if(n.token.type == FTK_INTEGER) sout << " " << ANSI_GREEN << n.token.integer_value << ANSI_RESET;
+    if(has_attributes(node)) {
+        sout << " {";
+        if(type.has(node)) sout << " type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
+        if(condition.has(node)) sout << " condition: " << ANSI_RED << ANSI_BOLD << condition(node) << ANSI_RESET;
+        if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
+        if(method_descriptor.has(node)) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
+        if(message_descriptor.has(node)) sout << " message: " << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
+        if(input_descriptor.has(node)) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
+        if(field_descriptor.has(node)) sout << " field: " << ANSI_GREEN << *field_descriptor(node) << ANSI_RESET;
+        
+        if(enum_descriptor.has(node)) sout << " enum: " << ANSI_RED << *enum_descriptor(node) << ANSI_RESET;
+        
+        sout << " }";
+    }
+    sout << "\n";
+    for(auto child: n.children) 
+        print_ast(sout, child, indent+4);
+    return indent; 
+}
+
+bool check_bexp_op_priority(int op1, int op2);
+
+void flow_ast::to_text_r(std::ostream &out, int bexp, int op) const {
+    auto const &bx = at(bexp);
+    bool need_parens = false;
+    switch(bx.type) {
+        case FTK_bexp:
+            switch(bx.children.size()) {
+                case 1:
+                    to_text_r(out, bx.children[0], op);
+                    break;
+                case 2:
+                    need_parens = check_bexp_op_priority(op, at(bx.children[0]).type);
+                    if(need_parens) out << "(";
+                    out << " " << node_name(at(bx.children[0]).type);
+                    to_text_r(out, bx.children[1], at(bx.children[0]).type);
+                    if(need_parens) out << ")";
+                    break;
+                case 3:
+                    need_parens = check_bexp_op_priority(op, at(bx.children[1]).type);
+                    if(need_parens) out << "(";
+                    to_text_r(out, bx.children[0], at(bx.children[1]).type);
+                    out << " " << node_name(at(bx.children[1]).type) << " ";
+                    to_text_r(out, bx.children[2], at(bx.children[1]).type);
+                    if(need_parens) out << ")";
+                    break;
+            }
+            break;
+        case FTK_fldx:
+            out << get_id(bx.children[0]) + "@" + get_joined_id(bexp, 1, ".");
+            break;
+        case FTK_INTEGER:
+            out << get_value(bexp);
+            break;
+        case FTK_FLOAT:
+            out << get_value(bexp);
+            break;
+        case FTK_STRING:
+            out << c_escape(get_string(bexp));
+            break;
+        case FTK_ID:
+            out << get_id(bexp);
+            break;
+        case FTK_dtid:
+            out << get_dotted_id(bexp);
+            break;
+    }
+}
+std::string flow_ast::to_text(int node) const {
+    std::ostringstream out;
+    to_text_r(out, node, 0);
+    return out.str();
+}
+
+std::string flow_ast::get_full_typename(int node) const {
+    int t = at(node).type;
+    switch(t) {
+        case FTK_INTEGER:
+        case FTK_STRING:
+        case FTK_FLOAT:
+            return node_name(t);
+        case FTK_dtid:
+            return get_full_name(enum_descriptor(node));
+        case FTK_fldx:
+            return get_full_name(message_descriptor(node));
+        default:
+            return "";
+    }
+}
+
+
