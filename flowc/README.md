@@ -72,7 +72,7 @@ make image
 
 # Building and Running an Orchestrator
 
-See the [how to](HOWTO-FLOW.md) construct a flow application.
+See here [how to](../HOWTO-FLOW.md) construct a flow application.
 
 This will generate the **gRPC** server code for orchestrator application. All files will be written in the current directory.
 A different output directory can be specified with **-o**
