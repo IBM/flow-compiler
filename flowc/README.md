@@ -50,8 +50,8 @@ brew install lemon
 
 Installation instructions can be found here: [https://kubernetes.io/docs/tasks/tools/install-kubectl/](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 
-## graphviz (ptional)
-**dot** is used to generate a call flow diagram.
+## graphviz (optional)
+**dot**, from the **graphviz** toolkit is used to generate a call flow diagram. Details can be found here: [http://www.graphviz.org](http://www.graphviz.org)
 
 # Installation
 
