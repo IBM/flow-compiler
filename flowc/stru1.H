@@ -26,9 +26,7 @@ enum ANSI_ESCAPE {
 
 inline static
 char const *ansi_escape(ANSI_ESCAPE esc, bool use_ansi=use_ansi_escapes) {
-    if(!use_ansi) 
-        return "";
-    switch(esc) {
+    if(use_ansi) switch(esc) {
         case ANSI_BOLD: return "\x1b[1m";
         case ANSI_RESET: return "\x1b[0m";
         case ANSI_RED: return "\x1b[38;5;1m";
@@ -39,6 +37,7 @@ char const *ansi_escape(ANSI_ESCAPE esc, bool use_ansi=use_ansi_escapes) {
         case ANSI_YELLOW: return "\x1b[38;5;3m";
         case ANSI_CYAN: return "\x1b[38;5;6m";
     }
+    return "";
 }
 inline static
 std::string ansi_escape(ANSI_ESCAPE e1, ANSI_ESCAPE e2) {
