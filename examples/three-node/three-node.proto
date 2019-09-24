@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+service ThreeNodeExample {
+    /* the orchestrator entry point */
+    rpc tokenize(SystemRequest) returns(SystemResponse) {}
+
+    /* the methods for the three worker nodes */
+    rpc split(SplitRequest) returns(SplitResponse) {}
+    rpc label(LabelRequest) returns(LabelResponse) {}
+    rpc strtoint(ToiRequest) returns(ToiResponse) {}
+};
+
+message SystemRequest {
+    string sentence=1;
+    int32 max_tokens_per_sentence=2;
+    int64 nan_value = 3;
+};
+
+message SystemResponse {
+    string original_sentence=1;
+
+    message Token {
+        string word =1;
+        bool is_number=2;
+        int64 value=3;
+        message Endpoint {
+            int32 position=1;
+            int32 length=2;
+            int32 line_number=3;
+            int32 line_start=4;
+        }
+        Endpoint ep=4;
+        string label = 5;
+    }
+    repeated Token tokens=3;
+};
+
+message SplitRequest {
+    string sentence=1;
+    int32 max_tokens=2;
+};
+
+message SplitResponse {
+    message Token {
+        string token=1;
+        int32 position=2;
+        int32 length=3;
+        int32 line_number=4;
+        int32 line_start=5;
+    }
+    repeated Token tokens=1;
+};
+
+message LabelRequest {
+    string word=1;
+};
+
+message LabelResponse {
+    string label=1;
+};
+
+message ToiRequest {
+    string word=1;
+    int64 default_value=2;
+};
+
+message ToiResponse {
+    int64 num_value=1;
+    bool is_number=2;
+};

@@ -1,0 +1,50 @@
+import "three-node.proto";
+
+node tokens {
+    image = "three-node-example-nodes:latest";
+    output ThreeNodeExample.split (
+        sentence: input@ sentence,
+        max_tokens: input@ max_tokens_per_sentence
+    );
+    environment {
+        GRPC_PORT="{{tokens.port}}";
+    }
+}
+node numbers {
+    image = "three-node-example-nodes:latest";
+    output strtoint(
+        word: tokens@tokens.token,
+        default_value = input@nan_value
+    );
+    environment {
+        GRPC_PORT="{{numbers.port}}";
+    }
+    pod = 1;
+}
+node labels {
+    image = "three-node-example-nodes:latest";
+    output label(
+        word: input@sentence
+    );
+    environment {
+        GRPC_PORT="{{labels.port}}";
+    }
+    pod = 2;
+}
+entry ThreeNodeExample.tokenize {
+    return (
+        original_sentence: input@sentence,
+        tokens: (
+            word: tokens@tokens.token, 
+            is_number: numbers@is_number,
+            value: numbers@num_value,
+            label: labels@label,
+            ep: (
+                position: tokens@tokens.position,
+                length: tokens@tokens.length,
+                line_number: tokens@tokens.line_number,
+                line_start: tokens@tokens.line_start
+            )
+        )
+    );
+}
