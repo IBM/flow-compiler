@@ -19,7 +19,9 @@
 #include "grpc-helpers.H"
 
 #include <stdio.h>
+#if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>
+#endif
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -75,12 +77,15 @@ void handler(int sig) {
     void *array[10];
     size_t size;
 
+#if defined(STACK_TRACE) && STACK_TRACE 
     // get void*'s for all entries on the stack
     size = backtrace(array, 10);
-
+#endif
     // print out all the frames to stderr
     fprintf(stderr, "Error: signal %d:\n", sig);
+#if defined(STACK_TRACE) && STACK_TRACE 
     backtrace_symbols_fd(array, size, STDERR_FILENO);
+#endif
     exit(1);
 }
 void chmodx(std::string const &fn) {

@@ -43,7 +43,9 @@ LEMON?=lemon
 # destination directory
 INSTALL_PREFIX?=/usr/local/bin
 
-BASE_IMAGE=flow-base:u18.04-g1.22.0
+BASE_IMAGE=flow-base:alpine-edge
+
+STACK_TRACE?=1
 
 BASE_IMAGE_TAG=$(shell echo "$(BASE_IMAGE)" | cut -d ':' -f2)
 IMAGE_TAG?=$(BASE_IMAGE_TAG)-$(BUILD_VERSION)
@@ -83,10 +85,13 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 	${CXX} -std=c++11 -I${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
 
 flowc: $(OBJS) 
-	${CXX} -o $@ -O3 $^ ${GRPC_LIBS}
+	${CXX} -o $@ -O3 $^ ${GRPC_LIBS} 
 
 flow-version.o:
 	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -I${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
+
+flowc.o: flowc.C
+	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" -I${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $^
 
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
@@ -139,10 +144,10 @@ image-info: image-info-$(HOST_OS)
 image: image-info
 	@$(MAKE) -s flow-base-image-info.json
 
-base-image: 
+base-image:
 	cat template.runtime.Dockerfile base.Dockerfile | docker build -t $(BASE_IMAGE) -t $(shell echo "$(BASE_IMAGE)" | cut -d ':' -f1):latest  -f - .
 
-runtime-image: 
+runtime-image:
 	docker build -t $(RUNTIME_IMAGE) -t $(shell echo "$(RUNTIME_IMAGE)" | cut -d ':' -f1):latest -f template.runtime.Dockerfile .
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
