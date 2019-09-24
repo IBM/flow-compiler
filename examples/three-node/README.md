@@ -10,3 +10,7 @@ First step is to create a **Docker** image with the gRPC services for the nodes.
 ```
 make nodes-image
 ```
+
+The second step is to build the flow image.
+
+
