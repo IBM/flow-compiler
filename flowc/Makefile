@@ -82,16 +82,16 @@ OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-
 MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) artiget.sh cosget.sh
 
 %.o: %.C
-	${CXX} -std=c++11 -I${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
+	${CXX} -std=c++17 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
 
 flowc: $(OBJS) 
 	${CXX} -o $@ -O3 $^ ${GRPC_LIBS} 
 
 flow-version.o:
-	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -I${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
+	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
 
 flowc.o: flowc.C
-	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" -I${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $^
+	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $^
 
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
