@@ -5,5 +5,5 @@ A tool that builds applications out of gRPC enabled components
 Detailed instructions on how to build the **flow-compiler** are [here](flowc/README.md).
 
 ## Tutorial 
-A brief tutorial with an example aplication is available [here](HOW-TO.md).
+A brief tutorial with an example aplication is available [here](HOWTO-FLOW.md).
 
