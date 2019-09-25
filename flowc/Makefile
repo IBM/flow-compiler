@@ -12,8 +12,13 @@
 #
 #	Destination directory for the executable file 
 #INSTALL_PREFIX?=/usr/local/bin
+#
+#   Base image label - set of docker files with the base images for flowc and for the application
+#BASE_IMAGE?=alpine-edge   
 
 BUILD_VERSION=0.1.0
+BASE_IMAGE?=alpine-edge
+INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets
 -include makefile.local
@@ -40,15 +45,9 @@ endif
 # lemon is needed only if changes are made to the parser
 LEMON?=lemon
 
-# destination directory
-INSTALL_PREFIX?=/usr/local/bin
-
-BASE_IMAGE=flow-base:alpine-edge
-
 STACK_TRACE?=1
 
-BASE_IMAGE_TAG=$(shell echo "$(BASE_IMAGE)" | cut -d ':' -f2)
-IMAGE_TAG?=$(BASE_IMAGE_TAG)-$(BUILD_VERSION)
+IMAGE_TAG?=$(BASE_IMAGE)-$(BUILD_VERSION)
 IMAGE?=flowc:$(IMAGE_TAG)
 
 RUNTIME_IMAGE?=flow-runtime:$(IMAGE_TAG)
@@ -73,13 +72,15 @@ endif
 GRPC_INCS ?= $(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS ?= $(shell pkg-config --libs-only-L protobuf) -lprotoc  $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILES:=$(subst ~,,$(wildcard template.*))
+TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template.docker-compose.sh \
+	template.docker-compose.yaml template.flow-logger.proto template.help template.kubernetes.group.yaml \
+	template.kubernetes.sh template.kubernetes.yaml template.server.C template.syntax template.runtime.Dockerfile
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) artiget.sh cosget.sh
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) artiget.sh cosget.sh $(TEMPLATE_FILES)
 
 %.o: %.C
 	${CXX} -std=c++17 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
@@ -100,7 +101,7 @@ flow-parser.c: flow-parser.Y
 	$(LEMON) $<
 
 clean:
-	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
+	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz base.Dockerfile template.runtime.Dockerfile
 
 flow-templates.C: $(TEMPLATE_FILES) artiget.sh cosget.sh
 	echo "#include <string>" > $@
@@ -117,6 +118,13 @@ tar: flow-compiler-src.tgz
 
 flow-compiler-minsrc.tgz: $(MINSRC_FILES)
 	$(TAR) -czf $@ --transform 's,^,flow-compiler/,' $^
+
+base.Dockerfile: $(BASE_IMAGE)/base.Dockerfile
+	cp $(BASE_IMAGE)/base.Dockerfile .
+
+template.runtime.Dockerfile: 
+	echo $(BASE_IMAGE)/template.runtime.Dockerfile
+	cp $(BASE_IMAGE)/template.runtime.Dockerfile .
 
 install: flowc
 	mkdir -p $(INSTALL_PREFIX)
@@ -145,10 +153,10 @@ image: image-info
 	@$(MAKE) -s flow-base-image-info.json
 
 base-image:
-	cat template.runtime.Dockerfile base.Dockerfile | docker build -t $(BASE_IMAGE) -t $(shell echo "$(BASE_IMAGE)" | cut -d ':' -f1):latest  -f - .
+	cat template.runtime.Dockerfile base.Dockerfile | docker build -t flow-base:$(BASE_IMAGE)  -f - .
 
 runtime-image:
-	docker build -t $(RUNTIME_IMAGE) -t $(shell echo "$(RUNTIME_IMAGE)" | cut -d ':' -f1):latest -f template.runtime.Dockerfile .
+	docker build -t $(RUNTIME_IMAGE) -f template.runtime.Dockerfile .
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
