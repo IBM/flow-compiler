@@ -109,6 +109,10 @@ ENDOFYAML
 )
 
 {O:VOLUME_NAME_VAR{export {{VOLUME_NAME_VAR}}="${{{VOLUME_NAME_VAR}}-$flow_{{VOLUME_NAME_VAR}}}"
+if [ "${{{VOLUME_NAME_VAR}}:0:1}" != "/" ]
+then
+    export {{VOLUME_NAME_VAR}}="$(pwd)/${{VOLUME_NAME_VAR}}"
+fi
 }O}
 [ {O:VOLUME_NAME_VAR{-z "${{VOLUME_NAME_VAR}}" -o }O} 1 -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
