@@ -9,6 +9,7 @@ services:
 {{EXTERN_NODE}}  {{NODE_NAME}}:
 {{EXTERN_NODE}}    image: "{{NODE_IMAGE}}"
 {{EXTERN_NODE}}$export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]
+{{SET_NODE_RUNTIME}}{{EXTERN_NODE}}    runtime: {{NODE_RUNTIME}}
 {{EXTERN_NODE}}    {{NODE_ENVIRONMENT:}}
 {{EXTERN_NODE}}    {{NODE_MOUNTS:}}
 }N}

@@ -101,6 +101,7 @@ struct node_info {
     std::string name;
     int port;
     std::string group;
+    std::string runtime;
     int order;              // Order in which the nodes are evaluated, 0 is last
     std::string external_endpoint;
     std::string image_name;

@@ -214,7 +214,6 @@ int flow_compiler::genc_composer(std::ostream &out) {
     }
     set(local_vars, "ORCHESTRATOR_ENVIRONMENT", join(orchestrator_env, ", ", "", "", "\"", "\""));
 
-
     for(auto const &nr: referenced_nodes) {
         auto &ni = nr.second;
         std::string const &nn = ni.name;
@@ -238,6 +237,8 @@ int flow_compiler::genc_composer(std::ostream &out) {
             env.push_back(c_escape(sfmt() << nv.first << "=" << render_varsub(nv.second, env_vars)));
 
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
+        append(local_vars, "SET_NODE_RUNTIME", ni.runtime.empty()? "#": "");
+        append(local_vars, "NODE_RUNTIME", ni.runtime.empty()? ni.runtime: c_escape(ni.runtime));
 
         std::vector<std::string> mts;
         for(int t: ni.mounts) {

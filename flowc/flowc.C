@@ -499,6 +499,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 if(ni.image_name[0] == '/') 
                     ni.image_name = path_join(default_repository, ni.image_name.substr(1));
             }
+
             append(global_vars, "NODE_IMAGE", ni.image_name);
             append(group_vars[pod_name], "G_NODE_IMAGE", ni.image_name);
             append(global_vars, "NODE_ENDPOINT", ni.external_endpoint);
@@ -510,6 +511,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 append(global_vars, "EXTERN_NODE", "");
                 append(group_vars[pod_name], "G_EXTERN_NODE", "");
             }
+
+            value = 0;
+            get_block_value(value, blck, "runtime", false, {FTK_STRING});
+            if(value > 0) ni.runtime = get_string(value);
 
             // Volume mounts
             int old_value = 0;
