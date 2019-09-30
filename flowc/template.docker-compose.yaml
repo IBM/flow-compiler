@@ -1,4 +1,4 @@
-version: '3'
+version: '2.3'
 services:
   {{NAME}}:
     environment: [ "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_TRACE=$trace_ENABLED", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
