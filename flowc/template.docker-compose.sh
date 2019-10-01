@@ -10,6 +10,7 @@
 docker_COMPOSE_PROJECT_NAME={{NAME}}
 export trace_ENABLED=0
 export provision_ENABLED=1
+export default_RUNTIME=
 {R:REST_NODE_NAME{
 # protorest mount path (original path: {{PROTO_FILES_PATH}})
 case "$0" in
@@ -91,6 +92,10 @@ case "$1" in
     export export_PORTS=
     shift
     ;;
+    -r|--default-runtime)
+    export default_RUNTIME="#"
+    shift
+    ;;
     -b)
     fg_OR_bg=-d
     shift
@@ -132,12 +137,14 @@ if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" == "
 then
 echo "{{NAME}}-dc.sh generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $0 <up|config|provision> [-b] [-t] [--xxx-port PORT] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "Usage $0 <up|config|provision> [-b] [-p] [-r] [-s] [-t] [--xxx-port PORT] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $0 <down|logs>"
 echo ""
 echo "    -b  run docker compose in the background"
 echo ""
 echo "    -p, --export-ports  export the gRPC ports for all nodes"
+echo ""
+echo "    -r, --default-runtime  ignore runtime settings and run with the default Docker runtime"
 echo ""
 echo "    -s, --skip-provision  skip checking for new data files at startup"
 echo ""
