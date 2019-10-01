@@ -515,6 +515,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             value = 0;
             get_block_value(value, blck, "runtime", false, {FTK_STRING});
             if(value > 0) ni.runtime = get_string(value);
+            value = 0;
+            get_block_value(value, blck, "scale", false, {FTK_FLOAT, FTK_INTEGER});
+            if(value > 0) ni.scale = (int) get_numberf(value);
 
             // Volume mounts
             int old_value = 0;

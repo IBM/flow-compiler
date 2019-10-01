@@ -97,19 +97,20 @@ struct fop {
 std::ostream &operator<< (std::ostream &out, fop const &fop);
 
 struct node_info {
-    int node;
-    std::string name;
-    int port;
-    std::string group;
-    std::string runtime;
+    int node;               // AST pointer
+    std::string name;       // Node or container name, derived from but not always the same as name(node)
+    int port;               // Assigned port for this service
+    std::string group;      // Group label for this node
+    std::string runtime;    // Runtime label for Docker
     int order;              // Order in which the nodes are evaluated, 0 is last
+                            // External endpoint for this service 
     std::string external_endpoint;
-    std::string image_name;
+    std::string image_name; // Docker tag for the image
     std::vector<int> mounts;
-    // Environment 
     std::map<std::string, std::string> environment;
+    int scale;              // Number of images or groups to run at the same time
 
-    node_info(int no=0, std::string const &na="", int po=0, int o=0):node(no), name(na), port(po), order(o) {
+    node_info(int no=0, std::string const &na="", int po=0, int o=0):node(no), name(na), port(po), order(o), scale(0) {
     }
     std::string label() const {
         return to_lower(to_identifier(name));
@@ -121,16 +122,16 @@ inline static std::ostream &operator<< (std::ostream &out, node_info const &n) {
 };
 
 struct mount_info {
-    int node;
-    int node_node;
-    std::string name;
+    int node;               // AST pointer        
+    int node_node;          // Node (parent) AST pointer
+    std::string name;       // Mount label 
     std::vector<std::string> paths;
-    std::string local;
-    std::string pvc;
-    std::string cos;
-    std::string artifactory;
-    std::string secret;
-    bool read_only;
+    std::string local;      // Local path
+    std::string pvc;        // Private volume claim
+    std::string cos;        // Cloud object store URL
+    std::string artifactory;// Artifactory URL
+    std::string secret;     // Secret name for COS or Artifactory credentials
+    bool read_only;         // Mount read only 
 
     mount_info(int n=0, int nn=0, std::string const &na="", bool ro=true): node(n), node_node(nn), name(na), read_only(ro) {
     }
