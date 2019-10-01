@@ -133,6 +133,7 @@ struct flow_ast {
      */
     uint64_t get_integer(int node) const;
     double get_float(int node) const;
+    double get_numberf(int node) const;
     std::string const &get_value(int node) const;
     std::string const &get_string(int node) const;
     std::string const &get_id(int node) const;

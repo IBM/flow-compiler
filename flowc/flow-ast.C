@@ -66,6 +66,10 @@ double flow_ast::get_float(int node) const {
     assert(at(node).type == FTK_FLOAT);
     return at(node).token.float_value;
 }
+double flow_ast::get_numberf(int node) const {
+    assert(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER);
+    return at(node).type == FTK_FLOAT? at(node).token.float_value: at(node).token.integer_value;
+}
 std::string const &flow_ast::get_value(int node) const {
     auto type = at(node).type;
     assert(type == FTK_STRING || type == FTK_INTEGER || type == FTK_FLOAT);
