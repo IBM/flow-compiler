@@ -16,7 +16,7 @@
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
 
-BUILD_VERSION=0.1.1
+BUILD_VERSION=0.1.2
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -92,7 +92,7 @@ flow-version.o:
 	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
 
 flowc.o: flowc.C
-	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $^
+	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
 
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
