@@ -11,6 +11,7 @@ docker_COMPOSE_PROJECT_NAME={{NAME}}
 export trace_ENABLED=0
 export provision_ENABLED=1
 export default_RUNTIME=
+export docker_compose_TIMESTAMPS=
 {R:REST_NODE_NAME{
 # protorest mount path (original path: {{PROTO_FILES_PATH}})
 case "$0" in
@@ -96,6 +97,10 @@ case "$1" in
     export default_RUNTIME="#"
     shift
     ;;
+    -T|--timestamps)
+    export docker_compose_TIMESTAMPS="--timestamps"
+    shift
+    ;;
     -b)
     fg_OR_bg=-d
     shift
@@ -149,6 +154,8 @@ echo ""
 echo "    -s, --skip-provision  skip checking for new data files at startup"
 echo ""
 echo "    -t, --enable-trace  enable orchestrator call tracing"
+echo ""
+echo "    -T, --timestamps  show timestamps in logs"
 echo ""
 echo   "    --grpc-port PORT  (or set {{NAME_UPPERID}}_GRPC_PORT)"
 echo   "        Override GRPC port (default is $grpc_PORT)"
@@ -211,7 +218,7 @@ case "$1" in
         exit $?
         ;;
     logs)
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" logs -f
+        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
         exit $?
         ;;
     up)
