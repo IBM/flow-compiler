@@ -366,7 +366,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
                 assert(false);
         }
     }
-    return 0;
+    return error_count;
 }
 /*
  * 2nd pass, this should be called after all nodes are compiled
@@ -678,7 +678,7 @@ int flow_compiler::compile_stmt(int stmt_node) {
             return 1;
         }
         if(compile_block(stmt.children[2], "output", statement == "node"? &exp_node: nullptr)) {
-            pcerr.AddError(main_file, at(stmt.children[2]), sfmt() << "invalid \"" << statement << "\" parameter definition block");
+            //pcerr.AddError(main_file, at(stmt.children[2]), sfmt() << "invalid \"" << statement << "\" parameter definition block");
             return 1;
         }
         if(statement == "node") {
