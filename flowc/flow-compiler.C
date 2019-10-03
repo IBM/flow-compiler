@@ -15,7 +15,6 @@
 #include "flow-ast.H"
 #include "flow-parser.c"
 
-
 static void get_enums(std::set<EnumValueDescriptor const *> &edset, Descriptor const *dd) {
     for(int e = 0, ec = dd->enum_type_count(); e != ec; ++e) {
         auto ed = dd->enum_type(e);
@@ -90,6 +89,24 @@ MethodDescriptor const *flow_compiler::find_service_method(std::string const &me
                     if(matches != nullptr) matches->insert(package+"."+full_name);
                     last_match = mdp;
                 }
+            }
+        }
+    }
+    return last_match;
+}
+/**
+ * The message can be spcified as [package.]message_type
+ * The package is either the label defined with the package directive or the basename of the .proto file
+ */
+Descriptor const *flow_compiler::find_message(std::string const &dotted_name, std::set<std::string> *matches) const {
+    Descriptor const *last_match = nullptr;
+    for(auto fdp: fdps) {
+        std::string package = get_package(fdp);
+        for(int mc = fdp->message_type_count(), m = 0; m < mc; ++m) {
+            auto mdp = fdp->message_type(m);
+            if(dotted_name == mdp->name() || dotted_name == package + "." + mdp->name()) {
+                if(matches != nullptr) matches->insert(package+"."+mdp->name());
+                last_match = mdp;
             }
         }
     }
@@ -591,10 +608,33 @@ MethodDescriptor const *flow_compiler::check_method(std::string &method, int err
         mdp = nullptr;
     } else if(mdp->client_streaming() || mdp->server_streaming()) {
         if(error_node > 0) 
-            pcerr.AddError(main_file, at(error_node), "streaming is not supported at tis time");
+            pcerr.AddError(main_file, at(error_node), "streaming is not supported at this time");
         mdp = nullptr;
     } else {
         method = *matches.begin();
+    }
+    return mdp;
+}
+/**
+ * Check if the string refers to a valid message type and return the descriptor. 
+ * An error associated with 'error_node' is printed if 'error_node' is a valid node and 
+ * if 'dotted_id' does not unambiguosly refer to a message type.
+ */
+Descriptor const *flow_compiler::check_message(std::string &dotted_id, int error_node)  {
+    // Check if method is defined in any of the protos
+    std::set<std::string> matches;
+    Descriptor const *mdp = find_message(dotted_id, &matches);
+    if(matches.size() == 0) {
+        if(error_node > 0) {
+            pcerr.AddError(main_file, at(error_node), sfmt() << "service method not found: \"" << dotted_id << "\"");
+        }
+        mdp = nullptr;
+    } else if(matches.size() > 1) {
+        if(error_node > 0) 
+            pcerr.AddError(main_file, at(error_node), sfmt() << "ambiguous method name \"" << dotted_id << "\" matches: "+join(matches, ", ", " and ", "", "\"", "\""));
+        mdp = nullptr;
+    } else {
+        dotted_id = *matches.begin();
     }
     return mdp;
 }

@@ -223,10 +223,17 @@ public:
     int genc_protobuf();
     int genc_grpc();
     /**
-    * The method can be spcified as [package.][service.]method_name
-    * The package is either the label defined with the package directive or the basename of the .proto file
-    */
-    MethodDescriptor const *find_service_method(std::string const &method_name, std::set<std::string> *matches=nullptr) const;
+     * Find a grpc method by name
+     * The method can be spcified as [package.][service.]method
+     * The package is either the label defined with the package directive or the basename of the .proto file
+     */
+    MethodDescriptor const *find_service_method(std::string const &dotted_id, std::set<std::string> *matches=nullptr) const;
+    /**
+     * Find a grpc message type by name
+     * The method can be spcified as [package.]message
+     * The package is either the label defined with the package directive or the basename of the .proto file
+     */
+    Descriptor const *find_message(std::string const &dotted_id, std::set<std::string> *matches=nullptr) const;
     /**
      * Return formatted list of all methods for message display purposes
      */
@@ -255,6 +262,7 @@ public:
     // If exp_node is a valid pointer, the block is expected to contain one output/return definition
     int compile_block(int blck_node, std::string const &output_nvn="", int *exp_node=nullptr);
     MethodDescriptor const *check_method(std::string &method, int error_node);
+    Descriptor const *check_message(std::string &dotted_id, int error_node);
     int compile_if_import(int stmt_node);
     int compile_stmt(int stmt_node);
     // Compile all the filed mappings - this does not resolve fldx references
