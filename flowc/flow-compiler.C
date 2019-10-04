@@ -926,8 +926,12 @@ int flow_compiler::get_arg_node(int blck_node) const {
         }
     return 0;
 }
+// Grab the nodes referenced by <blck_node>.
+// <type> can be either bexp or oexp, or 0 for both.
+// <include_input> will also add the input as node 0
+
 std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type, bool include_input) {
-    // Grab the nodes referenced by cur_node
+    if(blck_node == 0) return noset;
     if((type == 0 || type == FTK_bexp) && condition.has(blck_node)) {
         get_bexp_node_refs(noset, condition(blck_node), include_input);
     }
@@ -949,104 +953,122 @@ std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int,
     }
     return noset;
 }
-// Build a flow graph starting at each entry
 int flow_compiler::build_flow_graph(int blk_node) {
     int error_count = 0;
-    // Keep a stack of node sets (as std::vector<int>) reachable from a given set  
-    std::vector<std::vector<int>> noset_stack;
-    // Initialize the stack with the entry node
-    noset_stack.push_back(std::vector<int>(&blk_node, &blk_node+1));
+    // All the nodes reachable from the entry
+    std::set<int> used_nodes; 
 
-    // Keep a stack with pointers into the noset_stack
-    std::vector<unsigned> index_stack;
-    index_stack.push_back(0);
+    for(std::vector<int> todo(&blk_node, &blk_node+1); todo.size() > 0;) {
+        int cur_node = todo.back(); todo.pop_back();
+        if(contains(used_nodes, cur_node))
+            continue;
+        // add the current node...
+        used_nodes.insert(cur_node);
+        // queue all the aliases
+        if(!name(cur_node).empty()) for(auto n: all_nodes(name(cur_node)))
+            if(!contains(used_nodes, n)) 
+                todo.push_back(n);
+        // queue all the references
+        std::map<int, std::set<std::string>> noset;
+        get_node_refs(noset, cur_node, 0, true);
+        for(auto const &ns: noset) 
+            if(!contains(used_nodes, ns.first)) 
+                todo.push_back(ns.first);
+    }
 
-    std::vector<int> path;
-    std::set<std::pair<int, int>> nodepset;
-    int iter = 0;
+    // All the possible nodes plus input and the entry
+    auto node_count = used_nodes.size();
+    // Adjacency matrix for this graph
+    std::vector<std::vector<bool>> adjmat(node_count, std::vector<bool>(node_count, false));
+    std::vector<int> xton(used_nodes.begin(), used_nodes.end());
 
-    while(noset_stack.size() > 0) {
-        // Iterate over all nodes in the current set
-        bool advance = false;
-        unsigned px = index_stack.size()-1;
-        ++iter;
-        for(auto end = noset_stack.back().size(); index_stack[px] != end && !advance; ++index_stack[px]) {
-            int cur_node = noset_stack[px][index_stack[px]];
-            path.push_back(cur_node);
+    if(node_count > 0) {
+        std::map<int, unsigned> ntox;
+        for(unsigned x = 0; x != node_count; ++x) ntox[xton[x]] = x;
+        for(auto const &nx: ntox) {
             std::map<int, std::set<std::string>> noset;
-            
-
-            get_node_refs(noset, cur_node, 0);
-
-            if(contains(noset, cur_node)) {
-                ++error_count;
-                pcerr.AddError(main_file, at(cur_node), sfmt() << "node \""<< name(cur_node) << "\" references itself");
-                noset.erase(cur_node);
+            get_node_refs(noset, nx.first, 0, true);
+            for(auto const &ns: noset) {
+                adjmat[nx.second][ntox[ns.first]] = true;
+                if(!name(ns.first).empty()) for(auto n: all_nodes(name(ns.first)))
+                    adjmat[nx.second][ntox[n]] = true;
             }
-            for(auto path_node: path) if(contains(noset, path_node)) {
-                ++error_count;
-                pcerr.AddError(main_file, at(path_node), sfmt() << "circular reference of node \""<< name(path_node) << "\"");
-                noset.erase(path_node);
-            }
-            if(noset.size() == 0) {
-                path.pop_back();
-                nodepset.insert(std::make_pair(cur_node, 0));
-                // go to the next node in the current set 
-            } else {
-                std::vector<int> nodes(noset.size());
-                std::transform(noset.begin(), noset.end(), nodes.begin(), [](decltype(noset)::value_type n) -> int { return n.first; });
-                // make sure node has the aliases too
-                std::set<int> unexpanded(nodes.begin(), nodes.end());
-                for(int i = 0, e = nodes.size(); i < e; ++i) 
-                    for(int an: all_nodes(nodes[i])) 
-                        if(!contains(unexpanded, an)) {
-                            nodes.push_back(an);
-                            unexpanded.insert(an);
-                        }
-
-                noset_stack.push_back(nodes);
-
-                index_stack.push_back(0);
-                for(int n: nodes) { 
-                    int an = n; {
-                        nodepset.insert(std::make_pair(cur_node, an));
-                    }
-                }
-                advance = true;
-            }
-        }
-        if(!advance) {
-            path.pop_back();
-            noset_stack.pop_back();
-            index_stack.pop_back();
         }
     }
-    std::set<int> solved, unsolved; 
-    solved.insert(0);
-    for(auto np: nodepset) unsolved.insert(np.first);
-    std::vector<std::set<int>> &nodep = flow_graph[blk_node];
 
-    for(int stage = 0; unsolved.size() != 0; ++stage) {
-        std::set<int> stage_set;
-        for(int n: unsolved) { 
-            bool all_solved = true;
-            for(auto np: nodepset) if(np.first == n && !contains(solved, np.second)) {
-                all_solved = false; break;
+    std::vector<std::set<int>> &graph = flow_graph[blk_node];
+    std::set<int> solved;
+    // Mark the input as solved
+    solved.insert(0);
+
+    // When every node is in a separate stage there will be at most mx-2 stages.
+    // Each iteration attempts to build a stage. If the stage is empty we are either 
+    // done ot the graph is badly connected.
+    for(unsigned i = 0, mx = node_count; i != mx; ++i) {
+        graph.push_back(std::set<int>());
+
+        for(unsigned x = 0; x != mx; ++x) 
+            if(!contains(solved, xton[x])) {
+                bool s = true;
+                for(unsigned y = 0; y != mx; ++y) 
+                    if(adjmat[x][y] && !contains(solved, xton[y])) {
+                        s = false;
+                        break;
+                    }
+                if(s) graph.back().insert(xton[x]);
             }
-            if(all_solved) stage_set.insert(n);
-        }
-        if(stage_set.size() == 0) {
-            ++error_count; 
-            pcerr.AddError(main_file, at(blk_node), sfmt() << "entry does not reference any input");
+        if(graph.back().size() == 0) 
+            break;
+
+        if(contains(graph.back(), blk_node)) {
+            solved.insert(blk_node);
+            graph.pop_back();
+            // Successfully finised.
+            // Could actually return from here...
+            // return 0;
             break;
         }
-        nodep.push_back(stage_set);
-        for(auto n: stage_set) {
-            solved.insert(n); unsolved.erase(n);
-        }
+        //std::cerr << "stage: " << 1+i << ": " << graph.back() << "\n";
+        for(auto n: graph.back()) 
+            solved.insert(n);
     }
-    // The last stage is the entry-node (not a node-node)
-    if(nodep.size() > 0) nodep.pop_back();
+    if(contains(solved, blk_node)) 
+        return 0;
+    
+    auto a1 = adjmat;
+    std::set<int> circular;
+    for(unsigned i = 0; i + 3 < node_count; ++i) {
+#if 0
+        std::cerr << "distance: " << 1+i << "\n";
+        std::cerr << "    " << xton << "\n";
+        std::cerr << "----------------------------------------\n";
+        for(unsigned p = 0; p != node_count; ++p) 
+            std::cerr << xton[p] << "  " << adjmat[p] << "\n";
+        std::cerr << "----------------------------------------\n";
+#endif
+        for(unsigned x = 0; x < node_count; ++x) 
+            if(adjmat[x][x] && !contains(circular, xton[x])) {
+                circular.insert(xton[x]);
+                if(i == 0) 
+                    pcerr.AddError(main_file, at(xton[x]), sfmt() << "node \"" << name(xton[x]) << "\" references itself");
+                else
+                    pcerr.AddError(main_file, at(xton[x]), sfmt() << "circular reference of node \"" << name(xton[x]) << "\"");
+                ++error_count;
+            }
+        auto aip = adjmat;
+        for(unsigned x = 0; x < node_count; ++x) 
+            for(unsigned y = 0; y < node_count; ++y) {
+                bool b = false;
+                for(unsigned j = 0; j < node_count; ++j)
+                    b = b or (aip[x][j] and a1[j][y]);
+                adjmat[x][y] = b;
+            }
+
+    }
+    if(error_count == 0) {
+        pcerr.AddError(main_file, at(blk_node), sfmt() << "failed to construct graph for \"" << method_descriptor(blk_node)->full_name() << "\" entry");
+        ++error_count;
+    }
     return error_count;
 }
 int flow_compiler::check_assign(int node, Descriptor const *left, Descriptor const *right) {
@@ -1540,10 +1562,11 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     }
 
     icode.clear();
+    if(error_count > 0) return error_count;
 
     if(flow_graph.size() == 0) {
         pcerr.AddError(main_file, -1, 0, sfmt() << "no entries defined");
-        return error_count + 1;
+        return 1;
     } 
 
     for(auto const &gv: flow_graph) {
