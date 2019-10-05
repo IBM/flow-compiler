@@ -411,7 +411,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // Grab all the image names, image ports and volume names 
     if(generate_config_files) {
         // Make a first pass to collect the declared ports and groups
-        for(auto &rn: referenced_nodes) {
+        for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
             auto &ni = rn.second;
             std::string const &nn = rn.second.name;
@@ -435,7 +435,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         // Allocate port values for the nodes that have not declared one
         while(true) {
             int nn = 0; 
-            for(auto np: referenced_nodes) if(np.second.port == 0) {
+            for(auto np: referenced_nodes) if(np.second.port == 0 && !np.second.no_call) {
                 nn = np.first;
                 break;
             }
