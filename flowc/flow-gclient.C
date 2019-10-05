@@ -66,7 +66,7 @@ int flow_compiler::genc_client(std::ostream &out) {
     for(auto const &ep: names) if(ep.second.first == "entry")  
         methods.push_back(method_descriptor(ep.second.second));
     
-    for(auto &rn: referenced_nodes) {
+    for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
         auto cli_node = rn.first;
         if(type(cli_node) == "container") 
             continue;

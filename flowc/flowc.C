@@ -455,7 +455,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
         }
         
-        for(auto &rn: referenced_nodes) {
+        for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
             auto &ni = rn.second;
 
@@ -700,7 +700,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     //std::cerr << "********* global: \n" << global_vars << "\n";
 
-    //std::cerr << "----- before server: " << error_count << "\n";
+    // std::cerr << "----- before server: " << error_count << "\n";
     if(error_count == 0 && (contains(targets, "server") || opts.have("build-server"))) {
         std::ofstream outf(server_source.c_str());
         if(!outf.is_open()) {
@@ -710,7 +710,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             error_count += gc_server(outf);
         }
     }
-    //std::cerr << "----- before client: " << error_count << "\n";
+    // std::cerr << "----- before client: " << error_count << "\n";
     if(error_count == 0 && (contains(targets, "client") || opts.have("build-client"))) {
         std::ofstream outf(client_source.c_str());
         if(!outf.is_open()) {

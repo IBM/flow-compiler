@@ -1031,6 +1031,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case ENOD:
                 // if visited
+                OUT <<  L_VISITED << " = " << cur_node << ";\n";
                 --indent;
                 OUT << "}\n";
             case EPRP:
@@ -1180,7 +1181,6 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     --indent;
                     OUT << "}\n";
                 }
-                OUT <<  L_VISITED << " = " << cur_node << ";\n";
                 break;
             case COMM:
                 if(!op.arg1.empty())
@@ -1238,7 +1238,7 @@ int flow_compiler::gc_server(std::ostream &out) {
     set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
     for(auto &rn: referenced_nodes) {
         auto cli_node = rn.first;
-        if(type(cli_node) == "container") 
+        if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
             continue;
         std::string const &node_name = rn.second.name;
        

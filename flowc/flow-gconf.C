@@ -77,7 +77,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
                     append(group_vars[g], "ORCHESTRATOR_ENVIRONMENT_VALUE", ni.external_endpoint);
             }
         }
-    for(auto &nr: referenced_nodes) {
+    for(auto &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
         std::string const &nn = ni.name;
         int blck = nr.first;
@@ -173,7 +173,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
             append(group_vars[g], "VOLUME_OPTION", to_option(vn));
         }
 #if 0
-    std::cerr << "****************************************\n";
+    std::cerr << "**************** kube ******************\n";
     std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
     std::cerr << "****************************************\n";
     std::cerr << "********* local: \n" << join(group_vars[""], "\n") << "\n";
@@ -182,7 +182,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
     render_varsub(out, template_kubernetes_yaml, global_vars, group_vars[""]);
     for(auto const &g: groups) if(!g.empty()) {
 #if 0
-    std::cerr << "****************************************\n";
+    std::cerr << "**************** kube ******************\n";
     std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
     std::cerr << "****************************************\n";
     std::cerr << "********* local: \n" << join(group_vars[g], "\n") << "\n";
@@ -201,7 +201,7 @@ int flow_compiler::genc_composer(std::ostream &out) {
     // Make a list of all nodes and containers
     std::vector<std::string> orchestrator_env;
 
-    for(auto const &nr: referenced_nodes) {
+    for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         std::string const &nn = nr.second.name;
         int pv = nr.second.port;
         append(local_vars, "NODE_PORT", std::to_string(++base_port));
@@ -214,7 +214,7 @@ int flow_compiler::genc_composer(std::ostream &out) {
     }
     set(local_vars, "ORCHESTRATOR_ENVIRONMENT", join(orchestrator_env, ", ", "", "", "\"", "\""));
 
-    for(auto const &nr: referenced_nodes) {
+    for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
         std::string const &nn = ni.name;
         int blck = nr.first;
@@ -261,7 +261,7 @@ int flow_compiler::genc_composer(std::ostream &out) {
         append(local_vars, "VOLUME_NAME_VAR", to_upper(vn));
     }
 #if 0
-    std::cerr << "****************************************\n";
+    std::cerr << "*************** compose ****************\n";
     std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
     std::cerr << "****************************************\n";
     std::cerr << "********* local: \n" << join(local_vars, "\n") << "\n";
