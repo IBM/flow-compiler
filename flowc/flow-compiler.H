@@ -106,18 +106,19 @@ struct node_info {
                             // External endpoint for this service 
     std::string external_endpoint;
     std::string image_name; // Docker tag for the image
+    bool no_call;           // If true, there is no gRPC service associated with this node
     std::vector<int> mounts;
     std::map<std::string, std::string> environment;
     int scale;              // Number of images or groups to run at the same time
 
-    node_info(int no=0, std::string const &na="", int po=0, int o=0):node(no), name(na), port(po), order(o), scale(0) {
+    node_info(int no=0, std::string const &na="", bool nc=false):node(no), name(na), port(0), order(0), no_call(nc), scale(0) {
     }
     std::string label() const {
         return to_lower(to_identifier(name));
     }
 };
 inline static std::ostream &operator<< (std::ostream &out, node_info const &n) {
-    out << "(@" << n.node << ": " << n.name << " group: " << n.group << " port: " << n.port << " order: " << n.order << ")";
+    out << "(@" << n.node << ": " << n.name << " group: " << n.group << " port: " << n.port << " order: " << n.order << " grpc: " << (n.no_call? "no": "yes") << ")";
     return out;
 };
 
@@ -260,7 +261,7 @@ public:
     int compile_id(std::string &str, int id_node);
     int compile_method(std::string &method, int mthd_node, int max_components=-1);
     // If exp_node is a valid pointer, the block is expected to contain one output/return definition
-    int compile_block(int blck_node, std::string const &output_nvn="", int *exp_node=nullptr);
+    int compile_block(int blck_node, std::set<std::string> const &output_nvn={}, int *exp_node=nullptr);
     MethodDescriptor const *check_method(std::string &method, int error_node);
     Descriptor const *check_message(std::string &dotted_id, int error_node);
     int compile_if_import(int stmt_node);
