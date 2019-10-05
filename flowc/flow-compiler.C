@@ -113,16 +113,29 @@ Descriptor const *flow_compiler::find_message(std::string const &dotted_name, st
     return last_match;
 }
 /**
+ * Return formatted list of all messages for message display purposes
+ */
+std::string flow_compiler::format_message_names(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const {
+    std::set<std::string> l_names;
+    for(auto fdp: fdps) 
+        for(int mc = fdp->message_type_count(), m = 0; m < mc; ++m) {
+             auto mdp = fdp->message_type(m);
+             l_names.insert(mdp->full_name());
+        }
+
+    return join(l_names, sep, last, begin, prefix, suffix);
+}
+/**
  * Return formatted list of all methods for message display purposes
  */
 std::string flow_compiler::format_full_name_methods(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const {
-    std::vector<std::string> l_names;
+    std::set<std::string> l_names;
     for(auto fdp: fdps) 
         for(int sc = fdp->service_count(), s = 0; s < sc; ++s) {
             auto sdp = fdp->service(s);
             for(int mc = sdp->method_count(), m = 0; m < mc; ++m) {
                 auto mdp = sdp->method(m);
-                l_names.push_back(mdp->service()->name() + "." + mdp->name());
+                l_names.insert(mdp->service()->name() + "." + mdp->name());
             }
 
         }
@@ -637,12 +650,13 @@ Descriptor const *flow_compiler::check_message(std::string &dotted_id, int error
     Descriptor const *mdp = find_message(dotted_id, &matches);
     if(matches.size() == 0) {
         if(error_node > 0) {
-            pcerr.AddError(main_file, at(error_node), sfmt() << "service method not found: \"" << dotted_id << "\"");
+            pcerr.AddError(main_file, at(error_node), sfmt() << "message type not found: \"" << dotted_id << "\"");
+            pcerr.AddNote(main_file, at(error_node), sfmt() << "defined message types: " << format_message_names(", ",  " and ", "", "\"", "\""));
         }
         mdp = nullptr;
     } else if(matches.size() > 1) {
         if(error_node > 0) 
-            pcerr.AddError(main_file, at(error_node), sfmt() << "ambiguous method name \"" << dotted_id << "\" matches: "+join(matches, ", ", " and ", "", "\"", "\""));
+            pcerr.AddError(main_file, at(error_node), sfmt() << "ambiguous message type name \"" << dotted_id << "\" matches: "+join(matches, ", ", " and ", "", "\"", "\""));
         mdp = nullptr;
     } else {
         dotted_id = *matches.begin();

@@ -240,6 +240,10 @@ public:
      */
     std::string format_full_name_methods(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const;
     /**
+     * Return formatted list of all message type names for message display purposes
+     */
+    std::string format_message_names(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const;
+    /**
      * Preserve all comments that have @text referneces in them
      * and the ones that don't start with punctuation
      */
