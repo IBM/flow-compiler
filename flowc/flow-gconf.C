@@ -280,7 +280,7 @@ int flow_compiler::genc_composer_driver(std::ostream &outs, std::string const &c
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
         append(local_vars, "VOLUME_NAME", vn);
-        append(local_vars, "VOLUME_OPTION", std::string("--") + to_option(vn));
+        append(local_vars, "VOLUME_OPTION", to_option(vn));
         append(local_vars, "VOLUME_NAME_VAR", to_upper(vn));
         append(local_vars, "VOLUME_LOCAL", c_escape(mip.second.local));
         append(local_vars, "VOLUME_ARTIFACTORY", mip.second.artifactory);
@@ -312,7 +312,7 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
     clear(local_vars, "VOLUME_OPTION");
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
-        append(local_vars, "VOLUME_OPTION", std::string("--") + to_option(vn));
+        append(local_vars, "VOLUME_OPTION", to_option(vn));
         append(local_vars, "VOLUME_UPPERID", to_upper(to_identifier(vn)));
         append(local_vars, "VOLUME_LOCAL", c_escape(mip.second.local));
         append(local_vars, "VOLUME_COS", mip.second.cos);

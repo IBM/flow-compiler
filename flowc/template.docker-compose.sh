@@ -45,7 +45,7 @@ while [ $# -gt 0 ]
 do
 case "$1" in
 {A:VOLUME_OPTION{
-    {{VOLUME_OPTION}})
+    --mount-{{VOLUME_OPTION}})
     export {{VOLUME_NAME_VAR}}="$2"
     shift
     shift
@@ -142,7 +142,7 @@ if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" == "
 then
 echo "{{NAME}}-dc.sh generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $0 <up|config|provision> [-b] [-p] [-r] [-s] [-t] [--xxx-port PORT] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "Usage $0 <up|config|provision> [-b] [-p] [-r] [-s] [-t] [-T] [--xxx-port PORT] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $0 <down|logs>"
 echo ""
 echo "    -b  run docker compose in the background"
@@ -175,7 +175,7 @@ echo   "        Directory with custom application files (default is \"${{NAME_UP
 echo ""
 }R}
 {O:VOLUME_OPTION{
-echo   "    {{VOLUME_OPTION:}} DIRECTORY  (or set {{VOLUME_NAME_VAR}})"
+echo   "    --mount-{{VOLUME_OPTION:}} DIRECTORY  (or set {{VOLUME_NAME_VAR}})"
 echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is $flow_{{VOLUME_NAME_VAR}})"
 printf "        "{{VOLUME_HELP}}"\n"
 echo ""

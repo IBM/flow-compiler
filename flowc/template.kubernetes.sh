@@ -28,12 +28,12 @@ while [ $# -gt 0 ]
 do
 case "$1" in
 {A:VOLUME_OPTION{
-    {{VOLUME_OPTION}})
+    --mount-{{VOLUME_OPTION}})
     export {{VOLUME_UPPERID}}="$2"
     shift
     shift
     ;;
-    {{VOLUME_OPTION}}-secret-name)
+    --secret-{{VOLUME_OPTION}})
     export {{VOLUME_UPPERID}}_SECRET_NAME="$2"
     shift
     shift
@@ -126,16 +126,16 @@ then
 echo "$0 generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
 echo "Usage $0 <deploy|config> [OPTIONS]"
-# {O:VOLUME_OPTION{{{VOLUME_OPTION}} <VOLUME-CLAIM-NAME> }O} --{{NAME}}-replicas <NUM> {G:GROUP_UPPER{--{{GROUP}}-replicas <NUM> }G}
+# {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} <VOLUME-CLAIM-NAME> }O} --{{NAME}}-replicas <NUM> {G:GROUP_UPPER{--{{GROUP}}-replicas <NUM> }G}
 echo "   or $0 <show|delete>"
 echo ""
 echo "OPTIONS"
 {O:VOLUME_OPTION{
-    echo   "    {{VOLUME_OPTION:}} <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{VOLUME_UPPERID}})"
+    echo   "    --mount-{{VOLUME_OPTION:}} <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{VOLUME_UPPERID}})"
     echo   "        Default is \"${{VOLUME_UPPERID}}\""
     printf "        "{{VOLUME_HELP}}"\n"
     echo ""
-    echo   "    {{VOLUME_OPTION:}}-secret-name <SECRET-NAME>  (or set \${{VOLUME_UPPERID}}_SECRET_NAME)"
+    echo   "    --secret-{{VOLUME_OPTION:}} <SECRET-NAME>  (or set \${{VOLUME_UPPERID}}_SECRET_NAME)"
     printf "        Secret name for COS access for {{VOLUME_OPTION}}, default is \"${{VOLUME_UPPERID}}_SECRET_NAME\"\n"
     echo ""
 }O}
