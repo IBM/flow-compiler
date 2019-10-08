@@ -16,7 +16,7 @@
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
 
-BUILD_VERSION=0.2.4
+BUILD_VERSION=0.2.5
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
