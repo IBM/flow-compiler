@@ -1078,7 +1078,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "auto &Tmp" << loop_level << " = *" <<  cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level-1) << ");\n"; 
                     cur_loop_tmp.push_back(sfmt() << "Tmp" << loop_level);
                 } else {
-                    cur_loop_tmp.push_back(""); 
+                    cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
                 break;
             case ELP:
@@ -1123,32 +1123,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this field to floating point value \"" << get_value(op.arg[0]) << "\"");
                 }
             } break;
-            case SET: /*{
-                std::string value;
-                bool ok = false;
-                switch(grpc_to_ftk2(fd_accessor(op.arg2, op.d2)->type())) {
-                    case FTK_INTEGER:
-                        ok = convert_integer(value, fd_accessor(op.arg1, op.d1), ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE), fd_accessor(op.arg2, op.d2), 0);
-                        break;
-                    case FTK_FLOAT:
-                        ok = convert_float(value, fd_accessor(op.arg1, op.d1), ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE), fd_accessor(op.arg2, op.d2));
-                        break;
-                    case FTK_STRING:
-                        ok = convert_string(value, fd_accessor(op.arg1, op.d1), ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE), fd_accessor(op.arg2, op.d2), "");
-                        break;
-                    case FTK_dtid:
-                        ok = convert_enum(value, fd_accessor(op.arg1, op.d1), ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE), fd_accessor(op.arg2, op.d2)->enum_type(), nullptr);
-                        break; 
-                    default:
-                        break;
-                }
-                if(!ok) {
-                    ++error_count;
-                    pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this field to that field");
-                }
-
-            } break;
-        */              
+            case SET: 
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
                 OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << convert_code.first << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
