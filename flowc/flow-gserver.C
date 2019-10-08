@@ -576,7 +576,9 @@ std::string field_accessor_d(bool trace_on, std::string const &field, Descriptor
     std::string base, fields;
     // The first field is the local variable name
     if(split(&base, &fields, field, "+") == 1) {
-        return base;
+        buf << base;
+        if(kind == LEFT_STEM) buf << ".";
+        return buf.str();
     }
 
     bool left = kind == LEFT_VALUE || kind == LEFT_STEM;
@@ -639,9 +641,9 @@ std::string field_accessor_d(bool trace_on, std::string const &field, Descriptor
         case LEFT_STEM: 
             if(cur_level > 0 && level <= cur_level) {
                 // No access needed: temp var
-                buf.str("");
+                buf.str(".");
             } else {
-                buf << base;
+                buf << "mutable_" << base << "()->";
             }
             break; 
         case RIGHT_STEM:
@@ -1128,7 +1130,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << convert_code.first << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
             case COPY:
-                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) << ".CopyFrom(" << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) << "CopyFrom(" << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
                 break;
             case CALL:
                 OUT << "++" << L_STAGE_CALLS << ";\n";
