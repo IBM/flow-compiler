@@ -176,7 +176,7 @@ echo ""
 }R}
 {O:VOLUME_OPTION{
 echo   "    --mount-{{VOLUME_OPTION:}} DIRECTORY  (or set {{VOLUME_NAME_VAR}})"
-echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is $flow_{{VOLUME_NAME_VAR}})"
+echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME_VAR}})"
 printf "        "{{VOLUME_HELP}}"\n"
 echo ""
 }O}
