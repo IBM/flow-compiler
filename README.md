@@ -10,7 +10,7 @@ A brief tutorial with an example aplication is available [here](HOWTO-FLOW.md).
 ## Citing
 
 If you publish work that uses the flow-compiler, please use the following citation:
-
+```
 @misc{chakravarti2019cfo,
     title={CFO: A Framework for Building Production NLP Systems},
     author={Rishav Chakravarti and Cezar Pendus and Andrzej Sakrajda and Anthony Ferritto and Lin Pan and Michael Glass and Vittorio Castelli and J. William Murdock and Radu Florian and Salim Roukos and Avirup Sil},
@@ -20,3 +20,4 @@ If you publish work that uses the flow-compiler, please use the following citati
     archivePrefix={arXiv},
     primaryClass={cs.CL}
 }
+```
