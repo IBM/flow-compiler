@@ -21,6 +21,12 @@ else
 GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf)
 endif
 
+CIVETWEB_INCS?=-I/usr/local/include
+CIVETWEB_LIBS?=/usr/local/include/libcivetweb.a
+
+INCS=$(GRPC_INCS) $(CIVETWEB_INCS)
+LIBS=$(GRPC_LIBS) $(CIVETWEB_LIBS)
+
 ifeq ($(PUSH_REPO), )
 DOCKER:=docker-info
 else 
@@ -77,10 +83,10 @@ PB_GENERATED_CC:={P:PB_GENERATED_C{{{PB_GENERATED_C}} }P} {P:GRPC_GENERATED_C{{{
 PB_GENERATED_H:={P:PB_GENERATED_H{{{PB_GENERATED_H}} }P} {P:GRPC_GENERATED_H{{{GRPC_GENERATED_H}} }P}
 
 {{NAME}}-server: {{NAME}}-server.C $(PB_GENERATED_CC) $(PB_GENERATED_H) 
-	${CXX} -std=c++11 $(GRPC_INCS) -O3 -o $@  $<  $(PB_GENERATED_CC) $(GRPC_LIBS)
+	${CXX} -std=c++11 $(INCS) -O3 -o $@  $<  $(PB_GENERATED_CC) $(LIBS)
 
 {{NAME}}-client: {{NAME}}-client.C $(PB_GENERATED_CC) $(PB_GENERATED_H) 
-	${CXX} -std=c++11 $(GRPC_INCS) -O3 -o $@  $<  $(PB_GENERATED_CC) $(GRPC_LIBS)
+	${CXX} -std=c++11 $(INCS) -O3 -o $@  $<  $(PB_GENERATED_CC) $(LIBS)
 
 clean:
 	rm -f $(IMAGE_PROXY) {{NAME}}-server {{NAME}}-client 

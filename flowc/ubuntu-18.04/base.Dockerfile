@@ -1,4 +1,5 @@
 FROM flow-runtime AS flow-base
+ARG CIVETWEB_VERSION=1.11
 
 user root
 
@@ -13,3 +14,10 @@ RUN cd /tmp && git clone -b v1.22.0 https://github.com/grpc/grpc && cd grpc && g
     make -j4 HAS_SYSTEM_PROTOBUF=false && make install && cd /tmp/grpc/third_party/protobuf && make install && cd /tmp && rm -fr grpc 
 
 USER worker
+WORKDIR /home/worker
+
+## Build civetweb (https://github.com/civetweb/civetweb)
+ADD --chown=worker:worker https://github.com/civetweb/civetweb/archive/v${CIVETWEB_VERSION}.tar.gz ./
+RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz && cd civetweb-${CIVETWEB_VERSION} && make lib WITH_IPV6=1 
+ENV CIVETWEB_INCS=-I/home/worker/civetweb-${CIVETWEB_VERSION}/include
+ENV CIVETWEB_LIBS=/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a
