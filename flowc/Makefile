@@ -148,12 +148,6 @@ image-info: image-info-$(HOST_OS)
 image: image-info
 	@$(MAKE) -s flow-base-image-info.json
 
-base-image:
-	cat template.runtime.Dockerfile base.Dockerfile | docker build -t flow-base:$(BASE_IMAGE)  -f - .
-
-runtime-image:
-	docker build -t $(RUNTIME_IMAGE) -f template.runtime.Dockerfile .
-
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
 	wget 'https://www.sqlite.org/src/tarball/sqlite.tar.gz?r=release' -q -O - | $(TAR) --strip-components=2 -xzv sqlite/tool/lemon.c sqlite/tool/lempar.c
@@ -167,4 +161,4 @@ parser: flow-parser.h
 -include $(OBJS:.o=.dep)
 
 targets:
-	@echo "flowc, image, base-image, runtime-image, lemon, tar, clean, install"
+	@echo "flowc, image, lemon, tar, clean, install"
