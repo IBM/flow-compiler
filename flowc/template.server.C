@@ -356,7 +356,7 @@ int main(int argc, char *argv[]) {
         << std::endl;
 
     // Set up the REST gateway if enabled
-    char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT";
+    char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
