@@ -22,6 +22,9 @@
 #include <grpc++/grpc++.h>
 #include <grpc++/health_check_service_interface.h>
 #include <google/protobuf/util/json_util.h>
+extern "C" {
+#include <civetweb.h>
+}
 template <class S>
 static inline bool stringtobool(S s, bool default_value=false) {
     if(s.empty()) return default_value;
@@ -295,10 +298,12 @@ public:
 
 int main(int argc, char *argv[]) {
     if(argc != 2) {
-       std::cout << "Usage: " << argv[0] << " PORT\n\n";
+       std::cout << "Usage: " << argv[0] << " GRPC-PORT\n\n";
        std::cout << "Set the ENDPOINT variable with the host:port for each node:\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
+       std::cout << "\n";
+       std::cout << "Set {{NAME_UPPERID}}_REST_PORT=0 to disable the REST gateway service ({{REST_NODE_PORT}})\n";
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_DEBUG=1 to enable debug mode\n";
        std::cout << "Set {{NAME_UPPERID}}_TRACE=1 to enable trace mode\n";
@@ -349,6 +354,10 @@ int main(int argc, char *argv[]) {
         << ", asynchronous client calls: " << (service.Async_Flag? "yes": "no") 
         << ", logger service: " << (Flow_logger_service_enabled? "enabled": "disabled") 
         << std::endl;
+
+    // Set up the REST gateway if enabled
+    char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT";
+
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
     server->Wait();
