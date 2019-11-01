@@ -7,24 +7,20 @@
 #	Link otptions for gRPC
 #GRPC_LIBS=-L/usr/local/lib -lprotoc -lgrpc++ -lprotobuf -pthread 
 #
-#	Build ID string (defaults to the timestamp of the last modified file and the git hash)
-#BUILD_ID=
-#
 #	Destination directory for the executable file 
 #INSTALL_PREFIX?=/usr/local/bin
 #
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
 
-BUILD_VERSION=0.2.5
+BUILD_VERSION=0.2.6
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets
 -include makefile.local
 
-# Find a suitable tar
-#
+# Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
 ifeq ($(HOST_OS), Darwin)
 ifeq ($(shell which gnutar), )
@@ -69,8 +65,8 @@ ifeq ($(shell pkg-config --exists grpc++ protobuf && echo yes || echo no), no)
 $(error gRPC libraries are needed, set GRPC_LIBS and GRPC_INCS in 'makefile.local')
 endif
 
-GRPC_INCS ?= $(shell pkg-config --cflags grpc++ protobuf)
-GRPC_LIBS ?= $(shell pkg-config --libs-only-L protobuf) -lprotoc  $(shell pkg-config --libs grpc++ protobuf)
+GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
+GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
 TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template.docker-compose.sh \
 	template.docker-compose.yaml template.flow-logger.proto template.help template.kubernetes.group.yaml \
@@ -133,19 +129,19 @@ install: flowc
 
 #################### Docker image builder
 flow-base-image-info.json: template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile $(MINSRC_FILES) cosget.sh artiget.sh
-	-docker rmi -f $(IMAGE) 2> /dev/null
+	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
 	cat template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
 	rm -f flow-compiler-minsrc.tgz
-	-docker image inspect $(IMAGE) > /dev/null && docker image inspect $(IMAGE) > $@
+	-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $@
 
 image-info-Darwin:
 	@rm -f flow-base-image-info.json
-	@-docker image inspect $(IMAGE) > /dev/null && docker image inspect $(IMAGE) > flow-base-image-info.json && touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json
+	@-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > flow-base-image-info.json && touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json
 
 image-info-Linux:
 	@rm -f flow-base-image-info.json
-	@-docker image inspect $(IMAGE) > /dev/null && docker image inspect $(IMAGE) > flow-base-image-info.json && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE)` flow-base-image-info.json
+	@-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > flow-base-image-info.json && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE)` flow-base-image-info.json
 
 image-info: image-info-$(HOST_OS)
 

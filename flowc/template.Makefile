@@ -36,7 +36,7 @@ info:
 	@echo "Override IMAGE_TAG or IMAGE to change the image tag from the default"
 	@echo "Set PUSH_REPO to the remote repository where the freshly built image needs to be pushed"
 	@echo ""
-	@echo "make -f $(THIS_FILE) IMAGE=orchestrator:0.5 image"
+	@echo "make -f $(THIS_FILE) IMAGE={{NAME}}:0.5 image"
 	@echo ""
 	@echo "Note that the gRPC libraries are searched for with pkg-config."
 	@echo "If pkg-config is not available, set GRPC_LIBS and/or GRPC_INCS with the desired link and/or cflags options"
@@ -96,4 +96,4 @@ deploy: {{NAME}}-server {{NAME}}-client
 	mkdir -p ~/{{NAME}}
 	cp $^ ~/{{NAME}}
 	cp $(wildcard *.proto) ~/{{NAME}}
-	cp $(wildcard *.flow)  ~/{{NAME}}
+	cp $(wildcard *.flow) ~/{{NAME}}

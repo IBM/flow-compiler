@@ -779,7 +779,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             std::ofstream outs(outputfn.c_str());
             if(!outs.is_open()) {
                 ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write Docker Composer driver");
+                pcerr.AddError(outputfn, -1, 0, "failed to write Docker Compose driver");
             } else {
                 error_count += genc_composer_driver(outs, yaml.str());
             }
