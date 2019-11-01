@@ -3,9 +3,9 @@ flowc - compiler for gRPC microservice aggregation
 USAGE  
        flowc [options] inputfile.flow 
 
-DESCRIPION
+DESCRIPTION
 
-       flowc compiles a control flow graph representation of an applicatiom where all the nodes are 
+       flowc compiles a control flow graph representation of an application where all the nodes are 
        "gRPC" calls. The compilation is done in several stages depending on the target type selected:
       
        "Protocol Buffers" 
