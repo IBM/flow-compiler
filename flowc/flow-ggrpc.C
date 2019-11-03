@@ -37,3 +37,68 @@ int flow_compiler::genc_grpc() {
     }
     return error_count;
 }
+
+void static enum_as_strings(std::ostream &buf, ::google::protobuf::EnumDescriptor const *ep) {
+    for(int v = 0, vc = ep->value_count(); v != vc; ++v) {
+        auto vp = ep->value(v);
+        if(v > 0) buf << ",";
+        buf << "\"" << vp->name() << "\"";
+    }
+}
+
+void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp) {
+    buf << "{\"type\":\"object\",\"properties\":{";
+    for(int f = 0, fc = dp->field_count(); f != fc; ++f) {
+        FieldDescriptor const *fd = dp->field(f);
+        if(f > 0) buf << ",";
+        buf << "\"" << fd->json_name() << "\":";
+        switch(fd->type()) {
+            case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+            case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
+                buf << "{\"type\":\"numeric\"}";
+                break;
+            case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+            case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+            case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
+            case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
+            case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+            case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
+            case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
+            case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+            case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+            case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+                buf << "{\"type\":\"integer\"}";
+                break;
+
+            case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
+            case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
+                buf << "{\"type\":\"string\"}";
+                break;
+
+            case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
+                buf << "{\"type\":\"boolean\"}";
+                break;
+            case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
+                buf << "{\"enum\":[";
+                enum_as_strings(buf, fd->enum_type());
+                buf << "]}";
+                break; 
+
+            case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
+                json_schema_buf(buf, fd->message_type());
+                break;
+            default:
+                buf << "null";
+                break;
+        }
+    }
+    buf << "}";
+    //buff << ",\"required\":[]\"";
+    buf << "}";
+}
+
+std::string json_schema(::google::protobuf::Descriptor const *dp) {
+    std::ostringstream buf;
+    json_schema_buf(buf, dp);
+    return buf.str();
+}

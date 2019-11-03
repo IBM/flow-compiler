@@ -1208,6 +1208,8 @@ int flow_compiler::gc_server(std::ostream &out) {
         }
         sdp = mdp->service();
         append(local_vars, "ENTRY_DOT_NAME", ne.first);
+        append(local_vars, "ENTRY_OUTPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->output_type())));
+        append(local_vars, "ENTRY_INPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->input_type())));
         std::stringstream sbuf;
         error_count += gc_server_method(sbuf, ne.first, ne.second.second);
         append(local_vars, "ENTRY_CODE", sbuf.str());
@@ -1228,6 +1230,8 @@ int flow_compiler::gc_server(std::ostream &out) {
         append(local_vars, "GRPC_SERVICE_NAME", mdp->service()->name());
         append(local_vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(local_vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
+        append(local_vars, "CLI_OUTPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->output_type())));
+        append(local_vars, "CLI_INPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->input_type())));
         append(local_vars, "CLI_METHOD_NAME", mdp->name());
         append(local_vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
         int cc_value = 0;
