@@ -296,6 +296,124 @@ public:
 }I}
 };
 
+std::map<std::string, std::pair<char const *, char const *>> node_schemas = {
+{I:CLI_NODE_NAME{    { "{{CLI_NODE_NAME}}", { {{CLI_INPUT_JSON_SCHEMA_C}}, {{CLI_OUTPUT_JSON_SCHEMA_C}} } },
+}I}
+};
+
+std::map<std::string, std::pair<char const *, char const *>> entry_schemas = {
+{I:ENTRY_DOT_NAME{    { "{{ENTRY_DOT_NAME}}", { {{ENTRY_INPUT_JSON_SCHEMA_C}}, {{ENTRY_OUTPUT_JSON_SCHEMA_C}} } },
+}I}
+};
+
+
+static int not_found(struct mg_connection *conn, std::string const &message) {
+	mg_printf(conn, "HTTP/1.1 404 Not Found\r\n"
+              "Content-Type: text/plain\r\n"
+              "Content-Length: %lu\r\n"
+              "\r\n", message.length());
+	mg_printf(conn, "%s", message.c_str());
+    return 1;
+}
+
+static int proto_schema_handler(struct mg_connection *conn, char const *schema) {
+	mg_printf(conn, "HTTP/1.1 200 OK\r\n"
+              "Content-Type: application/json\r\n"
+              "Content-Length: %lu\r\n"
+              "\r\n", strlen(schema));
+	mg_printf(conn, "%s", schema);
+	return 1;
+}
+static int entry_schema_handler(struct mg_connection *conn, void *cbdata) {
+	char const *local_uri = mg_get_request_info(conn)->local_uri;
+    char const *uri = cbdata? "/-input": "/-output";
+    if(strlen(uri) + 1 >= strlen(local_uri)) 
+        return not_found(conn, "Entry name not spefified");
+    auto sp = entry_schemas.find(local_uri + strlen(uri) + 1);
+    if(sp == entry_schemas.end()) 
+        return not_found(conn, "Entry name not recognized");
+    return proto_schema_handler(conn, cbdata? sp->second.first: sp->second.second);
+}
+static int node_schema_handler(struct mg_connection *conn, void *cbdata) {
+	char const *local_uri = mg_get_request_info(conn)->local_uri;
+    char const *uri = cbdata? "/-node-input": "/-node-output";
+    if(strlen(uri) + 1 >= strlen(local_uri)) 
+        return not_found(conn, "Node name not spefified");
+    auto sp = node_schemas.find(local_uri + strlen(uri) + 1);
+    if(sp == node_schemas.end()) 
+        return not_found(conn, "Node name not recognized");
+    return proto_schema_handler(conn, cbdata? sp->second.first: sp->second.second);
+}
+static int rest_log_message(const struct mg_connection *conn, const char *message) {
+    std::cerr << message << std::flush;
+	return 1;
+}
+
+int start_civetweb(char const *rest_port) {
+    const char *options[] = {
+        "document_root", ".",
+        "listening_ports", rest_port,
+        "request_timeout_ms", "3600000",
+        "error_log_file", "error.log",
+        "extra_mime_types", ".proto=text/plain,.svg=image/svg",
+        "enable_auth_domain_check", "no",
+        "max_request_size", "65536", 
+        "num_threads", "12",
+        0
+    };
+	struct mg_callbacks callbacks;
+	struct mg_context *ctx;
+
+	memset(&callbacks, 0, sizeof(callbacks));
+	callbacks.log_message = rest_log_message;
+	ctx = mg_start(&callbacks, 0, options);
+
+	if(ctx == nullptr) return 1;
+	mg_set_request_handler(ctx, "/-input", entry_schema_handler, (void*) 1);
+	mg_set_request_handler(ctx, "/-output", entry_schema_handler, 0);
+	mg_set_request_handler(ctx, "/-node-input", node_schema_handler, (void*) 1);
+	mg_set_request_handler(ctx, "/-node-output", node_schema_handler, 0);
+/*
+	mg_set_request_handler(ctx, EXAMPLE_URI, ExampleHandler, 0);
+	mg_set_request_handler(ctx, EXIT_URI, ExitHandler, 0);
+	mg_set_request_handler(ctx, "/A/B", ABHandler, 0);
+	mg_set_request_handler(ctx, "/B$", BXHandler, (void *)0);
+	mg_set_request_handler(ctx, "/B/A$", BXHandler, (void *)1);
+	mg_set_request_handler(ctx, "/B/B$", BXHandler, (void *)2);
+	mg_set_request_handler(ctx, "**.foo$", FooHandler, 0);
+	mg_set_request_handler(ctx, "/close", CloseHandler, 0);
+	mg_set_request_handler(ctx, "/form", FileHandler, (void *)"../../test/form.html");
+	mg_set_request_handler(ctx, "/handle_form.embedded_c.example.callback", FormHandler, (void *)0); 
+	mg_set_request_handler(ctx, "/on_the_fly_form", FileUploadForm, (void *)"/on_the_fly_form.md5.callback");
+    mg_set_request_handler(ctx, "/on_the_fly_form.md5.callback", CheckSumHandler, (void *)0);
+	mg_set_request_handler(ctx, "/cookie", CookieHandler, 0);
+	mg_set_request_handler(ctx, "/postresponse", PostResponser, 0);
+	mg_set_request_handler(ctx, "/websocket", WebSocketStartHandler, 0);
+	mg_set_request_handler(ctx, "/auth", AuthStartHandler, 0);
+*/
+	// List all listening ports 
+	struct mg_server_ports ports[32];
+	int port_cnt, n;
+	memset(ports, 0, sizeof(ports));
+	port_cnt = mg_get_server_ports(ctx, 32, ports);
+    std::cerr <<  "REST gateway at:";
+	for(n = 0; n < port_cnt && n < 32; n++) {
+		const char *proto = ports[n].is_ssl ? "https" : "http";
+		const char *host;
+		if((ports[n].protocol & 1) == 1) {
+			// IPv4 
+			host = "127.0.0.1";
+		}
+		if((ports[n].protocol & 2) == 2) {
+			// IPv6 
+			host = "[::1]";
+        }
+        std::cerr << " " << proto << "://" << host << ":" << ports[n].port;
+	}
+    std::cerr << "\n";
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     if(argc != 2) {
        std::cout << "Usage: " << argv[0] << " GRPC-PORT\n\n";
@@ -348,15 +466,22 @@ int main(int argc, char *argv[]) {
         std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
         return 1;
     }
-    std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port 
-        << ", debug: " << (service.Debug_Flag? "yes": "no")
-        << ", trace: " << (service.Trace_Flag? "yes": "no")
-        << ", asynchronous client calls: " << (service.Async_Flag? "yes": "no") 
-        << ", logger service: " << (Flow_logger_service_enabled? "enabled": "disabled") 
-        << std::endl;
+    std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
 
     // Set up the REST gateway if enabled
     char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
+    if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
+        if(start_civetweb(rest_port) != 0) {
+            std::cerr << "Failed to start REST gateway service\n";
+            return 1;
+        }
+    }
+    std::cerr 
+        << "debug: " << (service.Debug_Flag? "yes": "no")
+        << ", trace: " << (service.Trace_Flag? "yes": "no")
+        << ", asynchronous client calls: " << (service.Async_Flag? "yes": "no") 
+        << ", logger service: " << (Flow_logger_service_enabled? "enabled": "disabled")
+        << std::endl;
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
