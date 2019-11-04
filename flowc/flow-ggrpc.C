@@ -56,6 +56,16 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         std::string fdescription;
         bool is_repeated = fd->is_repeated();
 
+        ::google::protobuf::SourceLocation sl;
+        if(fd->GetSourceLocation(&sl)) {
+            // ignore detatched comments
+            fdescription = sl.leading_comments;
+            if(!sl.leading_comments.empty() && !sl.trailing_comments.empty())
+                fdescription += "\n";
+            fdescription += sl.trailing_comments;
+            fdescription = strip(fdescription, " \t\r\a\b\v\f\n");
+        }
+
         if(f > 0) buf << ",";
         buf << "\"" << fd->json_name() << "\":{";
 
