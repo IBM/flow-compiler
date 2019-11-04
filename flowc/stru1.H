@@ -385,5 +385,34 @@ int get_time_value(std::string const &timeout_str) {
     if(unit == "hours" || unit == "hour" || unit == "h") return int(timeout * 3600 * 1000);
     return 0;
 }
+static inline 
+/**
+ * Replace all underscore runs with a space and insert a space before any camel hump.
+ * Keep uppercase runs.
+ * e.g.
+ *          foo_bar -> foo bar
+ *          fooBar  -> foo Bar
+ *          FOOBar  -> FOO Bar
+ */
+std::string decamelize(std::string const &s) {
+    std::ostringstream out;
+
+    char prev_c = ' ';
+    for(unsigned sl = s.length(), i = 0; i < sl; ++i) {
+        char c = s[i];
+        if(::isspace(c) || c == '_') {
+            if(prev_c != ' ') out << ' ';
+            prev_c = ' ';
+        } else if(::isalpha(c) && ::toupper(c) == c) {
+            if((::isalpha(prev_c) && ::toupper(prev_c) != prev_c) ||
+               (::isalpha(prev_c) && ::toupper(prev_c) == prev_c && i+1 < sl && ::isalpha(s[i+1]) && ::toupper(s[i+1]) != s[i+1]))
+                out << ' ';
+            out << (prev_c = c);
+        } else {
+            out << (prev_c = c);
+        }
+    }
+    return out.str();
+}
 }
 #endif

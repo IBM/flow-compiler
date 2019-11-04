@@ -47,15 +47,31 @@ void static enum_as_strings(std::ostream &buf, ::google::protobuf::EnumDescripto
 }
 
 void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp) {
-    buf << "{\"type\":\"object\",\"properties\":{";
+    buf << "\"type\":\"object\",";
+
+    buf << "\"properties\":{";
     for(int f = 0, fc = dp->field_count(); f != fc; ++f) {
         FieldDescriptor const *fd = dp->field(f);
+        std::string ftitle = decamelize(fd->name());
+        std::string fdescription;
+        bool is_repeated = fd->is_repeated();
+
         if(f > 0) buf << ",";
-        buf << "\"" << fd->json_name() << "\":";
+        buf << "\"" << fd->json_name() << "\":{";
+
+        if(is_repeated) {
+            buf << "\"type\":\"array\",\"title\":" << c_escape(ftitle) << ",";
+            if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << ",";
+            buf << "\"items\":{";
+            ftitle.clear(); fdescription.clear();
+        }
+        if(!ftitle.empty()) buf << "\"title\":" << c_escape(ftitle) << ",";
+        if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << ",";
+
         switch(fd->type()) {
             case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-                buf << "{\"type\":\"numeric\"}";
+                buf << "\"type\":\"numeric\"";
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
@@ -67,23 +83,20 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
             case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-                buf << "{\"type\":\"integer\"}";
+                buf << "\"type\":\"integer\"";
                 break;
-
             case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
             case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
-                buf << "{\"type\":\"string\"}";
+                buf << "\"type\":\"string\"";
                 break;
-
             case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
-                buf << "{\"type\":\"boolean\"}";
+                buf << "\"type\":[\"boolean\",\"integer\"]";
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
-                buf << "{\"enum\":[";
+                buf << "\"enum\":[";
                 enum_as_strings(buf, fd->enum_type());
-                buf << "]}";
+                buf << "]";
                 break; 
-
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
                 json_schema_buf(buf, fd->message_type());
                 break;
@@ -91,14 +104,18 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 buf << "null";
                 break;
         }
+        if(is_repeated) buf << "}";
+        buf << "}";
     }
-    buf << "}";
-    //buff << ",\"required\":[]\"";
     buf << "}";
 }
 
-std::string json_schema(::google::protobuf::Descriptor const *dp) {
+std::string json_schema(::google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description) {
     std::ostringstream buf;
+    buf << "{";
+    if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";
+    if(!description.empty()) buf << "\"description\":" << c_escape(description) << ",";
     json_schema_buf(buf, dp);
+    buf << "}";
     return buf.str();
 }
