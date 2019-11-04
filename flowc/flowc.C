@@ -167,6 +167,7 @@ int flow_compiler::add_to_proto_path(std::string const &directory) {
 
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
+    main_name = orchestrator_name;
     set(global_vars, "INPUT_FILE", input_filename);
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid
@@ -219,7 +220,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     set(global_vars, "NAME_ID", to_lower(to_identifier(orchestrator_name)));
     set(global_vars, "NAME_OPT", to_option(orchestrator_name));
     set(global_vars, "NAME_UPPER", to_upper(to_option(orchestrator_name)));
-    set(global_vars, "MAIN_DESCRIPTION", c_escape(""));
+    set(global_vars, "MAIN_DESCRIPTION", c_escape(main_description));
     set(global_vars, "NAME_UPPERID", to_upper(to_identifier(orchestrator_name)));
     /****************************************************************
      * file names
@@ -263,8 +264,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     package_name = to_identifier(package_name);
 
-    if(token_comment.size() > 0 && token_comment[0].first == 1) 
-        set(global_vars, "MAIN_DESCRIPTION", c_escape(token_comment[0].second));
+    if(token_comment.size() > 0 && token_comment[0].first == 1) {
+        main_description = token_comment[0].second;
+        set(global_vars, "MAIN_DESCRIPTION", c_escape(main_description));
+    }
 
     /*******************************************************************
      * Override some of the vars set at compile time

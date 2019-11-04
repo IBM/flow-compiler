@@ -374,6 +374,14 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
                     pcerr.AddWarning(main_file, at(d), sfmt() << "value will be converted to \"" << node_name(left_type) << "\" before assignment to field \"" << get_name(dp) << "\"");
                 }
             break;    
+            case FTK_ID:
+                if(left_type != FTK_fldm) {
+                    ++error_count;
+                    pcerr.AddError(main_file, at(d), sfmt() << "the field \"" << id << "\" in \"" << get_name(dp) << "\" is not of message type");
+                } else {
+                    pcerr.AddWarning(main_file, at(d), sfmt() << "got this \"" << id << "\" ...");
+                }
+            break;
             default:
                 print_ast(std::cerr, fldd.children[1]);
                 assert(false);

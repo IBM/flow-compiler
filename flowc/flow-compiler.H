@@ -152,6 +152,9 @@ private:
     // Orchestrator image name and tag
     std::string orchestrator_image;
     std::string orchestrator_tag;
+    std::string main_name;
+    // Main description, gleaned from comments
+    std::string main_description;
     // Orchestrator image name with repository (as it appears in composer or kube config)
     std::string orchestrator_pull_image;
     // Default repository path for all images
