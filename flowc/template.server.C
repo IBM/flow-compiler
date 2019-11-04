@@ -302,7 +302,8 @@ std::map<std::string, std::pair<char const *, char const *>> node_schemas = {
 };
 
 std::map<std::string, std::pair<char const *, char const *>> entry_schemas = {
-{I:ENTRY_DOT_NAME{    { "{{ENTRY_DOT_NAME}}", { {{ENTRY_INPUT_JSON_SCHEMA_C}}, {{ENTRY_OUTPUT_JSON_SCHEMA_C}} } },
+{I:ENTRY_DOT_NAME{// {{ENTRY_SERVICE_NAME}} i.e. {{ENTRY_DOT_NAME}}
+    { "{{ENTRY_NAME}}", { {{ENTRY_INPUT_JSON_SCHEMA_C}}, {{ENTRY_OUTPUT_JSON_SCHEMA_C}} } }, 
 }I}
 };
 

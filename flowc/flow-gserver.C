@@ -1208,6 +1208,8 @@ int flow_compiler::gc_server(std::ostream &out) {
         }
         sdp = mdp->service();
         append(local_vars, "ENTRY_DOT_NAME", ne.first);
+        append(local_vars, "ENTRY_NAME", mdp->name());
+        append(local_vars, "ENTRY_SERVICE_NAME", mdp->full_name());
         append(local_vars, "ENTRY_OUTPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->output_type())));
         append(local_vars, "ENTRY_INPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->input_type())));
         std::stringstream sbuf;
