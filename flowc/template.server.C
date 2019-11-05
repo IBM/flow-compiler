@@ -306,8 +306,6 @@ std::map<std::string, std::pair<char const *, char const *>> entry_schemas = {
     { "{{ENTRY_NAME}}", { {{ENTRY_INPUT_JSON_SCHEMA_C}}, {{ENTRY_OUTPUT_JSON_SCHEMA_C}} } }, 
 }I}
 };
-
-
 static int not_found(struct mg_connection *conn, std::string const &message) {
 	mg_printf(conn, "HTTP/1.1 404 Not Found\r\n"
               "Content-Type: text/plain\r\n"
@@ -316,14 +314,31 @@ static int not_found(struct mg_connection *conn, std::string const &message) {
 	mg_printf(conn, "%s", message.c_str());
     return 1;
 }
-
-static int proto_schema_handler(struct mg_connection *conn, char const *schema) {
+static int json_reply(struct mg_connection *conn, char const *schema, size_t length=0) {
 	mg_printf(conn, "HTTP/1.1 200 OK\r\n"
               "Content-Type: application/json\r\n"
               "Content-Length: %lu\r\n"
-              "\r\n", strlen(schema));
+              "\r\n", length == 0? strlen(schema): length);
 	mg_printf(conn, "%s", schema);
 	return 1;
+}
+static int methods_handler(struct mg_connection *conn, void *cbdata) {
+    static char const *methods_reply = "{"
+        {I:ENTRY_DOT_NAME{
+               "\"/{{ENTRY_NAME}}\": {"
+               "\"input-schema-url\": \"/-input/{{ENTRY_NAME}}\","
+               "\"output-schema-url\": \"/-output/{{ENTRY_NAME}}\""
+               "},"
+        }I}
+        {I:CLI_NODE_NAME{
+               "\"/-node/{{CLI_NODE_NAME}}\": {"
+               "\"input-schema-url\": \"/-node-input/{{CLI_NODE_NAME}}\","
+               "\"output-schema-url\": \"/-node-output/{{CLI_NODE_NAME}}\""
+               "},"
+        }I}
+        "\"/-methods\": {}"
+    "}";
+    return json_reply(conn, methods_reply, strlen(methods_reply));
 }
 static int entry_schema_handler(struct mg_connection *conn, void *cbdata) {
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
@@ -333,7 +348,7 @@ static int entry_schema_handler(struct mg_connection *conn, void *cbdata) {
     auto sp = entry_schemas.find(local_uri + strlen(uri) + 1);
     if(sp == entry_schemas.end()) 
         return not_found(conn, "Entry name not recognized");
-    return proto_schema_handler(conn, cbdata? sp->second.first: sp->second.second);
+    return json_reply(conn, cbdata? sp->second.first: sp->second.second);
 }
 static int node_schema_handler(struct mg_connection *conn, void *cbdata) {
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
@@ -343,13 +358,22 @@ static int node_schema_handler(struct mg_connection *conn, void *cbdata) {
     auto sp = node_schemas.find(local_uri + strlen(uri) + 1);
     if(sp == node_schemas.end()) 
         return not_found(conn, "Node name not recognized");
-    return proto_schema_handler(conn, cbdata? sp->second.first: sp->second.second);
+    return json_reply(conn, cbdata? sp->second.first: sp->second.second);
 }
 static int rest_log_message(const struct mg_connection *conn, const char *message) {
     std::cerr << message << std::flush;
 	return 1;
 }
-
+{I:ENTRY_DOT_NAME{
+static int method_{{ENTRY_NAME}}_handler(struct mg_connection *conn, void *cbdata) {
+     return not_found(conn, "not implemented");
+}
+}I}
+{I:CLI_NODE_NAME{
+static int method_node_{{CLI_NODE_ID}}_handler(struct mg_connection *conn, void *cbdata) {
+     return not_found(conn, "not implemented");
+}
+}I}
 int start_civetweb(char const *rest_port) {
     const char *options[] = {
         "document_root", ".",
@@ -374,6 +398,13 @@ int start_civetweb(char const *rest_port) {
 	mg_set_request_handler(ctx, "/-output", entry_schema_handler, 0);
 	mg_set_request_handler(ctx, "/-node-input", node_schema_handler, (void*) 1);
 	mg_set_request_handler(ctx, "/-node-output", node_schema_handler, 0);
+	mg_set_request_handler(ctx, "/-methods", methods_handler, 0);
+{I:ENTRY_DOT_NAME{
+	mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", method_{{ENTRY_NAME}}_handler, 0);
+}I}
+{I:CLI_NODE_NAME{
+	mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", method_node_{{CLI_NODE_ID}}_handler, 0);
+}I}
 /*
 	mg_set_request_handler(ctx, EXAMPLE_URI, ExampleHandler, 0);
 	mg_set_request_handler(ctx, EXIT_URI, ExitHandler, 0);
