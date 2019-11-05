@@ -59,11 +59,10 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         ::google::protobuf::SourceLocation sl;
         if(fd->GetSourceLocation(&sl)) {
             // ignore detatched comments
-            fdescription = sl.leading_comments;
+            fdescription = strip(sl.leading_comments, "\t\r\a\b\v\f\n");
             if(!sl.leading_comments.empty() && !sl.trailing_comments.empty())
                 fdescription += "\n";
-            fdescription += sl.trailing_comments;
-            fdescription = strip(fdescription, " \t\r\a\b\v\f\n");
+            fdescription += strip(sl.trailing_comments, "\t\r\a\b\v\f\n");
         }
 
         if(f > 0) buf << ",";
