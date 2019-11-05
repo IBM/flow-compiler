@@ -5,6 +5,9 @@
  * with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
  * 
  */
+
+#include <sys/stat.h>
+#include <unistd.h>
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -61,17 +64,18 @@ static std::string json_escape(std::string const &s) {
 static std::string json_string(std::string const &s) {
     return std::string("\"") + json_escape(s) + "\"";
 }
+static std::string Log_abridge(std::string const &message, unsigned max_length=256) {
+    if(message.length() <= max_length) return message;
+    return message.substr(0, (max_length - 5)/2) + " ... " + message.substr(message.length()-(max_length-5)/2);
+}
 static std::string Message_to_json(google::protobuf::Message const &message, int max_length=1024) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = true;
-    options.always_print_primitive_fields = true;
+    options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = true;
     std::string json_reply;
     google::protobuf::util::MessageToJsonString(message, &json_reply, options);
-    if(json_reply.length() > max_length) 
-        return json_reply.substr(0, (max_length-5)/2) + " ... " + json_reply.substr(json_reply.length()-(max_length-5)/2);
-    
-    return json_reply;
+    return Log_abridge(json_reply, max_length);
 }
 inline std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
     auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
@@ -127,6 +131,7 @@ struct Logbuffer_info {
     }
 };
 std::mutex global_display_mutex;
+
 
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
@@ -320,21 +325,45 @@ public:
 }I}
 };
 
-std::map<std::string, std::pair<char const *, char const *>> node_schemas = {
-{I:CLI_NODE_NAME{    { "{{CLI_NODE_NAME}}", { {{CLI_INPUT_JSON_SCHEMA_C}}, {{CLI_OUTPUT_JSON_SCHEMA_C}} } },
+#define FLOG ::rest::flog() <<= sfmt()
+
+namespace rest {
+class flog {
+public:
+    flog &operator <<= (std::string const &v) {
+        global_display_mutex.lock();
+        std::cerr << v << std::flush; 
+        global_display_mutex.unlock();
+        return *this;
+    }
+};
+
+std::string gateway_endpoint;
+std::string app_directory("./app");
+std::string docs_directory("./docs");
+std::string www_directory("./www");
+
+std::map<std::string, char const *> schema_map = {
+{I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_JSON_SCHEMA_C}} },
+    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_JSON_SCHEMA_C}} },
+}I}
+{I:ENTRY_DOT_NAME{   { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_JSON_SCHEMA_C}} }, 
+    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_JSON_SCHEMA_C}} }, 
 }I}
 };
-std::map<std::string, std::pair<char const *, char const *>> entry_schemas = {
-{I:ENTRY_DOT_NAME{// {{ENTRY_SERVICE_NAME}} i.e. {{ENTRY_DOT_NAME}}
-    { "{{ENTRY_NAME}}", { {{ENTRY_INPUT_JSON_SCHEMA_C}}, {{ENTRY_OUTPUT_JSON_SCHEMA_C}} } }, 
-}I}
-};
+static int log_message(const struct mg_connection *conn, const char *message) {
+    std::cerr << message << std::flush;
+	return 1;
+}
 static int not_found(struct mg_connection *conn, std::string const &message) {
+    std::string j_message = sfmt() << "{"
+        << "\"code\": 404, \"message\":" << json_string(message) << "}";
+       
 	mg_printf(conn, "HTTP/1.1 404 Not Found\r\n"
-              "Content-Type: text/plain\r\n"
+              "Content-Type: application/json\r\n"
               "Content-Length: %lu\r\n"
-              "\r\n", message.length());
-	mg_printf(conn, "%s", message.c_str());
+              "\r\n", j_message.length());
+	mg_printf(conn, "%s", j_message.c_str());
     return 1;
 }
 static int json_reply(struct mg_connection *conn, int code, char const *msg, char const *content, size_t length=0) {
@@ -351,100 +380,189 @@ static int json_reply(struct mg_connection *conn, char const *content, size_t le
 static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = false;
-    options.always_print_primitive_fields = true;
-    options.preserve_proto_field_names = true;
+    options.always_print_primitive_fields = false;
+    options.preserve_proto_field_names = false;
     std::string json_message;
     google::protobuf::util::MessageToJsonString(message, &json_message, options);
     return json_reply(conn, json_message.c_str(), json_message.length());
 }
-static int rest_grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status) {
+static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status) {
     std::string errm = sfmt() 
         << "{" 
         << "\"code\": 500,"
         << "\"from\":" << json_string(context.peer()) << ","
         << "\"grpc-code\":" << status.error_code() << ","
-        << "\"message\":\"" << json_string(status.error_message()) << "\","
-        << "\"details\":\"" << json_string(status.error_details()) << "\""
+        << "\"message\":" << json_string(status.error_message()) << ","
+        << "\"details\":" << json_string(status.error_details()) << ""
         << "}";
     return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length());
 }
-static int methods_handler(struct mg_connection *conn, void *cbdata) {
-    static char const *methods_reply = "{"
+static int conversion_error(struct mg_connection *conn, google::protobuf::util::Status const &status) {
+    std::string error_message = sfmt() << "{"
+        << "\"code\": 400,"
+        << "\"message\": \"Input failed conversion to protobuf\","
+        << "\"description\":" <<json_string(status.ToString())
+        << "}";
+    return json_reply(conn, 400, "Bad Request", error_message.c_str(), error_message.length());
+}
+static int bad_request_error(struct mg_connection *conn) {
+    std::string error_message = sfmt() << "{"
+        << "\"code\": 422,"
+        << "\"message\": \"Unprocessable Entity\""
+        << "}";
+    return json_reply(conn, 422, "Unprocessable Entity", error_message.c_str(), error_message.length());
+}
+static int get_info(struct mg_connection *conn, void *cbdata) {
+    std::string info = sfmt() << "{"
         {I:ENTRY_DOT_NAME{
-               "\"/{{ENTRY_NAME}}\": {"
-               "\"input-schema-url\": \"/-input/{{ENTRY_NAME}}\","
-               "\"output-schema-url\": \"/-output/{{ENTRY_NAME}}\""
+            << "\"/{{ENTRY_NAME}}\": {"
+               "\"timeout\": {{ENTRY_TIMEOUT:120000}},"
+               "\"input-schema\": " << schema_map.find("/-input/{{ENTRY_NAME}}")->second << "," 
+               "\"output-schema\": " << schema_map.find("/-output/{{ENTRY_NAME}}")->second << "" 
                "},"
         }I}
         {I:CLI_NODE_NAME{
-               "\"/-node/{{CLI_NODE_NAME}}\": {"
-               "\"input-schema-url\": \"/-node-input/{{CLI_NODE_NAME}}\","
-               "\"output-schema-url\": \"/-node-output/{{CLI_NODE_NAME}}\""
+          <<   "\"/-node/{{CLI_NODE_NAME}}\": {"
+               "\"timeout\": {{CLI_NODE_TIMEOUT:120000}},"
+               "\"input-schema\": " << schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "," 
+               "\"output-schema\": " << schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "" 
                "},"
         }I}
-        "\"/-methods\": {}"
+        "\"/-info\": {}"
     "}";
-    return json_reply(conn, methods_reply, strlen(methods_reply));
+    return json_reply(conn, info.c_str(), info.length());
 }
-static int entry_schema_handler(struct mg_connection *conn, void *cbdata) {
+static int get_schema(struct mg_connection *conn, void *) {
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
-    char const *uri = cbdata? "/-input": "/-output";
-    if(strlen(uri) + 1 >= strlen(local_uri)) 
-        return not_found(conn, "Entry name not spefified");
-    auto sp = entry_schemas.find(local_uri + strlen(uri) + 1);
-    if(sp == entry_schemas.end()) 
-        return not_found(conn, "Entry name not recognized");
-    return json_reply(conn, cbdata? sp->second.first: sp->second.second);
+    auto sp = schema_map.find(local_uri);
+    if(sp == schema_map.end()) 
+        return not_found(conn, "Name not recognized");
+    return json_reply(conn, sp->second);
 }
-static int node_schema_handler(struct mg_connection *conn, void *cbdata) {
+static int field_get(const char *key, const char *value, size_t valuelen, void *user_data) {
+    std::map<std::string, std::string> &form = *(std::map<std::string, std::string> *)user_data;
+    form[key] = std::string(value, valuelen);
+	return 0;
+}
+int field_stored(const char *path, long long file_size, void *user_data) {
+	//mg_printf(conn, "stored as %s (%lu bytes)\r\n\r\n", path, (unsigned long)file_size);
+	return 0;
+}
+static int field_found(const char *key, const char *filename, char *path, size_t pathlen, void *user_data) {
+	if(filename && *filename) {
+		snprintf(path, pathlen, "/dev/null");
+        return MG_FORM_FIELD_STORAGE_SKIP;
+	}
+	return MG_FORM_FIELD_STORAGE_GET;
+}
+#define MAX_INPUT_SIZE 1024ul*1024ul*100ul
+static int get_form_data(struct mg_connection *conn, std::string &data) {
+    char const *content_type = mg_get_header(conn, "Content-Type");
+    if(content_type == nullptr || strcasecmp(content_type, "application/json") == 0) {
+        // The expected content type is application/json
+        std::vector<char> buffer(65536);
+        unsigned long read = 0;
+	    int r = mg_read(conn, &buffer[read], buffer.size() - read);
+	    while(r > 0) {
+		    read += r;
+            if(buffer.size() >= MAX_INPUT_SIZE) {
+	            char const *local_uri = mg_get_request_info(conn)->local_uri;
+                FLOG << "error: " << local_uri << ": Read execeeded buffer size of " << MAX_INPUT_SIZE << "\n";
+                return -1;
+            }
+            if(read == buffer.size()) 
+                buffer.resize(read*2);
+	        r = mg_read(conn, &buffer[read], buffer.size() - read);
+	    }
+        data = std::string(buffer.begin(), buffer.begin() + read);
+        return 1;    
+    }
+
+    std::map<std::string, std::string> form; 
+	struct mg_form_data_handler fdh = {field_found, field_get, field_stored, (void *) &form};
+	int ret = mg_handle_form_request(conn, &fdh);
+    if(ret <= 0) return ret;
+
+    data += "{"; 
+    int c = 0;
+    for(auto const &nv: form) {
+        if(++c > 1) data += ",";
+        data += json_string(nv.first);
+        data += ":";
+        data += json_string(nv.second);
+    }
+    data += "}";
+    return ret;
+}
+static int file_handler(struct mg_connection *conn, void *cbdata) {
+    std::string const &dir = *(std::string const *) cbdata;
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
-    char const *uri = cbdata? "/-node-input": "/-node-output";
-    if(strlen(uri) + 1 >= strlen(local_uri)) 
-        return not_found(conn, "Node name not spefified");
-    auto sp = node_schemas.find(local_uri + strlen(uri) + 1);
-    if(sp == node_schemas.end()) 
-        return not_found(conn, "Node name not recognized");
-    return json_reply(conn, cbdata? sp->second.first: sp->second.second);
+    FLOG << "from " << dir << " get " << local_uri << "\n";
+    return not_found(conn, sfmt() << "File " << local_uri << " not found in " << dir);
 }
-static int rest_log_message(const struct mg_connection *conn, const char *message) {
-    std::cerr << message << std::flush;
-	return 1;
+static int root_handler(struct mg_connection *conn, void *cbdata) {
+    char const *local_uri = mg_get_request_info(conn)->local_uri;
+    if(strcmp(local_uri, "/") != 0) 
+        return not_found(conn, sfmt() << "Resource not found");
+    
+    // Look first in the app directory 
+    struct stat buffer;   
+    std::string name;
+    name = app_directory + "/index.html";
+    if(stat(name.c_str(), &buffer) == 0) 
+        return mg_send_http_redirect(conn, "/-app/index.html", 307); 
+    
+    name = www_directory + "/index.html";
+    if(stat(name.c_str(), &buffer) == 0) 
+        return mg_send_http_redirect(conn, "/-www/index.html", 307); 
+    
+    return not_found(conn, sfmt() << "Resource not found");
+}
 }
 {I:ENTRY_DOT_NAME{
-static int method_{{ENTRY_NAME}}_handler(struct mg_connection *conn, void *cbdata) {
-    return not_found(conn, "not implemented");
+static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *) {
+    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(rest::gateway_endpoint, ::grpc::InsecureChannelCredentials()));
+    std::unique_ptr<{{ENTRY_SERVICE_NAME}}::Stub> L_client_stub = {{ENTRY_SERVICE_NAME}}::NewStub(L_channel);                    
+    {{ENTRY_OUTPUT_TYPE}} L_outp; 
+    {{ENTRY_INPUT_TYPE}} L_inp;
+    std::string L_inp_json;
+    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json) << "\n";
+    auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
+    if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
+    ::grpc::ClientContext L_context;
+    auto const L_start_time = std::chrono::system_clock::now();
+    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{ENTRY_TIMEOUT:120000}});
+    L_context.set_deadline(L_deadline);
+    ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
+    if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
+    return rest::message_reply(A_conn, L_outp);
 }
 }I}
 {I:CLI_NODE_NAME{
-static int method_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *) {
+static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *) {
     std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    // TODO grab the form data
+    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json) << "\n";
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
-    if(!L_conv_status.ok()) {
-        std::string error_message = sfmt() << "{"
-            << "\"code\": 400,"
-            << "\"message\": \"Input failed conversion to protobuf\","
-            << "\"description\":" <<json_string(L_conv_status.ToString())
-            << "}";
-        return json_reply(A_conn, 400, "Bad Request", error_message.c_str(), error_message.length());
-    }
+    if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
     ::grpc::ClientContext L_context;
     auto const L_start_time = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
     L_context.set_deadline(L_deadline);
     ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
-    if(!L_status.ok()) 
-        return rest_grpc_error(A_conn, L_context, L_status);
-    return message_reply(A_conn, L_outp);
+    if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
+    return rest::message_reply(A_conn, L_outp);
 }
 }I}
+namespace rest {
 int start_civetweb(char const *rest_port) {
     const char *options[] = {
-        "document_root", ".",
+        "document_root", "/dev/null",
         "listening_ports", rest_port,
         "request_timeout_ms", "3600000",
         "error_log_file", "error.log",
@@ -458,37 +576,24 @@ int start_civetweb(char const *rest_port) {
 	struct mg_context *ctx;
 
 	memset(&callbacks, 0, sizeof(callbacks));
-	callbacks.log_message = rest_log_message;
+	callbacks.log_message = rest::log_message;
 	ctx = mg_start(&callbacks, 0, options);
 
 	if(ctx == nullptr) return 1;
-	mg_set_request_handler(ctx, "/-input", entry_schema_handler, (void*) 1);
-	mg_set_request_handler(ctx, "/-output", entry_schema_handler, 0);
-	mg_set_request_handler(ctx, "/-node-input", node_schema_handler, (void*) 1);
-	mg_set_request_handler(ctx, "/-node-output", node_schema_handler, 0);
-	mg_set_request_handler(ctx, "/-methods", methods_handler, 0);
-{I:ENTRY_DOT_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", method_{{ENTRY_NAME}}_handler, 0);
+	mg_set_request_handler(ctx, "/-input", get_schema, 0);
+	mg_set_request_handler(ctx, "/-output", get_schema, 0);
+	mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
+	mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
+	mg_set_request_handler(ctx, "/-info", get_info, 0);
+{I:ENTRY_DOT_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", REST_{{ENTRY_NAME}}_handler, 0);
 }I}
-{I:CLI_NODE_NAME{    mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", method_node_{{CLI_NODE_ID}}_handler, 0);
+{I:CLI_NODE_NAME{    mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", REST_node_{{CLI_NODE_ID}}_handler, 0);
 }I}
-/*
-	mg_set_request_handler(ctx, EXAMPLE_URI, ExampleHandler, 0);
-	mg_set_request_handler(ctx, EXIT_URI, ExitHandler, 0);
-	mg_set_request_handler(ctx, "/A/B", ABHandler, 0);
-	mg_set_request_handler(ctx, "/B$", BXHandler, (void *)0);
-	mg_set_request_handler(ctx, "/B/A$", BXHandler, (void *)1);
-	mg_set_request_handler(ctx, "/B/B$", BXHandler, (void *)2);
-	mg_set_request_handler(ctx, "**.foo$", FooHandler, 0);
-	mg_set_request_handler(ctx, "/close", CloseHandler, 0);
-	mg_set_request_handler(ctx, "/form", FileHandler, (void *)"../../test/form.html");
-	mg_set_request_handler(ctx, "/handle_form.embedded_c.example.callback", FormHandler, (void *)0); 
-	mg_set_request_handler(ctx, "/on_the_fly_form", FileUploadForm, (void *)"/on_the_fly_form.md5.callback");
-    mg_set_request_handler(ctx, "/on_the_fly_form.md5.callback", CheckSumHandler, (void *)0);
-	mg_set_request_handler(ctx, "/cookie", CookieHandler, 0);
-	mg_set_request_handler(ctx, "/postresponse", PostResponser, 0);
-	mg_set_request_handler(ctx, "/websocket", WebSocketStartHandler, 0);
-	mg_set_request_handler(ctx, "/auth", AuthStartHandler, 0);
-*/
+	mg_set_request_handler(ctx, "/-docs", file_handler, (void *) &docs_directory);
+	mg_set_request_handler(ctx, "/-app", file_handler, (void *) &app_directory);
+	mg_set_request_handler(ctx, "/-www", file_handler, (void *) &www_directory);
+	mg_set_request_handler(ctx, "/", root_handler, 0);
+
 	// List all listening ports 
 	struct mg_server_ports ports[32];
 	int port_cnt, n;
@@ -511,6 +616,7 @@ int start_civetweb(char const *rest_port) {
     std::cerr << "\n";
     return 0;
 }
+}
 
 int main(int argc, char *argv[]) {
     if(argc != 2) {
@@ -519,7 +625,7 @@ int main(int argc, char *argv[]) {
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
        std::cout << "\n";
-       std::cout << "Set {{NAME_UPPERID}}_REST_PORT=0 to disable the REST gateway service ({{REST_NODE_PORT}})\n";
+       std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to disable the REST gateway service ({{REST_NODE_PORT}})\n";
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_DEBUG=1 to enable debug mode\n";
        std::cout << "Set {{NAME_UPPERID}}_TRACE=1 to enable trace mode\n";
@@ -564,12 +670,13 @@ int main(int argc, char *argv[]) {
         std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
         return 1;
     }
+    rest::gateway_endpoint = sfmt() << "localhost:" << listening_port;
     std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
 
     // Set up the REST gateway if enabled
     char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
     if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
-        if(start_civetweb(rest_port) != 0) {
+        if(rest::start_civetweb(rest_port) != 0) {
             std::cerr << "Failed to start REST gateway service\n";
             return 1;
         }
