@@ -42,6 +42,25 @@ static inline bool strtobool(char const *s, bool default_value=false) {
         return true;
     return std::atof(s) != 0;
 }
+static std::string json_escape(std::string const &s) {
+    std::string r;
+    for(auto c: s) switch (c) {
+        case '\t': r+= "\\t"; break;
+        case '\r': r+= "\\r"; break;
+        case '\a': r+= "\\a"; break;
+        case '\b': r+= "\\b"; break;
+        case '\v': r+= "\\v"; break;
+        case '\f': r+= "\\f"; break;
+        case '\n': r+= "\\n"; break;
+        case '"':  r+= "\\\""; break;
+        case '\\': r+= "\\\\"; break;
+        default: r+= c; break;
+    }
+    return r;
+}
+static std::string json_string(std::string const &s) {
+    return std::string("\"") + json_escape(s) + "\"";
+}
 static std::string Message_to_json(google::protobuf::Message const &message, int max_length=1024) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = true;
@@ -110,6 +129,11 @@ struct Logbuffer_info {
 std::mutex global_display_mutex;
 
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
+}I}
+
+/* Client endpoints - initialzied in main from environment variables {CLIENT_NODE_ID}_ENDPOINT
+ */
+{I:CLI_NODE_ID{std::string {{CLI_NODE_ID}}_endpoint;
 }I}
 
 template <class C>
@@ -300,7 +324,6 @@ std::map<std::string, std::pair<char const *, char const *>> node_schemas = {
 {I:CLI_NODE_NAME{    { "{{CLI_NODE_NAME}}", { {{CLI_INPUT_JSON_SCHEMA_C}}, {{CLI_OUTPUT_JSON_SCHEMA_C}} } },
 }I}
 };
-
 std::map<std::string, std::pair<char const *, char const *>> entry_schemas = {
 {I:ENTRY_DOT_NAME{// {{ENTRY_SERVICE_NAME}} i.e. {{ENTRY_DOT_NAME}}
     { "{{ENTRY_NAME}}", { {{ENTRY_INPUT_JSON_SCHEMA_C}}, {{ENTRY_OUTPUT_JSON_SCHEMA_C}} } }, 
@@ -314,13 +337,36 @@ static int not_found(struct mg_connection *conn, std::string const &message) {
 	mg_printf(conn, "%s", message.c_str());
     return 1;
 }
-static int json_reply(struct mg_connection *conn, char const *schema, size_t length=0) {
-	mg_printf(conn, "HTTP/1.1 200 OK\r\n"
+static int json_reply(struct mg_connection *conn, int code, char const *msg, char const *content, size_t length=0) {
+	mg_printf(conn, "HTTP/1.1 %d %s\r\n"
               "Content-Type: application/json\r\n"
               "Content-Length: %lu\r\n"
-              "\r\n", length == 0? strlen(schema): length);
-	mg_printf(conn, "%s", schema);
+              "\r\n", code, msg, length == 0? strlen(content): length);
+	mg_printf(conn, "%s", content);
 	return 1;
+}
+static int json_reply(struct mg_connection *conn, char const *content, size_t length=0) {
+    return json_reply(conn, 200, "OK", content, length);
+}
+static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message) {
+    google::protobuf::util::JsonPrintOptions options;
+    options.add_whitespace = false;
+    options.always_print_primitive_fields = true;
+    options.preserve_proto_field_names = true;
+    std::string json_message;
+    google::protobuf::util::MessageToJsonString(message, &json_message, options);
+    return json_reply(conn, json_message.c_str(), json_message.length());
+}
+static int rest_grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status) {
+    std::string errm = sfmt() 
+        << "{" 
+        << "\"code\": 500,"
+        << "\"from\":" << json_string(context.peer()) << ","
+        << "\"grpc-code\":" << status.error_code() << ","
+        << "\"message\":\"" << json_string(status.error_message()) << "\","
+        << "\"details\":\"" << json_string(status.error_details()) << "\""
+        << "}";
+    return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length());
 }
 static int methods_handler(struct mg_connection *conn, void *cbdata) {
     static char const *methods_reply = "{"
@@ -366,12 +412,34 @@ static int rest_log_message(const struct mg_connection *conn, const char *messag
 }
 {I:ENTRY_DOT_NAME{
 static int method_{{ENTRY_NAME}}_handler(struct mg_connection *conn, void *cbdata) {
-     return not_found(conn, "not implemented");
+    return not_found(conn, "not implemented");
 }
 }I}
 {I:CLI_NODE_NAME{
-static int method_node_{{CLI_NODE_ID}}_handler(struct mg_connection *conn, void *cbdata) {
-     return not_found(conn, "not implemented");
+static int method_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *) {
+    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
+    std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
+    {{CLI_OUTPUT_TYPE}} L_outp; 
+    {{CLI_INPUT_TYPE}} L_inp;
+    std::string L_inp_json;
+    // TODO grab the form data
+    auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
+    if(!L_conv_status.ok()) {
+        std::string error_message = sfmt() << "{"
+            << "\"code\": 400,"
+            << "\"message\": \"Input failed conversion to protobuf\","
+            << "\"description\":" <<json_string(L_conv_status.ToString())
+            << "}";
+        return json_reply(A_conn, 400, "Bad Request", error_message.c_str(), error_message.length());
+    }
+    ::grpc::ClientContext L_context;
+    auto const L_start_time = std::chrono::system_clock::now();
+    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
+    L_context.set_deadline(L_deadline);
+    ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
+    if(!L_status.ok()) 
+        return rest_grpc_error(A_conn, L_context, L_status);
+    return message_reply(A_conn, L_outp);
 }
 }I}
 int start_civetweb(char const *rest_port) {
@@ -399,11 +467,9 @@ int start_civetweb(char const *rest_port) {
 	mg_set_request_handler(ctx, "/-node-input", node_schema_handler, (void*) 1);
 	mg_set_request_handler(ctx, "/-node-output", node_schema_handler, 0);
 	mg_set_request_handler(ctx, "/-methods", methods_handler, 0);
-{I:ENTRY_DOT_NAME{
-	mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", method_{{ENTRY_NAME}}_handler, 0);
+{I:ENTRY_DOT_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", method_{{ENTRY_NAME}}_handler, 0);
 }I}
-{I:CLI_NODE_NAME{
-	mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", method_node_{{CLI_NODE_ID}}_handler, 0);
+{I:CLI_NODE_NAME{    mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", method_node_{{CLI_NODE_ID}}_handler, 0);
 }I}
 /*
 	mg_set_request_handler(ctx, EXAMPLE_URI, ExampleHandler, 0);
@@ -474,7 +540,7 @@ int main(int argc, char *argv[]) {
     }I}
     if(error_count != 0) return 1;
 
-    {I:CLI_NODE_ID{std::string {{CLI_NODE_ID}}_endpoint(strchr({{CLI_NODE_ID}}_ep, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_ep): std::string({{CLI_NODE_ID}}_ep));
+    {I:CLI_NODE_ID{{{CLI_NODE_ID}}_endpoint = strchr({{CLI_NODE_ID}}_ep, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_ep): std::string({{CLI_NODE_ID}}_ep);
     }I}
     int listening_port;
     grpc::ServerBuilder builder;
