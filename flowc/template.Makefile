@@ -99,7 +99,7 @@ server: {{NAME}}-server
 
 deploy: {{NAME}}-server {{NAME}}-client
 	strip $^
-	mkdir -p ~/{{NAME}}
+	mkdir -p ~/{{NAME}}/docs
 	cp $^ ~/{{NAME}}
-	cp $(wildcard *.proto) ~/{{NAME}}
-	cp $(wildcard *.flow) ~/{{NAME}}
+	cp $(wildcard *.proto) ~/{{NAME}}/docs
+	cp $(wildcard *.flow) ~/{{NAME}}/docs
