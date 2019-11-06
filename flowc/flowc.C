@@ -677,8 +677,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     set(global_vars, "HTDOCS_VOLUME_NAME", htdocs_volume_name);
 
     // Check/generate the entry list for the rest gateway
-    // We only do this if we have rest and generated config files
-    if(add_rest_node) {
+    // Do this if we have rest and generated config files
+    if(add_rest_node || contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
         for(auto ep: names) if(ep.second.first == "entry") {
@@ -818,26 +818,28 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         if(error_count == 0) chmodx(outputfn);
     }
     if(error_count == 0 && (generate_kubernetes || generate_docker_compose || contains(targets, "server") || opts.have("build-server"))) {
-        for(auto const &entry: all(global_vars, "REST_ENTRY")) {
-            std::string ente(entry);
-            auto mdpe = check_method(ente, 0);
-            int n = 0;
+        for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
+            // Copy the entry name into a writable string because check_entry might overwrite it
+            std::string check_entry(entry_name);
+            auto mdpe = check_method(check_entry, 0);
+            // Find the node corresponding to this entry
+            int node = 0;
             for(auto ep: names) if(ep.second.first == "entry") {
-                std::string entn(ep.first);
-                if(mdpe == check_method(entn, 0)) {
-                    n = ep.second.second; 
+                node = ep.second.second; 
+                if(mdpe == method_descriptor(node))
                     break;
-                }
             }
-            assert(n != 0);
-            std::string outputfn = output_filename(entry + ".dot");
+            // There must always be a node...
+            assert(node != 0);
+            std::string entry(mdpe->name());
+            std::string outputfn = output_filename(std::string("docs/") + entry + ".dot");
             {
                 std::ofstream outf(outputfn.c_str());
                 if(!outf.is_open()) {
                     ++error_count;
                     pcerr.AddError(outputfn, -1, 0, "failed to write DOT file");
                 } else {
-                    print_graph(outf, n);
+                    print_graph(outf, node);
                 }
             }
             std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
