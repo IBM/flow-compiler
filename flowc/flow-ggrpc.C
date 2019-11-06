@@ -80,7 +80,7 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         switch(fd->type()) {
             case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-                buf << "\"type\":\"numeric\"";
+                buf << "\"type\":\"number\"";
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
@@ -102,7 +102,7 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 buf << "\"type\":[\"boolean\",\"integer\"]";
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
-                buf << "\"enum\":[";
+                buf << "\"type\":\"string\",\"enum\":[";
                 enum_as_strings(buf, fd->enum_type());
                 buf << "]";
                 break; 

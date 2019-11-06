@@ -324,23 +324,17 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * All files are compiled at this pont so,
      * set all as many of values that control code generation as possible
      */
-    bool generate_kubernetes = contains(targets, "kubernetes");
-    bool generate_docker_compose = contains(targets, "docker-compose");
-    bool generate_config_files = generate_kubernetes || generate_docker_compose;
-    bool build_bin = opts.have("build-client") || opts.have("build-server");
-    bool build_any = opts.have("build-image") || build_bin;
-
     set(global_vars, "REST_NODE_IMAGE", rest_image);
     // Whether REST is added or not depends on the value of the rest_image field -- for now
-    bool add_rest_node = generate_config_files && !rest_image.empty();
-    if(generate_config_files) {
+    bool add_rest_node = (contains(targets, "kubernetes") || contains(targets, "docker-compose")) && !rest_image.empty();
+    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
         for(auto const &nc: names) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
     }
     /********************************************************************
      * Generate C files for proto and grpc
      */
-    if(error_count == 0 && (contains(targets, "protobuf-files") || build_bin)) {
+    if(error_count == 0 && contains(targets, "protobuf-files")) {
         std::string fn = output_filename(orchestrator_logproto);
         {   // Write out the logger interface
             std::ofstream logpf(fn.c_str());
@@ -360,7 +354,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_protobuf(); 
     }
 
-    if(error_count == 0 && (contains(targets, "grpc-files") || build_bin))
+    if(error_count == 0 && contains(targets, "grpc-files"))
         error_count += genc_grpc(); 
 
     // Prepare include statements with all the grpc and pb generated headers
@@ -412,7 +406,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
 
     // Grab all the image names, image ports and volume names 
-    if(generate_config_files) {
+    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
         // Make a first pass to collect the declared ports and groups
         for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
@@ -479,7 +473,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(group_vars[pod_name], "G_IMAGE_PORT", std::to_string(pv));
 
             // For kubernetes check that ports in the same pod don't clash
-            if(generate_kubernetes) for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == pod_name) {
+            if(contains(targets, "kubernetes")) for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == pod_name) {
                 ++error_count;
                 pcerr.AddError(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.first << "\"");
                 // Only generate one port conflict message
@@ -655,9 +649,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     else
         clear(global_vars, "HAVE_REMOTE_RESOURCE");
 
-    bool generate_artifactory_get = generate_docker_compose && have_artifactory;
-    bool generate_cos_get = generate_docker_compose && have_cos;
-
     // Make sure the rest volume name doesn't collide with any other volume name
     std::string rest_volume_name = "proto-files";
     std::set<std::string> volumes;
@@ -704,7 +695,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     //std::cerr << "********* global: \n" << global_vars << "\n";
 
     // std::cerr << "----- before server: " << error_count << "\n";
-    if(error_count == 0 && (contains(targets, "server") || opts.have("build-server"))) {
+    if(error_count == 0 && contains(targets, "server")) {
         std::ofstream outf(server_source.c_str());
         if(!outf.is_open()) {
             ++error_count;
@@ -714,7 +705,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     // std::cerr << "----- before client: " << error_count << "\n";
-    if(error_count == 0 && (contains(targets, "client") || opts.have("build-client"))) {
+    if(error_count == 0 && contains(targets, "client")) {
         std::ofstream outf(client_source.c_str());
         if(!outf.is_open()) {
             ++error_count;
@@ -724,7 +715,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before makefile: " << error_count << "\n";
-    if(error_count == 0 && (contains(targets, "makefile") || build_any)) {
+    if(error_count == 0 && contains(targets, "makefile")) {
         std::string fn = output_filename(orchestrator_makefile);
         std::ofstream makf(fn.c_str());
         if(!makf.is_open()) {
@@ -736,7 +727,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before dockerfile: " << error_count << "\n";
-    if(error_count == 0 && (contains(targets, "dockerfile") || opts.have("build-image"))) {
+    if(error_count == 0 && contains(targets, "dockerfile")) {
         std::string fn = output_filename(orchestrator_dockerfile);
         std::ofstream outf(fn.c_str());
         if(!outf.is_open()) {
@@ -750,7 +741,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before build image: " << error_count << "\n";
-    if(error_count == 0 && opts.have("build-image")) {
+    if(error_count == 0 && contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
             << " DOCKERFILE=" << orchestrator_dockerfile << " image";
         if(system(makec.c_str()) != 0) {
@@ -759,11 +750,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before build bins: " << error_count << "\n";
-    if(error_count == 0 && build_bin) {
+    if(error_count == 0 && (contains(targets, "build-server") || contains(targets, "build-client"))) {
         std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile << " ";
-        if(opts.have("build-server") && opts.have("build-client")) 
+        if(contains(targets, "build-server") && contains(targets, "build-client")) 
             makec += "-j2 all";
-        else if(opts.have("build-server"))
+        else if(contains(targets, "build-server"))
             makec += "server";
         else 
             makec += "client";
@@ -773,7 +764,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before compose: " << error_count << "\n";
-    if(error_count == 0 && generate_docker_compose) {
+    if(error_count == 0 && contains(targets, "docker-compose")) {
         std::ostringstream yaml;
         error_count += genc_composer(yaml);
 
@@ -789,7 +780,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    if(error_count == 0 && generate_artifactory_get) {
+    if(error_count == 0 && contains(targets, "docker-compose") && have_artifactory) {
         std::string outputfn = output_filename(orchestrator_name + "-ag.sh");
         if(error_count == 0) {
             std::ofstream outs(outputfn.c_str());
@@ -803,7 +794,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    if(error_count == 0 && generate_cos_get) {
+    if(error_count == 0 && contains(targets, "docker-compose") && have_cos) {
         std::string outputfn = output_filename(orchestrator_name + "-cg.sh");
         if(error_count == 0) {
             std::ofstream outs(outputfn.c_str());
@@ -817,7 +808,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    if(error_count == 0 && (generate_kubernetes || generate_docker_compose || contains(targets, "server") || opts.have("build-server"))) {
+    if(error_count == 0 && contains(targets, "graph-files")) {
         for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
             // Copy the entry name into a writable string because check_entry might overwrite it
             std::string check_entry(entry_name);
@@ -842,21 +833,23 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                     print_graph(outf, node);
                 }
             }
-            std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
-            std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
-            if(system(dotc.c_str()) != 0)  {
-                pcerr.AddWarning(outputfn, -1, 0, "failed to gerenate graph svg, is dot available?");
-                append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(""));
-            } else {
-                std::ifstream svgf(svg_filename.c_str());
-                std::stringstream buf;
-                buf << svgf.rdbuf();
-                append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(buf.str()));
+            if(contains(targets, "svg-files")) {
+                std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
+                std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
+                if(system(dotc.c_str()) != 0)  {
+                    pcerr.AddWarning(outputfn, -1, 0, "failed to gerenate graph svg, is dot available?");
+                    append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(""));
+                } else {
+                    std::ifstream svgf(svg_filename.c_str());
+                    std::stringstream buf;
+                    buf << svgf.rdbuf();
+                    append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(buf.str()));
+                }
             }
         }
     }
     //std::cerr << "----- before kubernetes: " << error_count << "\n";
-    if(error_count == 0 && generate_kubernetes) {
+    if(error_count == 0 && contains(targets, "kubernetes")) {
         std::ostringstream yaml;
         error_count += genc_kube(yaml);
 
@@ -885,13 +878,18 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 extern char const *template_help, *template_syntax;
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
-    {"client",            {"protobuf-files", "grpc-files", "makefile", "dockerfile" }},
-    {"server",            {"protobuf-files", "grpc-files", "makefile", "dockerfile" }},
+    {"client",            {"grpc-files", "makefile", "dockerfile" }},
+    {"server",            {"grpc-files", "makefile", "svg-files", "dockerfile" }},
+    {"svg-files",         {"graph-files"}},
+    {"grpc-files",        {"protobuf-files"}},
+    {"build-client",      {"client"}},
+    {"build-server",      {"server"}},
+    {"build-image",       {"server", "client", "dockerfile"}},
+    {"makefile",          {}},
     {"docker-compose",    {}},
     {"kubernetes",        {}},
     {"protobuf-files",    {}},
-    {"grpc-files",        {"protobuf-files"}},
-    {"makefile",          {}},
+    {"graph-files",       {}},
 };
 
 
@@ -921,6 +919,20 @@ int main(int argc, char *argv[]) {
             targets.insert(kt.first);
             targets.insert(kt.second.begin(), kt.second.end());
         }
+    // Add all the dependent targets to the target list
+    while(true) {
+        auto stargets = targets.size();
+        std::set<std::string> tmp(targets.begin(), targets.end());
+        for(auto const &t: tmp) {
+            if(contains(targets, t)) {
+                auto dt = all_targets.find(t);
+                assert(dt != all_targets.end());
+                targets.insert(dt->second.begin(), dt->second.end());
+            }
+        }
+        if(stargets == targets.size()) 
+            break;
+    }
 
     flow_compiler gfc;
     gfc.trace_on = opts.have("trace");
