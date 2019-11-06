@@ -132,7 +132,6 @@ struct Logbuffer_info {
 };
 std::mutex global_display_mutex;
 
-
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
 

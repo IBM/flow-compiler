@@ -60,7 +60,7 @@ docker-push: docker-info
 docker-info:
 	@docker images $(IMAGE_REPO)
 
-$(IMAGE_PROXY): {{MAIN_FILE}} {P:PROTO_FILE{{{PROTO_FILE}} }P}
+$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P}
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	docker build --force-rm -t $(IMAGE) -f $(DOCKERFILE) .
 	-docker rmi $(IMAGE_REPO):latest 2>&1 > /dev/null
@@ -101,5 +101,4 @@ deploy: {{NAME}}-server {{NAME}}-client
 	strip $^
 	mkdir -p ~/{{NAME}}/docs
 	cp $^ ~/{{NAME}}
-	cp $(wildcard *.proto) ~/{{NAME}}/docs
-	cp $(wildcard *.flow) ~/{{NAME}}/docs
+	cp $(wildcard docs/*.proto) $(wildcard docs/*.svg) $(wildcard docs/*.flow) ~/{{NAME}}/docs

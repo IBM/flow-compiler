@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
 /** 
  * Set this to false to turn off ANSI coloring 
  */
@@ -205,8 +204,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     {
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
-        if(realpath(output_filename(main_file)) != realpath(real_input_filename)) 
-            cp_p(real_input_filename, output_filename(main_file));
+        std::string docs_directory = output_filename("docs");
+        mkdir(docs_directory.c_str(), 0777);
+        if(realpath(output_filename(std::string("docs/")+main_file)) != realpath(real_input_filename)) 
+            cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
         
         struct stat a_file_stat;
         stat(real_input_filename.c_str(), &a_file_stat);
@@ -289,7 +290,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     rest_image = opts.opt("rest-image", rest_image);
     if(!rest_image.empty() && rest_image[0] == '/') rest_image = path_join(default_repository, rest_image.substr(1));
     
-   
     orchestrator_tag = opts.opt("image-tag", "1");
     orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
 
@@ -387,8 +387,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         buf << protof.rdbuf();
         append(global_vars, "PROTO_FILE_YAMLSTR", c_escape(buf.str()));
         append(global_vars, "PROTO_FULL_PATH", realpath(filename));
-        if(realpath(output_filename(file)) != realpath(filename)) 
-            cp_p(filename, output_filename(file));
+        if(realpath(output_filename(std::string("docs/")+file)) != realpath(filename)) 
+            cp_p(filename, output_filename(std::string("docs/")+file));
     }
     // Set a value to trigger node generation
 
@@ -817,7 +817,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    if(error_count == 0 && (generate_kubernetes || generate_docker_compose)) {
+    if(error_count == 0 && (generate_kubernetes || generate_docker_compose || contains(targets, "server") || opts.have("build-server"))) {
         for(auto const &entry: all(global_vars, "REST_ENTRY")) {
             std::string ente(entry);
             auto mdpe = check_method(ente, 0);
@@ -840,7 +840,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                     print_graph(outf, n);
                 }
             }
-            std::string svg_filename = output_filename(entry + ".svg");
+            std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
             std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
             if(system(dotc.c_str()) != 0)  {
                 pcerr.AddWarning(outputfn, -1, 0, "failed to gerenate graph svg, is dot available?");
@@ -851,7 +851,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 buf << svgf.rdbuf();
                 append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(buf.str()));
             }
-
         }
     }
     //std::cerr << "----- before kubernetes: " << error_count << "\n";
