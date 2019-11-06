@@ -5,7 +5,6 @@
  * with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
  * 
  */
-
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
@@ -28,6 +27,10 @@
 extern "C" {
 #include <civetweb.h>
 }
+#ifndef MAX_REST_REQUEST_SZIE
+/** Size limit for the  REST request **/
+#define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
+#endif
 template <class S>
 static inline bool stringtobool(S s, bool default_value=false) {
     if(s.empty()) return default_value;
@@ -454,7 +457,7 @@ static int field_found(const char *key, const char *filename, char *path, size_t
 	}
 	return MG_FORM_FIELD_STORAGE_GET;
 }
-#define MAX_INPUT_SIZE 1024ul*1024ul*100ul
+
 static int get_form_data(struct mg_connection *conn, std::string &data) {
     char const *content_type = mg_get_header(conn, "Content-Type");
     if(content_type == nullptr || strcasecmp(content_type, "application/json") == 0) {
@@ -464,9 +467,9 @@ static int get_form_data(struct mg_connection *conn, std::string &data) {
 	    int r = mg_read(conn, &buffer[read], buffer.size() - read);
 	    while(r > 0) {
 		    read += r;
-            if(buffer.size() >= MAX_INPUT_SIZE) {
+            if(buffer.size() >= MAX_REST_REQUEST_SIZE) {
 	            char const *local_uri = mg_get_request_info(conn)->local_uri;
-                FLOG << "error: " << local_uri << ": Read execeeded buffer size of " << MAX_INPUT_SIZE << "\n";
+                FLOG << "error: " << local_uri << ": Read execeeded buffer size of " << MAX_REST_REQUEST_SIZE << " bytes\n";
                 return -1;
             }
             if(read == buffer.size()) 
@@ -496,12 +499,25 @@ static int get_form_data(struct mg_connection *conn, std::string &data) {
 static int file_handler(struct mg_connection *conn, void *cbdata) {
     std::string const &dir = *(std::string const *) cbdata;
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
-    FLOG << "from " << dir << " get " << local_uri << "\n";
-    return not_found(conn, sfmt() << "File " << local_uri << " not found in " << dir);
+    char const *common = strchr(local_uri+1, '/');
+    if(common != nullptr && *(common+1) != '\0') {
+        std::string filename = dir + common;
+        struct stat buffer;   
+        if(stat(filename.c_str(), &buffer) == 0) {
+            FLOG << "sending " << common+1 << " from " << dir << "\n";
+            mg_send_file(conn, filename.c_str());
+            return 1;
+        }
+    } else if(strcmp(local_uri, "/-docs") == 0) {
+        FLOG << "list -docs contents\n";
+    }
+    FLOG << "get \"" << local_uri << "\" not found...\n";
+    return not_found(conn, "File not found");
 }
 static int root_handler(struct mg_connection *conn, void *cbdata) {
+    bool rest_only = (bool) cbdata;
     char const *local_uri = mg_get_request_info(conn)->local_uri;
-    if(strcmp(local_uri, "/") != 0) 
+    if(rest_only || strcmp(local_uri, "/") != 0) 
         return not_found(conn, sfmt() << "Resource not found");
     
     // Look first in the app directory 
@@ -510,16 +526,19 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
     name = app_directory + "/index.html";
     if(stat(name.c_str(), &buffer) == 0) 
         return mg_send_http_redirect(conn, "/-app/index.html", 307); 
-    
+
+    // Then in the UI directory 
     name = www_directory + "/index.html";
     if(stat(name.c_str(), &buffer) == 0) 
         return mg_send_http_redirect(conn, "/-www/index.html", 307); 
-    
-    return not_found(conn, sfmt() << "Resource not found");
+    return not_found(conn, "Resource not found");
 }
 }
 {I:ENTRY_DOT_NAME{
-static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *) {
+static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+    if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
+        return rest::not_found(A_conn, "Resource not found");
+
     std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(rest::gateway_endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{ENTRY_SERVICE_NAME}}::Stub> L_client_stub = {{ENTRY_SERVICE_NAME}}::NewStub(L_channel);                    
     {{ENTRY_OUTPUT_TYPE}} L_outp; 
@@ -539,7 +558,9 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *) {
 }
 }I}
 {I:CLI_NODE_NAME{
-static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *) {
+static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+    if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
+        return rest::not_found(A_conn, "Resource not found");
     std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
     {{CLI_OUTPUT_TYPE}} L_outp; 
@@ -559,13 +580,13 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }
 }I}
 namespace rest {
-int start_civetweb(char const *rest_port) {
+int start_civetweb(char const *rest_port, bool rest_only=false) {
     const char *options[] = {
         "document_root", "/dev/null",
         "listening_ports", rest_port,
         "request_timeout_ms", "3600000",
         "error_log_file", "error.log",
-        "extra_mime_types", ".proto=text/plain,.svg=image/svg",
+        "extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
         "enable_auth_domain_check", "no",
         "max_request_size", "65536", 
         "num_threads", "12",
@@ -579,19 +600,21 @@ int start_civetweb(char const *rest_port) {
 	ctx = mg_start(&callbacks, 0, options);
 
 	if(ctx == nullptr) return 1;
-	mg_set_request_handler(ctx, "/-input", get_schema, 0);
-	mg_set_request_handler(ctx, "/-output", get_schema, 0);
-	mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
-	mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
-	mg_set_request_handler(ctx, "/-info", get_info, 0);
-{I:ENTRY_DOT_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", REST_{{ENTRY_NAME}}_handler, 0);
+{I:ENTRY_DOT_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", REST_{{ENTRY_NAME}}_handler, (void *) "/{{ENTRY_NAME}}");
 }I}
-{I:CLI_NODE_NAME{    mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", REST_node_{{CLI_NODE_ID}}_handler, 0);
-}I}
-	mg_set_request_handler(ctx, "/-docs", file_handler, (void *) &docs_directory);
-	mg_set_request_handler(ctx, "/-app", file_handler, (void *) &app_directory);
-	mg_set_request_handler(ctx, "/-www", file_handler, (void *) &www_directory);
 	mg_set_request_handler(ctx, "/", root_handler, 0);
+    if(!rest_only) {
+	    mg_set_request_handler(ctx, "/-input", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-output", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-info", get_info, 0);
+{I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", REST_node_{{CLI_NODE_ID}}_handler, (void *) "/-node/{{CLI_NODE_NAME}}");
+}I}
+	    mg_set_request_handler(ctx, "/-docs", file_handler, (void *) &docs_directory);
+	    mg_set_request_handler(ctx, "/-app", file_handler, (void *) &app_directory);
+	    mg_set_request_handler(ctx, "/-www", file_handler, (void *) &www_directory);
+    }
 
 	// List all listening ports 
 	struct mg_server_ports ports[32];
