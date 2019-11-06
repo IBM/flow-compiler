@@ -13,3 +13,7 @@ ADD --chown=worker:worker https://github.com/civetweb/civetweb/archive/v${CIVETW
 RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz && cd civetweb-${CIVETWEB_VERSION} && make lib WITH_IPV6=1 
 ENV CIVETWEB_INCS=-I/home/worker/civetweb-${CIVETWEB_VERSION}/include
 ENV CIVETWEB_LIBS=/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a
+
+RUN mkdir =p /home/worker/www
+
+COPY --chown=worker:worker www/* /home/worker/www/
