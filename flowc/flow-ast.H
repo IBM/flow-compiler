@@ -61,14 +61,15 @@ struct flow_ast {
     ast::attribute<google::protobuf::EnumValueDescriptor const *> enum_descriptor;
     ast::attribute<std::string> name;
     ast::attribute<std::string> type;
+    ast::attribute<std::string> description;
     ast::attribute<int> condition;
     ast::attribute<int> flag;
 
     bool has_attributes(int n) const {
-        return has_attr(n, name, type, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag);
+        return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag);
     }
     void copy_attributes(int from, int to) {
-        copy_attr(from, to, name, type, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag);
+        copy_attr(from, to, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag);
     }
     int mk_node(flow_token const &token) {
         store.push_back(flow_ast_node());

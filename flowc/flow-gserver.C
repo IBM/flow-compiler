@@ -1200,7 +1200,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     int error_count = 0;
     std::set<int> entry_node_set;
     // Sort the entries in source order
-    for(auto const &ne: names) if(ne.second.first == "entry") 
+    for(auto const &ne: names) if(ne.second.first == "entry")
         entry_node_set.insert(ne.second.second);
     
     ServiceDescriptor const *sdp = nullptr;
@@ -1213,7 +1213,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             pcerr.AddError(main_file, -1, 0, "all entries must be methods of the same service");
         }
         sdp = mdp->service();
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), main_description);
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
         std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
@@ -1225,6 +1225,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+        append(vars, "ENTRY_DESCRIPTION", description(entry_node));
+        append(vars, "ENTRY_DESCRIPTION_HTML", html_escape(description(entry_node)));
         if(entry_count == 1) {
             append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "MAIN_ENTRY_NAME", mdp->name());
@@ -1236,6 +1238,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
             append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+            append(vars, "MAIN_ENTRY_DESCRIPTION", description(entry_node));
+            append(vars, "MAIN_ENTRY_DESCRIPTION_HTML", html_escape(description(entry_node)));
         } else {
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "ALT_ENTRY_NAME", mdp->name());
@@ -1247,8 +1251,12 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
             append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+            append(vars, "ALT_ENTRY_DESCRIPTION", description(entry_node));
+            append(vars, "ALT_ENTRY_DESCRIPTION_HTML", html_escape(description(entry_node)));
         }
     }
+    if(entry_count > 1)
+        set(vars, "HAVE_ALT_ENTRY", "");
     return error_count;
 }
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
@@ -1261,6 +1269,8 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         std::string const &node_name = rn.second.name;
        
         append(vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
+        append(vars, "CLI_NODE_DESCRIPTION", description(cli_node));
+        append(vars, "CLI_NODE_DESCRIPTION_HTML", html_escape(description(cli_node)));
         append(vars, "CLI_NODE_NAME", node_name);
         append(vars, "CLI_NODE_ID", to_lower(to_identifier(node_name)));
         append(vars, "CLI_NODE_UPPERID", to_upper(to_identifier(node_name)));
@@ -1269,8 +1279,8 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
         append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
-        std::string input_schema = json_schema(mdp->input_type(), node_name, "");
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node));
+        std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node));
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
         append(vars, "CLI_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
@@ -1284,7 +1294,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
             pcerr.AddWarning(main_file, at(cli_node), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
         append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
-    if(node_count < 0) 
+    if(node_count > 0) 
         set(vars, "HAVE_CLI", "");
     return error_count;
 }

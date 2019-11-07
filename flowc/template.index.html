@@ -49,17 +49,28 @@
         <div class="container">
             <ul class="navbar-list">
                 <li class="navbar-item"><a class="navbar-link" href="/-www/index.html">{{NAME}}</a></li>
+{C:HAVE_CLI{{{HAVE_CLI}}
                 <li class="navbar-item">
-                    <a class="navbar-link" href="#" data-popover="#nodesNavPopover">Nodes</a>
+                    <a class="navbar-link" href="#" data-popover="#nodesNavPopover">Node</a>
                     <div id="nodesNavPopover" class="popover">
                         <ul class="popover-list">
-{I:CLI_NODE_NAME{<li class="popover-item"><a class="popover-link" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}} {{CLI_NODE_DESCRIPTION}}</a></li>
+{I:CLI_NODE_NAME{<li class="popover-item"><a class="popover-link" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}} {{CLI_NODE_DESCRIPTION_HTML}}</a></li>
 }I}
                         </ul>
                     </div>
                 </li>
-{I:ENTRY_NAME{<li class="navbar-item"><a class="navbar-link" href="/-docs/{{ENTRY_NAME}}.svg"></a>{{ENTRY_NAME}}</li>
+}C}
+
+                <li class="navbar-item">
+                    <a class="navbar-link" href="#" data-popover="#graphsNavPopover">Graph</a>
+                    <div id="graphsNavPopover" class="popover">
+                        <ul class="popover-list">
+{I:ENTRY_NAME{<li class="popover-item"><a class="navbar-link" href="/-docs/{{ENTRY_NAME}}.svg"></a>{{ENTRY_NAME}}</li>
 }I}
+                        </ul>
+                    </div>
+                </li>
+
                 <li class="navbar-item">
                     <a class="navbar-link" href="#" data-popover="#sourcesNavPopover">Sources</a>
                     <div id="sourcesNavPopover" class="popover">
@@ -87,7 +98,7 @@
                 </div>
             </div>
             <div class="row">
-{I:ENTRY_NAME{<div class="two columns"> <input class="button" type="submit" value="{{ENTRY_NAME}}"> </div>
+                {I:ENTRY_NAME{<div class="two columns"> <input class="button" type="submit" value="{{ENTRY_NAME}}"><div class="entry-description">{{ENTRY_DESCRIPTION_HTML}}</span> </div>
 }I}
                 <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>
                 <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>

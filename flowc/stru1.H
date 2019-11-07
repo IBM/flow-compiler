@@ -76,7 +76,7 @@ bool ends_with(std::string const &str, std::string const &with, std::string *pre
     return true;
 }
 inline static
-std::string strip(std::string const &str, std::string const &strip_chars) {
+std::string strip(std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
     auto b = str.find_first_not_of(strip_chars);
     if(b == std::string::npos) b = 0;
     auto e = str.find_last_not_of(strip_chars);

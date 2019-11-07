@@ -288,6 +288,14 @@ int flow_compiler::parse() {
         if(error_count > 0) 
             break;
         int ntok = mk_node(ftok);
+        std::string clean_prev_trailing = strip(prev_trailing);
+        std::string clean_next_leading = strip(next_leading); 
+        if(!clean_prev_trailing.empty() || !clean_next_leading.empty()) {
+            std::string join;
+            if(!clean_prev_trailing.empty() && !clean_next_leading.empty()) join = "\n";
+            description.put(ntok, clean_prev_trailing + join + clean_next_leading);
+        }
+
         add_comments(prev_trailing, ntok);
         for(auto const &s: detached) add_comments(s, ntok);
         add_comments(next_leading, ntok);
@@ -726,6 +734,8 @@ int flow_compiler::compile_stmt(int stmt_node) {
         }
         this->name.put(stmt.children[2], name);
         this->type.put(stmt.children[2], statement);
+        if(this->description.has(stmt.children[0]))
+            this->description.put(stmt.children[2], this->description(stmt.children[0]));
         auto nep = names.find(name);
         if(nep == names.end()) {
             // Quick access to the block node id
@@ -764,6 +774,8 @@ int flow_compiler::compile_stmt(int stmt_node) {
         method_descriptor.put(exp_node, mdp);
         copy_attributes(exp_node, stmt.children[2]);
         type.put(stmt.children[2], statement);
+        if(description.has(stmt.children[0]))
+            description.put(stmt.children[2], description(stmt.children[0]));
         if(mdp == nullptr) 
             return 1;
         if(names.find(method) != names.end()) {
