@@ -48,7 +48,7 @@
     <nav class="navbar">
         <div class="container">
             <ul class="navbar-list">
-                <li class="navbar-item"><a class="navbar-link" href="/-www/index.html">{{NAME}}</a></li>
+                <li class="navbar-item"><a class="navbar-link" href="/-www/index.html">{{NAME_UPPERID}}</a></li>
 {C:HAVE_CLI{{{HAVE_CLI}}
                 <li class="navbar-item">
                     <a class="navbar-link" href="#" data-popover="#nodesNavPopover">Node</a>
@@ -65,7 +65,7 @@
                     <a class="navbar-link" href="#" data-popover="#graphsNavPopover">Graph</a>
                     <div id="graphsNavPopover" class="popover">
                         <ul class="popover-list">
-{I:ENTRY_NAME{<li class="popover-item"><a class="navbar-link" href="/-docs/{{ENTRY_NAME}}.svg"></a>{{ENTRY_NAME}}</li>
+{I:ENTRY_NAME{<li class="popover-item"><a class="popover-link" href="/-docs/{{ENTRY_NAME}}.svg">{{ENTRY_NAME}}</a></li>
 }I}
                         </ul>
                     </div>
