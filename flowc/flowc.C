@@ -204,8 +204,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     {
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
-        std::string docs_directory = output_filename("docs");
-        mkdir(docs_directory.c_str(), 0777);
+        if(targets.size() > 0) {
+            std::string docs_directory = output_filename("docs");
+            mkdir(docs_directory.c_str(), 0777);
+        }
+        if(contains(targets, "www-files")) {
+            std::string www_directory = output_filename("www");
+            mkdir(www_directory.c_str(), 0777);
+        }
         if(realpath(output_filename(std::string("docs/")+main_file)) != realpath(real_input_filename)) 
             cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
         
@@ -848,6 +854,17 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
         }
     }
+    if(error_count == 0 && contains(targets, "www-files")) {
+        std::string outputfn = output_filename("www/index.html");
+        std::ofstream outf(outputfn.c_str());
+        if(!outf.is_open()) {
+            ++error_count;
+            pcerr.AddError(outputfn, -1, 0, "failed to write index.html");
+        } else {
+            extern char const *template_index_html;
+            render_varsub(outf, template_index_html, global_vars);
+        }
+    }
     //std::cerr << "----- before kubernetes: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "kubernetes")) {
         std::ostringstream yaml;
@@ -879,7 +896,7 @@ extern char const *template_help, *template_syntax;
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
     {"client",            {"grpc-files", "makefile", "dockerfile" }},
-    {"server",            {"grpc-files", "makefile", "svg-files", "dockerfile" }},
+    {"server",            {"grpc-files", "makefile", "svg-files", "dockerfile", "www-files" }},
     {"svg-files",         {"graph-files"}},
     {"grpc-files",        {"protobuf-files"}},
     {"build-client",      {"client"}},
@@ -889,9 +906,9 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"docker-compose",    {}},
     {"kubernetes",        {}},
     {"protobuf-files",    {}},
+    {"www-files",         {}},
     {"graph-files",       {}},
 };
-
 
 int main(int argc, char *argv[]) {
     signal(SIGSEGV, handler);
