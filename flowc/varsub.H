@@ -168,5 +168,30 @@ std::string render_varsub(std::string const &templ, MAP1 const &map, char const 
     render_varsub(out, templ.c_str(), map, empty, left, right);
     return out.str();
 }
+template <class MAP1> static inline
+std::ostream &to_json(std::ostream &out, MAP1 const &map1) {
+    out << "{";
+    int c = 0;
+    for(auto const &me1: map1) {
+        if(c++ != 0) out << ",\n";
+        std::string me1_name = me1.first;
+        bool escape = !(stru1::ends_with(me1_name, "_YAMLSTR") || stru1::ends_with(me1_name, "_JSON_C") || stru1::ends_with(me1_name, "_JSON"));
+        out << c_escape(me1_name) << ":";
+        if(me1.second.size() == 0) {
+            out << "null"; 
+        } else {
+            if(me1.second.size() > 1) out << "[";
+            int c = 0;
+            for(auto const &s: me1.second) {
+                if(c++ != 0) out << ",";
+                if(escape) out << stru1::c_escape(s);
+                else out << s;
+            }
+            if(me1.second.size() > 1) out << "]";
+        } 
+    }
+    out << "}";
+    return out;
+}
 }
 #endif
