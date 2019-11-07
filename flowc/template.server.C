@@ -346,11 +346,11 @@ std::string docs_directory("./docs");
 std::string www_directory("./www");
 
 std::map<std::string, char const *> schema_map = {
-{I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_JSON_SCHEMA_C}} },
-    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_JSON_SCHEMA_C}} },
+{I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON_C}} },
+    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON_C}} },
 }I}
-{I:ENTRY_DOT_NAME{   { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_JSON_SCHEMA_C}} }, 
-    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_JSON_SCHEMA_C}} }, 
+{I:ENTRY_NAME{   { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON_C}} }, 
+    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON_C}} }, 
 }I}
 };
 static int log_message(const struct mg_connection *conn, const char *message) {
@@ -416,7 +416,7 @@ static int bad_request_error(struct mg_connection *conn) {
 }
 static int get_info(struct mg_connection *conn, void *cbdata) {
     std::string info = sfmt() << "{"
-        {I:ENTRY_DOT_NAME{
+        {I:ENTRY_NAME{
             << "\"/{{ENTRY_NAME}}\": {"
                "\"timeout\": {{ENTRY_TIMEOUT:120000}},"
                "\"input-schema\": " << schema_map.find("/-input/{{ENTRY_NAME}}")->second << "," 
@@ -534,7 +534,7 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
     return not_found(conn, "Resource not found");
 }
 }
-{I:ENTRY_DOT_NAME{
+{I:ENTRY_NAME{
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
@@ -600,7 +600,7 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
 	ctx = mg_start(&callbacks, 0, options);
 
 	if(ctx == nullptr) return 1;
-{I:ENTRY_DOT_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", REST_{{ENTRY_NAME}}_handler, (void *) "/{{ENTRY_NAME}}");
+{I:ENTRY_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", REST_{{ENTRY_NAME}}_handler, (void *) "/{{ENTRY_NAME}}");
 }I}
 	mg_set_request_handler(ctx, "/", root_handler, 0);
     if(!rest_only) {
@@ -644,7 +644,7 @@ int main(int argc, char *argv[]) {
     if(argc != 2) {
        std::cout << "Usage: " << argv[0] << " GRPC-PORT\n\n";
        std::cout << "Set the ENDPOINT variable with the host:port for each node:\n";
-       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to disable the REST gateway service ({{REST_NODE_PORT}})\n";
