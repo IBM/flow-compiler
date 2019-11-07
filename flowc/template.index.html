@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Basic Page Info
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <meta charset="utf-8">
+    <title>{{NAME}} [REST Gateway]</title>
+    <meta name="description" content="generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})">
+    <meta name="author" content="{{FLOWC_NAME}} v{{FLOWC_VERSION}} ({{FLOWC_BUILD}})">
+
+    <!-- Mobile Specific Metas
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- FONT
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <link href='https://fonts.googleapis.com/css?family=Raleway:400,300,600' rel='stylesheet' type='text/css'>
+
+    <!-- CSS and Scripts
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+
+    <!--link rel='stylesheet' href='https://cdn.jsdelivr.net/foundation/5.0.2/css/foundation.min.css'-->
+    <!--link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/foundation/6.5.3/css/foundation.css'-->
+
+    <!--link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-exp.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-icons.min.css"/-->
+
+    <!--link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/1.1.2/tailwind.css"/-->
+
+    <!--link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"-->
+    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script-->
+
+    <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.css'>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@latest/dist/jsoneditor.min.js"></script>
+    <script>
+        </* barebones, spectre and tailwind are supposed to work */
+        JSONEditor.defaults.theme = 'html';          
+        JSONEditor.defaults.iconlib = 'fontawesome4';
+    </script>
+</head>
+<body>
+    <!-- Navigation Bar
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <div class="navbar-spacer"></div>
+    <nav class="navbar">
+        <div class="container">
+            <ul class="navbar-list">
+                <li class="navbar-item"><a class="navbar-link" href="/-www/index.html">{{NAME}}</a></li>
+                <li class="navbar-item">
+                    <a class="navbar-link" href="#" data-popover="#nodesNavPopover">Nodes</a>
+                    <div id="nodesNavPopover" class="popover">
+                        <ul class="popover-list">
+{I:CLI_NODE_NAME{<li class="popover-item"><a class="popover-link" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}} {{CLI_NODE_DESCRIPTION}}</a></li>
+}I}
+                        </ul>
+                    </div>
+                </li>
+{I:ENTRY_NAME{<li class="navbar-item"><a class="navbar-link" href="/-docs/{{ENTRY_NAME}}.svg"></a>{{ENTRY_NAME}}</li>
+}I}
+                <li class="navbar-item">
+                    <a class="navbar-link" href="#" data-popover="#sourcesNavPopover">Sources</a>
+                    <div id="sourcesNavPopover" class="popover">
+                        <ul class="popover-list">
+<li class="popover-item"><a class="popover-link" href="/-docs/{{MAIN_FILE}}">{{MAIN_FILE}}</a></li>
+{P:PROTO_FILE{<li class="popover-item"><a class="popover-link" href="/-docs/{{PROTO_FILE}}">{{PROTO_FILE}}</a></li>
+}P}
+                        </ul>
+                    </div>
+                </li>
+                <li class="navbar-item"><a class="navbar-link" href="/-info">System Info (JSON)</a></li>
+            </ul>
+        </div>
+    </nav>
+    <!-- Form Section
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <div class="section">
+        <div class="container">
+            <div class="row">
+                <div class="twelve columns" id= "form-holder">
+                </div>
+            </div>
+            <div class="row">
+                <div class="twelve columns">
+                </div>
+            </div>
+            <div class="row">
+{I:ENTRY_NAME{<div class="two columns"> <input class="button" type="submit" value="{{ENTRY_NAME}}"> </div>
+}I}
+                <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>
+                <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>
+            </div>
+        </div>
+    </div>
+    <!-- Results Section
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <div class="section">
+        <div class="container">
+            <div class="row">
+                <div class="twelve columns" id= "form-holder">
+                </div>
+            </div>
+            <div class="row">
+                <div class="twelve columns">
+                </div>
+            </div>
+            <div class="row">
+                <div class="two columns"> Status </div>
+                <div class="ten columns"> Message </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Document
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <script>
+      // Initialize the editor
+      var editor = new JSONEditor(document.getElementById('form-holder'),{
+        // Enable fetching schemas via ajax
+        ajax: true,
+        
+        // The schema for the editor is loaded here:
+        schema: {$ref: '/-input/answer'},
+    
+        disable_edit_json: true,
+        disable_properties: true,
+        no_additional_properties: true,
+        //object_layout: 'table',
+        compact: true,
+        grid_columns: 12,
+        
+        // Seed the form with a starting value
+        //startval: starting_value,
+        disable_collapse: true
+      });
+      
+      // Hook up the submit button to log to the console
+      
+      //document.getElementById('submit').addEventListener('click',function() {
+           // Get the value from the editor
+      //     console.log(editor.getValue());
+      //});
+      
+      // Hook up the Restore to Default button
+      //document.getElementById('restore-form').addEventListener('click',function() {
+      //     editor.setValue(starting_value);
+      //});
+    </script>
+</body>
+</html>

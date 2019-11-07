@@ -13,7 +13,7 @@
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
 
-BUILD_VERSION=0.3.7
+BUILD_VERSION=0.3.8
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -70,7 +70,8 @@ GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-confi
 
 TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template.docker-compose.sh \
 	template.docker-compose.yaml template.flow-logger.proto template.help template.kubernetes.group.yaml \
-	template.kubernetes.sh template.kubernetes.yaml template.server.C template.syntax template.runtime.Dockerfile
+	template.kubernetes.sh template.kubernetes.yaml template.server.C template.syntax template.runtime.Dockerfile \
+	template.index.html
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o
 

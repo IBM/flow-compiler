@@ -158,3 +158,6 @@ OPTIONS
 
        --version 
               Display the version and exit
+
+       --www-files
+              Output the generated UI files.
