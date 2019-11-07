@@ -6,7 +6,7 @@
         Generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <meta charset="utf-8">
-    <title>{{NAME}} [REST Gateway]</title>
+    <title>{{NAME_UPPERID}} [REST Gateway]</title>
 
     <!-- Mobile Specific Metas
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -36,7 +36,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@latest/dist/jsoneditor.min.js"></script>
     <script>
-        </* barebones, spectre and tailwind are supposed to work */
+        /* barebones, spectre and tailwind are supposed to work */
         JSONEditor.defaults.theme = 'html';          
         JSONEditor.defaults.iconlib = 'fontawesome4';
     </script>
@@ -54,7 +54,7 @@
                     <a class="navbar-link" href="#" data-popover="#nodesNavPopover">Node</a>
                     <div id="nodesNavPopover" class="popover">
                         <ul class="popover-list">
-{I:CLI_NODE_NAME{<li class="popover-item"><a class="popover-link" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}} {{CLI_NODE_DESCRIPTION_HTML}}</a></li>
+{I:CLI_NODE_NAME{<li class="popover-item"><a class="popover-link" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}} <div class="menu-description">{{CLI_NODE_DESCRIPTION_HTML}}</div></a></li>
 }I}
                         </ul>
                     </div>
@@ -98,9 +98,9 @@
                 </div>
             </div>
             <div class="row">
-                {I:ENTRY_NAME{<div class="two columns"> <input class="button" type="submit" value="{{ENTRY_NAME}}"><div class="entry-description">{{ENTRY_DESCRIPTION_HTML}}</span> </div>
+{I:ENTRY_NAME{<div class="two columns"> <input class="button" type="submit" value="{{ENTRY_NAME}}"><div class="entry-description">{{ENTRY_DESCRIPTION_HTML}}</span> </div>
 }I}
-                <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>
+                <div class="one column"> <button class="button" id='save-form'>Save</button> </div>
                 <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>
             </div>
         </div>
@@ -110,7 +110,7 @@
     <div class="section">
         <div class="container">
             <div class="row">
-                <div class="twelve columns" id= "form-holder">
+                <div class="twelve columns">
                 </div>
             </div>
             <div class="row">
@@ -127,6 +127,18 @@
     <!-- End Document
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <script>
+        var entries={
+{I:ALT_ENTRY_NAME{
+            "{{ALT_ENTRY_NAME}}": {
+                "method": "/{{ALT_ENTRY_NAME}}",
+                "schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
+            },
+}I}
+            "{{MAIN_ENTRY_NAME}}": {
+                "method": "/{{MAIN_ENTRY_NAME}}",
+                "schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
+            }
+        };
         // Initialize the editor
         var editor = new JSONEditor(document.getElementById('form-holder'),{
             // Enable fetching schemas via ajax
