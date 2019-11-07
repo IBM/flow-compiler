@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Basic Page Info
+    <!-- 
+        {{FLOWC_NAME}} v{{FLOWC_VERSION}} ({{FLOWC_BUILD}})
+        Generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <meta charset="utf-8">
     <title>{{NAME}} [REST Gateway]</title>
-    <meta name="description" content="generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})">
-    <meta name="author" content="{{FLOWC_NAME}} v{{FLOWC_VERSION}} ({{FLOWC_BUILD}})">
 
     <!-- Mobile Specific Metas
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- FONT
+    <!-- Fonts
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <link href='https://fonts.googleapis.com/css?family=Raleway:400,300,600' rel='stylesheet' type='text/css'>
 
@@ -116,37 +116,38 @@
     <!-- End Document
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <script>
-      // Initialize the editor
-      var editor = new JSONEditor(document.getElementById('form-holder'),{
-        // Enable fetching schemas via ajax
-        ajax: true,
-        
-        // The schema for the editor is loaded here:
-        schema: {$ref: '/-input/answer'},
-    
-        disable_edit_json: true,
-        disable_properties: true,
-        no_additional_properties: true,
-        //object_layout: 'table',
-        compact: true,
-        grid_columns: 12,
-        
-        // Seed the form with a starting value
-        //startval: starting_value,
-        disable_collapse: true
-      });
+        // Initialize the editor
+        var editor = new JSONEditor(document.getElementById('form-holder'),{
+            // Enable fetching schemas via ajax
+            ajax: true,
+
+            // The schema for the editor is loaded here:
+            //schema: {$ref: '/-input/{{MAIN_ENTRY_NAME}}'},
+            schema: {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
+            disable_edit_json: true,
+            disable_properties: true,
+            no_additional_properties: true,
+            //object_layout: 'table',
+            compact: true,
+            grid_columns: 12,
+
+            // Seed the form with a starting value
+            //startval: starting_value,
+            disable_collapse: true
+        });
       
-      // Hook up the submit button to log to the console
-      
-      //document.getElementById('submit').addEventListener('click',function() {
+        // Hook up the submit button to log to the console
+        /*
+        document.getElementById('submit').addEventListener('click',function() {
            // Get the value from the editor
-      //     console.log(editor.getValue());
-      //});
+            console.log(editor.getValue());
+        });
       
-      // Hook up the Restore to Default button
-      //document.getElementById('restore-form').addEventListener('click',function() {
-      //     editor.setValue(starting_value);
-      //});
+        // Hook up the Restore to Default button
+        document.getElementById('restore-form').addEventListener('click',function() {
+            editor.setValue(starting_value);
+        });
+        */
     </script>
 </body>
 </html>
