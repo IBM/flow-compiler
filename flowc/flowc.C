@@ -227,7 +227,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     set(global_vars, "NAME_ID", to_lower(to_identifier(orchestrator_name)));
     set(global_vars, "NAME_OPT", to_option(orchestrator_name));
     set(global_vars, "NAME_UPPER", to_upper(to_option(orchestrator_name)));
-    set(global_vars, "MAIN_DESCRIPTION", c_escape(main_description));
+    set(global_vars, "MAIN_DESCRIPTION_JSON", c_escape(main_description));
     set(global_vars, "NAME_UPPERID", to_upper(to_identifier(orchestrator_name)));
     /****************************************************************
      * file names
@@ -273,7 +273,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(token_comment.size() > 0 && token_comment[0].first == 1) {
         main_description = token_comment[0].second;
-        set(global_vars, "MAIN_DESCRIPTION", c_escape(main_description));
+        set(global_vars, "MAIN_DESCRIPTION_JSON", c_escape(main_description));
     }
 
     /*******************************************************************
@@ -391,7 +391,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             cp_p(filename, output_filename(std::string("docs/")+file));
     }
     // Set a value to trigger node generation
-
     clear(global_vars, "HAVE_NODES");
     if(referenced_nodes.size() > 0) 
         set(global_vars, "HAVE_NODES", ""); 
@@ -528,7 +527,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             if(!external_node) for(int p = 0, v = find_in_blck(blck, "mount", &p); v != 0; v = find_in_blck(blck, "mount", &p)) {
                 if(at(v).type != FTK_lblk) {
                     error_count += 1;
-                    pcerr.AddError(main_file, at(v), "mount must a labeled name/value pair block");
+                    pcerr.AddError(main_file, at(v), "mount must be a labeled name/value pair block");
                     continue;
                 }
                 std::string mount_name = get_id(at(v).children[0]);
@@ -698,7 +697,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         for(auto const &re: rest_entries) 
             append(global_vars, "ENTRY_UPPERID", to_upper(to_underscore(re)));
     }
-    //std::cerr << "********* global: \n" << global_vars << "\n";
+    // Generic entry and client node info. 
+    // Note that client here is not necessarily an instantiated node.
+    error_count += set_entry_vars(global_vars);
+    error_count += set_cli_node_vars(global_vars);
+
+    //std::cerr << "********* global: \n"; varsub::to_json(std::cerr, global_vars) << "\n";
 
     // std::cerr << "----- before server: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "server")) {

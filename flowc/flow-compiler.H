@@ -354,6 +354,13 @@ public:
     int genc_composer_driver(std::ostream &outs, std::string const &composer_yaml);
     int genc_kube_driver(std::ostream &outs, std::string const &kubernetes_yaml);
 
+    // Set code generation variables - all return the number of errors generated
+    
+    // Entry related info
+    int set_entry_vars(decltype(global_vars) &vars);
+    int set_cli_node_vars(decltype(global_vars) &vars);
+
+
     // Main call sequence
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts);
 };

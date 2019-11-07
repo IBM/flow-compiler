@@ -787,7 +787,7 @@ std::ostream &flow_compiler::gc_bexp(std::ostream &out, std::map<std::string, st
     }
     return out;
 }
-
+// Generate C++ code for a given Entry Method
 int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_dot_name, int blck_entry) {
     int indent = 1;
     auto eipp = entry_ip.find(blck_entry);
@@ -1196,59 +1196,114 @@ int flow_compiler::get_blck_timeout(int blck, int default_timeout) {
     }
     return timeout;
 }
-int flow_compiler::gc_server(std::ostream &out) {
+int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     int error_count = 0;
-    decltype(global_vars) local_vars;
+    std::set<int> entry_node_set;
+    // Sort the entries in source order
+    for(auto const &ne: names) if(ne.second.first == "entry") 
+        entry_node_set.insert(ne.second.second);
+    
     ServiceDescriptor const *sdp = nullptr;
-    for(auto const &ne: names) if(ne.second.first == "entry") {
-        auto entry_node = ne.second.second;
+    int entry_count = 0;
+    for(int entry_node: entry_node_set) {
+        ++entry_count;
         MethodDescriptor const *mdp = method_descriptor(entry_node);
-
         if(sdp != nullptr && sdp != mdp->service()) {
             error_count += 1;
             pcerr.AddError(main_file, -1, 0, "all entries must be methods of the same service");
         }
         sdp = mdp->service();
-        append(local_vars, "ENTRY_DOT_NAME", ne.first);
-        append(local_vars, "ENTRY_NAME", mdp->name());
-        append(local_vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
-        append(local_vars, "ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-        append(local_vars, "ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-        append(local_vars, "ENTRY_OUTPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), main_description)));
-        append(local_vars, "ENTRY_INPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description)));
-        append(local_vars, "ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
-        std::stringstream sbuf;
-        error_count += gc_server_method(sbuf, ne.first, ne.second.second);
-        append(local_vars, "ENTRY_CODE", sbuf.str());
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), main_description);
+        std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description);
+        append(vars, "ENTRY_FULL_NAME", mdp->full_name());
+        append(vars, "ENTRY_NAME", mdp->name());
+        append(vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
+        append(vars, "ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+        append(vars, "ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
+        append(vars, "ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
+        append(vars, "ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
+        append(vars, "ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
+        append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
+        append(vars, "ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+        if(entry_count == 1) {
+            append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
+            append(vars, "MAIN_ENTRY_NAME", mdp->name());
+            append(vars, "MAIN_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
+            append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+            append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
+            append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
+            append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
+            append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
+            append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
+            append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+        } else {
+            append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
+            append(vars, "ALT_ENTRY_NAME", mdp->name());
+            append(vars, "ALT_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
+            append(vars, "ALT_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+            append(vars, "ALT_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
+            append(vars, "ALT_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
+            append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
+            append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
+            append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
+            append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+        }
     }
-    set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
+    return error_count;
+}
+int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
+    int error_count = 0, node_count = 0;
     for(auto &rn: referenced_nodes) {
+        ++node_count;
         auto cli_node = rn.first;
         if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
             continue;
         std::string const &node_name = rn.second.name;
        
-        append(local_vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
-        append(local_vars, "CLI_NODE_NAME", node_name);
-        append(local_vars, "CLI_NODE_ID", to_lower(to_identifier(node_name)));
-        append(local_vars, "CLI_NODE_UPPERID", to_upper(to_identifier(node_name)));
+        append(vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
+        append(vars, "CLI_NODE_NAME", node_name);
+        append(vars, "CLI_NODE_ID", to_lower(to_identifier(node_name)));
+        append(vars, "CLI_NODE_UPPERID", to_upper(to_identifier(node_name)));
         auto mdp = method_descriptor(cli_node);
-        append(local_vars, "CLI_SERVICE_NAME", get_full_name(mdp->service()));
-        append(local_vars, "GRPC_SERVICE_NAME", mdp->service()->name());
-        append(local_vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-        append(local_vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        append(local_vars, "CLI_OUTPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "")));
-        append(local_vars, "CLI_INPUT_JSON_SCHEMA_C", c_escape(json_schema(mdp->input_type(), node_name, "")));
-        append(local_vars, "CLI_METHOD_NAME", mdp->name());
-        append(local_vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
+        append(vars, "CLI_SERVICE_NAME", get_full_name(mdp->service()));
+        append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
+        append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+        append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
+        std::string input_schema = json_schema(mdp->input_type(), node_name, "");
+        append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
+        append(vars, "CLI_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
+        append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
+        append(vars, "CLI_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+        append(vars, "CLI_METHOD_NAME", mdp->name());
+        append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
         int cc_value = 0;
         error_count += get_block_value(cc_value, cli_node, "replicas", false, {FTK_INTEGER});
         cc_value = cc_value == 0? default_maxcc: get_integer(cc_value);
         if(cc_value <= 0) 
             pcerr.AddWarning(main_file, at(cli_node), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
-        append(local_vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
+        append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
-    
+    if(node_count < 0) 
+        set(vars, "HAVE_CLI", "");
+    return error_count;
+}
+int flow_compiler::gc_server(std::ostream &out) {
+    int error_count = 0;
+    decltype(global_vars) local_vars;
+
+    std::set<int> entry_node_set;
+    // Sort the entries in source order
+    for(auto const &ne: names) if(ne.second.first == "entry") 
+        entry_node_set.insert(ne.second.second);
+
+    for(int entry_node: entry_node_set) {
+        std::stringstream sbuf;
+        error_count += gc_server_method(sbuf,  method_descriptor(entry_node)->full_name(), entry_node);
+        append(local_vars, "ENTRY_CODE", sbuf.str());
+    }
+    ServiceDescriptor const *sdp =  method_descriptor(*entry_node_set.begin())->service();
+    set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
 #if 0
     std::cerr << "** server * global **********************************\n";
     std::cerr << join(global_vars, "\n") << "\n";
