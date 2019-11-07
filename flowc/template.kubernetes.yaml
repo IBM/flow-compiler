@@ -107,7 +107,7 @@ $enable_htdocs          readOnly: false
           - name: rest
             containerPort: {{REST_IMAGE_PORT}}
         command: ["/home/worker/pr/bin/runpr3.sh"]
-        args: ["--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION}}, "--hostport", "localhost:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
+        args: ["--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION_JSON}}, "--hostport", "localhost:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
         volumeMounts:
         - name: {{REST_VOLUME_NAME}}
           mountPath: "/home/worker/pr/input"

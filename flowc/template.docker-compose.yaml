@@ -23,7 +23,7 @@ $enable_custom_app    - $app_PORT:{{CUSTOM_GUI_IMAGE_PORT}}/tcp
     volumes: 
     - $local_PROTO_FILES_PATH:/home/worker/pr/input:ro
 $enable_custom_app    - ${{NAME_UPPERID}}_HTDOCS:/home/worker/pr/htdocs:ro
-    command: ["/home/worker/pr/bin/runpr3.sh", "--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION}}, "--hostport", "{{NAME}}:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
+    command: ["/home/worker/pr/bin/runpr3.sh", "--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION_JSON}}, "--hostport", "{{NAME}}:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
 }R}
 {V:HAVE_VOLUMES{
 volumes:{{HAVE_VOLUMES}}
