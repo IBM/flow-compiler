@@ -16,161 +16,209 @@
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <link href='https://fonts.googleapis.com/css?family=Raleway:400,300,600' rel='stylesheet' type='text/css'>
 
-    <!-- CSS and Scripts
+    <!-- CSS 
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-
-    <!--link rel='stylesheet' href='https://cdn.jsdelivr.net/foundation/5.0.2/css/foundation.min.css'-->
-    <!--link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/foundation/6.5.3/css/foundation.css'-->
-
-    <!--link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-exp.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-icons.min.css"/-->
-
-    <!--link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/1.1.2/tailwind.css"/-->
-
-    <!--link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"-->
-    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script-->
-
     <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.css'>
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@latest/dist/jsoneditor.min.js"></script>
-    <script>
-        /* barebones, spectre and tailwind are supposed to work */
-        JSONEditor.defaults.theme = 'html';          
-        JSONEditor.defaults.iconlib = 'fontawesome4';
-    </script>
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/open-iconic/1.1.1/font/css/open-iconic-bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.3.1/litera/bootstrap.css">
+    <link rel="stylesheet" href="json.human.css">
+    <link rel="stylesheet" href="pr.css">
+    <style>
+        div[data-schemaid=root]>h3{ display: none; }
+    </style>
 </head>
 <body>
     <!-- Navigation Bar
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <div class="navbar-spacer"></div>
-    <nav class="navbar">
-        <div class="container">
-            <ul class="navbar-list">
-                <li class="navbar-item"><a class="navbar-link" href="/-www/index.html">{{NAME_UPPERID}}</a></li>
-{C:HAVE_CLI{{{HAVE_CLI}}
-                <li class="navbar-item">
-                    <a class="navbar-link" href="#" data-popover="#nodesNavPopover">Node</a>
-                    <div id="nodesNavPopover" class="popover">
-                        <ul class="popover-list">
-{I:CLI_NODE_NAME{<li class="popover-item"><a class="popover-link" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}} <div class="menu-description">{{CLI_NODE_DESCRIPTION_HTML}}</div></a></li>
-}I}
-                        </ul>
-                    </div>
-                </li>
+    <div id="pr-header-id" class="pr-header">
+        <nav class="navbar navbar-expand-sm">
+            <div class="navbar-nav mr-auto"><h3>{{NAME_UPPER}}</h3></div>  
+            <div class="navbar-expand ml-auto">
+                <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
+{N:HAVE_CLI{{{HAVE_CLI}}
+                    <li class="nav-item dropdown" id="doc-dropdown">
+                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Nodes<b class="caret"></b></a>
+                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
+                            <h5 class="dropdown-header">Internal Nodes</h5>
+{C:CLI_NODE_NAME{
+                            <a class="dropdown_item doc-selector" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}}<i>{{CLI_NODE_DESCRIPTION}}</i></a>
+                            <br>
 }C}
-
-                <li class="navbar-item">
-                    <a class="navbar-link" href="#" data-popover="#graphsNavPopover">Graph</a>
-                    <div id="graphsNavPopover" class="popover">
-                        <ul class="popover-list">
-{I:ENTRY_NAME{<li class="popover-item"><a class="popover-link" href="/-docs/{{ENTRY_NAME}}.svg">{{ENTRY_NAME}}</a></li>
+                        </div>
+                    </li>
+}N}
+                    <li class="nav-item dropdown" id="doc-dropdown">
+                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Graphs<b class="caret"></b></a>
+                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
+                            <h5 class="dropdown-header">Node Connection Graphs</h5>
+                            <a class="dropdown_item doc-selector" href="/-docs/{{MAIN_ENTRY_NAME}}.svg">{{MAIN_ENTRY_NAME}}</a>
+                            <br>
+{I:ALT_ENTRY_NAME{
+                            <a class="dropdown_item doc-selector" href="/-docs/{{ALT_ENTRY_NAME}}.svg">{{ALT_ENTRY_NAME}}</a>
+                            <br>
 }I}
-                        </ul>
-                    </div>
-                </li>
-
-                <li class="navbar-item">
-                    <a class="navbar-link" href="#" data-popover="#sourcesNavPopover">Sources</a>
-                    <div id="sourcesNavPopover" class="popover">
-                        <ul class="popover-list">
-<li class="popover-item"><a class="popover-link" href="/-docs/{{MAIN_FILE}}">{{MAIN_FILE}}</a></li>
-{P:PROTO_FILE{<li class="popover-item"><a class="popover-link" href="/-docs/{{PROTO_FILE}}">{{PROTO_FILE}}</a></li>
+                        </div>
+                    </li>
+                    <li class="nav-item dropdown" id="doc-dropdown">
+                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Sources<b class="caret"></b></a>
+                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
+                            <h5 class="dropdown-header">Source Files</h5>
+                            <a class="dropdown_item doc-selector" href="/-docs/{{MAIN_FILE}}">{{MAIN_FILE}} <i>{{NAME}} flow file</i></a>
+                            <br>
+{P:PROTO_FILE{
+                            <a class="dropdown_item doc-selector" href="/-docs/{{PROTO_FILE}}">{{PROTO_FILE}} <i>{{PROTO_FILE_DESCRIPTION}}</i></a>
+                            <br>
 }P}
-                        </ul>
-                    </div>
-                </li>
-                <li class="navbar-item"><a class="navbar-link" href="/-info">System Info (JSON)</a></li>
-            </ul>
-        </div>
-    </nav>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </div>
     <!-- Form Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <div class="section">
-        <div class="container">
-            <div class="row">
-                <div class="twelve columns" id= "form-holder">
+    <div class="pr-panel">
+        <div>
+            <form method="post" action="#">
+                <div id="pr-form-editor" class="m-4"></div>
+            </form>
+            <div id="pr-form-submit" class="btn-group m-4">
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="{{MAIN_ENTRY_NAME}}-submit" 
+                    style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{MAIN_ENTRY_NAME}}</button>
+                    <p>{{MAIN_ENTRY_DESCRIPTION}}</p>
                 </div>
-            </div>
-            <div class="row">
-                <div class="twelve columns">
+{I:ALT_ENTRY_NAME{              
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
+                    style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{ALT_ENTRY_NAME}}</button>
+                    <p>{{ALT_ENTRY_DESCRIPTION}}</p>
                 </div>
-            </div>
-            <div class="row">
-{I:ENTRY_NAME{<div class="two columns"> <input class="button" type="submit" value="{{ENTRY_NAME}}"><div class="entry-description">{{ENTRY_DESCRIPTION_HTML}}</span> </div>
 }I}
-                <div class="one column"> <button class="button" id='save-form'>Save</button> </div>
-                <div class="one column"> <button class="button" id='restore-form'>Restore</button> </div>
             </div>
         </div>
+        <div class="m-4">
+            <h3><label><a id="pr-debug-options-ctl" href="#"> Debug Options </a></label></h3>
+        </div>
+        <div id="pr-debug-options" class="form-inline d-none"></div>
     </div>
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <div class="section">
-        <div class="container">
-            <div class="row">
-                <div class="twelve columns">
-                </div>
+    <div id="pr-view" class="pr-view-panel d-none">
+        <div id="pr-cmds" class="btn-group-justified ml-4"></div>
+        <div id="pr-timing" class="d-none w-100" style="height: 0px;"></div>
+        <div id="pr-response">
+            <div id="pr-response-data" class="pr-content">
+                <div id="pr-rqt-data"></div>
+                <div id="pr-rsp-data"></div>
             </div>
-            <div class="row">
-                <div class="twelve columns">
+            <div id="pr-response-json" class="pr-split-view">
+                <div id="pr-json" class="pr-json-sel pr-content">
+                    <div id="pr-json-ed"></div>
+                    <br/><br/><br/>
                 </div>
-            </div>
-            <div class="row">
-                <div class="two columns"> Status </div>
-                <div class="ten columns"> Message </div>
+                <div class="pr-divider"> </div>
+                <div id="pr-trace" class="pr-trace">
+                    <pre id="pr-trace-msgs"> </pre>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- End Document
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.19/js/jquery.dataTables.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.19/js/dataTables.bootstrap4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-json-editor/1.1.0/jquery-json-editor.min.js"></script>
+    <script src="jquery-resizable.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@1.3.5/dist/jsoneditor.min.js"></script>
+    <script src="json.human.js"></script>
+    <script src="split-grid.js"></script>
     <script>
-        var entries={
-{I:ALT_ENTRY_NAME{
-            "{{ALT_ENTRY_NAME}}": {
-                "method": "/{{ALT_ENTRY_NAME}}",
-                "schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
-            },
+        var ui_data = {
+            "request-schema": {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
+            "methods": [
+                {
+                    "name": "{{MAIN_ENTRY_NAME}}",
+                    "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
+                }
+{I:ALT_ENTRY_NAME{               ,{
+                    "name": "{{ALT_ENTRY_NAME}}",
+                    "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
+                }
 }I}
-            "{{MAIN_ENTRY_NAME}}": {
-                "method": "/{{MAIN_ENTRY_NAME}}",
-                "schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
-            }
+            ]
         };
-        // Initialize the editor
-        var editor = new JSONEditor(document.getElementById('form-holder'),{
-            // Enable fetching schemas via ajax
-            ajax: true,
+        window.PR = {
+            ui_data: null,
+            init: function(data) {
+                PR.ui_data = data;
+                var h = $(window).height() - $(".pr-header").outerHeight(true);
+                $('.pr-panel').css("height", h);
+                JSONEditor.defaults.iconlibs.oi = JSONEditor.AbstractIconLib.extend({
+                    mapping: {
+                        collapse: 'chevron-top',
+                        expand: 'chevron-bottom',
+                        "delete": 'delete',
+                        edit: 'pencil',
+                        add: 'plus',
+                        cancel: 'ban',
+                        save: 'save',
+                        moveup: 'arrow-thick-up',
+                        movedown: 'arrow-thick-down',
+                        clear: 'circle-x',
+                        time: 'timer',
+                        calendar: 'calendar',
+                        upload: 'cloud-upload',
+                    },
+                    icon_class: 'oi',
+                    icon_prefix: 'oi oi-'
+                });
+        },
+        makeForm: function() {
+            var rqt_schema = PR.ui_data["request-schema"];
+            rqt_schema["format"] = "grid";
+            PR.form = new JSONEditor($('#pr-form-editor')[0], {
+                "schema" : rqt_schema,
+                "theme" : "bootstrap4",
+                "iconlib" : "oi",
+                "template" : "handlebars",
+                "disable_properties" : true,
+                "disable_edit_json" : true
+            });
+        },
+        makeMethods: function() {
+            PR.ui_data.methods.map(function(m) {
+            });
+        },
+        showResult: function() {
+        }
+    };
+    PR.init(ui_data);
+    PR.makeForm();
+    PR.makeMethods();
 
-            // The schema for the editor is loaded here:
-            //schema: {$ref: '/-input/{{MAIN_ENTRY_NAME}}'},
-            schema: {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
-            disable_edit_json: true,
-            disable_properties: true,
-            no_additional_properties: true,
-            //object_layout: 'table',
-            compact: true,
-            grid_columns: 12,
-
-            // Seed the form with a starting value
-            //startval: starting_value,
-            disable_collapse: true
-        });
-      
-        // Hook up the submit button to log to the console
-        /*
-        document.getElementById('submit').addEventListener('click',function() {
-           // Get the value from the editor
-            console.log(editor.getValue());
-        });
-      
-        // Hook up the Restore to Default button
-        document.getElementById('restore-form').addEventListener('click',function() {
-            editor.setValue(starting_value);
-        });
-        */
+/* schema per entry 
+  propertyOrder:
+  options : {
+    format: (color|date|datetime|datetime-local|email|month|password|
+          number|range|tel|text|textarea|time|url|week)
+    inputAttributes: {
+      placeholder:
+      class:
+      data-*:
+    }
+    grid_columns: [0-12]
+  }
+*/   
     </script>
 </body>
 </html>

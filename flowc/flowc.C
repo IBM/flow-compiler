@@ -369,11 +369,19 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     clear(global_vars, "GRPC_GENERATED_C");
     clear(global_vars, "GRPC_GENERATED_H");
     clear(global_vars, "PROTO_FILE");
+    clear(global_vars, "PROTO_FILE_DESCRIPTION");
 
     for(auto fdp: fdps) {
         std::string file(fdp->name());
+        std::vector<std::string> mns;
+        for(int s = 0, sdc = fdp->service_count(); s < sdc; ++s) {
+            auto const *sdp = fdp->service(s);
+            for(int m = 0, mdc = sdp->method_count(); m < mdc; ++m) 
+                mns.push_back(sdp->method(m)->full_name());
+        }
         std::string basefn = remove_suffix(file, ".proto");
         append(global_vars, "PROTO_FILE", file);
+        append(global_vars, "PROTO_FILE_DESCRIPTION", join(mns, ", ", " and "));
         append(global_vars, "PB_GENERATED_C", basefn+".pb.cc");
         append(global_vars, "PB_GENERATED_H", basefn+".pb.h");
         if(fdp->service_count() > 0) {
