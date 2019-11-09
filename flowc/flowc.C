@@ -876,6 +876,24 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             extern char const *template_index_html;
             render_varsub(outf, template_index_html, global_vars);
         }
+        for(auto &rn: referenced_nodes) {
+            auto cli_node = rn.first;
+            if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
+                continue;
+            decltype(global_vars) local_vars;
+            set_cli_active_node_vars(local_vars, cli_node);
+            std::string const &node_name = rn.second.name;
+
+            std::string outputfn = output_filename("www/"+node_name+"-index.html");
+            std::ofstream outf(outputfn.c_str());
+            if(!outf.is_open()) {
+                ++error_count;
+                pcerr.AddError(outputfn, -1, 0, sfmt() << "failed to write " << output_filename); 
+            } else {
+                extern char const *template_index_html;
+                render_varsub(outf, template_index_html, global_vars, local_vars);
+            }
+        }
     }
     //std::cerr << "----- before kubernetes: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "kubernetes")) {

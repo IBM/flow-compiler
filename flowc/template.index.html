@@ -35,13 +35,19 @@
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-header-id" class="pr-header">
         <nav class="navbar navbar-expand-sm">
-            <div class="navbar-nav mr-auto"><h3>{{NAME_UPPER}}</h3></div>  
+            <div class="navbar-nav mr-auto"><h3>{{NAME_UPPER}}{A:ACTIVE_NODE_UPPER{ - {{ACTIVE_NODE_UPPER}}}A}</h3></div>  
             <div class="navbar-expand ml-auto">
                 <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
+{A:ACTIVE_NODE_UPPER{{{HAVE_ACTIVE_NODE}}
+                    <li class="nav-item" id="home-menu">
+                        <a id="pr-home-link" class="nav-link" href="/-www/index.html">{{NAME}}</a>
+                    </li>
+}A}
+
 {N:HAVE_CLI{{{HAVE_CLI}}
-                    <li class="nav-item dropdown" id="doc-dropdown">
-                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Nodes<b class="caret"></b></a>
-                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
+                    <li class="nav-item dropdown" id="nodes-dropdown">
+                        <a id="pr-nodes-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Nodes<b class="caret"></b></a>
+                        <div id="pr-nodes-menu" class="dropdown-menu dropdown-menu-right">
                             <h5 class="dropdown-header">Internal Nodes</h5>
 {C:CLI_NODE_NAME{
                             <a class="dropdown_item doc-selector" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}}<i>{{CLI_NODE_DESCRIPTION}}</i></a>
@@ -50,19 +56,17 @@
                         </div>
                     </li>
 }N}
-                    <li class="nav-item dropdown" id="doc-dropdown">
-                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Graphs<b class="caret"></b></a>
-                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
+                    <li class="nav-item dropdown" id="graphs-dropdown">
+                        <a id="pr-graphs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Graphs<b class="caret"></b></a>
+                        <div id="pr-graphs-menu" class="dropdown-menu dropdown-menu-right">
                             <h5 class="dropdown-header">Node Connection Graphs</h5>
-                            <a class="dropdown_item doc-selector" href="/-docs/{{MAIN_ENTRY_NAME}}.svg">{{MAIN_ENTRY_NAME}}</a>
-                            <br>
-{I:ALT_ENTRY_NAME{
-                            <a class="dropdown_item doc-selector" href="/-docs/{{ALT_ENTRY_NAME}}.svg">{{ALT_ENTRY_NAME}}</a>
+{I:ENTRY_NAME{
+                            <a class="dropdown_item doc-selector" href="/-docs/{{ENTRY_NAME}}.svg">{{ENTRY_NAME}}</a>
                             <br>
 }I}
                         </div>
                     </li>
-                    <li class="nav-item dropdown" id="doc-dropdown">
+                    <li class="nav-item dropdown" id="sources-dropdown">
                         <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Sources<b class="caret"></b></a>
                         <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
                             <h5 class="dropdown-header">Source Files</h5>
@@ -89,13 +93,13 @@
                 <div class="form-group">
                     <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="{{MAIN_ENTRY_NAME}}-submit" 
                     style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{MAIN_ENTRY_NAME}}</button>
-                    <p>{{MAIN_ENTRY_DESCRIPTION}}</p>
+                    <p>{{MAIN_ENTRY_DESCRIPTION_HTML}}</p>
                 </div>
 {I:ALT_ENTRY_NAME{              
                 <div class="form-group">
                     <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
                     style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{ALT_ENTRY_NAME}}</button>
-                    <p>{{ALT_ENTRY_DESCRIPTION}}</p>
+                    <p>{{ALT_ENTRY_DESCRIPTION_HTML}}</p>
                 </div>
 }I}
             </div>
@@ -148,10 +152,12 @@
             "methods": [
                 {
                     "name": "{{MAIN_ENTRY_NAME}}",
+                    "url": "{{MAIN_ENTRY_URL}}",
                     "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
                 }
 {I:ALT_ENTRY_NAME{               ,{
                     "name": "{{ALT_ENTRY_NAME}}",
+                    "url": "{{ALT_ENTRY_URL}}",
                     "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
                 }
 }I}
