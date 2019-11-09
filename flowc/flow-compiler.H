@@ -359,6 +359,7 @@ public:
     // Entry related info
     int set_entry_vars(decltype(global_vars) &vars);
     int set_cli_node_vars(decltype(global_vars) &vars);
+    int set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node);
 
 
     // Main call sequence

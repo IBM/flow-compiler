@@ -1217,6 +1217,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
+        append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
         append(vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
         append(vars, "ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
@@ -1230,6 +1231,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         if(entry_count == 1) {
             append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "MAIN_ENTRY_NAME", mdp->name());
+            append(vars, "MAIN_ENTRY_URL", sfmt() << "/" << mdp->name());
             append(vars, "MAIN_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
             append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
             append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
@@ -1243,6 +1245,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         } else {
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "ALT_ENTRY_NAME", mdp->name());
+            append(vars, "ALT_ENTRY_URL", sfmt() << "/" << mdp->name());
             append(vars, "ALT_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
             append(vars, "ALT_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
             append(vars, "ALT_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
@@ -1259,6 +1262,35 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         set(vars, "HAVE_ALT_ENTRY", "");
     return error_count;
 }
+int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
+    int error_count = 0;
+    auto rn = referenced_nodes.find(cli_node);
+    assert(rn != referenced_nodes.end());
+    std::string const &node_name = rn->second.name;
+
+    clear(global_vars, "ALT_ENTRY_NAME");
+
+    append(vars, "HAVE_ACTIVE_NODE", "");
+    append(vars, "ACTIVE_NODE_UPPER", to_upper(node_name));
+    append(vars, "MAIN_ENTRY_DESCRIPTION", description(cli_node));
+    append(vars, "MAIN_ENTRY_DESCRIPTION_HTML", html_escape(description(cli_node)));
+    append(vars, "MAIN_ENTRY_NAME", node_name);
+    append(vars, "MAIN_ENTRY_URL", sfmt() << "/-node/" << node_name);
+    append(vars, "MAIN_ENTRY_ID", to_lower(to_identifier(node_name)));
+    append(vars, "MAIN_ENTRY_UPPERID", to_upper(to_identifier(node_name)));
+    auto mdp = method_descriptor(cli_node);
+    append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+    append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
+    std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node));
+    std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node));
+    append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
+    append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
+    append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
+    append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
+    append(vars, "MAIN_ENTRY_METHOD_NAME", mdp->name());
+    append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
+    return error_count;
+}
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     int error_count = 0, node_count = 0;
     for(auto &rn: referenced_nodes) {
@@ -1272,6 +1304,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_NODE_DESCRIPTION", description(cli_node));
         append(vars, "CLI_NODE_DESCRIPTION_HTML", html_escape(description(cli_node)));
         append(vars, "CLI_NODE_NAME", node_name);
+        append(vars, "CLI_NODE_URL", sfmt() << "/-node/" << node_name);
         append(vars, "CLI_NODE_ID", to_lower(to_identifier(node_name)));
         append(vars, "CLI_NODE_UPPERID", to_upper(to_identifier(node_name)));
         auto mdp = method_descriptor(cli_node);
