@@ -25,3 +25,4 @@ RUN tar -xvf /home/worker/bin.tar && rm /home/worker/bin.tar && chown -R worker:
 RUN mkdir -p {{NAME}}/www
 COPY --chown=worker:worker --from=base /home/worker/www/* /home/worker/{{NAME}}/www/
 USER worker
+WORKDIR /home/worker/{{NAME}}
