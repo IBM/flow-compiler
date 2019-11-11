@@ -30,6 +30,7 @@
         div[data-schemaid=root]>p{ font-variant: small-caps; }
         div.pr-button { width: 220px; margin-left: 0px; margin-right: 20px; margin-top: 8px; }
         p.form-text {  font-style: italic; }
+        p.pr-button-text {  font-style: italic; }
         label { font-weight: bold; }
     </style>
 </head>
@@ -99,13 +100,13 @@
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="{{MAIN_ENTRY_NAME}}-submit" 
                     style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{MAIN_ENTRY_NAME}}</button>
-                    <p>{{MAIN_ENTRY_DESCRIPTION_HTML}}</p>
+                    <p class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION_HTML}}</p>
                 </div>
 {I:ALT_ENTRY_NAME{              
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
                     style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{ALT_ENTRY_NAME}}</button>
-                    <p>{{ALT_ENTRY_DESCRIPTION_HTML}}</p>
+                    <p class="pr-button-text">{{ALT_ENTRY_DESCRIPTION_HTML}}</p>
                 </div>
 }I}
             </div>
