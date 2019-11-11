@@ -16,10 +16,10 @@ export docker_compose_TIMESTAMPS=
 # protorest mount path (original path: {{PROTO_FILES_PATH}})
 case "$0" in
     /*) 
-        export local_PROTO_FILES_PATH="$(dirname "$0")"
+        export local_PROTO_FILES_PATH="$(dirname "$0")/docs"
         ;;
     *)
-        export local_PROTO_FILES_PATH="$PWD/$(dirname "$0")"
+        export local_PROTO_FILES_PATH="$PWD/$(dirname "$0")/docs"
         ;;
 esac
 if [ -d "$local_PROTO_FILES_PATH/htdocs" ]

@@ -1,7 +1,7 @@
 FROM flowc AS base
 
 USER worker
-RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs
+RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs && mkdir -p /home/worker/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/www
 COPY --chown=worker:worker docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} /tmp/{{NAME}}/
 RUN cd /tmp/{{NAME}} && flowc --client --server {{MAIN_FILE}} --name {{NAME}} && make -j2 -f {{NAME}}.mak deploy && cd /tmp && rm -fr {{NAME}}
 
