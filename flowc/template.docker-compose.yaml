@@ -1,30 +1,20 @@
 version: '2.3'
 services:
   {{NAME}}:
-    environment: [ "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_TRACE=$trace_ENABLED", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
+    environment: [ "{{NAME_UPPERID}}_REST_PORT=$rest_PORT", "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_TRACE=$trace_ENABLED", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
     image: "{{PUSH_REPO:}}{{IMAGE}}"
     ports: ["$grpc_PORT:{{MAIN_PORT}}"]
     command: ["/home/worker/{{NAME}}/{{NAME}}-server", "{{MAIN_PORT}}"]
 {N:NODE_NAME{
 {{EXTERN_NODE}}  {{NODE_NAME}}:
 {{EXTERN_NODE}}    image: "{{NODE_IMAGE}}"
+{{EXTERN_NODE}}    group_add:
+{{EXTERN_NODE}}      - $docker_compose_RW_GID
 {{EXTERN_NODE}}$export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]
 {{EXTERN_NODE}}$default_RUNTIME{{SET_NODE_RUNTIME}}    runtime: {{NODE_RUNTIME}}
 {{EXTERN_NODE}}    {{NODE_ENVIRONMENT:}}
 {{EXTERN_NODE}}    {{NODE_MOUNTS:}}
 }N}
-{R:REST_NODE_NAME{
-  {{REST_NODE_NAME}}:
-    image: "{{REST_NODE_IMAGE}}"
-    ports: 
-    - $rest_PORT:{{REST_IMAGE_PORT}}/tcp
-    - $gui_PORT:{{GUI_IMAGE_PORT}}/tcp 
-$enable_custom_app    - $app_PORT:{{CUSTOM_GUI_IMAGE_PORT}}/tcp
-    volumes: 
-    - $local_PROTO_FILES_PATH:/home/worker/pr/input:ro
-$enable_custom_app    - ${{NAME_UPPERID}}_HTDOCS:/home/worker/pr/htdocs:ro
-    command: ["/home/worker/pr/bin/runpr3.sh", "--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION_JSON}}, "--hostport", "{{NAME}}:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
-}R}
 {V:HAVE_VOLUMES{
 volumes:{{HAVE_VOLUMES}}
 }V}

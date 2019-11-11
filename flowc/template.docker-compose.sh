@@ -12,30 +12,7 @@ export trace_ENABLED=0
 export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
-{R:REST_NODE_NAME{
-# protorest mount path (original path: {{PROTO_FILES_PATH}})
-case "$0" in
-    /*) 
-        export local_PROTO_FILES_PATH="$(dirname "$0")/docs"
-        ;;
-    *)
-        export local_PROTO_FILES_PATH="$PWD/$(dirname "$0")/docs"
-        ;;
-esac
-if [ -d "$local_PROTO_FILES_PATH/htdocs" ]
-then
-    export {{NAME_UPPERID}}_HTDOCS="$local_PROTO_FILES_PATH/htdocs"
-fi
-export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_NODE_PORT}}}
-export gui_PORT=${{{NAME_UPPERID}}_REST_PORT-{{GUI_NODE_PORT}}}
-export app_PORT=${{{NAME_UPPERID}}_REST_PORT-{{CUSTOM_GUI_NODE_PORT}}}
-{P:PROTO_FILE{if [ ! -f "$local_PROTO_FILES_PATH/{{PROTO_FILE}}" ]
-then
-    echo "proto file \"$local_PROTO_FILES_PATH/{{PROTO_FILE}}\" is missing, cannot continue"
-    exit 1
-fi
-}P}
-}R}
+export docker_compose_RW_GID=$(id -g)
 export grpc_PORT=${{{NAME_UPPERID}}_GRPC_PORT-{{MAIN_PORT}}}
 # default to running in the foreground
 fg_OR_bg=
@@ -160,20 +137,12 @@ echo ""
 echo   "    --grpc-port PORT  (or set {{NAME_UPPERID}}_GRPC_PORT)"
 echo   "        Override GRPC port (default is $grpc_PORT)"
 echo ""
-{R:REST_NODE_NAME{
 echo   "    --rest-port PORT  (or set {{NAME_UPPERID}}_REST_PORT)"
 echo   "        Override REST API port (default is $rest_PORT)"
-echo ""
-echo   "    --gui-port PORT  (or set {{NAME_UPPERID}}_GUI_PORT)"
-echo   "        Override REST API port (default is $gui_PORT)"
-echo ""
-echo   "    --app-port PORT  (or set {{NAME_UPPERID}}_APP_PORT)"
-echo   "        Override REST API port (default is $app_PORT)"
 echo ""
 echo   "    --htdocs DIRECTORY  (or set {{NAME_UPPERID}}_HTDOCS)"
 echo   "        Directory with custom application files (default is \"${{NAME_UPPERID}}_HTDOCS\")"
 echo ""
-}R}
 {O:VOLUME_OPTION{
 echo   "    --mount-{{VOLUME_OPTION:}} DIRECTORY  (or set {{VOLUME_NAME_VAR}})"
 echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME_VAR}})"
@@ -246,14 +215,7 @@ esac
 if [ $rc -eq 0 -a "$fg_OR_bg" != "" ]
 then
     echo "{{NAME}} gRPC service listening on port $grpc_PORT"
-    {R:REST_NODE_NAME{
     echo "{{NAME}} REST service listening on port $rest_PORT"
-    echo "{{NAME}} GUI available on port $gui_PORT"
-    if [ -z "$enable_custom_app" ]
-    then
-        echo "{{NAME}} App available on port $app_PORT"
-    fi
-}R}
 fi
 exit $rc
 
