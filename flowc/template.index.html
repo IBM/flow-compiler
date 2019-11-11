@@ -27,7 +27,10 @@
     <link rel="stylesheet" href="json.human.css">
     <style>
         div[data-schemaid=root]>h3{ display: none; }
+        div[data-schemaid=root]>p{ font-variant: small-caps; }
         div.pr-button { width: 220px; margin-left: 0px; margin-right: 20px; margin-top: 8px; }
+        p.form-text {  font-style: italic; }
+        label { font-weight: bold; }
     </style>
 </head>
 <body>
@@ -114,9 +117,9 @@
     </div>
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <div id="pr-view" class="pr-view-panel d-none">
+    <div id="pr-view" class="pr-view-panel">
         <div id="pr-cmds" class="btn-group-justified ml-4"></div>
-        <div id="pr-timing" class="d-none w-100" style="height: 0px;"></div>
+        <div id="pr-timing" class="w-100" style="height: 0px;"></div>
         <div id="pr-response">
             <div id="pr-response-data" class="pr-content">
                 <div id="pr-rqt-data"></div>
@@ -215,7 +218,7 @@
                             cache: false,
 							contentType: "application/json",
                             success: function(reply_obj, sts, jqxhr) {
-                                var reply_str = JSON.stringify(reply_obj);
+                                var reply_str = JSON.stringify(reply_obj, null, 4);
                                 $("#pr-response").html('<code style="color: green">'+reply_str+"</code>");
                             },
 							error: function(jqXHR, sts, exc) {
