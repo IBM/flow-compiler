@@ -350,8 +350,8 @@ public:
     int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int genc_kube(std::ostream &out);
-    int genc_composer(std::ostream &out);
-    int genc_composer_driver(std::ostream &outs, std::string const &composer_yaml);
+    int genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
+    int genc_composer_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
     int genc_kube_driver(std::ostream &outs, std::string const &kubernetes_yaml);
 
     // Set code generation variables - all return the number of errors generated

@@ -783,8 +783,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     //std::cerr << "----- before compose: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "docker-compose")) {
+        std::map<std::string, std::vector<std::string>> local_vars;
         std::ostringstream yaml;
-        error_count += genc_composer(yaml);
+        error_count += genc_composer(yaml, local_vars);
+        set(local_vars, "DOCKER_COMPOSE_YAML", yaml.str());
 
         std::string outputfn = output_filename(orchestrator_name + "-dc.sh");
         if(error_count == 0) {
@@ -793,7 +795,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 ++error_count;
                 pcerr.AddError(outputfn, -1, 0, "failed to write Docker Compose driver");
             } else {
-                error_count += genc_composer_driver(outs, yaml.str());
+                error_count += genc_composer_driver(outs, local_vars);
             }
         }
         if(error_count == 0) chmodx(outputfn);

@@ -193,9 +193,14 @@ int flow_compiler::genc_kube(std::ostream &out) {
 
     return 0;
 }
-int flow_compiler::genc_composer(std::ostream &out) {
+static std::string check_for_file_ref(std::string const &vv) {
+    if(starts_with(vv, "{{@") && ends_with(vv, "}}"))
+        return vv.substr(3, vv.length()-5);
+    return "";
+}
+int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
     int error_count = 0;
-    std::map<std::string, std::vector<std::string>> local_vars, env_vars;
+    std::map<std::string, std::vector<std::string>> env_vars;
     int base_port = this->base_port;
 
     // Make a list of all nodes and containers
@@ -213,6 +218,7 @@ int flow_compiler::genc_composer(std::ostream &out) {
         }
     }
     set(local_vars, "ORCHESTRATOR_ENVIRONMENT", join(orchestrator_env, ", ", "", "", "\"", "\""));
+    int tmp_count = 0;
 
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
@@ -233,8 +239,16 @@ int flow_compiler::genc_composer(std::ostream &out) {
         }
 
         std::vector<std::string> env;
-        for(auto const &nv: ni.environment) 
-            env.push_back(c_escape(sfmt() << nv.first << "=" << render_varsub(nv.second, env_vars)));
+        for(auto const &nv: ni.environment) {
+            std::string file_ref = check_for_file_ref(nv.second);
+            if(!file_ref.empty()) {
+                ++tmp_count;
+                append(local_vars, "GLOBAL_TEMP_VARS", sfmt() << "flow_local_TMP" << tmp_count << "=\"$(cat " << file_ref << ")\"");
+                env.push_back(c_escape(sfmt() << nv.first << "=" << "$flow_local_TMP" << tmp_count));
+            } else {
+                env.push_back(c_escape(sfmt() << nv.first << "=" << render_varsub(nv.second, env_vars)));
+            }
+        }
 
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
         append(local_vars, "SET_NODE_RUNTIME", ni.runtime.empty()? "#": "");
@@ -253,16 +267,26 @@ int flow_compiler::genc_composer(std::ostream &out) {
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
 
+    clear(local_vars, "VOLUME_OPTION");
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
-        auto cp = comments.find(vn);
-        if(cp != comments.end()) 
-            append(local_vars, "VOLUME_COMMENT", to_line_comment(join(cp->second, " "), "# "));
-        else 
-            append(local_vars, "VOLUME_COMMENT", "");
 
+        append(local_vars, "VOLUME_OPTION", to_option(vn));
         append(local_vars, "VOLUME_NAME", vn);
         append(local_vars, "VOLUME_NAME_VAR", to_upper(vn));
+        append(local_vars, "VOLUME_LOCAL", c_escape(mip.second.local));
+        append(local_vars, "VOLUME_ARTIFACTORY", mip.second.artifactory);
+        append(local_vars, "VOLUME_COS", mip.second.cos);
+        append(local_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
+
+        auto cp = comments.find(vn);
+        if(cp != comments.end()) {
+            append(local_vars, "VOLUME_HELP",  c_escape(join(cp->second, " ")));
+            append(local_vars, "VOLUME_COMMENT", to_line_comment(join(cp->second, " "), "# "));
+        } else {
+            append(local_vars, "VOLUME_COMMENT", "");
+            append(local_vars, "VOLUME_HELP", "");
+        }
     }
 #if 0
     std::cerr << "*************** compose ****************\n";
@@ -275,27 +299,9 @@ int flow_compiler::genc_composer(std::ostream &out) {
     render_varsub(out, template_docker_compose_yaml, global_vars, local_vars);
     return error_count;
 }
-int flow_compiler::genc_composer_driver(std::ostream &outs, std::string const &composer_yaml) {
+int flow_compiler::genc_composer_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars) {
     int error_count = 0;
     extern char const *template_docker_compose_sh; 
-    std::map<std::string, std::vector<std::string>> local_vars;
-
-    clear(local_vars, "VOLUME_OPTION");
-    for(auto const &mip: mounts) {
-        std::string const &vn = mip.second.name;
-        append(local_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
-        append(local_vars, "VOLUME_NAME", vn);
-        append(local_vars, "VOLUME_OPTION", to_option(vn));
-        append(local_vars, "VOLUME_NAME_VAR", to_upper(vn));
-        append(local_vars, "VOLUME_LOCAL", c_escape(mip.second.local));
-        append(local_vars, "VOLUME_ARTIFACTORY", mip.second.artifactory);
-        append(local_vars, "VOLUME_COS", mip.second.cos);
-        auto cp = comments.find(vn);
-        if(cp != comments.end()) 
-            append(local_vars, "VOLUME_HELP",  c_escape(join(cp->second, " ")));
-        else 
-            append(local_vars, "VOLUME_HELP", "");
-    }
 
 #if 0
     std::cerr << "****************************************\n";
@@ -305,7 +311,6 @@ int flow_compiler::genc_composer_driver(std::ostream &outs, std::string const &c
     std::cerr << "****************************************\n";
 #endif
 
-    set(local_vars, "DOCKER_COMPOSE_YAML", composer_yaml);
     render_varsub(outs, template_docker_compose_sh, global_vars, local_vars);
     return error_count;
 }

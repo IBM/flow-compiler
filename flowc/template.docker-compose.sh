@@ -5,6 +5,8 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
+{O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
+}O}
 {O:VOLUME_NAME_VAR{export flow_{{VOLUME_NAME_VAR}}={{VOLUME_LOCAL}}
 }O}
 docker_COMPOSE_PROJECT_NAME={{NAME}}
@@ -14,6 +16,7 @@ export docker_compose_TIMESTAMPS=
 export docker_compose_RW_GID=$(id -g)
 export grpc_PORT=${{{NAME_UPPERID}}_GRPC_PORT-{{MAIN_PORT}}}
 export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_NODE_PORT}}}
+
 # default to running in the foreground
 fg_OR_bg=
 export export_PORTS="#"
