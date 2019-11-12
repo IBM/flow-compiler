@@ -241,11 +241,15 @@ int flow_compiler::genc_composer(std::ostream &out) {
         append(local_vars, "NODE_RUNTIME", ni.runtime.empty()? ni.runtime: c_escape(ni.runtime));
 
         std::vector<std::string> mts;
+        bool have_rw_mounts = false;
         for(int t: ni.mounts) {
             auto const &minf = mounts.at(t);
-            for(auto const &path: minf.paths)
+            for(auto const &path: minf.paths) {
                 mts.push_back(sfmt() << minf.name << ":" << path << ":" << (minf.read_only? "ro" : "rw"));
+                have_rw_mounts = have_rw_mounts | !minf.read_only;
+            }
         }
+        append(local_vars, "HAVE_RW_VOLUMES", have_rw_mounts? "": "#");
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
 
@@ -279,6 +283,7 @@ int flow_compiler::genc_composer_driver(std::ostream &outs, std::string const &c
     clear(local_vars, "VOLUME_OPTION");
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
+        append(local_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
         append(local_vars, "VOLUME_NAME", vn);
         append(local_vars, "VOLUME_OPTION", to_option(vn));
         append(local_vars, "VOLUME_NAME_VAR", to_upper(vn));

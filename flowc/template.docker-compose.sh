@@ -8,7 +8,6 @@
 {O:VOLUME_NAME_VAR{export flow_{{VOLUME_NAME_VAR}}={{VOLUME_LOCAL}}
 }O}
 docker_COMPOSE_PROJECT_NAME={{NAME}}
-export trace_ENABLED=0
 export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
@@ -38,18 +37,8 @@ case "$1" in
     shift
     shift
     ;;
-    --app-port)
-    export app_PORT="$2"
-    shift
-    shift
-    ;;
     --grpc-port)
     export grpc_PORT="$2"
-    shift
-    shift
-    ;;
-    --gui-port)
-    export gui_PORT="$2"
     shift
     shift
     ;;
@@ -60,10 +49,6 @@ case "$1" in
     ;;
     -s|--skip-provision)
     export provision_ENABLED=0
-    shift
-    ;;
-    -t|--enable-trace)
-    export trace_ENABLED=1
     shift
     ;;
     -p|--export-ports)
@@ -90,6 +75,11 @@ esac
 done
 set -- "${args[@]}"
 
+if ! which envsubst > /dev/null 2>&1 
+then
+    echo "envsubst command not found"
+fi
+
 docker_COMPOSE_YAML=$(cat <<"ENDOFYAML"
 {{DOCKER_COMPOSE_YAML}}
 ENDOFYAML
@@ -114,12 +104,14 @@ then
         export enable_custom_app=
     fi
 fi
+{O:VOLUME_NAME_VAR{[ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME_VAR}}"
+}O}
 
 if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  -o "$1" == "config" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" ]
 then
 echo "{{NAME}}-dc.sh generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $0 <up|config|provision> [-b] [-p] [-r] [-s] [-t] [-T] [--xxx-port PORT] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "Usage $0 <up|config|provision> [-b] [-p] [-r] [-s] [-T] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $0 <down|logs>"
 echo ""
 echo "    -b  run docker compose in the background"
@@ -129,8 +121,6 @@ echo ""
 echo "    -r, --default-runtime  ignore runtime settings and run with the default Docker runtime"
 echo ""
 echo "    -s, --skip-provision  skip checking for new data files at startup"
-echo ""
-echo "    -t, --enable-trace  enable orchestrator call tracing"
 echo ""
 echo "    -T, --timestamps  show timestamps in logs"
 echo ""

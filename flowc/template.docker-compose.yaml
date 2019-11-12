@@ -1,15 +1,15 @@
 version: '2.3'
 services:
   {{NAME}}:
-    environment: [ "{{NAME_UPPERID}}_REST_PORT=$rest_PORT", "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_TRACE=$trace_ENABLED", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
+    environment: [ "{{NAME_UPPERID}}_REST_PORT=$rest_PORT", "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
     image: "{{PUSH_REPO:}}{{IMAGE}}"
     ports: ["$grpc_PORT:{{MAIN_PORT}}"]
     command: ["/home/worker/{{NAME}}/{{NAME}}-server", "{{MAIN_PORT}}"]
 {N:NODE_NAME{
 {{EXTERN_NODE}}  {{NODE_NAME}}:
 {{EXTERN_NODE}}    image: "{{NODE_IMAGE}}"
-{{EXTERN_NODE}}    group_add:
-{{EXTERN_NODE}}      - $docker_compose_RW_GID
+{{EXTERN_NODE}}{{HAVE_RW_VOLUMES}}    group_add:
+{{EXTERN_NODE}}{{HAVE_RW_VOLUMES}}      - $docker_compose_RW_GID
 {{EXTERN_NODE}}$export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]
 {{EXTERN_NODE}}$default_RUNTIME{{SET_NODE_RUNTIME}}    runtime: {{NODE_RUNTIME}}
 {{EXTERN_NODE}}    {{NODE_ENVIRONMENT:}}
