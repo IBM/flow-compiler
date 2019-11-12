@@ -220,7 +220,8 @@
 							contentType: "application/json",
                             success: function(reply_obj, sts, jqxhr) {
                                 var reply_str = JSON.stringify(reply_obj, null, 4);
-                                $("#pr-response").html('<code style="color: green">'+reply_str+"</code>");
+                                $("#pr-response").html('<pre style="color: green" id="pr-json-reply"></pre>');
+                                $("#pr-json-reply").text(reply_str);
                             },
 							error: function(jqXHR, sts, exc) {
                                 var emsg = (sts == null ? "error" : sts);
