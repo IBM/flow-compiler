@@ -27,11 +27,16 @@
     <link rel="stylesheet" href="json.human.css">
     <style>
         div[data-schemaid=root]>h3{ display: none; }
-        div[data-schemaid=root]>p{ font-variant: small-caps; }
-        div.pr-button { width: 220px; margin-left: 0px; margin-right: 20px; margin-top: 8px; }
-        p.form-text {  font-style: italic; }
-        p.pr-button-text {  font-style: italic; }
+        div[data-schemaid=root]>p{ font-size: 125%; font-variant: small-caps; font-weight: bold; }
+        div.pr-button { width: 220px; margin-left: 0px; margin-right: 20px; margin-top: 8px; display: inline-block; vertical-align: top; }
+        p.form-text,  
+        .pr-button-text {  font-style: italic; font-size: 75%;  white-space: normal; }
         label { font-weight: bold; }
+        .pr-stick-on { position: relative; white-space: nowrap;  }
+        .pr-stick-right { top: 0; right:0; position: absolute; }
+        @media (max-width: 770px) {
+            div.pr-button { display: block; }
+        }
     </style>
 </head>
 <body>
@@ -96,25 +101,25 @@
             <form method="post" action="#">
                 <div id="pr-form-editor" class="m-4"></div>
             </form>
-            <div id="pr-form-submit" class="btn-group m-4">
+            <div id="pr-form-submit" class="m-4 pr-stick-on">
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="{{MAIN_ENTRY_NAME}}-submit" 
-                    style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{MAIN_ENTRY_NAME}}</button>
-                    <p class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION_HTML}}</p>
+                    style="width: 200px; border-radius: 20px;">{{MAIN_ENTRY_NAME}}</button>
+                    <span class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION_HTML}}</span>
                 </div>
 {I:ALT_ENTRY_NAME{              
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
-                    style="width: 200px; margin-left: 0px; margin-right: 20px; margin-top: 8px; border-radius: 20px;">{{ALT_ENTRY_NAME}}</button>
-                    <p class="pr-button-text">{{ALT_ENTRY_DESCRIPTION_HTML}}</p>
+                    style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_NAME}}</button>
+                    <span class="pr-button-text">{{ALT_ENTRY_DESCRIPTION_HTML}}</span>
                 </div>
 }I}
+                <div class="form-group pr-button pr-debug-button pr-stick-right">
+                    <input type="checkbox" name="asycnhronous-calls" checked><span class="pr-button-text"> Overlapped gRPC Calls</span><br>
+                    <input type="checkbox" name="time-calls"><span class="pr-button-text"> Return Call Time Information</span>
+                </div>
             </div>
         </div>
-        <div class="m-4">
-            <h3><label><a id="pr-debug-options-ctl" href="#"> Debug Options </a></label></h3>
-        </div>
-        <div id="pr-debug-options" class="form-inline d-none"></div>
     </div>
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -218,6 +223,11 @@
                             data: rqtstr,
                             cache: false,
 							contentType: "application/json",
+                            beforeSend: function(request) {
+                                request.setRequestHeader("x-flow-time-calls", "1");
+                                request.setRequestHeader("x-flow-asynchronous-calls", "1");
+                                $("#pr-response").html('<pre style="color: blue" id="pr-json-reply">Sending request...</pre>');
+                            },
                             success: function(reply_obj, sts, jqxhr) {
                                 var reply_str = JSON.stringify(reply_obj, null, 4);
                                 $("#pr-response").html('<pre style="color: green" id="pr-json-reply"></pre>');
