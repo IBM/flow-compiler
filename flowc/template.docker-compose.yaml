@@ -1,9 +1,11 @@
 version: '2.3'
 services:
   {{NAME}}:
-    environment: [ "{{NAME_UPPERID}}_REST_PORT=$rest_PORT", "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
+    environment: [ "{{NAME_UPPERID}}_REST_PORT={{REST_IMAGE_PORT}}", "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
     image: "{{PUSH_REPO:}}{{IMAGE}}"
-    ports: ["$grpc_PORT:{{MAIN_PORT}}"]
+    ports: ["$grpc_PORT:{{MAIN_PORT}}", "$rest_PORT:{{REST_IMAGE_PORT}}"]
+$enable_custom_app    volumes: 
+$enable_custom_app      - ${{NAME_UPPERID}}_HTDOCS:/home/worker/{{NAME}}/app:ro
     command: ["/home/worker/{{NAME}}/{{NAME}}-server", "{{MAIN_PORT}}"]
 {N:NODE_NAME{
 {{EXTERN_NODE}}  {{NODE_NAME}}:

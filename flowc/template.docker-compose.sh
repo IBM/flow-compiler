@@ -13,6 +13,7 @@ export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
 export docker_compose_RW_GID=$(id -g)
 export grpc_PORT=${{{NAME_UPPERID}}_GRPC_PORT-{{MAIN_PORT}}}
+export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_NODE_PORT}}}
 # default to running in the foreground
 fg_OR_bg=
 export export_PORTS="#"
