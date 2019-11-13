@@ -24,7 +24,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/open-iconic/1.1.1/font/css/open-iconic-bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.3.1/litera/bootstrap.css">
-    <link rel="stylesheet" href="json.human.css">
     <style>
         div[data-schemaid=root]>h3{ display: none; }
         div[data-schemaid=root]>p{ font-size: 125%; font-weight: bold; }
@@ -38,6 +37,18 @@
             div.pr-button { display: block; }
         }
         p {  font-family: unset; }
+
+        .pr-message-good { font-weight: bold; color: blue; }
+        .pr-message-error { font-weight: bold; color: red; }
+
+        .pr-JSON-boolean { color: orange; }
+        .pr-JSON-number { color: green; }
+        .pr-JSON-string { color: blue; }
+        .pr-JSON-null { color: red; }
+        .pr-JSON-key { color: purple; }
+        .pr-JSON-array { }
+        .pr-JSON-object { }
+
     </style>
 </head>
 <body>
@@ -125,24 +136,9 @@
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-view" class="pr-view-panel">
-        <div id="pr-cmds" class="btn-group-justified ml-4"></div>
-        <div id="pr-timing" class="w-100" style="height: 0px;"></div>
-        <div id="pr-response">
-            <div id="pr-response-data" class="pr-content">
-                <div id="pr-rqt-data"></div>
-                <div id="pr-rsp-data"></div>
-            </div>
-            <div id="pr-response-json" class="pr-split-view">
-                <div id="pr-json" class="pr-json-sel pr-content">
-                    <div id="pr-json-ed"></div>
-                    <br/><br/><br/>
-                </div>
-                <div class="pr-divider"> </div>
-                <div id="pr-trace" class="pr-trace">
-                    <pre id="pr-trace-msgs"> </pre>
-                </div>
-            </div>
-        </div>
+        <div id="pr-message"></div>
+        <div id="pr-timing" class="w-100">------------</div>
+        <div id="pr-response"></div>
     </div>
 
     <!-- End Document
@@ -156,7 +152,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-json-editor/1.1.0/jquery-json-editor.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@1.3.5/dist/jsoneditor.min.js"></script>
-    <script src="json.human.js"></script>
     <script>
         var ui_data = {
             "request-schema": {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
@@ -178,12 +173,12 @@
             ui_data: null,
             init: function(data) {
                 PR.ui_data = data;
+                /*
                 var h = $(window).height() - $(".pr-header").outerHeight(true);
                 $('.pr-panel').css("height", h);
+                */
                 JSONEditor.defaults.iconlibs.oi = JSONEditor.AbstractIconLib.extend({
                     mapping: {
-                        collapse: 'chevron-top',
-                        expand: 'chevron-bottom',
                         "delete": 'delete',
                         edit: 'pencil',
                         add: 'plus',
@@ -212,9 +207,60 @@
                 "disable_edit_json" : true
             });
         },
+        appendOrReplace: function(obj, cont, repl) {
+            if(repl) {
+                obj.replaceWith(cont);
+            } else {
+                obj.html(obj.html()+cont);
+            }
+            return obj;
+        },
+        renderJSON: function(count, parentID, jo, replace) {
+            var go = $("#"+parentID);
+            if(typeof value === 'boolean') {
+                PR.appendOrReplace(go, '<span class="pr-JSON-boolean">'+jo+"</span>", replace);
+            } else 
+            if(typeof jo === 'string' || jo instanceof String) {
+                var localID = parentID+'-'+(count+1);
+                PR.appendOrReplace(go, '<span class="pr-JSON-string" id="'+localID+'">'+jo+"</span>", replace);
+                $("#"+localID).text(jo);
+            } else 
+            if(typeof jo === 'number' && isFinite(jo)) {
+                PR.appendOrReplace(go, '<span class="pr-JSON-number">'+jo+"</span>", replace);
+            } else 
+            if(jo && typeof jo === 'object' && jo.constructor === Array) {
+                var localID = parentID+'-'+(count+1);
+                PR.appendOrReplace(go, '<span class="pr-JSON-array" id="'+localID+'"></span>', replace);
+                for(const jao of jo) {
+                    PR.renderJSON(count+1, localID, jao, false);
+                }
+            } else 
+            if(jo && typeof jo === 'object' && jo.constructor === Object) {
+                var localID = parentID+'-'+(count+1);
+                var localIDv = parentID+'-v'+(count+1);
+                PR.appendOrReplace(go, '<span class="pr-JSON-object" id="'+localID+'"></span>', replace);
+                go = $("#"+localID);
+                var lc = 0;
+                for(const [key, val] of Object.entries(jo)) {
+                    lc = lc + 1;
+                    var localIDk = localID+'-k'+lc;
+                    var localIDv = localID+'-v'+lc;
+                    PR.appendOrReplace(go, '<span class="pr-JSON-key" id="'+localIDk+'"></span>' +
+                                      '<span id="'+localIDv+'"></span>', replace);
+                    $("#"+localIDk).text(key);
+                    PR.renderJSON(count+1, localIDv, val, true);
+                }
+            } else {
+                PR.appendOrReplace(go, '<span class="pr-JSON-null">null</span>', replace);
+            }
+            return count+1;
+        },
         connectButtons: function() {
             PR.ui_data.methods.map(function(m) {
                 $("#"+m.name+"-submit").on("click", function(e) { 
+                    $('html, body').animate({
+                        scrollTop: $("#pr-view").offset().top
+                    }, 2000);
                     var rqt = PR.form.getValue();
                     var rqtstr = JSON.stringify(rqt);
                     try { 
@@ -227,12 +273,20 @@
                             beforeSend: function(request) {
                                 request.setRequestHeader("x-flow-time-calls", "1");
                                 request.setRequestHeader("x-flow-asynchronous-calls", "1");
-                                $("#pr-response").html('<pre style="color: blue" id="pr-json-reply">Sending request...</pre>');
+                                $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
                             },
                             success: function(reply_obj, sts, jqxhr) {
+                                /*
                                 var reply_str = JSON.stringify(reply_obj, null, 4);
                                 $("#pr-response").html('<pre style="color: green" id="pr-json-reply"></pre>');
                                 $("#pr-json-reply").text(reply_str);
+                                */
+                                $("#pr-message").html('');
+                                $("#pr-response").html('');
+                                PR.renderJSON(0, "pr-response", reply_obj, false);
+                                $('html, body').animate({
+                                    scrollTop: $("#pr-view").offset().top
+                                }, 2000);
                             },
 							error: function(jqXHR, sts, exc) {
                                 var emsg = (sts == null ? "error" : sts);
@@ -254,10 +308,7 @@
         },
         printError: function(msg) {
             alert(msg);
-            /*
-            $("#pr-msg").html('<p style="color: red"><b>'+msg+"</b></p>");
-            $("#pr-footer").removeClass("d-none");
-            */
+            $("#pr-message").html('<p class="pr-message-error">'+msg+"</p>");
         },
     };
     PR.init(ui_data);
@@ -265,17 +316,54 @@
     PR.connectButtons();
 
 /* schema per entry 
-  propertyOrder:
-  options : {
-    format: (color|date|datetime|datetime-local|email|month|password|
-          number|range|tel|text|textarea|time|url|week)
-    inputAttributes: {
-      placeholder:
-      class:
-      data-*:
-    }
-    grid_columns: [0-12]
-  }
+
+// pretty-print-json ~ MIT License
+
+const prettyPrintJson = {
+   toHtml: (thing) => {
+      const htmlEntities = (string) => {
+         // Makes text displayable in browsers
+         return string
+            .replace(/&/g,   '&amp;')
+            .replace(/\\"/g, '&bsol;&quot;')
+            .replace(/</g,   '&lt;')
+            .replace(/>/g,   '&gt;');
+         };
+      const replacer = (match, p1, p2, p3, p4) => {
+         // Converts the four parenthesized capture groups (indent, key, value, end) into HTML
+         const part =       { indent: p1, key: p2, value: p3, end: p4 };
+         const key =        '<span class=json-key>';
+         const val =        '<span class=json-value>';
+         const bool =       '<span class=json-boolean>';
+         const str =        '<span class=json-string>';
+         const isBool =     ['true', 'false'].includes(part.value);
+         const valSpan =    /^"/.test(part.value) ? str : isBool ? bool : val;
+         const findName =   /"([\w]+)": |(.*): /;
+         const indentHtml = part.indent || '';
+         const keyName =    part.key && part.key.replace(findName, '$1$2');
+         const keyHtml =    part.key ? key + keyName + '</span>: ' : '';
+         const valueHtml =  part.value ? valSpan + part.value + '</span>' : '';
+         const endHtml =    part.end || '';
+         return indentHtml + keyHtml + valueHtml + endHtml;
+         };
+      const jsonLine = /^( *)("[^"]+": )?("[^"]*"|[\w.+-]*)?([{}[\],]*)?$/mg;
+      // Regex parses each line of the JSON string into four parts:
+      //    Capture group       Part        Description                  '   "active": true,'
+      //    ------------------  ----------  ---------------------------  --------------------
+      //    ( *)                p1: indent  Spaces for indentation       '   '
+      //    ("[^"]+": )         p2: key     Key name                     '"active": '
+      //    ("[^"]*"|[\w.+-]*)  p3: value   Key value                    'true'
+      //    ([{}[\],]*)         p4: end     Line termination characters  ','
+      return htmlEntities(JSON.stringify(thing, null, 3)).replace(jsonLine, replacer);
+      }
+
+   };
+
+if (typeof module === 'object')
+   module.exports = prettyPrintJson;  //node module loading system (CommonJS)
+if (typeof window === 'object')
+   window.prettyPrintJson = prettyPrintJson;  //support both global and window property
+
 */   
     </script>
 </body>
