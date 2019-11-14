@@ -39,15 +39,15 @@
         .pr-message-error { font-weight: bold; color: red; }
 
         #pr-response { font-size: 90%;  white-space: normal; }
-        .pr-JSON-boolean { color: orange; display: inline-block; }
-        .pr-JSON-number { font-weight: bold;  display: inline-block; }
+        .pr-JSON-sticky, .pr-JSON-boolean, .pr-JSON-number, .pr-JSON-null { margin-right: 12px;  display: inline-block; }
+        .pr-JSON-boolean { color: orange; }
+        .pr-JSON-number { font-weight: bold; }
+        .pr-JSON-null { color: red; }
         .pr-JSON-string { white-space: pre; }
-        .pr-JSON-null { color: red; display: inline-block; }
         .pr-JSON-key { font-weight: bold; font-style: italic; }
         .pr-JSON-array { }
-        .pr-JSON-object { margin-left: 12px;  }
-        .pr-JSON-sticky { margin-right: 12px;  display: inline-block; }
-
+        .pr-JSON-object { margin-left: 24px;  }
+        .pr-JSON-tiptext { font-weight: normal; font-size: 75% }
     </style>
 </head>
 <body>
@@ -214,47 +214,66 @@
             }
             return obj;
         },
-        renderJSON: function(count, parentID, jo, replace, keyID) {
-            var lc = count + 1;
-            var go = $("#"+parentID);
+        renderJSON: function(schema, container, objectID, jo, replace, keyO) {
             if(typeof value === 'boolean') {
-                PR.appendOrReplace(go, '<div class="pr-JSON-boolean">'+jo+"</div>", replace);
+                PR.appendOrReplace(container, '<div class="pr-JSON-boolean" id="'+objectID+'">'+jo+"</div>", replace);
+                if(keyO) keyO.addClass("pr-JSON-sticky");
             } else 
             if(typeof jo === 'string' || jo instanceof String) {
-                var localID = parentID+'-'+lc;
-                PR.appendOrReplace(go, '<div class="pr-JSON-string" id="'+localID+'">'+jo+"</div>", replace);
-                $("#"+localID).text(jo);
+                PR.appendOrReplace(container, '<div class="pr-JSON-string" id="'+objectID+'"></div>', replace);
+                $("#"+objectID).text(jo);
+                if(keyO && jo.length < 100) {
+                    keyO.addClass("pr-JSON-sticky");
+                    $("#"+objectID).addClass("pr-JSON-sticky");
+                }
             } else 
             if(typeof jo === 'number' && isFinite(jo)) {
-                PR.appendOrReplace(go, '<div class="pr-JSON-number">'+jo+"</div>", replace);
-                if(keyID) {
-                    $("#"+keyID).addClass("pr-JSON-sticky");
-                }
+                PR.appendOrReplace(container, '<div class="pr-JSON-number" id="'+objectID+'">'+jo+"</div>", replace);
+                if(keyO) keyO.addClass("pr-JSON-sticky");
             } else 
             if(jo && typeof jo === 'object' && jo.constructor === Array) {
-                var localID = parentID+'-'+lc;
-                PR.appendOrReplace(go, '<div class="pr-JSON-array" id="'+localID+'"></div>', replace);
+                var lc = 0;
+                PR.appendOrReplace(container, '<div class="pr-JSON-array" id="'+objectID+'"></div>', replace);
+                container = $("#"+objectID);
+                if(schema && 'type' in schema && schema['type'] === 'array' && 'items' in schema) 
+                    schema = schema['items'];
+                else 
+                    schema = null;
                 for(const jao of jo) {
-                    lc = PR.renderJSON(lc, localID, jao, false, null);
+                    lc = lc + 1;
+                    var localID = objectID + "-" + lc;
+                    PR.renderJSON(schema, container, localID, jao, false, null);
                 }
-            } else 
+            } else
             if(jo && typeof jo === 'object' && jo.constructor === Object) {
-                var localID = parentID+'-'+lc;
-                var localIDv = parentID+'-v'+lc;
-                PR.appendOrReplace(go, '<div class="pr-JSON-object" id="'+localID+'"></div>', replace);
-                go = $("#"+localID);
+                var lc = 0;
+                PR.appendOrReplace(container, '<div class="pr-JSON-object" id="'+objectID+'"></div>', replace);
+                container = $("#"+objectID);
+                var properties = null;
+                if(schema && 'type' in schema && schema['type'] === 'object') 
+                    properties = schema['properties'];
+
                 for(const [key, val] of Object.entries(jo)) {
-                    var localIDk = localID+'-k'+lc;
-                    var localIDv = localID+'-v'+lc;
-                    PR.appendOrReplace(go, '<div class="pr-JSON-key" id="'+localIDk+'"></div>' +
-                                      '<div id="'+localIDv+'"></div>', replace);
-                    $("#"+localIDk).text(key);
-                    lc = PR.renderJSON(count+1, localIDv, val, true, localIDk);
+                    lc = lc + 1;
+                    var localIDk = objectID+'-k'+lc;
+                    var localIDv = objectID+'-v'+lc;
+                    var localIDt = objectID+'-t'+lc;
+                    PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
+                    var ko = $("#"+localIDk);
+                    ko.text(key); 
+                    if(properties && key in properties) 
+                        schema = properties[key];
+                    else
+                        schema = null;
+                    if(schema && 'description' in schema) {                                                                                     
+                        ko.html(ko.html()+'<span class="pr-JSON-tiptext" id="'+localIDt+'"></span>');
+                        $("#"+localIDt).text(schema['description']);
+                    }
+                    PR.renderJSON(schema, $("#"+localIDv), localIDv, val, true, ko);
                 }
             } else {
-                PR.appendOrReplace(go, '<div class="pr-JSON-null">null</div>', replace);
+                PR.appendOrReplace(container, '<div class="pr-JSON-null" id="'+objectID+'">null</div>', replace);
             }
-            return lc;
         },
         connectButtons: function() {
             PR.ui_data.methods.map(function(m) {
@@ -279,13 +298,8 @@
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
                             },
                             success: function(reply_obj, sts, jqxhr) {
-                                /*
-                                var reply_str = JSON.stringify(reply_obj, null, 4);
-                                $("#pr-response").html('<pre style="color: green" id="pr-json-reply"></pre>');
-                                $("#pr-json-reply").text(reply_str);
-                                */
                                 $("#pr-message").html('');
-                                PR.renderJSON(0, "pr-response", reply_obj, false, null);
+                                PR.renderJSON(m["response-schema"], $("#pr-response"), "pr-response", reply_obj, true, null);
                                 $('html, body').animate({
                                     scrollTop: $("#pr-view").offset().top
                                 }, 2000);
