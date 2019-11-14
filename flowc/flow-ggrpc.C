@@ -99,7 +99,7 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 buf << "\"type\":\"string\"";
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
-                buf << "\"type\":[\"boolean\",\"integer\"]";
+                buf << "\"type\":\"boolean\"";
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
                 buf << "\"type\":\"string\",\"enum\":[";
