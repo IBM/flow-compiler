@@ -14,15 +14,12 @@
 
     <!-- Fonts
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <link href='https://fonts.googleapis.com/css?family=Raleway:400,300,600' rel='stylesheet' type='text/css'>
 
     <!-- CSS 
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.css'>
     <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/open-iconic/1.1.1/font/css/open-iconic-bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.3.1/litera/bootstrap.css">
     <style>
         div[data-schemaid=root]>h3{ display: none; }
@@ -41,13 +38,15 @@
         .pr-message-good { font-weight: bold; color: blue; }
         .pr-message-error { font-weight: bold; color: red; }
 
-        .pr-JSON-boolean { color: orange; }
-        .pr-JSON-number { color: green; }
-        .pr-JSON-string { color: blue; }
-        .pr-JSON-null { color: red; }
-        .pr-JSON-key { color: purple; }
+        #pr-response { font-size: 90%;  white-space: normal; }
+        .pr-JSON-boolean { color: orange; display: inline-block; }
+        .pr-JSON-number { font-weight: bold;  display: inline-block; }
+        .pr-JSON-string { white-space: pre; }
+        .pr-JSON-null { color: red; display: inline-block; }
+        .pr-JSON-key { font-weight: bold; font-style: italic; }
         .pr-JSON-array { }
-        .pr-JSON-object { }
+        .pr-JSON-object { margin-left: 12px;  }
+        .pr-JSON-sticky { margin-right: 12px;  display: inline-block; }
 
     </style>
 </head>
@@ -215,45 +214,47 @@
             }
             return obj;
         },
-        renderJSON: function(count, parentID, jo, replace) {
+        renderJSON: function(count, parentID, jo, replace, keyID) {
+            var lc = count + 1;
             var go = $("#"+parentID);
             if(typeof value === 'boolean') {
-                PR.appendOrReplace(go, '<span class="pr-JSON-boolean">'+jo+"</span>", replace);
+                PR.appendOrReplace(go, '<div class="pr-JSON-boolean">'+jo+"</div>", replace);
             } else 
             if(typeof jo === 'string' || jo instanceof String) {
-                var localID = parentID+'-'+(count+1);
-                PR.appendOrReplace(go, '<span class="pr-JSON-string" id="'+localID+'">'+jo+"</span>", replace);
+                var localID = parentID+'-'+lc;
+                PR.appendOrReplace(go, '<div class="pr-JSON-string" id="'+localID+'">'+jo+"</div>", replace);
                 $("#"+localID).text(jo);
             } else 
             if(typeof jo === 'number' && isFinite(jo)) {
-                PR.appendOrReplace(go, '<span class="pr-JSON-number">'+jo+"</span>", replace);
+                PR.appendOrReplace(go, '<div class="pr-JSON-number">'+jo+"</div>", replace);
+                if(keyID) {
+                    $("#"+keyID).addClass("pr-JSON-sticky");
+                }
             } else 
             if(jo && typeof jo === 'object' && jo.constructor === Array) {
-                var localID = parentID+'-'+(count+1);
-                PR.appendOrReplace(go, '<span class="pr-JSON-array" id="'+localID+'"></span>', replace);
+                var localID = parentID+'-'+lc;
+                PR.appendOrReplace(go, '<div class="pr-JSON-array" id="'+localID+'"></div>', replace);
                 for(const jao of jo) {
-                    PR.renderJSON(count+1, localID, jao, false);
+                    lc = PR.renderJSON(lc, localID, jao, false, null);
                 }
             } else 
             if(jo && typeof jo === 'object' && jo.constructor === Object) {
-                var localID = parentID+'-'+(count+1);
-                var localIDv = parentID+'-v'+(count+1);
-                PR.appendOrReplace(go, '<span class="pr-JSON-object" id="'+localID+'"></span>', replace);
+                var localID = parentID+'-'+lc;
+                var localIDv = parentID+'-v'+lc;
+                PR.appendOrReplace(go, '<div class="pr-JSON-object" id="'+localID+'"></div>', replace);
                 go = $("#"+localID);
-                var lc = 0;
                 for(const [key, val] of Object.entries(jo)) {
-                    lc = lc + 1;
                     var localIDk = localID+'-k'+lc;
                     var localIDv = localID+'-v'+lc;
-                    PR.appendOrReplace(go, '<span class="pr-JSON-key" id="'+localIDk+'"></span>' +
-                                      '<span id="'+localIDv+'"></span>', replace);
+                    PR.appendOrReplace(go, '<div class="pr-JSON-key" id="'+localIDk+'"></div>' +
+                                      '<div id="'+localIDv+'"></div>', replace);
                     $("#"+localIDk).text(key);
-                    PR.renderJSON(count+1, localIDv, val, true);
+                    lc = PR.renderJSON(count+1, localIDv, val, true, localIDk);
                 }
             } else {
-                PR.appendOrReplace(go, '<span class="pr-JSON-null">null</span>', replace);
+                PR.appendOrReplace(go, '<div class="pr-JSON-null">null</div>', replace);
             }
-            return count+1;
+            return lc;
         },
         connectButtons: function() {
             PR.ui_data.methods.map(function(m) {
@@ -273,6 +274,8 @@
                             beforeSend: function(request) {
                                 request.setRequestHeader("x-flow-time-calls", "1");
                                 request.setRequestHeader("x-flow-asynchronous-calls", "1");
+                                $("#pr-timing").html('');
+                                $("#pr-response").html('');
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
                             },
                             success: function(reply_obj, sts, jqxhr) {
@@ -282,8 +285,7 @@
                                 $("#pr-json-reply").text(reply_str);
                                 */
                                 $("#pr-message").html('');
-                                $("#pr-response").html('');
-                                PR.renderJSON(0, "pr-response", reply_obj, false);
+                                PR.renderJSON(0, "pr-response", reply_obj, false, null);
                                 $('html, body').animate({
                                     scrollTop: $("#pr-view").offset().top
                                 }, 2000);
@@ -315,56 +317,6 @@
     PR.makeForm();
     PR.connectButtons();
 
-/* schema per entry 
-
-// pretty-print-json ~ MIT License
-
-const prettyPrintJson = {
-   toHtml: (thing) => {
-      const htmlEntities = (string) => {
-         // Makes text displayable in browsers
-         return string
-            .replace(/&/g,   '&amp;')
-            .replace(/\\"/g, '&bsol;&quot;')
-            .replace(/</g,   '&lt;')
-            .replace(/>/g,   '&gt;');
-         };
-      const replacer = (match, p1, p2, p3, p4) => {
-         // Converts the four parenthesized capture groups (indent, key, value, end) into HTML
-         const part =       { indent: p1, key: p2, value: p3, end: p4 };
-         const key =        '<span class=json-key>';
-         const val =        '<span class=json-value>';
-         const bool =       '<span class=json-boolean>';
-         const str =        '<span class=json-string>';
-         const isBool =     ['true', 'false'].includes(part.value);
-         const valSpan =    /^"/.test(part.value) ? str : isBool ? bool : val;
-         const findName =   /"([\w]+)": |(.*): /;
-         const indentHtml = part.indent || '';
-         const keyName =    part.key && part.key.replace(findName, '$1$2');
-         const keyHtml =    part.key ? key + keyName + '</span>: ' : '';
-         const valueHtml =  part.value ? valSpan + part.value + '</span>' : '';
-         const endHtml =    part.end || '';
-         return indentHtml + keyHtml + valueHtml + endHtml;
-         };
-      const jsonLine = /^( *)("[^"]+": )?("[^"]*"|[\w.+-]*)?([{}[\],]*)?$/mg;
-      // Regex parses each line of the JSON string into four parts:
-      //    Capture group       Part        Description                  '   "active": true,'
-      //    ------------------  ----------  ---------------------------  --------------------
-      //    ( *)                p1: indent  Spaces for indentation       '   '
-      //    ("[^"]+": )         p2: key     Key name                     '"active": '
-      //    ("[^"]*"|[\w.+-]*)  p3: value   Key value                    'true'
-      //    ([{}[\],]*)         p4: end     Line termination characters  ','
-      return htmlEntities(JSON.stringify(thing, null, 3)).replace(jsonLine, replacer);
-      }
-
-   };
-
-if (typeof module === 'object')
-   module.exports = prettyPrintJson;  //node module loading system (CommonJS)
-if (typeof window === 'object')
-   window.prettyPrintJson = prettyPrintJson;  //support both global and window property
-
-*/   
     </script>
 </body>
 </html>
