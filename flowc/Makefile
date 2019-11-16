@@ -13,7 +13,7 @@
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
 
-BUILD_VERSION=0.3.11
+BUILD_VERSION=0.4.0
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -77,7 +77,7 @@ OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) artiget.sh cosget.sh $(TEMPLATE_FILES)
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) artiget.sh cosget.sh $(TEMPLATE_FILES) rr-keys.sh rr-get.sh
 
 %.o: %.C
 	${CXX} -std=c++17 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
@@ -100,7 +100,7 @@ flow-parser.c: flow-parser.Y
 clean:
 	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz base.Dockerfile template.runtime.Dockerfile
 
-flow-templates.C: $(TEMPLATE_FILES) artiget.sh cosget.sh
+flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh
 	echo "#include <string>" > $@
 	echo "#include <map>" >> $@
 	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-.' '__' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; done >> $@
@@ -129,7 +129,7 @@ install: flowc
 	cp $^ $(INSTALL_PREFIX)
 
 #################### Docker image builder
-flow-base-image-info.json: template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile $(MINSRC_FILES) cosget.sh artiget.sh
+flow-base-image-info.json: template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
 	cat template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
