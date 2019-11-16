@@ -16,6 +16,10 @@ export docker_compose_TIMESTAMPS=
 export docker_compose_RW_GID=$(id -g)
 export grpc_PORT=${{{NAME_UPPERID}}_GRPC_PORT-{{MAIN_PORT}}}
 export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_NODE_PORT}}}
+rget_EMBEDDED_KEY_TOOL=1
+download_file() {
+    {{RR_GET_SH:rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}
+}
 
 # default to running in the foreground
 fg_OR_bg=
@@ -108,8 +112,6 @@ then
         export enable_custom_app=
     fi
 fi
-{O:VOLUME_NAME_VAR{[ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME_VAR}}"
-}O}
 
 if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  -o "$1" == "config" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" ]
 then
@@ -153,24 +155,25 @@ exit 1
 fi
 {A:HAVE_ARTIFACTORY{
 {{HAVE_ARTIFACTORY}}
-{O:VOLUME_OPTION{artifactory_{{VOLUME_NAME_VAR}}="{{VOLUME_ARTIFACTORY}}"   
+{O:VOLUME_OPTION{remote_resource_{{VOLUME_NAME_VAR}}="{{VOLUME_ARTIFACTORY}}"   
 }O}
 }A}
+
+provision() {
+{A:HAVE_ARTIFACTORY{{{HAVE_ARTIFACTORY}}
+{O:VOLUME_OPTION{    [ -z "$remote_resource_{{VOLUME_NAME_VAR}}" ] || \
+        download_file -o "${{VOLUME_NAME_VAR}}" --untar "$remote_resource_{{VOLUME_NAME_VAR}}" || exit 1
+}O}
+}A}
+{O:VOLUME_NAME_VAR{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME_VAR}}"
+}O}
+    exit 0
+}
+
 case "$1" in
     provision)
-        rc=0
-{A:HAVE_ARTIFACTORY{
-        {{HAVE_ARTIFACTORY}}
-{O:VOLUME_OPTION{
-        if [ ! -z "$artifactory_{{VOLUME_NAME_VAR}}" ]
-        then
-            "$(dirname "$0")/{{NAME}}-ag.sh" -o "${{VOLUME_NAME_VAR}}" --untar "$artifactory_{{VOLUME_NAME_VAR}}"
-            rc=$?
-        fi
-        [ $rc -eq 0 ] || exit $rc
-}O}
-}A}
-        exit $rc
+        provision
+        exit $?
         ;;
     config)
         echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" config
@@ -185,25 +188,9 @@ case "$1" in
         exit $?
         ;;
     up)
-        rc=0
-{A:HAVE_ARTIFACTORY{
-        if [ $provision_ENABLED -ne 0 ]{{HAVE_ARTIFACTORY}}
-        then
-{O:VOLUME_OPTION{
-            if [ ! -z "$artifactory_{{VOLUME_NAME_VAR}}" ]
-            then
-                "$(dirname "$0")/{{NAME}}-ag.sh" -o "${{VOLUME_NAME_VAR}}" --untar "$artifactory_{{VOLUME_NAME_VAR}}"
-                rc=$?
-            fi
-            [ $rc -eq 0 ] || exit $rc
-}O}
-        fi
-}A}
-        if [ $rc -eq 0 ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up $fg_OR_bg
-            rc=$?
-        fi
+        [ $provision_ENABLED -eq 0 ] || provision || exit 1
+        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up $fg_OR_bg
+        rc=$?
         ;;
 esac
 if [ $rc -eq 0 -a "$fg_OR_bg" != "" ]
