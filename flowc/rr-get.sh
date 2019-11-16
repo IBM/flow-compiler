@@ -3,9 +3,9 @@
 get_credentials() {
     if [ -z "$rget_EMBEDDED_KEY_TOOL" ]
     then
-        source "$(dirname "$0")/rtool-keys.sh"
+        source "$(dirname "$0")/rr-keys.sh"
     else
-        {{RTOOL_KEYS}}
+        {{RR_KEYS_SH}}
     fi
 }
 
