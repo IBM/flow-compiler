@@ -204,16 +204,16 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     {
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
-        if(targets.size() > 0) {
+
+        if(contains(targets, "docs") || contains(targets, "graph-files")) {
             std::string docs_directory = output_filename("docs");
             mkdir(docs_directory.c_str(), 0777);
+            if(contains(targets, "docs")) {
+                // Copy the flow file into docs
+                if(realpath(output_filename(std::string("docs/")+main_file)) != realpath(real_input_filename)) 
+                    cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
+            }
         }
-        if(contains(targets, "www-files")) {
-            std::string www_directory = output_filename("www");
-            mkdir(www_directory.c_str(), 0777);
-        }
-        if(realpath(output_filename(std::string("docs/")+main_file)) != realpath(real_input_filename)) 
-            cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
         
         struct stat a_file_stat;
         stat(real_input_filename.c_str(), &a_file_stat);
@@ -221,7 +221,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         buffer[std::strftime(buffer, sizeof(buffer)-1, "%a, %e %b %Y %T %z", std::localtime(&a_file_stat.st_mtime))] = '\0';
         set(global_vars, "MAIN_FILE_TS", buffer);
     }
-   
+
+    if(contains(targets, "www-files")) {
+        std::string www_directory = output_filename("www");
+        mkdir(www_directory.c_str(), 0777);
+    }
+
     set(global_vars, "PROTO_FILES_PATH", path_join(std::getenv("PWD"), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
     set(global_vars, "NAME_ID", to_lower(to_identifier(orchestrator_name)));
@@ -395,8 +400,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         buf << protof.rdbuf();
         append(global_vars, "PROTO_FILE_YAMLSTR", c_escape(buf.str()));
         append(global_vars, "PROTO_FULL_PATH", realpath(filename));
-        if(realpath(output_filename(std::string("docs/")+file)) != realpath(filename)) 
-            cp_p(filename, output_filename(std::string("docs/")+file));
+
+        // Copy all the proto files into docs
+        if(contains(targets, "docs")) {
+            if(realpath(output_filename(std::string("docs/")+file)) != realpath(filename)) 
+                cp_p(filename, output_filename(std::string("docs/")+file));
+        }
     }
     // Set a value to trigger node generation
     clear(global_vars, "HAVE_NODES");
@@ -784,9 +793,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     //std::cerr << "----- before compose: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "docker-compose")) {
         std::map<std::string, std::vector<std::string>> local_vars;
-        std::ostringstream yaml;
-        error_count += genc_composer(yaml, local_vars);
-        set(local_vars, "DOCKER_COMPOSE_YAML", yaml.str());
+        std::ostringstream buff;
+        error_count += genc_composer(buff, local_vars);
+        set(local_vars, "DOCKER_COMPOSE_YAML",  buff.str());
+        extern char const *rr_keys_sh;
+        set(local_vars, "RR_KEYS_SH", rr_keys_sh);
+        extern char const *rr_get_sh;
+        buff.str("");
+        render_varsub(buff, rr_get_sh, local_vars);
+        set(local_vars, "RR_GET_SH",  buff.str());
 
         std::string outputfn = output_filename(orchestrator_name + "-dc.sh");
         if(error_count == 0) {
@@ -796,34 +811,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 pcerr.AddError(outputfn, -1, 0, "failed to write Docker Compose driver");
             } else {
                 error_count += genc_composer_driver(outs, local_vars);
-            }
-        }
-        if(error_count == 0) chmodx(outputfn);
-    }
-    if(error_count == 0 && contains(targets, "docker-compose") && have_artifactory) {
-        std::string outputfn = output_filename(orchestrator_name + "-ag.sh");
-        if(error_count == 0) {
-            std::ofstream outs(outputfn.c_str());
-            if(!outs.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write Artifactory puller");
-            } else {
-                extern char const *artiget_sh;
-                render_varsub(outs, artiget_sh, global_vars);
-            }
-        }
-        if(error_count == 0) chmodx(outputfn);
-    }
-    if(error_count == 0 && contains(targets, "docker-compose") && have_cos) {
-        std::string outputfn = output_filename(orchestrator_name + "-cg.sh");
-        if(error_count == 0) {
-            std::ofstream outs(outputfn.c_str());
-            if(!outs.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write COS puller");
-            } else {
-                extern char const *cosget_sh;
-                render_varsub(outs, cosget_sh, global_vars);
             }
         }
         if(error_count == 0) chmodx(outputfn);
@@ -938,7 +925,7 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"docker-compose",    {}},
     {"kubernetes",        {}},
     {"protobuf-files",    {}},
-    {"www-files",         {}},
+    {"www-files",         {"docs"}},
     {"graph-files",       {}},
 };
 
@@ -975,8 +962,8 @@ int main(int argc, char *argv[]) {
         for(auto const &t: tmp) {
             if(contains(targets, t)) {
                 auto dt = all_targets.find(t);
-                assert(dt != all_targets.end());
-                targets.insert(dt->second.begin(), dt->second.end());
+                if(dt != all_targets.end())
+                    targets.insert(dt->second.begin(), dt->second.end());
             }
         }
         if(stargets == targets.size()) 
