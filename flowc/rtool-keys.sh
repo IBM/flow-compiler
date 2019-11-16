@@ -20,8 +20,8 @@ flat_credentials() {
 	local PROFILE="$2"
 	while read PROF CREDS
 	do
-		[ "$PROFILE" == "$PROF" ] && cat <<< "$CREDS" | cut -d: --output-delimiter=$'\t' -f1,2 && break
-		[ -z "$CREDS" -a "$PROFILE" == "default" ] && cat <<< "$PROF" | cut -d: --output-delimiter=$'\t' -f1,2 && break
+		[ "$PROFILE" == "$PROF" ] && cut -d: -f1,2 <<< "$CREDS" | tr : $'\t' && break
+		[ -z "$CREDS" -a "$PROFILE" == "default" ] && cut -d: -f1,2 <<< "$PROF" | tr : $'\t' && break
 	done < "$FLAT_FILE"
 }
 
