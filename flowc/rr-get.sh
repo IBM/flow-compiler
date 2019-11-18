@@ -207,7 +207,8 @@ then
     rm -f "$rget_OUTPUT/tmp$$"
 fi
  
-[ ! -z "$rget_HAVE_FILE" ] && echo "$rget_HAVE_FILE is newer than the remote file" && exit 
+if [ -z "$rget_HAVE_FILE" ] 
+then
 
 case "$rget_FILE" in
     *.tgz|*.tar.gz)
@@ -230,10 +231,9 @@ echo "Downloading $rget_URL"
 if [ -z "$rget_UNTAR" ] 
 then
     get_file $rget_METHOD $rget_URL "$use_API_KEY"  > "$rget_FILE"
-    rc=$?
 else 
-    get_file $rget_METHOD $rget_URL "$use_API_KEY" | tar -x $tar_Z
-    rc=$?
-    [ $rc -eq 0 ] && touch "$rget_FILE"
+    get_file $rget_METHOD $rget_URL "$use_API_KEY" | tar -x $tar_Z  && touch "$rget_FILE"
 fi
-exit $rc
+else
+    echo "$rget_HAVE_FILE is newer than the remote file" 
+fi

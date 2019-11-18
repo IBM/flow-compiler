@@ -162,12 +162,11 @@ fi
 provision() {
 {A:HAVE_ARTIFACTORY{{{HAVE_ARTIFACTORY}}
 {O:VOLUME_OPTION{    [ -z "$remote_resource_{{VOLUME_NAME_VAR}}" ] || \
-        download_file -o "${{VOLUME_NAME_VAR}}" --untar "$remote_resource_{{VOLUME_NAME_VAR}}" || exit 1
+        download_file -o "${{VOLUME_NAME_VAR}}" --untar "$remote_resource_{{VOLUME_NAME_VAR}}" || return 1
 }O}
 }A}
 {O:VOLUME_NAME_VAR{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME_VAR}}"
 }O}
-    exit 0
 }
 
 case "$1" in
