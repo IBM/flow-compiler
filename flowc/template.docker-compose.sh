@@ -167,6 +167,7 @@ provision() {
 }A}
 {O:VOLUME_NAME_VAR{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME_VAR}}"
 }O}
+    return 0
 }
 
 case "$1" in
