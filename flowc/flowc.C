@@ -25,12 +25,14 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ftw.h>
 
 /** 
  * Set this to false to turn off ANSI coloring 
  */
 bool use_ansi_escapes = true;
 
+static std::string install_directory;
 static std::string output_directory;
 static 
 std::string output_filename(std::string const &filename) {
@@ -87,6 +89,14 @@ void handler(int sig) {
 #endif
     exit(1);
 }
+
+bool is_dir(char const *fn) {
+	struct stat sb;
+    if(stat(fn, &sb) == -1) 
+		return false;	
+    return (sb.st_mode & S_IFMT) == S_IFDIR;
+}
+
 void chmodx(std::string const &fn) {
 	struct stat sb;
     char const *fpath = fn.c_str();
@@ -935,6 +945,14 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"graph-files",       {}},
 };
 
+static std::set<std::string> can_use_tempdir = {
+    "build-image" /*, "build-server", "build_client"*/
+};
+
+static int remove_callback(const char *pathname, const struct stat *, int, struct FTW *) {
+    return remove (pathname);
+} 
+
 int main(int argc, char *argv[]) {
     signal(SIGSEGV, handler);
     helpo::opts opts;
@@ -956,11 +974,14 @@ int main(int argc, char *argv[]) {
     use_ansi_escapes = opts.optb("color", use_ansi_escapes && isatty(fileno(stderr)) && isatty(fileno(stdout)));
 
     std::set<std::string> targets;
+    bool use_tempdir = true;
     for(auto kt: all_targets) 
         if(opts.have(kt.first)) {
             targets.insert(kt.first);
+            use_tempdir = use_tempdir && contains(can_use_tempdir, kt.first);
             targets.insert(kt.second.begin(), kt.second.end());
         }
+    
     // Add all the dependent targets to the target list
     while(true) {
         auto stargets = targets.size();
@@ -978,15 +999,45 @@ int main(int argc, char *argv[]) {
 
     flow_compiler gfc;
     gfc.trace_on = opts.have("trace");
+    char const *tmp_dirname = nullptr;
 
     std::string orchestrator_name(opts.opt("name", basename(argv[1], ".flow")));
-    output_directory = opts.opt("output-directory", "");
+    output_directory = opts.opt("output-directory", ".");
+    install_directory = output_directory;
 
     if(orchestrator_name == argv[1]) {
         std::cerr << "The orchestrator name is the same as the input file, use --name to change\n";
         return 1;
     }
-    //std::cerr << "The orchestrator name is " << orchestrator_name <<"\n";
+    if(use_tempdir && targets.size() > 0) {
+        char path[4096];
+        char const *tmpdir = getenv("TMPDIR");
+        if(tmpdir != nullptr) {
+            strcpy(path, tmpdir);
+        } else {
+            strcpy(path, "/tmp");
+        }
+        if(is_dir(path)) {
+            unsigned dirlen = strlen(path);
+            if(path[0] && path[dirlen-1] != '/') {
+                path[dirlen] = '/'; path[++dirlen] = '\0';
+            }
+        } else {
+            path[0] = '\0';
+        }
+        strcat(path, "flowcXXXXXX");
+        tmp_dirname = mkdtemp(path);
+        if(tmp_dirname == nullptr) {
+            perror("error: ");
+            return 1;
+        }
+        output_directory = tmp_dirname;
+    }
     int rc = gfc.process(argv[1], orchestrator_name, targets, opts);
+    if(use_tempdir && tmp_dirname != nullptr &&
+            nftw(tmp_dirname, remove_callback, FOPEN_MAX, FTW_DEPTH | FTW_MOUNT | FTW_PHYS) == -1) {
+        perror("tempdir: error: ");
+        return 1;
+    }
     return rc;
 }
