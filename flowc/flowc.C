@@ -574,9 +574,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 error_count += get_block_value(s, v, "cos", false, {FTK_STRING});
                 if(s > 0) 
                     minf.cos = get_string(s);
+
                 error_count += get_block_value(s, v, "artifactory", false, {FTK_STRING});
                 if(s > 0) 
                     minf.artifactory = get_string(s);
+                error_count += get_block_value(s, v, "remote", false, {FTK_STRING});
+                if(s > 0) 
+                    minf.artifactory = get_string(s);
+
+
                 error_count += get_block_value(s, v, "secret", false, {FTK_STRING});
                 if(s > 0) 
                     minf.secret = get_string(s);
