@@ -83,14 +83,14 @@ OPTIONS
               Display a page with a description of the flow syntax
 
        --image=IMAGE:TAG
-              Set the image and tag for the aggregator image. The default image name is the 
+              Set the image name and tag for the aggregator image. The default image name is the 
               aggregator name and the default tag is "1". See --image-tag for changing only the tag.
 
        --image-pull-secret=NAME
               Add NAME to the "imagePullSecrets" section of the "kubernetes" deployments
 
        --image-tag=TAG
-              Change the image tag only for the docker image. This option is ignored when --image 
+              Change the tag but keep the name for the docker image. This option is ignored when --image 
               is set.
 
        --input-label=NAME
