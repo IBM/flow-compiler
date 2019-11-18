@@ -40,8 +40,7 @@ spec:
       - {{G_INIT_CONTAINER}}
 }I}
 {W:VOLUME_NAME{
-${{{VOLUME_UPPERID}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{VOLUME_UPPERID}}}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
-${{{VOLUME_UPPERID}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/cosget.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
+${{{VOLUME_UPPERID}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
 ${{{VOLUME_UPPERID}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
         image:  "{{PUSH_REPO:}}{{IMAGE}}" 
         securityContext: {privileged: true, runAsUser: 0} 
@@ -50,9 +49,6 @@ ${{{VOLUME_UPPERID}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from
 ${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
 ${{{VOLUME_UPPERID}}_PVC}          mountPath: "/from-1"
 ${{{VOLUME_UPPERID}}_PVC}          readOnly: true
-${{{VOLUME_UPPERID}}_COS}        - name: cos-access-{{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_COS}          mountPath: "/etc/cos-access"
-${{{VOLUME_UPPERID}}_COS}          readOnly: true
 ${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
 ${{{VOLUME_UPPERID}}_ART}          mountPath: "/etc/artifactory"
 ${{{VOLUME_UPPERID}}_ART}          readOnly: true
@@ -61,8 +57,7 @@ ${{{VOLUME_UPPERID}}_ART}          readOnly: true
           mountPath: "/to-1"
           readOnly: false
 }W}
-$enable_htdocs$htdocs_ART      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{NAME_UPPERID}}_HTDOCS}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
-$enable_htdocs$htdocs_COS      - command: ["/bin/sh", "-c", "/usr/local/bin/cosget.sh '${{{NAME_UPPERID}}_HTDOCS}' -d /etc/cos-access -u -o /to-1"]
+$enable_htdocs$htdocs_ART      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{NAME_UPPERID}}_HTDOCS}' -d /etc/cos-access -u -o /to-1"]
 $enable_htdocs$htdocs_PVC      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
 $enable_htdocs        image:  "{{PUSH_REPO:}}{{IMAGE}}" 
 $enable_htdocs        securityContext: {privileged: true, runAsUser: 0} 

@@ -29,7 +29,7 @@ spec:
 }I}
 {W:VOLUME_NAME{
 ${{{VOLUME_UPPERID}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{VOLUME_UPPERID}}}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
-${{{VOLUME_UPPERID}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/cosget.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
+${{{VOLUME_UPPERID}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
 ${{{VOLUME_UPPERID}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
         image:  "{{PUSH_REPO:}}{{IMAGE}}" 
         securityContext: {privileged: true, runAsUser: 0} 

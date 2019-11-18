@@ -17,7 +17,6 @@ FROM flow-runtime
 
 USER root
 COPY --chown=worker:worker --from=base /home/worker/*.tar /home/worker/
-COPY --from=base /usr/local/bin/cosget.sh /usr/local/bin/artiget.sh /usr/local/bin/
 WORKDIR /usr/local
 RUN tar -xvf /home/worker/so.tar && rm /home/worker/so.tar && ldconfig /usr/local/lib
 WORKDIR /home/worker
