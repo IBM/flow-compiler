@@ -222,7 +222,7 @@
             if(typeof jo === 'string' || jo instanceof String) {
                 PR.appendOrReplace(container, '<div class="pr-JSON-string" id="'+objectID+'"></div>', replace);
                 $("#"+objectID).text(jo);
-                if(keyO && jo.length < 100) {
+                if(keyO && jo.length < 100 && s.indexOf(' ') < 0) {
                     keyO.addClass("pr-JSON-sticky");
                     $("#"+objectID).addClass("pr-JSON-sticky");
                 }
