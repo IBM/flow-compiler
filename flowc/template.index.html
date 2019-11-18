@@ -35,8 +35,9 @@
         }
         p {  font-family: unset; }
 
-        .pr-message-good { font-weight: bold; color: blue; }
-        .pr-message-error { font-weight: bold; color: red; }
+        .pr-message-good { font-size: 90%; font-weight: bold; color: blue; }
+        .pr-message-error { font-size: 90%; font-weight: bold; color: red; }
+        #pr-message { margin-left: 24px; }
 
         #pr-response { font-size: 90%;  white-space: normal; }
         .pr-JSON-sticky, .pr-JSON-boolean, .pr-JSON-number, .pr-JSON-null { margin-right: 12px;  display: inline-block; }
@@ -45,7 +46,7 @@
         .pr-JSON-null { color: red; }
         .pr-JSON-string { white-space: pre; }
         .pr-JSON-key { font-weight: bold; font-style: italic; }
-        .pr-JSON-array { }
+        .pr-JSON-array {  }
         .pr-JSON-object { margin-left: 24px;  }
         .pr-JSON-tiptext { font-weight: normal; font-size: 75% }
     </style>
@@ -222,7 +223,7 @@
             if(typeof jo === 'string' || jo instanceof String) {
                 PR.appendOrReplace(container, '<div class="pr-JSON-string" id="'+objectID+'"></div>', replace);
                 $("#"+objectID).text(jo);
-                if(keyO && jo.length < 100 && s.indexOf(' ') < 0) {
+                if(keyO && jo.length < 100 && jo.indexOf(' ') < 0) {
                     keyO.addClass("pr-JSON-sticky");
                     $("#"+objectID).addClass("pr-JSON-sticky");
                 }
