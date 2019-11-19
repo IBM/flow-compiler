@@ -21,7 +21,5 @@ WORKDIR /usr/local
 RUN tar -xvf /home/worker/so.tar && rm /home/worker/so.tar && ldconfig /usr/local/lib
 WORKDIR /home/worker
 RUN tar -xvf /home/worker/bin.tar && rm /home/worker/bin.tar && chown -R worker:worker {{NAME}}
-RUN mkdir -p {{NAME}}/www
-COPY --chown=worker:worker --from=base /home/worker/www/* /home/worker/{{NAME}}/www/
 USER worker
 WORKDIR /home/worker/{{NAME}}

@@ -14,6 +14,3 @@ RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz &
 ENV CIVETWEB_INCS=-I/home/worker/civetweb-${CIVETWEB_VERSION}/include
 ENV CIVETWEB_LIBS=/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a
 
-RUN mkdir =p /home/worker/www
-
-COPY --chown=worker:worker www/* /home/worker/www/
