@@ -950,7 +950,7 @@ static std::set<std::string> can_use_tempdir = {
 };
 
 static int remove_callback(const char *pathname, const struct stat *, int, struct FTW *) {
-    return remove (pathname);
+    return remove(pathname);
 } 
 
 int main(int argc, char *argv[]) {
@@ -999,7 +999,6 @@ int main(int argc, char *argv[]) {
 
     flow_compiler gfc;
     gfc.trace_on = opts.have("trace");
-    char const *tmp_dirname = nullptr;
 
     std::string orchestrator_name(opts.opt("name", basename(argv[1], ".flow")));
     output_directory = opts.opt("output-directory", ".");
@@ -1009,7 +1008,9 @@ int main(int argc, char *argv[]) {
         std::cerr << "The orchestrator name is the same as the input file, use --name to change\n";
         return 1;
     }
-    if(use_tempdir && targets.size() > 0) {
+    use_tempdir = use_tempdir && targets.size() > 0;
+
+    if(use_tempdir) {
         char path[4096];
         char const *tmpdir = getenv("TMPDIR");
         if(tmpdir != nullptr) {
@@ -1026,7 +1027,7 @@ int main(int argc, char *argv[]) {
             path[0] = '\0';
         }
         strcat(path, "flowcXXXXXX");
-        tmp_dirname = mkdtemp(path);
+        char const *tmp_dirname = mkdtemp(path);
         if(tmp_dirname == nullptr) {
             perror("error: ");
             return 1;
@@ -1034,9 +1035,9 @@ int main(int argc, char *argv[]) {
         output_directory = tmp_dirname;
     }
     int rc = gfc.process(argv[1], orchestrator_name, targets, opts);
-    if(use_tempdir && tmp_dirname != nullptr &&
-            nftw(tmp_dirname, remove_callback, FOPEN_MAX, FTW_DEPTH | FTW_MOUNT | FTW_PHYS) == -1) {
-        perror("tempdir: error: ");
+    if(use_tempdir && nftw(output_directory.c_str(), remove_callback, FOPEN_MAX, FTW_DEPTH | FTW_MOUNT | FTW_PHYS) == -1) {
+        std::cerr << output_directory;
+        perror(": ");
         return 1;
     }
     return rc;
