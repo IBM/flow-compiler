@@ -38,6 +38,7 @@
         .pr-message-good { font-size: 90%; font-weight: bold; color: blue; }
         .pr-message-error { font-size: 90%; font-weight: bold; color: red; }
         #pr-message { margin-left: 24px; }
+        #pr-message-details { margin-left: 24px; }
 
         #pr-response { font-size: 90%;  white-space: normal; }
         .pr-JSON-sticky, .pr-JSON-boolean, .pr-JSON-number, .pr-JSON-null { margin-right: 12px;  display: inline-block; }
@@ -133,6 +134,7 @@
             </div>
         </div>
     </div>
+    <hr>
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-view" class="pr-view-panel">
@@ -309,11 +311,17 @@
                                 var emsg = (sts == null ? "error" : sts);
                                 if(jqXHR.responseJSON != undefined) {
                                     emsg = jqXHR.responseJSON;
-                                } else {
-                                    emsg = "AJAX call " + emsg;
                                 }
-                                if(exc != null) emsg += "--"+exc;
-                                PR.printError(emsg);
+                                var details = '';
+                                if(emsg && typeof emsg === 'object' && emsg.constructor === Object) {
+                                    if('code' in emsg && emsg['code'] == 500) {
+                                        details = emsg["details"]; 
+                                        emsg = '[' + emsg["from"] + '] gRPC Error ' + emsg["grpc-code"] + ': ' + emsg['message'];
+                                    } else {
+                                        emsg = JSON.stringify(emsg);
+                                    }
+                                }
+                                PR.printError(emsg, details);
                             }
                         });
 					} catch (ae) {
@@ -323,9 +331,10 @@
                 });
             });
         },
-        printError: function(msg) {
-            alert(msg);
+        printError: function(msg, description) {
+            alert(msg+'\n'+description);
             $("#pr-message").html('<p class="pr-message-error">'+msg+"</p>");
+            $("#pr-message-details").text(description);
         },
     };
     PR.init(ui_data);
