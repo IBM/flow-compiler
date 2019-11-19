@@ -5,6 +5,8 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
+-include makefile.local
+
 PUSH_REPO?={{PUSH_REPO:}}
 IMAGE_TAG?={{IMAGE_TAG}}
 DEFAULT_IMAGE:={{NAME}}:$(IMAGE_TAG)
