@@ -832,7 +832,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
 
-                OUT << "std::stringstream Time_info; if(Trace_call) Time_info << \"[\";\n";
+                OUT << "std::stringstream Time_info; if(Time_call) Time_info << \"[\";\n";
                 OUT << "auto ST = std::chrono::steady_clock::now();\n";
                 OUT << "int Total_calls = 0;\n";
 
