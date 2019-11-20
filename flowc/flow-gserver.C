@@ -825,36 +825,24 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "::grpc::Status " << get_name(op.m1) << "(::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") override {\n";
                 ++indent;
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
-                OUT << "std::shared_ptr<Logbuffer_info> LOGBIP;\n";
-                OUT << "std::stringstream Time_info;\n";
-                OUT << "bool Trace_call = Get_metadata_value(Client_metadata, \"trace-call\");\n";
-                OUT << "bool Time_call = Get_metadata_value(Client_metadata, \"time-call\");\n";
-                OUT << "bool Async_call = !Get_metadata_value(Client_metadata, \"blocking-calls\", !Async_Flag);\n";
+                OUT << "bool Trace_call = Get_metadata_bool(Client_metadata, \"trace-call\");\n";
+                OUT << "bool Time_call = Get_metadata_bool(Client_metadata, \"time-call\");\n";
+                OUT << "bool Async_call = Get_metadata_bool(Client_metadata, \"overlapped-calls\", Async_Flag);\n";
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
-                OUT << "auto ST = std::chrono::steady_clock::now();\n";
-                OUT << "auto CID = Call_Counter.fetch_add(1, std::memory_order_seq_cst);\n";
-                OUT << "int Total_calls = 0;\n";
-                OUT << "TRACEA((Async_call? \"enter " << entry_dot_name << "/asynchronous calls: \": \"enter " << entry_dot_name << "/synchronous calls: \"), &" << input_name << ");\n";
-                OUT << "if(Time_call) {\n";
-                ++indent;
-                OUT << "Time_info << \"method\\tstage\\tnodes\\tstarted\\ttime\\tcalls\\n\";\n";
-                --indent;
-                OUT << "}\n";
 
-                OUT << "if(Trace_call && Flow_logger_service_enabled) {\n";
-                ++indent;
-                OUT << "std::string call_id(std::string(\"" << get_name(op.m1) << "-\")+std::to_string(CID));\n";
-                OUT << "LOGBIP = Flow_logger.New_call(call_id, ST);\n";
-                OUT << "CTX->AddInitialMetadata(\"trace\", call_id);\n";
-                --indent;
-                OUT << "}\n";
+                OUT << "std::stringstream Time_info; if(Trace_call) Time_info << \"[\";\n";
+                OUT << "auto ST = std::chrono::steady_clock::now();\n";
+                OUT << "int Total_calls = 0;\n";
+
+                OUT << "auto CID = Call_Counter.fetch_add(1, std::memory_order_seq_cst);\n";
+                OUT << "TRACEA((Async_call? \"enter " << entry_dot_name << "/asynchronous calls: \": \"enter " << entry_dot_name << "/synchronous calls: \"), &" << input_name << ");\n";
                 OUT << "\n"; 
                 break;
             case END:
                 OUT << "PTIME2(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
-                OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", Time_info.str());\n";
+                OUT << "if(Time_call) { Time_info << \"]\";  CTX->AddTrailingMetadata(\"times-bin\", Time_info.str()); }\n";
                 OUT << "TRACEA(\"reply " << entry_dot_name << ": \", &" << output_name << ");\n";
                 OUT << "TRACEA(Time_info.str(), nullptr);\n";
                 OUT << "TRACEAF(\"" << entry_dot_name << " done\", nullptr);\n";
@@ -1141,7 +1129,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
                     OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
                     OUT << L_CARR << ".emplace_back("
-                        << cur_node_name << "_prep(CID, " << L_STAGE_CALLS << " - " << L_BEGIN <<", " << L_QUEUE << ", *"<< L_CONTEXT << ".back(), &" << cur_input_name <<", Debug_Flag, Trace_call, LOGBIP));\n";
+                        << cur_node_name << "_prep(CID, " << L_STAGE_CALLS << " - " << L_BEGIN <<", " << L_QUEUE << ", *"<< L_CONTEXT << ".back(), &" << cur_input_name <<", Debug_Flag, Trace_call));\n";
                     --indent;
                     OUT << "} else {\n";
                     ++indent;
@@ -1152,7 +1140,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                 --indent;
                 OUT << "}\n";
-                OUT << "L_status = " << cur_node_name << "_call(CID, &" << cur_output_name << ", &" << cur_input_name << ", Debug_Flag, Trace_call, LOGBIP);\n";
+                OUT << "L_status = " << cur_node_name << "_call(CID, &" << cur_output_name << ", &" << cur_input_name << ", Debug_Flag, Trace_call);\n";
                 OUT << "if(!L_status.ok()) return L_status;\n";
                 if(async_enabled) {
                     --indent;

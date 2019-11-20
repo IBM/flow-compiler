@@ -128,8 +128,8 @@
                 </div>
 }I}
                 <div class="form-group pr-button pr-debug-button pr-stick-right">
-                    <input type="checkbox" name="asycnhronous-calls" checked><span class="pr-button-text"> Overlapped gRPC Calls</span><br>
-                    <input type="checkbox" name="time-calls"><span class="pr-button-text"> Return Call Time Information</span>
+                    <input type="checkbox" id="overlapped-calls" checked><span class="pr-button-text"> Overlapped gRPC Calls</span><br>
+                    <input type="checkbox" id="time-call"><span class="pr-button-text"> Return Call Time Information</span>
                 </div>
             </div>
         </div>
@@ -294,8 +294,12 @@
                             cache: false,
 							contentType: "application/json",
                             beforeSend: function(request) {
-                                request.setRequestHeader("x-flow-time-calls", "1");
-                                request.setRequestHeader("x-flow-asynchronous-calls", "1");
+                                request.setRequestHeader("x-flow-time-call", "true");
+                                if($('#overlapped-calls').is(":checked")) {
+                                    request.setRequestHeader("x-flow-overlapped-calls", "1");
+                                } else {
+                                    request.setRequestHeader("x-flow-overlapped-calls", "0");
+                                }
                                 $("#pr-timing").html('');
                                 $("#pr-response").html('');
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');

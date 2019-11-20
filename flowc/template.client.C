@@ -150,7 +150,7 @@ static int file_{{METHOD_FULL_ID}}(std::string const &label, std::istream &ins, 
         }
         output.Clear();
         grpc::ClientContext context;
-        if(use_blocking_calls) context.AddMetadata("blocking-call", "1");
+        if(use_blocking_calls) context.AddMetadata("overlapped-calls", "0");
         if(time_calls) context.AddMetadata("time-call", "1");
         //if(trace_calls) context.AddMetadata("trace-call", "1");
         if(call_timeout > 0) {

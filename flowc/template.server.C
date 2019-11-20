@@ -31,6 +31,11 @@ extern "C" {
 /** Size limit for the  REST request **/
 #define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
 #endif
+
+bool Global_Debug_Enabled = false;
+bool Global_Asynchronous_Calls = true;
+bool Global_Trace_Calls_Enabled = false;
+
 template <class S>
 static inline bool stringtobool(S s, bool default_value=false) {
     if(s.empty()) return default_value;
@@ -86,6 +91,7 @@ inline std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::
     if(td < 1.0) { td *= 1000; unit = "ms"; }
     if(td < 1.0) { td *= 1000; unit = "us"; }
     if(td < 1.0) { td *= 1000; unit = "ns"; }
+    if(td < 1.0) { td = 0; unit = ""; }
     return out << td << unit;
 }
 class sfmt {
@@ -114,140 +120,20 @@ public:
         return *this;
     }
 };
-#define MAX_LOG_WAIT_SECONDS 600
-// 60*60*24*7
-#define MAX_LOG_LIFE_SECONDS 1200 
-struct Logbuffer_info {
-    std::string call_id;
-    std::string call_info;
-    long expires;
-    std::vector<std::string> buffer;
-    std::mutex mtx;
-    std::condition_variable cv;
-    bool finished;
-
-    Logbuffer_info(std::string const &cid, std::chrono::time_point<std::chrono::steady_clock> st): 
-        call_id(cid), 
-        expires(std::chrono::time_point_cast<std::chrono::seconds>(st+std::chrono::duration<int>(MAX_LOG_LIFE_SECONDS)).time_since_epoch().count()), 
-        finished(false) {
-
-    }
-};
 std::mutex global_display_mutex;
-
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
-
 /* Client endpoints - initialzied in main from environment variables {CLIENT_NODE_ID}_ENDPOINT
  */
 {I:CLI_NODE_ID{std::string {{CLI_NODE_ID}}_endpoint;
 }I}
-
 template <class C>
-static bool Get_metadata_value(C mm, std::string const &key, bool default_value=false) { 
+static bool Get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
     auto vp = mm.find(key);
     if(vp == mm.end()) return default_value;
-    return stringtobool(vp->second, default_value);
+    return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
 }
-
-class Flow_logger_service final: public FlowService::Service {
-    std::mutex buffer_store_mutex;
-    std::map<std::string, std::shared_ptr<Logbuffer_info>> buffers;
-public:
-    ::grpc::Status log(::grpc::ServerContext *context, const ::FlowCallInfo *request, ::grpc::ServerWriter<::FlowLogMessage> *writer) override {
-        std::string call_id(request->callid());
-        std::shared_ptr<Logbuffer_info> bufinfop = Get_buffer(call_id);
-
-        if(!bufinfop) 
-            return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, sfmt() << "Invalid or expired call id: \"" << call_id << "\"");
-        /*
-        {
-            global_display_mutex.lock();
-            std::cerr << "^^^begin streaming log for " << call_id << "\n" << std::flush;
-            global_display_mutex.unlock();
-        }
-        */
-        
-        unsigned curpos = 0;
-        bool finished = false;
-        { 
-            std::unique_lock<std::mutex> lck(bufinfop->mtx);
-            while(!finished) {
-                finished = bufinfop->finished;
-                while(curpos < bufinfop->buffer.size()) {
-                    ::FlowLogMessage msg;
-                    msg.set_message(bufinfop->buffer[curpos++]);
-                    writer->Write(msg);
-                }
-                if(finished) break;
-                /*
-        {
-            global_display_mutex.lock();
-            std::cerr << "^^^waiting to stream for " << call_id << "\n" << std::flush;
-            global_display_mutex.unlock();
-        }
-        */
-                int wait_count = MAX_LOG_WAIT_SECONDS/2;
-                std::cv_status status;
-                do {
-                    if(wait_count-- == 0) 
-                        return ::grpc::Status(::grpc::StatusCode::CANCELLED, sfmt() << "Wait for log message excedeed " << MAX_LOG_WAIT_SECONDS << " seconds");
-                    if(context->IsCancelled()) 
-                        return ::grpc::Status(::grpc::StatusCode::CANCELLED, "Call exceeded deadline or was cancelled by the client");
-
-                    status = bufinfop->cv.wait_until(lck, std::chrono::system_clock::now()+std::chrono::seconds(2));
-                } while(status == std::cv_status::timeout);
-            }
-        }
-        /*
-        {
-            global_display_mutex.lock();
-            std::cerr << "^^^finished streaming for " << call_id << "\n" << std::flush;
-            global_display_mutex.unlock();
-        }
-        */
-        // garbage collect the log queues
-        long now = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now()).time_since_epoch().count(); 
-        {
-            std::unique_lock<std::mutex> lck(buffer_store_mutex);
-            auto p = buffers.begin();
-            while(p != buffers.end()) {
-                auto c = p; ++p; 
-                if(c->second->expires > now) continue;
-                buffers.erase(c);
-            }
-        }
-        /*
-        {
-            global_display_mutex.lock();
-            std::cerr << "^^^done for " << call_id << "\n" << std::flush;
-            global_display_mutex.unlock();
-        }*/
-        return ::grpc::Status::OK;
-    }
-    std::shared_ptr<Logbuffer_info> New_call(std::string const &call_id, std::chrono::time_point<std::chrono::steady_clock> started) {
-        std::unique_lock<std::mutex> lck(buffer_store_mutex);
-        auto f = buffers.emplace(call_id, std::make_shared<Logbuffer_info>(call_id, started));
-        auto r = f.first->second;
-        return r;
-    }
-    std::shared_ptr<Logbuffer_info> Get_buffer(std::string const &call_id) {
-        std::unique_lock<std::mutex> lck(buffer_store_mutex);
-        auto f = buffers.find(call_id);
-        if(f != buffers.end()) return f->second;
-        return nullptr;
-    }
-};
-
-bool Flow_logger_service_enabled;
-static Flow_logger_service Flow_logger;
-static void Print_message(std::shared_ptr<Logbuffer_info> lbip,  std::string const &message, bool finish=false) {
-    if(Flow_logger_service_enabled && lbip) {
-        std::unique_lock<std::mutex> lck(lbip->mtx);
-        lbip->buffer.push_back(message);
-        if(finish) lbip->finished = true;
-        lbip->cv.notify_all();
-    }
+static void Print_message(std::string const &message, bool finish=false) {
     global_display_mutex.lock();
     std::cerr << message << std::flush;
     global_display_mutex.unlock();
@@ -259,24 +145,37 @@ static std::string Grpc_error(long cid, int call, char const *message, grpc::Sta
     if(repp != nullptr) std::cerr << "the response was: " << Message_to_json(*repp) << "\n";
     return out;
 }
-#define TRACECMF(c, n, text, messagep, finish) if((Trace_Flag || Trace_call) && (c)) { Print_message(LOGBIP, sfmt().message(text, CID, n, messagep), finish); } 
+static void Record_time_info(std::ostream &out, int stage, std::string const &method_name, std::string const &stage_name,
+    std::chrono::steady_clock::duration call_elapsed_time, std::chrono::steady_clock::duration stage_duration, int calls) {
+    if(stage > 1) out << ",";
+    out << "{" 
+           "\"method\":" << json_string(method_name) << ","
+           "\"stage-name\":" << json_string(stage_name) << ","
+           "\"stage\":" << stage << ","
+           "\"calls\":" << calls << ","
+           "\"duration\":" << double(stage_duration.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
+           "\"started\":" << double(call_elapsed_time.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
+           "\"duration-u\":\"" << stage_duration << "\","
+           "\"started-u\":\"" << call_elapsed_time <<
+           "}";
+}
+#define TRACECMF(c, n, text, messagep, finish) if(Trace_call && (c)) { Print_message(sfmt().message(text, CID, n, messagep), finish); } 
 #define TRACECM(c, n, text, messagep) TRACECMF((c), (n), (text), (messagep), false) 
 #define TRACE(c, text, messagep) TRACECM((c), -1, (text), (messagep)) 
 #define TRACEA(text, messagep) TRACECM(true, -1, (text), (messagep))
 #define TRACEAF(text, messagep) TRACECMF(true, -1, (text), (messagep), true)
 #define TRACEC(n, text) TRACECM(true, (n), (text), nullptr)
-#define ERROR(text) {Print_message(LOGBIP, sfmt().message((text), CID, -1, nullptr), true); } 
-#define GRPC_ERROR(n, text, status, context, reqp, repp) Print_message(LOGBIP, Grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)), true);
-#define PTIME2(method, stage, stage_name, cet, td, calls) {\
-    if(Time_call) Time_info << method << "\t" << stage << "\t" << stage_name << "\t" << cet << "\t" << td << "\t" << calls << "\n"; \
-    if(Debug_Flag||Trace_Flag||Trace_call) Print_message(LOGBIP, sfmt().message(\
-        sfmt() << method << " stage " << stage << " (" << stage_name << ") started after " << cet << " and took " << td << " for " << calls << " call(s)", \
+#define ERROR(text) {Print_message(sfmt().message((text), CID, -1, nullptr), true); } 
+#define GRPC_ERROR(n, text, status, context, reqp, repp) Print_message(Grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)), true);
+#define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
+    if(Time_call) Record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
+    if(Debug_Flag||Trace_call) Print_message(sfmt().message(\
+        sfmt() << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
         CID, -1, nullptr)); }
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
     bool Debug_Flag = false;
-    bool Trace_Flag = false;
     bool Async_Flag;
     std::atomic<long> Call_Counter;
 
@@ -285,13 +184,13 @@ public:
      */
     int const {{CLI_NODE_ID}}_maxcc = {{CLI_NODE_MAX_CONCURRENT_CALLS}};
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> {{CLI_NODE_ID}}_stub[{{CLI_NODE_MAX_CONCURRENT_CALLS}}];
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call, std::shared_ptr<Logbuffer_info> LOGBIP) {
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
         auto result = {{CLI_NODE_ID}}_stub[call_number % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
 
-    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call, std::shared_ptr<Logbuffer_info> LOGBIP) {
+    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         ::grpc::ClientContext L_context;
         /**
          * Some notes on error codes (from https://grpc.io/grpc/cpp/classgrpc_1_1_status.html):
@@ -458,7 +357,9 @@ static int field_found(const char *key, const char *filename, char *path, size_t
 	return MG_FORM_FIELD_STORAGE_GET;
 }
 
-static int get_form_data(struct mg_connection *conn, std::string &data) {
+static int get_form_data(struct mg_connection *conn, std::string &data, bool &use_asynchronous_calls, bool &time_call) {
+    use_asynchronous_calls = strtobool(mg_get_header(conn, "x-flow-overlapped-calls"), use_asynchronous_calls);
+    time_call = strtobool(mg_get_header(conn, "x-flow-time-call"), time_call);
     char const *content_type = mg_get_header(conn, "Content-Type");
     if(content_type == nullptr || strcasecmp(content_type, "application/json") == 0) {
         // The expected content type is application/json
@@ -544,16 +445,52 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     {{ENTRY_OUTPUT_TYPE}} L_outp; 
     {{ENTRY_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json) << "\n";
+    bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
+
+    if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [ overlapped: " << use_asynchronous_calls << " ]\n" << Log_abridge(L_inp_json) << "\n";
+
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
     ::grpc::ClientContext L_context;
     auto const L_start_time = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{ENTRY_TIMEOUT:120000}});
     L_context.set_deadline(L_deadline);
+    L_context.AddMetadata("overlapped-calls", use_asynchronous_calls? "1": "0");
+    L_context.AddMetadata("time-call", time_call? "1": "0");
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
+    if(time_call) {
+        auto const &metadata = L_context.GetServerTrailingMetadata();
+        auto tbmp = metadata.find("times-bin");
+        if(tbmp != metadata.end()) {
+            std::string tb((tbmp->second).data(), (tbmp->second).length());
+            /*
+            std::ostringstream jo;
+            jo << "["; 
+            for(auto hep = tb.find_first_of("\n"); hep != std::string::npos;) {
+                auto dbp = hep+1;
+                for(auto dbp = hep+1, dep = tb.find_first_of("\n", hep+1); dep != std::string::npos; dbp = dep+1, dep = tb.find_first_of("\n", dbp)) {
+                    if(dbp != hep+1) jo << ",";
+                    jo << "{";
+                    for(auto eh = tb.find_first_of("\t", 0, hep), bh = eh-eh, bd = dbp, ed = tb.find_first_of("\t", bd, dep);
+                            eh != std::string::npos && ed != std::string::npos;
+                            bh = eh+1, eh = tb.find_first_of("\t\n", bh+1, hep+1),
+                            bd = ed+1, ed = tb.find_first_of("\t\n", bd+1, dep+1)
+                            ) {
+                        if(bh != 0) jo << ",";
+                        jo << json_string(std::string(tb, bh, eh-bh)) << ":" << json_string(std::string(tb, bd, ed-bd));
+                    }
+                             
+                    jo << "}";
+                }
+                break;
+            }
+            jo << "]"; */
+            FLOG << "times: " << tb << "\n";
+            //FLOG << "jtime: " << jo.str() << "\n";
+        }
+    }
     return rest::message_reply(A_conn, L_outp);
 }
 }I}
@@ -561,13 +498,17 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
+
     std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
+    bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
+
+    if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
     FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json) << "\n";
+
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
     ::grpc::ClientContext L_context;
@@ -673,9 +614,10 @@ int main(int argc, char *argv[]) {
     int listening_port;
     grpc::ServerBuilder builder;
 
-    {{NAME_ID}}_service service(strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true){I:CLI_NODE_ID{, {{CLI_NODE_ID}}_endpoint}I});
-    service.Debug_Flag = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"));
-    service.Trace_Flag = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"));
+    Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
+    {{NAME_ID}}_service service(Global_Asynchronous_Calls{I:CLI_NODE_ID{, {{CLI_NODE_ID}}_endpoint}I});
+    Global_Debug_Enabled = service.Debug_Flag = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"));
+    Global_Trace_Calls_Enabled = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"));
 
     // Listen on the given address without any authentication mechanism.
     std::string server_address("[::]:"); server_address += argv[1];
@@ -683,9 +625,6 @@ int main(int argc, char *argv[]) {
 
     // Register services
     builder.RegisterService(&service);
-    if((Flow_logger_service_enabled = strtobool(std::getenv("{{NAME_UPPERID}}_LOGGER"), true)))
-        builder.RegisterService(&Flow_logger);
-    
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
     if(listening_port == 0) {
@@ -704,10 +643,9 @@ int main(int argc, char *argv[]) {
         }
     }
     std::cerr 
-        << "debug: " << (service.Debug_Flag? "yes": "no")
-        << ", trace: " << (service.Trace_Flag? "yes": "no")
-        << ", asynchronous client calls: " << (service.Async_Flag? "yes": "no") 
-        << ", logger service: " << (Flow_logger_service_enabled? "enabled": "disabled")
+        << "debug: " << (Global_Debug_Enabled? "yes": "no")
+        << ", trace: " << (Global_Trace_Calls_Enabled? "yes": "no")
+        << ", asynchronous client calls: " << (Global_Asynchronous_Calls? "yes": "no") 
         << std::endl;
 
     // Wait for the server to shutdown. Note that some other thread must be
