@@ -13,3 +13,5 @@ RUN cd /tmp && tar -xzvf flow-compiler-minsrc.tgz && cd /tmp/flow-compiler && \
     cd /tmp && rm -fr flow-compiler flow-compiler-minsrc.tgz
 
 USER worker
+
+ENTRYPOINT ["flowc"]
