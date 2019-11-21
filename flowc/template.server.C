@@ -145,6 +145,11 @@ static std::string Grpc_error(long cid, int call, char const *message, grpc::Sta
     if(repp != nullptr) std::cerr << "the response was: " << Message_to_json(*repp) << "\n";
     return out;
 }
+
+#define TIME_INFO_BEGIN(enabled)  std::stringstream Time_info; if(enabled) Time_info << "[";
+#define TIME_INFO_GET(enabled)    ((Time_info << "]"), Time_info.str())
+#define TIME_INFO_END(enabled)
+
 static void Record_time_info(std::ostream &out, int stage, std::string const &method_name, std::string const &stage_name,
     std::chrono::steady_clock::duration call_elapsed_time, std::chrono::steady_clock::duration stage_duration, int calls) {
     if(stage > 1) out << ",";
@@ -170,7 +175,7 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
 #define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) Record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
     if(Debug_Flag||Trace_call) Print_message(sfmt().message(\
-        sfmt() << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
+        sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
         CID, -1, nullptr)); }
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
@@ -267,25 +272,27 @@ static int not_found(struct mg_connection *conn, std::string const &message) {
 	mg_printf(conn, "%s", j_message.c_str());
     return 1;
 }
-static int json_reply(struct mg_connection *conn, int code, char const *msg, char const *content, size_t length=0) {
+static int json_reply(struct mg_connection *conn, int code, char const *msg, char const *content, size_t length=0, char const *xtra_headers=nullptr) {
+    if(xtra_headers == nullptr) xtra_headers = "";
 	mg_printf(conn, "HTTP/1.1 %d %s\r\n"
               "Content-Type: application/json\r\n"
+              "%s"
               "Content-Length: %lu\r\n"
-              "\r\n", code, msg, length == 0? strlen(content): length);
+              "\r\n", code, msg, xtra_headers, length == 0? strlen(content): length);
 	mg_printf(conn, "%s", content);
 	return 1;
 }
-static int json_reply(struct mg_connection *conn, char const *content, size_t length=0) {
-    return json_reply(conn, 200, "OK", content, length);
+static int json_reply(struct mg_connection *conn, char const *content, size_t length=0, char const *xtra_headers=nullptr) {
+    return json_reply(conn, 200, "OK", content, length, xtra_headers);
 }
-static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message) {
+static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message, std::string const &xtra_headers="") {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = false;
     options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = false;
     std::string json_message;
     google::protobuf::util::MessageToJsonString(message, &json_message, options);
-    return json_reply(conn, json_message.c_str(), json_message.length());
+    return json_reply(conn, json_message.c_str(), json_message.length(), xtra_headers.c_str());
 }
 static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status) {
     std::string errm = sfmt() 
@@ -448,7 +455,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [ overlapped: " << use_asynchronous_calls << " ]\n" << Log_abridge(L_inp_json) << "\n";
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [ overlapped: " << use_asynchronous_calls << ", time-call: "  << time_call << " ]\n" << Log_abridge(L_inp_json) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -465,30 +472,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         auto tbmp = metadata.find("times-bin");
         if(tbmp != metadata.end()) {
             std::string tb((tbmp->second).data(), (tbmp->second).length());
-            /*
-            std::ostringstream jo;
-            jo << "["; 
-            for(auto hep = tb.find_first_of("\n"); hep != std::string::npos;) {
-                auto dbp = hep+1;
-                for(auto dbp = hep+1, dep = tb.find_first_of("\n", hep+1); dep != std::string::npos; dbp = dep+1, dep = tb.find_first_of("\n", dbp)) {
-                    if(dbp != hep+1) jo << ",";
-                    jo << "{";
-                    for(auto eh = tb.find_first_of("\t", 0, hep), bh = eh-eh, bd = dbp, ed = tb.find_first_of("\t", bd, dep);
-                            eh != std::string::npos && ed != std::string::npos;
-                            bh = eh+1, eh = tb.find_first_of("\t\n", bh+1, hep+1),
-                            bd = ed+1, ed = tb.find_first_of("\t\n", bd+1, dep+1)
-                            ) {
-                        if(bh != 0) jo << ",";
-                        jo << json_string(std::string(tb, bh, eh-bh)) << ":" << json_string(std::string(tb, bd, ed-bd));
-                    }
-                             
-                    jo << "}";
-                }
-                break;
-            }
-            jo << "]"; */
-            FLOG << "times: " << tb << "\n";
-            //FLOG << "jtime: " << jo.str() << "\n";
+            return rest::message_reply(A_conn, L_outp, std::string("x-flow-call-times: ") + tb + "\r\n");
         }
     }
     return rest::message_reply(A_conn, L_outp);

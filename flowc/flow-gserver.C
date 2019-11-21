@@ -831,8 +831,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
-
-                OUT << "std::stringstream Time_info; if(Time_call) Time_info << \"[\";\n";
+                OUT << "TIME_INFO_BEGIN(Time_call);\n";
                 OUT << "auto ST = std::chrono::steady_clock::now();\n";
                 OUT << "int Total_calls = 0;\n";
 
@@ -842,7 +841,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case END:
                 OUT << "PTIME2(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
-                OUT << "if(Time_call) { Time_info << \"]\";  CTX->AddTrailingMetadata(\"times-bin\", Time_info.str()); }\n";
+                OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", TIME_INFO_GET(Time_call)); \n";
+                OUT << "TIME_INFO_END(Time_call);\n";
                 OUT << "TRACEA(\"reply " << entry_dot_name << ": \", &" << output_name << ");\n";
                 OUT << "TRACEA(Time_info.str(), nullptr);\n";
                 OUT << "TRACEAF(\"" << entry_dot_name << " done\", nullptr);\n";

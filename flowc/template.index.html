@@ -307,6 +307,9 @@
                             success: function(reply_obj, sts, jqxhr) {
                                 $("#pr-message").html('');
                                 PR.renderJSON(m["response-schema"], $("#pr-response"), "pr-response", reply_obj, true, null);
+                                var timing = jqxhr.getResponseHeader('x-flow-call-times');
+                                if(timing) 
+                                    $("#pr-timing").text("testing: "+timing);
                                 $('html, body').animate({
                                     scrollTop: $("#pr-view").offset().top
                                 }, 2000);
