@@ -49,7 +49,16 @@
         .pr-JSON-key { font-weight: bold; font-style: italic; }
         .pr-JSON-array {  }
         .pr-JSON-object { margin-left: 24px;  }
-        .pr-JSON-tiptext { font-weight: normal; font-size: 75% }
+        .pr-JSON-tiptext, #pr-total-time, #pr-stage-time { font-weight: normal; font-size: 75% }
+        #pr-total-time, #pr-stage-time { margin-left: 24px; margin-right: 24px; }
+        .pr-stage-time { margin-left: 24px; }
+        #pr-stage-time>.pr-stage-time-1 { margin-left: 0px; }
+        .pr-stage-time-1 { background-color: #FFF0F0; }
+        .pr-stage-time-2 { background-color: #F0FFF0; }
+        .pr-stage-time-3 { background-color: #F0F0FF; }
+        .pr-stage-time-4 { background-color: #FFFFF0; }
+        .pr-stage-time-5 { background-color: #FFF0FF; }
+        .pr-stage-time-0 { background-color: #F0FFFF; }
     </style>
 </head>
 <body>
@@ -129,23 +138,27 @@
 }I}
                 <div class="form-group pr-button pr-debug-button pr-stick-right">
                     <input type="checkbox" id="overlapped-calls" checked><span class="pr-button-text"> Overlapped gRPC Calls</span><br>
-                    <input type="checkbox" id="time-call"><span class="pr-button-text"> Return Call Time Information</span>
                 </div>
             </div>
         </div>
     </div>
     <hr>
+    <!-- Messages Section
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <div id="pr-message-panel" class="pr-view-panel">
+        <div id="pr-message"></div>
+        <div id="pr-message-details"></div>
+        <div id="pr-timing"></div>
+    </div>
+        <div id="pr-extra" class="pr-view-panel"></div>
+    <hr>
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-view" class="pr-view-panel">
-        <div id="pr-message"></div>
-        <div id="pr-timing" class="w-100"></div>
         <div id="pr-response"></div>
     </div>
-
     <!-- End Document
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <!-- Placed at the end of the document so the pages load faster -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
@@ -307,9 +320,31 @@
                             success: function(reply_obj, sts, jqxhr) {
                                 $("#pr-message").html('');
                                 PR.renderJSON(m["response-schema"], $("#pr-response"), "pr-response", reply_obj, true, null);
-                                var timing = jqxhr.getResponseHeader('x-flow-call-times');
-                                if(timing) 
-                                    $("#pr-timing").text("testing: "+timing);
+                                try {
+                                    call_times = jqxhr.getResponseHeader('x-flow-call-times');
+                                    call_times = JSON.parse(call_times);
+                                    $("#pr-timing").html('<div id="pr-total-time"></div><div id="pr-stage-time"></div>');
+                                    var total_log_time = 0;
+                                    call_times.forEach(function(to) {
+                                        if(to.stage == 0) {             
+                                            total_time = to;
+                                            $("#pr-total-time").html("Total time: <b>"+to['duration-u']+"</b>");
+                                        } else {
+                                            total_log_time = Math.log10(to.duration*1000) + total_log_time;
+                                        }
+                                    });
+                                    call_times.forEach(function(to) {
+                                        if(to.stage != 0) {             
+                                            var width_perc = Math.floor(Math.log10(to.duration*1000) * 100 / total_log_time);
+                                            PR.appendOrReplace($("#pr-stage-time"), 
+                                                "<span class='pr-stage-time pr-stage-time-" + (to.stage % 6) + "' style='width: "+width_perc+"%;'> "
+                                                       +to['stage-name']+": <b>"+to['duration-u']+"</b> </span>",
+                                                false);
+                                        }
+                                    });
+                                                          
+                                } catch(ae) {
+                                }
                                 $('html, body').animate({
                                     scrollTop: $("#pr-view").offset().top
                                 }, 2000);

@@ -152,7 +152,7 @@ static std::string Grpc_error(long cid, int call, char const *message, grpc::Sta
 
 static void Record_time_info(std::ostream &out, int stage, std::string const &method_name, std::string const &stage_name,
     std::chrono::steady_clock::duration call_elapsed_time, std::chrono::steady_clock::duration stage_duration, int calls) {
-    if(stage > 1) out << ",";
+    if(stage != 1) out << ",";
     out << "{" 
            "\"method\":" << json_string(method_name) << ","
            "\"stage-name\":" << json_string(stage_name) << ","
@@ -161,7 +161,7 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
            "\"duration\":" << double(stage_duration.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
            "\"started\":" << double(call_elapsed_time.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
            "\"duration-u\":\"" << stage_duration << "\","
-           "\"started-u\":\"" << call_elapsed_time <<
+           "\"started-u\":\"" << call_elapsed_time << "\""
            "}";
 }
 #define TRACECMF(c, n, text, messagep, finish) if(Trace_call && (c)) { Print_message(sfmt().message(text, CID, n, messagep), finish); } 
