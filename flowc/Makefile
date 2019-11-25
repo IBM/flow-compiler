@@ -13,7 +13,7 @@
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
 
-BUILD_VERSION=0.4.1
+BUILD_VERSION=0.4.2
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -80,16 +80,16 @@ OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-
 MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) rr-keys.sh rr-get.sh
 
 %.o: %.C
-	${CXX} -std=c++17 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
+	${CXX} -std=c++11 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
 
 flowc: $(OBJS) 
 	${CXX} -o $@ -O3 $^ ${GRPC_LIBS} 
 
 flow-version.o:
-	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
+	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
 
 flowc.o: flowc.C
-	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
+	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
 
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
