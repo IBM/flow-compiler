@@ -12,13 +12,14 @@
 #
 #   Base image label - set of docker files with the base images for flowc and for the application
 #BASE_IMAGE?=alpine-edge   
+-include makefile.local
 
 BUILD_VERSION=0.4.2
+
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets
--include makefile.local
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
