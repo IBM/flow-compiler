@@ -115,8 +115,10 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
    
     sout << node_name(n.type);
     if(flag.has(node)) sout << "|" << node_name(flag(node));
-    sout << "[" << node << "," << n.token.line << "," << n.token.column << "]";
-    sout << node << "-" << n.type;  
+    sout << "[";
+    if(condition.has_value(node)) sout << ANSI_RED << ANSI_BOLD << node << ANSI_RESET;
+    else sout << node ;
+    sout << "-" << n.type << " " << n.token.line << ":" << n.token.column << "]";
 
     if(n.token.text.length() > 0) sout << " " << n.token.text;
     if(n.token.type == FTK_FLOAT) sout << "  " << ANSI_YELLOW << n.token.float_value << ANSI_RESET;
