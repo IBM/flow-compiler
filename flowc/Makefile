@@ -94,7 +94,7 @@ flowc.o: flowc.C
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
 
-flow-parser.c: flow-parser.Y
+flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 clean:
