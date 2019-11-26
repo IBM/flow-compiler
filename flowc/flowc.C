@@ -964,6 +964,12 @@ int main(int argc, char *argv[]) {
         } else if(opts.have("version")) {
             std::cout << FLOWC_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
             std::cout << "grpc " << grpc::Version() << "\n";
+#if defined(__clang__)          
+            std::cout << "clang++ " << __clang_version__ << "\n";
+#elif defined(__GNUC__) 
+            std::cout << "g++ " << __VERSION__ << "\n";
+#else
+#endif
             return 0;
         } else {
             emphasize(std::cout, emphasize(template_help, ansi_escape(ANSI_BLUE)), ansi_escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
