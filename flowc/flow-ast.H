@@ -54,14 +54,19 @@ struct flow_ast {
     std::vector<std::pair<int, std::string>> token_comment;
     /***********  Node attributes **************************
      */
+    // grpc descriptors associated with this node
     ast::attribute<google::protobuf::Descriptor const *> message_descriptor;
     ast::attribute<google::protobuf::MethodDescriptor const *> method_descriptor;
     ast::attribute<google::protobuf::Descriptor const *> input_descriptor;
     ast::attribute<google::protobuf::FieldDescriptor const *> field_descriptor;
     ast::attribute<google::protobuf::EnumValueDescriptor const *> enum_descriptor;
+    // label associated with this node
     ast::attribute<std::string> name;
+    // node type name (node, bexp, etc.)
     ast::attribute<std::string> type;
+    // description estracted from leading comments
     ast::attribute<std::string> description;
+    // node value for the condition expression assicated with this node
     ast::attribute<int> condition;
     ast::attribute<int> flag;
 
