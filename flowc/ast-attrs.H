@@ -17,6 +17,10 @@ template<class V> struct attribute {
     V const get(int n, V const def_value) const { 
         auto p = value.find(n); return p == value.end()? def_value: p->second;
     }
+    bool has_value(V const some_value) const {
+        for(auto &nv: value) if(some_value == nv.second) return true;
+        return false;
+    }
     bool copy(int from, int to) {
         auto p = value.find(from);
         if(p == value.end()) return false;
