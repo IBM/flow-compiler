@@ -21,12 +21,13 @@
 %include {
 #include <iostream>
 #include "flow-ast.H"
+#define YYNOERRORRECOVERY
 }
 
 %extra_argument { flow_ast *ast }
 
 %syntax_error {
-    //std::cerr << "syntax error!!\n";
+    ast->node(FTK_SYNTAX_ERROR, (int) ast->store.size());
 }
 %parse_accept {
     //std::cerr << "parsed just fine, ast size: " << ast->store.size() << " root: " << ast->store.back().children[0] << "\n";
@@ -73,12 +74,19 @@ oexp(A) ::= dtid(B) OPENPAR CLOSEPAR.                          { A = ast->node(F
 oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_oexp, B, C); }           
 oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_oexp, B, C); }           // Method and field map output definition
 
-fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }              // FTK_fldm is a list of field mappings
+fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }              // fldm is a list of field mappings fldd
 fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappend(B, C); }                 
 
-fldd(A) ::= ID(B) eqc vali(C).                                 { A = ast->node(FTK_fldd, B, C); }
-fldd(A) ::= ID(B) eqc OPENPAR fldm(C) CLOSEPAR.                { A = ast->node(FTK_fldd, B, C); }
-fldd(A) ::= ID(B) eqc fldx(C).                                 { A = ast->node(FTK_fldd, B, C); }
+fldd(A) ::= ID(B) eqc OPENPAR fldm(C) CLOSEPAR.                { A = ast->node(FTK_fldd, B, C); }           // The right side is another message definition
+fldd(A) ::= ID(B) eqc fldr(C).                                 { A = ast->node(FTK_fldd, B, C); }           // The right side is a field expression
+
+fldr(A) ::= vali(B).                                           { A = B; }                                   // The right side can be a literal, 
+fldr(A) ::= fldx(B).                                           { A = B; }                                   // a field expression node@[field[.field]] (fldx)
+fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }              // or an internal function call
+fldr(A) ::= TILDA ID(B) OPENPAR flda(C) CLOSEPAR.              { A = ast->nprepend(C, B); }                 
+
+flda(A) ::= fldr(B).                                           { A = ast->node(FTK_fldr, B); }
+flda(A) ::= flda(B) COMMA fldr(C).                             { A = ast->nappend(B, C); }
 
 fldx(A) ::= fldn(B).                                           { A = B; }
 fldx(A) ::= fldn(B) dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
@@ -87,6 +95,7 @@ fldn(A) ::= ID(B) AT.                                          { A = B; }
 
 dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B); }
 dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappend(B, C); }
+
 
 eqc ::= EQUALS.
 eqc ::= COLON.

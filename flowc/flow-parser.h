@@ -28,3 +28,4 @@
 #define FTK_CLOSEBRA                       28
 #define FTK_OPENSQB                        29
 #define FTK_CLOSESQB                       30
+#define FTK_TILDA                          31

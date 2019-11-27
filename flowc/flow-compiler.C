@@ -241,6 +241,7 @@ int flow_compiler::parse() {
                         case '[': ftok.type = FTK_OPENSQB; break;
                         case ']': ftok.type = FTK_CLOSESQB; break;
                         case '^': ftok.type = FTK_CARET; break;
+                        case '~': ftok.type = FTK_TILDA; break;
 
                         case '=': ftok.type = FTK_EQUALS; look_ahead = true; break;
                         case '>': ftok.type = FTK_GT; look_ahead = true;  break;
@@ -335,6 +336,60 @@ int flow_compiler::compile_method(std::string &method, int mthd_node, int max_co
     }
     return 0;
 }
+
+static std::map<std::string, std::vector<int>> function_table = {
+    { "span",     { FTK_STRING, FTK_STRING, FTK_INTEGER, FTK_INTEGER } },
+    { "prefix",   { FTK_STRING, FTK_STRING, FTK_INTEGER  } },
+    { "suffix",   { FTK_STRING, FTK_STRING, FTK_INTEGER  } },
+    { "strlen",   { FTK_INTEGER, FTK_STRING }},
+    { "concat",   { FTK_STRING, FTK_STRING, FTK_STRING }},
+    { "length",   { 0 }},
+    { "join",     { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }}
+};
+
+int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim) {
+    int error_count = 0;
+    auto const &fldr = at(fldr_node);
+    assert(fldr.type == FTK_fldr);
+    assert(fldr.children.size() >= 1);
+
+    // Lookup the function prototype
+    std::string fname(get_id(fldr.children[0]));
+    auto funp = function_table.find(fname);
+    if(funp == function_table.end()) {
+        ++error_count;
+        pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
+        return error_count;
+    }
+    if(funp->second.size() !=  fldr.children.size()) {
+        ++error_count;
+        pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << (funp->second.size() - 1)  << " arguments, " << (fldr.children.size() - 1) << " were given");
+        return error_count;
+    } 
+    for(unsigned n = 1, e = fldr.children.size(); n < e; ++n) {
+        switch(at(fldr.children[n]).type) {
+            case FTK_fldx: 
+                break;
+            case FTK_fldr:
+                // Left type here must be from function prototype
+                error_count += compile_fldr(fldr.children[n], nullptr, 0, 0);
+                break;
+            case FTK_INTEGER:
+            case FTK_STRING:
+            case FTK_FLOAT:
+                // Check against the function protoype
+                break;
+            case FTK_dtid:
+                // Check against the function protoype
+                break;
+            case FTK_ID:
+                ++error_count;
+                pcerr.AddError(main_file, at(fldr.children[n]), sfmt() << "cannot assign to function argument");
+                break;    
+        }
+    }
+    return error_count;
+}
 int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
     int error_count = 0;
     auto const &fldm = at(fldm_node);
@@ -344,7 +399,8 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
         assert(fldd.type == FTK_fldd && fldd.children.size() == 2);
         std::string id(get_id(fldd.children[0]));
         name.put(d, id);
-        // Check that the descriptor actually has a this field
+
+        // Check that the descriptor actually has this field
         FieldDescriptor const *fidp = dp->FindFieldByName(id);
         if(fidp == nullptr) {
             ++error_count;
@@ -368,6 +424,10 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
             break;
             case FTK_fldx:
                 // Postpone visiting the fldx field until the next time around
+            break;
+            case FTK_fldr:
+                // Check for the right number of arguments, for valid identifiers and proper return type
+                error_count += compile_fldr(fldd.children[1], fidp, left_type, 0);
             break;
             case FTK_INTEGER:
             case FTK_STRING:
@@ -417,6 +477,29 @@ int flow_compiler::compile_node_ref(int id_node) {
     }
     message_descriptor.put(id_node, dp);
     return 0;
+}
+/*
+ * 2nd pass, this should be called after all the message types are set
+ * Resolve dimensions for each data referencing node
+ */
+int flow_compiler::update_dimensions(int node) {
+    int error_count = 0;
+    auto const &children = at(node).children;
+    switch(at(node).type) {
+        case FTK_fldx: {
+                int xc = 0;
+                for(int u = 1, e = children.size(); u < e; ++u) 
+                    if(field_descriptor(children[u])->is_repeated())
+                        ++xc;
+                std::cerr << node << "in fldx\n";
+                dimension.put(node, xc);
+            }
+            break;
+        default:
+            for(int n: children) 
+                error_count += update_dimensions(n);
+    }
+    return error_count;
 }
 /*
  * 2nd pass, this should be called after all nodes are compiled
@@ -845,7 +928,7 @@ int flow_compiler::compile_stmt(int stmt_node) {
                 error_count += compile_fldm(c, d);
                 break;
             case FTK_ID:
-                // Postpone until the second pass
+                // This is a node reference so postpone until the second pass
                 break;
             default:
                 break;
@@ -1245,6 +1328,10 @@ int flow_compiler::populate_message(std::string const &lv_name, Descriptor const
                 error_count += populate_message(lv_name+"+"+name(fldd_node), lvd, fidp, locals, at(fldd_node).children[1], node_ip);
             }
         } break;
+        case FTK_fldr:
+            // TODO generate call for this 
+            //icode.push_back(fop(SETE, lv_name, lvd, arg_node));
+            break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
             int rvn = get_id(fields[0]) == input_label? 0: names.find(get_id(fields[0]))->second.second;
@@ -1367,6 +1454,7 @@ int flow_compiler::find_max_index_depth(int right_value_node, std::map<int, int>
     switch(node.type) {
         case FTK_fldm: {
             int max = 0;
+            // Return the max index of any field on the right side of the fldd
             for(int fldd_node: node.children) 
                 max = std::max(max, find_max_index_depth(at(fldd_node).children[1], node_ip, max_allowed));
             // Avoid printing notes here
@@ -1388,6 +1476,14 @@ int flow_compiler::find_max_index_depth(int right_value_node, std::map<int, int>
             while(i < e && icode[i].code == NSET) 
                 if(icode[i++].arg.size() > 0) ++xc;
         } break;
+        case FTK_fldr: {
+            int max = 0;
+            // Return the max index of any field on the right side of the fldd
+            for(int arg_ni = 1, arg_sz = node.children.size(); arg_ni < arg_sz; ++arg_ni) 
+                max = std::max(max, find_max_index_depth(node.children[arg_ni], node_ip, max_allowed));
+            // Avoid printing notes here
+            return max;
+        }
         case FTK_STRING: case FTK_FLOAT: case FTK_INTEGER:
             break;
         case FTK_dtid:
@@ -1612,6 +1708,9 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     if(error_count > 0) return error_count;
     // Revisit id references
     error_count += compile_id_ref(root);
+    if(error_count > 0) return error_count;
+    // Update dimensions for each data referencing node
+    error_count += update_dimensions(root);
     if(error_count > 0) return error_count;
 
     for(auto const &ep: names) if(ep.second.first == "entry") {
