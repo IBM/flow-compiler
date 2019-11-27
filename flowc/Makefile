@@ -89,6 +89,8 @@ flowc: $(OBJS)
 flow-version.o:
 	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
 
+flow-compiler.o: flow-parser.c
+
 flowc.o: flowc.C
 	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
 
