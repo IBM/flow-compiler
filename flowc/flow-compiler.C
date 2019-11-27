@@ -491,7 +491,6 @@ int flow_compiler::update_dimensions(int node) {
                 for(int u = 1, e = children.size(); u < e; ++u) 
                     if(field_descriptor(children[u])->is_repeated())
                         ++xc;
-                std::cerr << node << "in fldx\n";
                 dimension.put(node, xc);
             }
             break;
