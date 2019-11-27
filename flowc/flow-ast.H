@@ -27,6 +27,7 @@ enum {
     FTK_fldm, 
     FTK_fldd,
     FTK_fldx,
+    FTK_fldr,
     FTK_dtid,
     FTK_node
 };
@@ -66,15 +67,17 @@ struct flow_ast {
     ast::attribute<std::string> type;
     // description estracted from leading comments
     ast::attribute<std::string> description;
-    // node value for the condition expression assicated with this node
+    // node value for the condition expression associated with this node
     ast::attribute<int> condition;
     ast::attribute<int> flag;
+    // dimension of the data at this node
+    ast::attribute<int> dimension;
 
     bool has_attributes(int n) const {
-        return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag);
+        return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag, dimension);
     }
     void copy_attributes(int from, int to) {
-        copy_attr(from, to, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag);
+        copy_attr(from, to, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag, dimension);
     }
     int mk_node(flow_token const &token) {
         store.push_back(flow_ast_node());
@@ -159,6 +162,7 @@ struct flow_ast {
      * The node must be of a basic type or have the corresponding attribute set (enum_descriptor or message_descriptor)
      */
     std::string get_full_typename(int node) const;
+
 };
 
 #endif

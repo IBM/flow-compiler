@@ -23,6 +23,7 @@ char const *node_name(int i) {
         case FTK_oexp: return "oexp";
         case FTK_rexp: return "rexp";
         case FTK_fldm: return "fldm";
+        case FTK_fldr: return "fldr";
         case FTK_fldd: return "fldd";
         case FTK_fldx: return "fldx";
         case FTK_dtid: return "dtid";
@@ -133,9 +134,8 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         if(message_descriptor.has(node)) sout << " message: " << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(input_descriptor.has(node)) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
         if(field_descriptor.has(node)) sout << " field: " << ANSI_GREEN << *field_descriptor(node) << ANSI_RESET;
-        
         if(enum_descriptor.has(node)) sout << " enum: " << ANSI_RED << *enum_descriptor(node) << ANSI_RESET;
-        
+        if(dimension.has(node)) sout << " dim: " << ANSI_CYAN << ANSI_BOLD << dimension(node) << ANSI_RESET;
         sout << " }";
     }
     sout << "\n";

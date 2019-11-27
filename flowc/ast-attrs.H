@@ -10,6 +10,10 @@ template<class V> struct attribute {
         value[n] = v;
         return true;
     }
+    bool update(int n, V const v) {
+        value[n] = v;
+        return true;
+    }
     bool has(int n) const { return value.find(n) != value.end(); }
     V const &operator ()(int n) const { 
         auto p = value.find(n); return p == value.end()? no_value: p->second;
