@@ -55,10 +55,32 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
 
 enum op { 
     COMM,           // comment 
+    /** 
+     *      arg1    request name
+     *      arg2    response name 
+     *      d1      descriptor for the request
+     *      d2      descriptor for the response 
+     *      m1      method descriptor
+     *      arg[]   nodes used by thie emntry
+     */      
     MTHD,           // method begin
     END,            // method end
+    /**
+     *      arg1    stage name
+     *      arg[0]  stage number
+     *      arg[1]  the number of nodes in this stage
+     *      arg[2]  max stage dim
+     *      arg 3.. node ids
+     */
     BSTG,           // stage begin
     ESTG,           // stage end
+    /**
+     *      arg1    response name 
+     *      arg2    request name
+     *      d1      output descriptor
+     *      d2      input descriptor
+     *      arg[]   dimension node stage base-node
+     */
     BNOD,           // node begin
     NSET,           // node setup
     CHK,            // check condition
@@ -66,19 +88,38 @@ enum op {
     BPRP,           // result preparation begin
     EPRP,           // result preparation end
     LOOP,           // begin loop
-    ELP,            // end loop
-    SET,            // set field with another field
+    ELP,            // end loop                         
+    /**
+     * All set fileds have:
+     *      arg1    left value string representation as message-type[[+]field-name]*
+     *      d1      descriptor for message-type
+     *      arg[0]  right value node-id
+     */
+    SET,            // set field with another field                 
     SETI,           // set field with integer constant
     SETS,           // set field with string constant
     SETE,           // set field with enum constant
     SETF,           // set field with float constant
+    SETT,           // set field from temporary variable
+    /** 
+     *      arg1    left value string representation as message-type[[+]field-name]*
+     *      arg2    right value string representation as message-type[[+]field-name]*
+     *      d1      descriptor for the left value message type
+     *      d2      descriptor for the right value message type
+     */      
     COPY,           // copy field
+    /** 
+     *      arg1    request message name
+     *      arg2    response message name
+     *      m1      method descriptor
+     */
     CALL,           // call method
+    FUNC,           // call internal function
     INDX            // index data
 };
 struct fop {
     op code;
-    std::string arg1, arg2;
+    std::string arg1, arg2;                
     Descriptor const *d1 = nullptr;
     Descriptor const *d2 = nullptr;
     MethodDescriptor const *m1 = nullptr;
@@ -312,7 +353,7 @@ public:
     int check_assign(int node, FieldDescriptor const *left, Descriptor const *right);
     int check_assign(int node, FieldDescriptor const *left, FieldDescriptor const *right);
     int find_max_index_depth(int right_value_node, std::map<int, int> const &node_ip, int max_allowed);
-    int populate_message(std::string const &lv_name, Descriptor const *lvd, FieldDescriptor const *lvfd, std::map<int, std::pair<std::string, Descriptor const *>> const &locals, int arg_node, std::map<int, int> &node_ip);
+    int populate_message(std::string const &lv_name, Descriptor const *lvd, FieldDescriptor const *lvfd, int arg_node, std::map<int, int> &node_ip);
     int compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set);
     int fop_compare(fop const &left, fop const &right) const;
     void dump_code(std::ostream &out) const;
@@ -329,7 +370,7 @@ public:
     // [prefix_]I_input label[_stage][_suffix]        for the input node
     // [prefix_]E_methid_name(node)[_stage][_suffix]  for the entry node
     // [prefix_]node_label[_stage][_suffix]           for node nodes      
-    std::string cs_name(std::string const &prefix, std::string const &label, int stage=0, std::string const &suffix="") const {
+    std::string cs_name(std::string const &prefix, std::string const &label, std::string const &suffix="") const {
         std::ostringstream buf;
         if(!prefix.empty()) buf << prefix << '_';
         buf << label;
@@ -344,8 +385,10 @@ public:
             return std::string("E_") + to_lower(to_identifier(method_descriptor(node)->name()));
         return referenced_nodes.find(node)->second.label();
     }
-    std::string cs_name(std::string const &prefix, int node, int stage=0, std::string const &suffix="") const {
-        return cs_name(prefix, get_node_label(node), stage, suffix);
+    std::string cs_name(std::string const &prefix, int node, std::string const &suffix="") const {
+        if(node == 0)
+            return cs_name("RQ", get_node_label(node), suffix);
+        return cs_name(prefix, get_node_label(node), suffix);
     }
 
     int compile(std::set<std::string> const &targets);

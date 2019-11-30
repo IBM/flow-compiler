@@ -336,15 +336,20 @@ int flow_compiler::compile_method(std::string &method, int mthd_node, int max_co
     }
     return 0;
 }
-
-static std::map<std::string, std::vector<int>> function_table = {
-    { "span",     { FTK_STRING, FTK_STRING, FTK_INTEGER, FTK_INTEGER } },
-    { "prefix",   { FTK_STRING, FTK_STRING, FTK_INTEGER  } },
-    { "suffix",   { FTK_STRING, FTK_STRING, FTK_INTEGER  } },
-    { "strlen",   { FTK_INTEGER, FTK_STRING }},
-    { "concat",   { FTK_STRING, FTK_STRING, FTK_STRING }},
-    { "length",   { 0 }},
-    { "join",     { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }}
+struct function_info {
+    int return_type;
+    std::vector<int> arg_type;
+    unsigned required_args;
+    //std::string label;
+};
+static std::map<std::string, function_info> function_table = {
+    { "span",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3 }},
+    { "prefix",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2 }},
+    { "suffix",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2 }},
+    { "strlen",   { FTK_INTEGER, { FTK_STRING }, 1 }},
+    { "concat",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 2 }},
+    { "length",   { FTK_INTEGER, { 0 }, 1 }},
+    { "join",     { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }, 2 }}
 };
 
 int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim) {
@@ -361,9 +366,12 @@ int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, i
         pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
         return error_count;
     }
-    if(funp->second.size() !=  fldr.children.size()) {
+    if(funp->second.required_args + 1 !=  fldr.children.size()) {
         ++error_count;
-        pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << (funp->second.size() - 1)  << " arguments, " << (fldr.children.size() - 1) << " were given");
+        if(funp->second.required_args == funp->second.arg_type.size())
+            pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_args << " arguments but " << (fldr.children.size() - 1) << " were given");
+        else
+            pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_args << " arguments but " << (fldr.children.size() - 1) << " were given");
         return error_count;
     } 
     for(unsigned n = 1, e = fldr.children.size(); n < e; ++n) {
@@ -1093,7 +1101,7 @@ int flow_compiler::build_flow_graph(int blk_node) {
         // add the current node...
         used_nodes.insert(cur_node);
         // queue all the aliases
-        if(!name(cur_node).empty()) for(auto n: all_nodes(name(cur_node)))
+        if(cur_node != 0 && !name(cur_node).empty()) for(auto n: all_nodes(name(cur_node)))
             if(!contains(used_nodes, n)) 
                 todo.push_back(n);
         // queue all the references
@@ -1118,7 +1126,7 @@ int flow_compiler::build_flow_graph(int blk_node) {
             get_node_refs(noset, nx.first, 0, true);
             for(auto const &ns: noset) {
                 adjmat[nx.second][ntox[ns.first]] = true;
-                if(!name(ns.first).empty()) for(auto n: all_nodes(name(ns.first)))
+                if(ns.first != 0 && !name(ns.first).empty()) for(auto n: all_nodes(name(ns.first)))
                     adjmat[nx.second][ntox[n]] = true;
             }
         }
@@ -1238,6 +1246,7 @@ char const *op_name(op o) {
         case EPRP:  return "EPRP";
         case BSTG:  return "BSTG";
         case CALL:  return "CALL";
+        case FUNC:  return "FUNC";
         case COPY:  return "COPY";
         case ELP:   return "ELP";
         case END:   return "END";
@@ -1249,6 +1258,7 @@ char const *op_name(op o) {
         case SETE:  return "SETE";
         case SETS:  return "SETS";
         case SETI:  return "SETI";
+        case SETT:  return "SETT";
     }
     return "";
 };
@@ -1311,9 +1321,22 @@ ITER find_next_xcode(ITER ip, ITER ie) {
     }
     return ip;
 }
-
+/**
+ * Generate code to set up the all the fields in the input grpc messsage 
+ *
+ * lv_name: the left-value 
+ *     1 - either the name of a message reference that is the input to a node call
+ *     2 - the name of reference to a message that is the return value for a node
+ *     3 - one of the above followed by a list of field names
+ *     5 - the name of a temporary variable of a basic type (integer, float or string)
+ * lvd: descriptor associated with the first three cases of lv_name
+ * lvfd: descriptor associated with the case number 3 od lv_name
+ * arg_node: current node
+ * node_ip: node to icode address 
+ *
+ */
 int flow_compiler::populate_message(std::string const &lv_name, Descriptor const *lvd, FieldDescriptor const *lvfd, 
-            std::map<int, std::pair<std::string, Descriptor const *>> const &locals, int arg_node, std::map<int, int> &node_ip) {
+            int arg_node, std::map<int, int> &node_ip) {
 
     int error_count = 0;
     if(lvfd != nullptr && lvfd->is_repeated()) 
@@ -1324,20 +1347,31 @@ int flow_compiler::populate_message(std::string const &lv_name, Descriptor const
         case FTK_fldm: {
             for(int fldd_node: at(arg_node).children) {
                 auto fidp = field_descriptor(fldd_node);
-                error_count += populate_message(lv_name+"+"+name(fldd_node), lvd, fidp, locals, at(fldd_node).children[1], node_ip);
+                error_count += populate_message(lv_name+"+"+name(fldd_node), lvd, fidp, at(fldd_node).children[1], node_ip);
             }
         } break;
-        case FTK_fldr:
+        case FTK_fldr: {
+            auto const &children = at(arg_node).children;
+            std::string fname(get_id(children[0]));
+            auto ftp = function_table.find(fname);
             // TODO generate call for this 
-            //icode.push_back(fop(SETE, lv_name, lvd, arg_node));
-            break;
+            for(unsigned i = 1, e = children.size(); i != e; ++i) {
+                icode.push_back(fop(SETT, lv_name, lvd, arg_node));
+                std::string tmpvarname = sfmt() << "TmpVar_" << children[i];
+                populate_message(tmpvarname, nullptr, nullptr, children[i], node_ip);
+            }
+            icode.push_back(fop(FUNC, fname, nullptr, arg_node));
+            for(unsigned i = 1, e = children.size(); i != e; ++i) 
+                icode.back().arg.push_back(children[i]);
+            icode.push_back(fop(SETT, lv_name, lvd, arg_node));
+        } break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
             int rvn = get_id(fields[0]) == input_label? 0: names.find(get_id(fields[0]))->second.second;
-            auto rvp = locals.find(rvn);
-            assert(rvp != locals.end());
+            auto const rv_name = cs_name("RS", rvn);
+            auto const rvd = message_descriptor(rvn);
 
-            icode.push_back(fop(COPY, lv_name, rvp->second.first, lvd, rvp->second.second));
+            icode.push_back(fop(COPY, lv_name, rv_name, lvd, rvd));
             if(fields.size() > 1) {
                 error_count += lvfd != nullptr? 
                     check_assign(arg_node, lvfd, field_descriptor(fields.back())):
@@ -1350,8 +1384,8 @@ int flow_compiler::populate_message(std::string const &lv_name, Descriptor const
                 }
             } else {
                 error_count += lvfd != nullptr?
-                        check_assign(arg_node, lvfd, rvp->second.second):
-                        check_assign(arg_node, lvd, rvp->second.second);
+                        check_assign(arg_node, lvfd, rvd):
+                        check_assign(arg_node, lvd, rvd);
             }
             unsigned ci = icode.size()-1;
             std::vector<int> idxp;
@@ -1361,7 +1395,7 @@ int flow_compiler::populate_message(std::string const &lv_name, Descriptor const
                 icode[ci].arg2 += "+";
                 icode[ci].arg2 += get_id(fields[i]);
                 if(fid->is_repeated()) {
-                    fop idx(INDX, rvp->second.first, "", rvp->second.second);
+                    fop idx(INDX, rv_name, "", rvd);
                     idx.arg.assign(fields.begin(), fields.begin()+i+1);
                     unsigned xidx = 0;
                     for(unsigned u = 0; u < icode.size(); ++u) {
@@ -1393,7 +1427,7 @@ int flow_compiler::populate_message(std::string const &lv_name, Descriptor const
                     break;
                 }
             }
-            // Now propagate any node idices found
+            // Now propagate any node indices found
             auto nipp = node_ip.find(rvn);
             if(nipp != node_ip.end()) {
                 int begin = nipp->second+1;
@@ -1418,10 +1452,10 @@ int flow_compiler::populate_message(std::string const &lv_name, Descriptor const
         } break;
         case FTK_ID: {
             // Single id reference this is a particular case of fldx but the left value will always be a message
-            auto rvp = locals.find(get_id(arg_node) == input_label? 0: names.find(get_id(arg_node))->second.second);
-            assert(rvp != locals.end());
-            error_count += check_assign(arg_node, lvd, rvp->second.second);
-            icode.push_back(fop(COPY, lv_name, rvp->second.first, lvd, rvp->second.second));
+            int rvn = get_id(arg_node) == input_label? 0: names.find(get_id(arg_node))->second.second;
+            auto const rvd = message_descriptor(rvn);
+            error_count += check_assign(arg_node, lvd, rvd);
+            icode.push_back(fop(COPY, lv_name, cs_name("RS", rvn), lvd, rvd));
         } break;
         case FTK_STRING: 
             icode.push_back(fop(SETS, lv_name, lvd, arg_node));
@@ -1500,18 +1534,15 @@ int flow_compiler::find_max_index_depth(int right_value_node, std::map<int, int>
 int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set) {
     int error_count = 0;
 
-    std::map<int, std::pair<std::string, Descriptor const *>> locals;
     std::map<int, int> node_ip;
-    locals[0] = std::make_pair(cs_name("RQ", 0), input_dp);
-
     auto emd = method_descriptor(entry_blck_node);
     std::string return_name = cs_name("RS", entry_blck_node);
 
-    TRACE << "Processing entry " << entry_blck_node << ": " << get_name(emd) << "(" << locals[0].first << "): " << return_name << "\n";
+    TRACE << "Processing entry " << entry_blck_node << ": " << get_name(emd) << "(" <<  cs_name("", 0) << "): " << return_name << "\n";
 
     // MTHD marks the beggining of a method implementation.
     // The list of all nodes that can be visited by this method is stored in the args (in source order).
-    icode.push_back(fop(MTHD, locals.find(0)->second.first, return_name, emd, emd->input_type(), emd->output_type()));
+    icode.push_back(fop(MTHD, cs_name("", 0), return_name, emd, emd->input_type(), emd->output_type()));
     std::set<int> method_set;
     for(auto const &stage_set: node_stages) 
         for(auto n: stage_set) method_set.insert(n);
@@ -1587,12 +1618,11 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             int base_node = names.find(name(node))->second.second;
 
-            std::string rs_node(cs_name("RS", name(base_node), stage));
-            std::string rq_node(cs_name("RQ", node, stage));
+            std::string rs_node(cs_name("RS", name(base_node)));
+            std::string rq_node(cs_name("RQ", node));
 
             TRACE << "Processing " << node << " (" << name(node) << "), base: " << base_node << "[" << rs_node << ", " << rq_node << "]\n";
             
-            locals[node] = std::make_pair(rs_node, output_type);
             int node_idx = icode.size();
             node_ip[node] = node_idx;
             /*
@@ -1609,7 +1639,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             // Populate the request 
             error_count +=
-                populate_message(lv_name, input_type, nullptr, locals, get_arg_node(node), node_ip);
+                populate_message(lv_name, input_type, nullptr, get_arg_node(node), node_ip);
             
             if(md != nullptr) 
                 icode.push_back(fop(CALL, rq_node, rs_node, md));
@@ -1662,7 +1692,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     for(int i = 0; i < rdepth; ++i)
         icode.push_back(fop(NSET));
 
-    error_count += populate_message(return_name, emd->output_type(), nullptr, locals, entry_arg_node, node_ip);
+    error_count += populate_message(return_name, emd->output_type(), nullptr, entry_arg_node, node_ip);
     icode.push_back(fop(EPRP));
     icode.push_back(fop(END));
 
@@ -1698,6 +1728,11 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         error_count += compile_stmt(n);
 
     if(error_count > 0) return error_count;
+
+    // Adjustments for the AST
+    // Node 0 stands for the input
+    name.put(0, input_label);
+    message_descriptor.put(0, input_dp);
 
     // Revisit fldx nodes to resolve references
     error_count += compile_fldx(root);

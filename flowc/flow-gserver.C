@@ -1077,6 +1077,9 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 --loop_level;
                 OUT << "}\n";
                 break;
+            case FUNC:
+                OUT << "// function call\n";
+                break;
             case SETI: {
                 std::string value;
                 if(convert_integer(value, fd_accessor(op.arg1, op.d1), get_value(op.arg[0]), nullptr, get_integer(op.arg[0]))) {
@@ -1119,6 +1122,9 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case COPY:
                 OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) << "CopyFrom(" << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
+                break;
+            case SETT:
+                OUT << "// set this field from temp var\n";
                 break;
             case CALL:
                 OUT << "++" << L_STAGE_CALLS << ";\n";
