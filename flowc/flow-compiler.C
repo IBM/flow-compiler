@@ -1329,13 +1329,16 @@ ITER find_next_xcode(ITER ip, ITER ie) {
  *     2 - the name of reference to a message that is the return value for a node
  *     3 - one of the above followed by a list of field names
  *     5 - the name of a temporary variable of a basic type (integer, float or string)
- * lvd: descriptor associated with the first three cases of lv_name
+ * lvd: descriptor associated with the left value: 
+ *      either the input for a node 
+ *      or the output for an entry
  * lvfd: descriptor associated with the case number 3 od lv_name
  * arg_node: current node
  * node_ip: node to icode address 
  *
  */
-int flow_compiler::populate_message(std::string const &lv_name, Descriptor const *lvd, FieldDescriptor const *lvfd, 
+int flow_compiler::populate_message(std::string const &lv_name, 
+        Descriptor const *lvd, FieldDescriptor const *lvfd, 
             int arg_node, std::map<int, int> &node_ip) {
 
     int error_count = 0;
