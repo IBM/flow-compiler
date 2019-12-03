@@ -1,6 +1,6 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.11
-ARG GRPC_VERSION=1.22.0
+ARG GRPC_VERSION=1.20.0
 
 user root
 
