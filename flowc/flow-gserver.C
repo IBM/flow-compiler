@@ -1293,7 +1293,16 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
             continue;
         std::string const &node_name = rn.second.name;
-       
+
+        std::string set_metadata;
+        if(rn.second.headers.size() > 0) {
+            std::vector<std::string> metadata;
+            for(auto const &hnv: rn.second.headers) 
+                metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", " << c_escape(hnv.second) << ");");
+            
+            set_metadata = join(metadata, " ", " ", "{", "", "", "}");
+        }
+        append(vars, "CLI_NODE_METADATA", set_metadata);
         append(vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
         append(vars, "CLI_NODE_DESCRIPTION", description(cli_node));
         append(vars, "CLI_NODE_DESCRIPTION_HTML", html_escape(description(cli_node)));

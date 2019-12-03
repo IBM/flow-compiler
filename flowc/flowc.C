@@ -173,6 +173,33 @@ int flow_compiler::add_to_proto_path(std::string const &directory) {
     grpccc += "-I"; grpccc += directory; grpccc += " ";
     return 0;
 }
+    
+int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
+    int error_count = 0;
+    int old_value = 0;
+    for(int p = 0, v = find_in_blck(parent_block, block_label, &p); v != 0; v = find_in_blck(parent_block, block_label, &p)) {
+        if(at(v).type != FTK_blck) {
+            error_count += 1;
+            pcerr.AddError(main_file, at(v), sfmt() << block_label << " must be a name/value pair block");
+            continue;
+        }
+        // Grab all name value pairs 
+        auto ebp = block_store.find(v);
+        assert(ebp != block_store.end());
+        for(auto const &nv: ebp->second) {
+            if(!contains(accepted_types, at(nv.second).type)) {
+                error_count += 1;
+                std::set<std::string> accepted;
+                std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name);
+                pcerr.AddError(main_file, at(nv.second), sfmt() << "value for \"" << nv.first << "\" must be of type " << join(accepted, ", ", " or "));
+                continue;
+            }
+            nvs[nv.first] = get_value(nv.second); 
+        }
+        old_value = v;
+    }
+    return error_count;
+}
 
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
@@ -617,25 +644,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             old_value = 0;
             ni.environment.clear();
-            if(!external_node) for(int p = 0, v = find_in_blck(blck, "environment", &p); v != 0; v = find_in_blck(blck, "environment", &p)) {
-                if(at(v).type != FTK_blck) {
-                    error_count += 1;
-                    pcerr.AddError(main_file, at(v), "environment must a name/value pair block");
-                    continue;
-                }
-                // Grab all environment values
-                auto ebp = block_store.find(v);
-                assert(ebp != block_store.end());
-                for(auto const &nv: ebp->second) {
-                    if(at(nv.second).type != FTK_STRING && at(nv.second).type != FTK_FLOAT && at(nv.second).type != FTK_INTEGER) {
-                        error_count += 1;
-                        pcerr.AddError(main_file, at(nv.second), "expected value for environment variable");
-                        continue;
-                    }
-                    ni.environment[nv.first] = get_value(nv.second); 
-                }
-                old_value = v;
-            }
+            if(!external_node)
+                error_count += get_nv_block(ni.environment, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
         }
 
         // Avoid pod name collision
@@ -661,6 +671,16 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         else 
             clear(global_vars, "HAVE_VOLUMES");
     }
+    for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
+        int blck = rn.first;
+        auto &ni = rn.second;
+
+
+        int old_value = 0;
+        ni.headers.clear();
+        error_count += get_nv_block(ni.headers, blck, "headers", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+    }
+
     if(add_rest_node || mounts.size() > 0) 
         set(global_vars, "HAVE_VOLUMES_OR_REST", "");
     else 

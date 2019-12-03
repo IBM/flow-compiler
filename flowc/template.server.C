@@ -187,10 +187,14 @@ public:
 {I:CLI_NODE_NAME{
     /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
      */
+
+#define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
+
     int const {{CLI_NODE_ID}}_maxcc = {{CLI_NODE_MAX_CONCURRENT_CALLS}};
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> {{CLI_NODE_ID}}_stub[{{CLI_NODE_MAX_CONCURRENT_CALLS}}];
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
+        SET_METADATA_{{CLI_NODE_ID}}(CTX)
         auto result = {{CLI_NODE_ID}}_stub[call_number % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
@@ -208,6 +212,7 @@ public:
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
         L_context.set_deadline(deadline);
+        SET_METADATA_{{CLI_NODE_ID}}(L_context)
         ::grpc::Status L_status = {{CLI_NODE_ID}}_stub[0]->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
         if(!L_status.ok()) {
             GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
@@ -499,6 +504,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     auto const L_start_time = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
     L_context.set_deadline(L_deadline);
+    SET_METADATA_{{CLI_NODE_ID}}(L_context)
     ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     return rest::message_reply(A_conn, L_outp);

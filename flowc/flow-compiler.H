@@ -144,10 +144,12 @@ struct node_info {
     std::string group;      // Group label for this node
     std::string runtime;    // Runtime label for Docker
     int order;              // Order in which the nodes are evaluated, 0 is last
+    bool no_call;           // If true, there is no gRPC service associated with this node
+                            // Extra headers to be set as metadata 
+    std::map<std::string, std::string> headers;
                             // External endpoint for this service 
     std::string external_endpoint;
     std::string image_name; // Docker tag for the image
-    bool no_call;           // If true, there is no gRPC service associated with this node
     std::vector<int> mounts;
     std::map<std::string, std::string> environment;
     int scale;              // Number of images or groups to run at the same time
@@ -396,6 +398,9 @@ public:
     int genc_client(std::ostream &out);
     int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
+
+    int get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types);
+
     int genc_kube(std::ostream &out);
     int genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
     int genc_composer_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
