@@ -79,7 +79,7 @@ enum op {
      *      arg2    request name
      *      d1      output descriptor
      *      d2      input descriptor
-     *      arg[]   dimension node stage base-node
+     *      arg[]   dimension node stages base-node
      */
     BNOD,           // node begin
     NSET,           // node setup
@@ -115,6 +115,11 @@ enum op {
      */
     CALL,           // call method
     FUNC,           // call internal function
+    /**
+     *      arg1    right value name
+     *      d1      right value descriptor
+     *      arg     node ids for all fields up to the last repeated field
+     */
     INDX            // index data
 };
 struct fop {
@@ -355,7 +360,7 @@ public:
     int check_assign(int node, FieldDescriptor const *left, Descriptor const *right);
     int check_assign(int node, FieldDescriptor const *left, FieldDescriptor const *right);
     int find_max_index_depth(int right_value_node, std::map<int, int> const &node_ip, int max_allowed);
-    int populate_message(std::string const &lv_name, Descriptor const *lvd, FieldDescriptor const *lvfd, int arg_node, std::map<int, int> &node_ip);
+    int populate_message(std::string const &lv_name, struct left_value_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip);
     int compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set);
     int fop_compare(fop const &left, fop const &right) const;
     void dump_code(std::ostream &out) const;
