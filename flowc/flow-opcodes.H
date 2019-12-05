@@ -97,9 +97,7 @@ struct fop {
     fop(op c, std::string const &a1, int i, int j): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j); }
     fop(op c, std::string const &a1, int i, int j, int k): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j);  arg.push_back(k); }
 };
-
-inline static
-char const *op_name(op o) { 
+inline static char const *op_name(op o) { 
     switch(o) {
         case COMM:  return "#";
         case LOOP:  return "LOOP";
@@ -127,28 +125,27 @@ char const *op_name(op o) {
     }
     return "";
 };
-
 inline static std::ostream &operator<< (std::ostream &out, fop const &fop) {
-    bool use_ansi = use_ansi_escapes && (&out == &std::cerr || &out == &std::cout);
+    bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
 
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi_escape(ANSI_BOLD, use_ansi);
+    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);
     out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi_escape(ANSI_RESET, use_ansi);
+    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
     if(!fop.arg2.empty()) {
-        out << ansi_escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\"" << ansi_escape(ANSI_RESET, use_ansi) << "," << ansi_escape(ANSI_BLUE, use_ansi) 
-            << " \"" << fop.arg2 << "\" " << ansi_escape(ANSI_RESET, use_ansi);
+        out << ansi::escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\"" << ansi::escape(ANSI_RESET, use_ansi) << "," << ansi::escape(ANSI_BLUE, use_ansi) 
+            << " \"" << fop.arg2 << "\" " << ansi::escape(ANSI_RESET, use_ansi);
     } else if(!fop.arg1.empty()) {
-        out << ansi_escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\" " << ansi_escape(ANSI_RESET, use_ansi);
+        out << ansi::escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\" " << ansi::escape(ANSI_RESET, use_ansi);
     }
     if(fop.d2 != nullptr) {
         if(fop.d1 == nullptr) out << "0, ";
-        else out << ansi_escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << ansi_escape(ANSI_RESET, use_ansi) << ", ";
-        out << ansi_escape(ANSI_MAGENTA, use_ansi) << "d2: " << fop.d2->full_name() << " " << ansi_escape(ANSI_RESET, use_ansi);
+        else out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ", ";
+        out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d2: " << fop.d2->full_name() << " " << ansi::escape(ANSI_RESET, use_ansi);
     } else if(fop.d1 != nullptr) {
-        out << ansi_escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << " " << ansi_escape(ANSI_RESET, use_ansi);
+        out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << " " << ansi::escape(ANSI_RESET, use_ansi);
     }
     if(fop.m1 != nullptr) 
-        out << ansi_escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi_escape(ANSI_RESET, use_ansi) << " ";
+        out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
     bool first = true;
     for(auto a: fop.arg) { 
         out << a; 
@@ -157,5 +154,4 @@ inline static std::ostream &operator<< (std::ostream &out, fop const &fop) {
     }
     return out;
 }
-
 #endif

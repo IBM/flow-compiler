@@ -3,7 +3,6 @@
 
 #include <iosfwd>
 
-extern bool use_ansi_escapes;
 
 enum ANSI_ESCAPE {
     ANSI_BOLD,
@@ -17,8 +16,10 @@ enum ANSI_ESCAPE {
     ANSI_CYAN
 };
 
-inline static
-char const *ansi_escape(ANSI_ESCAPE esc, bool use_ansi=use_ansi_escapes) {
+namespace ansi {
+extern bool use_escapes;
+
+inline static char const *escape(ANSI_ESCAPE esc, bool use_ansi=use_escapes) {
     if(use_ansi) switch(esc) {
         case ANSI_BOLD: return "\x1b[1m";
         case ANSI_RESET: return "\x1b[0m";
@@ -32,16 +33,10 @@ char const *ansi_escape(ANSI_ESCAPE esc, bool use_ansi=use_ansi_escapes) {
     }
     return "";
 }
-inline static
-std::string ansi_escape(ANSI_ESCAPE e1, ANSI_ESCAPE e2) {
-    return std::string(ansi_escape(e1)) + ansi_escape(e2);
+inline static std::string escape(ANSI_ESCAPE e1, ANSI_ESCAPE e2) {
+    return std::string(escape(e1)) + escape(e2);
 }
 
-inline static 
-std::ostream &operator << (std::ostream &s, ANSI_ESCAPE esc) {
-    s << ansi_escape(esc);
-    return s;
-}
 inline static 
 std::string::size_type find_after_word_boundary(std::string const &string, std::string const &set, std::string::size_type pos=0) {
     if(pos == std::string::npos) return std::string::npos;
@@ -55,7 +50,7 @@ std::string::size_type find_after_word_boundary(std::string const &string, std::
  * The ANSI esacpes are omitted altogether if [use_ansi_escapes] is false
  */
 inline static
-std::ostream &emphasize(std::ostream &out, std::string const &message, std::string const &em=ansi_escape(ANSI_BOLD, ANSI_BLUE), std::string const &begin="\"", std::string const &end="\"", bool keep_quotes=false, bool start_at_word_boundary=false) {
+std::ostream &emphasize(std::ostream &out, std::string const &message, std::string const &em=escape(ANSI_BOLD, ANSI_BLUE), std::string const &begin="\"", std::string const &end="\"", bool keep_quotes=false, bool start_at_word_boundary=false) {
     for(size_t qb = message.find_first_of(begin), 
             qe = qb == std::string::npos? std::string::npos: message.find_first_of(end, qb+1), 
             p = 0; 
@@ -68,14 +63,14 @@ std::ostream &emphasize(std::ostream &out, std::string const &message, std::stri
 
         out << message.substr(p, qb == std::string::npos? message.length(): qb-p);
         if(qb != std::string::npos && qe != std::string::npos) {
-            if(use_ansi_escapes)
+            if(use_escapes)
                 out << em;
             if(keep_quotes) 
                 out << message.substr(qb, qe-qb+1); 
             else
                 out << message.substr(qb+1, qe-qb-1);
-            if(use_ansi_escapes)
-                out << ansi_escape(ANSI_RESET);
+            if(use_escapes)
+                out << escape(ANSI_RESET);
         }
     }
     return out;
@@ -85,7 +80,7 @@ std::ostream &emphasize(std::ostream &out, std::string const &message, std::stri
  * This calls [emphasize] above and observes [use_ansi_escapes].
  */
 inline static
-std::string emphasize(std::string const &message, std::string const &dquot_em=ansi_escape(ANSI_BOLD, ANSI_BLUE), std::string const &squot_em="") {
+std::string emphasize(std::string const &message, std::string const &dquot_em=escape(ANSI_BOLD, ANSI_BLUE), std::string const &squot_em="") {
     std::ostringstream s1, s2;
     if(dquot_em.empty() && squot_em.empty()) 
         return message;
@@ -94,5 +89,11 @@ std::string emphasize(std::string const &message, std::string const &dquot_em=an
     if(squot_em.empty()) return s1.str();
     emphasize(s2, dquot_em.empty()? message: s1.str(), squot_em, "'", "'");
     return s2.str();
+}
+}
+inline static 
+std::ostream &operator << (std::ostream &s, ANSI_ESCAPE esc) {
+    s << ansi::escape(esc);
+    return s;
 }
 #endif
