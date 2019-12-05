@@ -1209,32 +1209,6 @@ int flow_compiler::build_flow_graph(int blk_node) {
     }
     return error_count;
 }
-int flow_compiler::check_assign(int node, Descriptor const *left, Descriptor const *right) {
-    if(left == right) return 0;
-    pcerr.AddError(main_file, at(node), sfmt() << "cannot assign message of type \"" << right->full_name() << "\" to message of type \"" << left->full_name() << "\"");
-    return 1;
-}
-int flow_compiler::check_assign(int node, Descriptor const *left, FieldDescriptor const *right) {
-    if(is_message(right))
-        return check_assign(node, left, right->message_type());
-    pcerr.AddError(main_file, at(node), sfmt() << "cannot assign \"" << get_full_type_name(right) << "\" to message of type \"" << left->full_name() << "\"");
-    return 1;
-}
-int flow_compiler::check_assign(int node, FieldDescriptor const *left, Descriptor const *right) {
-    pcerr.AddError(main_file, at(node), sfmt() << "cannot assign message of type \"" << right->full_name() << "\" to \"" << get_full_type_name(left) << "\" field");
-    return 1;
-}
-int flow_compiler::check_assign(int node, FieldDescriptor const *left, FieldDescriptor const *right) {
-    if(is_message(left)) 
-        return check_assign(node, left->message_type(), right);
-    if(is_message(right)) 
-        return check_assign(node, left, right->message_type());
-    auto left_type = get_full_type_name(left);
-    auto right_type = get_full_type_name(right);
-    if(left_type != right_type)
-        pcerr.AddWarning(main_file, at(node), sfmt() << "automatic conversion from \"" << right_type << "\" to \"" << left_type << "\"");
-    return 0;
-}
 static
 char const *op_name(op o) { 
     switch(o) {
@@ -1324,26 +1298,50 @@ ITER find_next_xcode(ITER ip, ITER ie) {
     }
     return ip;
 }
-
-struct left_value_descriptor {
-    int type;
+struct lr_value_descriptor {
+    int value_type;
     int node;
     Descriptor const *dp;
     FieldDescriptor const *fp;
 
-    left_value_descriptor(int itype, int inode=-1, Descriptor const *idp=nullptr, FieldDescriptor const *ifp=nullptr):
-        type(itype), node(inode), dp(idp), fp(ifp) {}
+    lr_value_descriptor(int itype, int inode=-1, Descriptor const *idp=nullptr, FieldDescriptor const *ifp=nullptr):
+        value_type(itype), node(inode), dp(idp), fp(ifp) {}
 
-    left_value_descriptor(left_value_descriptor const &lvd, FieldDescriptor const *ifp):
-        type(lvd.type), node(lvd.node), dp(lvd.dp), fp(ifp) {}
+    lr_value_descriptor(lr_value_descriptor const &lvd, FieldDescriptor const *ifp):
+        value_type(lvd.value_type), node(lvd.node), dp(lvd.dp), fp(ifp) {}
 
-    left_value_descriptor(Descriptor const *idp):
-        type(FTK_fldx), node(-1), dp(idp), fp(nullptr) {}
+    lr_value_descriptor(Descriptor const *idp, FieldDescriptor const *ifp=nullptr):
+        value_type(0), node(-1), dp(idp), fp(ifp) {}
+
+    lr_value_descriptor(FieldDescriptor const *ifp):
+        value_type(0), node(-1), dp(nullptr), fp(ifp) {}
 
     bool is_field() const { return fp != nullptr; }
-    bool is_message() const { return (fp != nullptr && ::is_message(fp)) || dp != nullptr; }
-    bool is_repeated() const { return fp != nullptr && fp->is_repeated(); }
+    bool is_message() const { return is_field()? ::is_message(fp): (dp != nullptr); }
+    bool is_repeated() const { return is_field() && fp->is_repeated(); }
+    int type() const {
+        if(is_field()) return grpc_type_to_ftk(fp->type());
+        if(dp != nullptr) return FTK_fldm;
+        return value_type;
+    }
+    std::string type_name() const {
+        if(is_field()) return get_full_type_name(fp);
+        if(dp != nullptr) return dp->full_name();
+        return node_name(value_type); 
+    }
 };
+int flow_compiler::check_assign(int error_node, lr_value_descriptor const &left, lr_value_descriptor const &right) {
+    if(left.is_message() && right.is_message()) {
+        if(left.type_name() == right.type_name()) 
+            return 0;
+        pcerr.AddError(main_file, at(error_node), sfmt() << "cannot assign message of type \"" << right.type_name() << "\" to message of type \"" << left.type_name() << "\"");
+    } else if(left.type() == right.type()) {
+        return 0;
+    } else {
+        pcerr.AddError(main_file, at(error_node), sfmt() << "cannot assign \"" << right.type_name() << "\" to left value of type \"" << left.type_name() << "\"");
+    }
+    return 1;
+}
 /**
  * Generate code to set up the all the fields in the input grpc messsage 
  *
@@ -1360,9 +1358,7 @@ struct left_value_descriptor {
  * node_ip: node to icode address 
  *
  */
-int flow_compiler::populate_message(std::string const &lv_name, left_value_descriptor const &lvd, 
-            int arg_node, std::map<int, int> &node_ip) {
-
+int flow_compiler::populate_message(std::string const &lv_name, lr_value_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip) {
     int error_count = 0;
     if(lvd.is_repeated()) 
         icode.push_back(fop(LOOP, lv_name, "", lvd.dp));
@@ -1372,19 +1368,19 @@ int flow_compiler::populate_message(std::string const &lv_name, left_value_descr
         case FTK_fldm: {
             for(int fldd_node: at(arg_node).children) {
                 auto fidp = field_descriptor(fldd_node);
-                error_count += populate_message(lv_name+"+"+name(fldd_node), left_value_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip);
+                error_count += populate_message(lv_name+"+"+name(fldd_node), lr_value_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip);
             }
         } break;
         case FTK_fldr: {
             auto const &children = at(arg_node).children;
             std::string fname(get_id(children[0]));
             auto ftp = function_table.find(fname);
-            left_value_descriptor return_lvd(ftp->second.return_type);
+            lr_value_descriptor return_lvd(ftp->second.return_type);
             // TODO generate call for this 
             for(unsigned i = 1, e = children.size(); i != e; ++i) {
                 icode.push_back(fop(SETT, lv_name, lvd.dp, arg_node));
                 std::string tmpvarname = sfmt() << "TmpVar_" << children[i];
-                left_value_descriptor arg_lvd(ftp->second.return_type);
+                lr_value_descriptor arg_lvd(ftp->second.return_type);
                 populate_message(tmpvarname, arg_lvd, children[i], node_ip);
             }
             icode.push_back(fop(FUNC, fname, nullptr, arg_node));
@@ -1403,9 +1399,7 @@ int flow_compiler::populate_message(std::string const &lv_name, left_value_descr
 
             icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
             if(fields.size() > 1) {
-                error_count += lvd.is_field()? 
-                    check_assign(arg_node, lvd.fp, field_descriptor(fields.back())):
-                    check_assign(arg_node, lvd.dp, field_descriptor(fields.back()));
+                error_count += check_assign(arg_node, lvd, lr_value_descriptor(field_descriptor(fields.back())));
                 // if left and right are descriptors we copy
                 if(is_message(field_descriptor(fields.back())) && lvd.dp != nullptr) {
                     //icode.back().d2 = field_descriptor(fields.back())->message_type();
@@ -1413,9 +1407,8 @@ int flow_compiler::populate_message(std::string const &lv_name, left_value_descr
                     icode.back().code = SET;
                 }
             } else {
-                error_count += lvd.is_field()?
-                        check_assign(arg_node, lvd.fp, rvd):
-                        check_assign(arg_node, lvd.dp, rvd);
+                //error_count += check_assign(arg_node, lr_value_descriptor(lvd.dp, lvd.fp), lr_value_descriptor(rvd));
+                error_count += check_assign(arg_node, lvd, lr_value_descriptor(rvd));
             }
             // Remember the address of this copy instruction
             unsigned ci = icode.size()-1;
@@ -1490,7 +1483,7 @@ int flow_compiler::populate_message(std::string const &lv_name, left_value_descr
             // Single id reference this is a particular case of fldx but the left value will always be a message
             int rvn = get_id(arg_node) == input_label? 0: names.find(get_id(arg_node))->second.second;
             auto const rvd = message_descriptor(rvn);
-            error_count += check_assign(arg_node, lvd.dp, rvd);
+            error_count += check_assign(arg_node, lvd.dp, lr_value_descriptor(rvd));
             icode.push_back(fop(COPY, lv_name, cs_name("RS", rvn), lvd.dp, rvd));
         } break;
         case FTK_STRING: 
@@ -1675,7 +1668,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             // Populate the request 
             error_count +=
-                populate_message(lv_name, left_value_descriptor(input_type), get_arg_node(node), node_ip);
+                populate_message(lv_name, lr_value_descriptor(input_type), get_arg_node(node), node_ip);
             
             if(md != nullptr) 
                 icode.push_back(fop(CALL, rq_node, rs_node, md));
@@ -1728,7 +1721,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     for(int i = 0; i < rdepth; ++i)
         icode.push_back(fop(NSET));
 
-    error_count += populate_message(return_name, left_value_descriptor(emd->output_type()), entry_arg_node, node_ip);
+    error_count += populate_message(return_name, lr_value_descriptor(emd->output_type()), entry_arg_node, node_ip);
     icode.push_back(fop(EPRP));
     icode.push_back(fop(END));
 

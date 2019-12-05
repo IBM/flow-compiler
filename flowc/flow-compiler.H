@@ -355,12 +355,11 @@ public:
     int get_arg_node(int blck_node) const;
     int build_flow_graph(int entry_blk_node);
 
-    int check_assign(int node, Descriptor const *left, Descriptor const *right);
-    int check_assign(int node, Descriptor const *left, FieldDescriptor const *right);
-    int check_assign(int node, FieldDescriptor const *left, Descriptor const *right);
-    int check_assign(int node, FieldDescriptor const *left, FieldDescriptor const *right);
+    // Type check if the the assignment left = right
+    int check_assign(int error_node, struct lr_value_descriptor const &left, struct lr_value_descriptor const &right);
+
     int find_max_index_depth(int right_value_node, std::map<int, int> const &node_ip, int max_allowed);
-    int populate_message(std::string const &lv_name, struct left_value_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip);
+    int populate_message(std::string const &lv_name, struct lr_value_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip);
     int compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set);
     int fop_compare(fop const &left, fop const &right) const;
     void dump_code(std::ostream &out) const;
