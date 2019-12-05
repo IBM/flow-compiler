@@ -1333,12 +1333,10 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
         } break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
+            // TODO improve name generation
             int rvn = get_id(fields[0]) == input_label? 0: names.find(get_id(fields[0]))->second.second;
-            auto const rv_name = cs_name("RS", rvn);
+            auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name("RS", name(rvn));
             auto const rvd = message_descriptor(rvn);
-
-            //std::cerr << "rvn: " << rvn << " rv_name: "<< rv_name << " name: " << name(rvn) <<"\n";
-            //std::cerr << "lvn: " << "?" << " lv_name: "<< lv_name <<"\n";
 
             icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
             if(fields.size() > 1) {
@@ -1589,7 +1587,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             int base_node = names.find(name(node))->second.second;
 
-            std::string rs_node(cs_name("RS", name(base_node)));
+            std::string rs_node(cs_name("RS", name(base_node) ));
             std::string rq_node(cs_name("RQ", node));
 
             TRACE << "Processing " << node << " (" << name(node) << "), base: " << base_node << "[" << rs_node << ", " << rq_node << "]\n";
