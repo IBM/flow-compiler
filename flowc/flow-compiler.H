@@ -14,6 +14,7 @@ using namespace google::protobuf;
 #include "flow-ast.H"
 #include "stru1.H"
 #include "helpo.H"
+#include "flow-opcodes.H"
 
 using namespace stru1;
 
@@ -53,94 +54,6 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
     return vars;
 }
 
-enum op { 
-    COMM,           // comment 
-    /** 
-     *      arg1    request name
-     *      arg2    response name 
-     *      d1      descriptor for the request
-     *      d2      descriptor for the response 
-     *      m1      method descriptor
-     *      arg[]   nodes used by thie emntry
-     */      
-    MTHD,           // method begin
-    END,            // method end
-    /**
-     *      arg1    stage name
-     *      arg[0]  stage number
-     *      arg[1]  the number of nodes in this stage
-     *      arg[2]  max stage dim
-     *      arg 3.. node ids
-     */
-    BSTG,           // stage begin
-    ESTG,           // stage end
-    /**
-     *      arg1    response name 
-     *      arg2    request name
-     *      d1      output descriptor
-     *      d2      input descriptor
-     *      arg[]   dimension node stages base-node
-     */
-    BNOD,           // node begin
-    NSET,           // node setup
-    CHK,            // check condition
-    ENOD,           // node end
-    BPRP,           // result preparation begin
-    EPRP,           // result preparation end
-    LOOP,           // begin loop
-    ELP,            // end loop                         
-    /**
-     * All set fileds have:
-     *      arg1    left value string representation as message-type[[+]field-name]*
-     *      d1      descriptor for message-type
-     *      arg[0]  right value node-id
-     */
-    SET,            // set field with another field                 
-    SETI,           // set field with integer constant
-    SETS,           // set field with string constant
-    SETE,           // set field with enum constant
-    SETF,           // set field with float constant
-    SETT,           // set field from temporary variable
-    /** 
-     *      arg1    left value string representation as message-type[[+]field-name]*
-     *      arg2    right value string representation as message-type[[+]field-name]*
-     *      d1      descriptor for the left value message type
-     *      d2      descriptor for the right value message type
-     */      
-    COPY,           // copy field
-    /** 
-     *      arg1    request message name
-     *      arg2    response message name
-     *      m1      method descriptor
-     */
-    CALL,           // call method
-    FUNC,           // call internal function
-    /**
-     *      arg1    right value name
-     *      d1      right value descriptor
-     *      arg     node ids for all fields up to the last repeated field
-     */
-    INDX            // index data
-};
-struct fop {
-    op code;
-    std::string arg1, arg2;                
-    Descriptor const *d1 = nullptr;
-    Descriptor const *d2 = nullptr;
-    MethodDescriptor const *m1 = nullptr;
-    std::vector<int> arg;
-    fop(op c=COMM): code(c) {}
-    fop(op c, std::string const &a1, std::string const &a2=""): code(c), arg1(a1), arg2(a2) {}
-    fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, Descriptor const *ad2=nullptr): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2) {}
-    fop(op c, std::string const &a1, Descriptor const *ad1, int i): code(c), arg1(a1), d1(ad1)  {arg.push_back(i);}
-    fop(op c, std::string const &a1, std::string const &a2, MethodDescriptor const *am1): code(c), arg1(a1), arg2(a2), m1(am1) {}
-    fop(op c, std::string const &a1, std::string const &a2, MethodDescriptor const *am1, Descriptor const *ad1, Descriptor const *ad2): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2), m1(am1) {}
-    fop(op c, int i): code(c) { arg.push_back(i); }
-    fop(op c, int i, int j): code(c) { arg.push_back(i); arg.push_back(j); }
-    fop(op c, std::string const &a1, int i, int j): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j); }
-    fop(op c, std::string const &a1, int i, int j, int k): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j);  arg.push_back(k); }
-};
-std::ostream &operator<< (std::ostream &out, fop const &fop);
 
 struct node_info {
     int node;               // AST pointer

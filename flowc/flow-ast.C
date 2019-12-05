@@ -3,6 +3,7 @@
 #include "flow-ast.H"
 #include "grpc-helpers.H"
 #include "stru1.H"
+#include "ansi-escapes.H"
 
 using namespace stru1;
 

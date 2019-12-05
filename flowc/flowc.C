@@ -53,7 +53,7 @@ void FErrorPrinter::AddMessage(std::string const &type, std::string const &color
     *outs << ": " << color << type << ": ";
     if(use_ansi_escapes)
         *outs << ANSI_RESET;
-    stru1::emphasize(*outs, message, ansi_escape(ANSI_BOLD,ANSI_GREEN));
+    emphasize(*outs, message, ansi_escape(ANSI_BOLD,ANSI_GREEN));
     *outs << "\n";
 }
 void FErrorPrinter::AddError(std::string const &filename, int line, int column, std::string const &message) {

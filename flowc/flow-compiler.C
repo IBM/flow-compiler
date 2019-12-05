@@ -1209,60 +1209,6 @@ int flow_compiler::build_flow_graph(int blk_node) {
     }
     return error_count;
 }
-static
-char const *op_name(op o) { 
-    switch(o) {
-        case COMM:  return "#";
-        case LOOP:  return "LOOP";
-        case MTHD:  return "MTHD";
-        case BNOD:  return "BNOD";
-        case NSET:  return "NSET";
-        case CHK:   return "CHK";
-        case BPRP:  return "BPRP";
-        case EPRP:  return "EPRP";
-        case BSTG:  return "BSTG";
-        case CALL:  return "CALL";
-        case FUNC:  return "FUNC";
-        case COPY:  return "COPY";
-        case ELP:   return "ELP";
-        case END:   return "END";
-        case ENOD:  return "ENOD";
-        case ESTG:  return "ESTG";
-        case INDX:  return "INDX";
-        case SET:   return "SET";
-        case SETF:  return "SETF";
-        case SETE:  return "SETE";
-        case SETS:  return "SETS";
-        case SETI:  return "SETI";
-        case SETT:  return "SETT";
-    }
-    return "";
-};
-std::ostream &operator<< (std::ostream &out, fop const &fop) {
-    bool use_ansi = use_ansi_escapes && (&out == &std::cerr || &out == &std::cout);
-
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi_escape(ANSI_BOLD, use_ansi);
-    out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi_escape(ANSI_RESET, use_ansi);
-    if(!fop.arg2.empty()) {
-        out << ansi_escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\"" << ansi_escape(ANSI_RESET, use_ansi) << "," << ansi_escape(ANSI_BLUE, use_ansi) 
-            << " \"" << fop.arg2 << "\" " << ansi_escape(ANSI_RESET, use_ansi);
-    } else if(!fop.arg1.empty()) {
-        out << ansi_escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\" " << ansi_escape(ANSI_RESET, use_ansi);
-    }
-    if(fop.d2 != nullptr) {
-        if(fop.d1 == nullptr) out << "0, ";
-        else out << ansi_escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << ansi_escape(ANSI_RESET, use_ansi) << ", ";
-        out << ansi_escape(ANSI_MAGENTA, use_ansi) << "d2: " << fop.d2->full_name() << " " << ansi_escape(ANSI_RESET, use_ansi);
-    } else if(fop.d1 != nullptr) {
-        out << ansi_escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << " " << ansi_escape(ANSI_RESET, use_ansi);
-    }
-    if(fop.m1 != nullptr) 
-        out << ansi_escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi_escape(ANSI_RESET, use_ansi) << " ";
-    
-    out << join(fop.arg, ", ");
-    return out;
-}
 // This is used only to compare INDX 
 int flow_compiler::fop_compare(fop const &left, fop const &right) const {
     int x = left.code - right.code;
@@ -1312,9 +1258,6 @@ struct lr_value_descriptor {
 
     lr_value_descriptor(Descriptor const *idp, FieldDescriptor const *ifp=nullptr):
         value_type(0), node(-1), dp(idp), fp(ifp) {}
-
-    lr_value_descriptor(FieldDescriptor const *ifp):
-        value_type(0), node(-1), dp(nullptr), fp(ifp) {}
 
     bool is_field() const { return fp != nullptr; }
     bool is_message() const { return is_field()? ::is_message(fp): (dp != nullptr); }
@@ -1399,7 +1342,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
 
             icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
             if(fields.size() > 1) {
-                error_count += check_assign(arg_node, lvd, lr_value_descriptor(field_descriptor(fields.back())));
+                error_count += check_assign(arg_node, lvd, lr_value_descriptor(rvd, field_descriptor(fields.back())));
                 // if left and right are descriptors we copy
                 if(is_message(field_descriptor(fields.back())) && lvd.dp != nullptr) {
                     //icode.back().d2 = field_descriptor(fields.back())->message_type();
@@ -1407,7 +1350,6 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
                     icode.back().code = SET;
                 }
             } else {
-                //error_count += check_assign(arg_node, lr_value_descriptor(lvd.dp, lvd.fp), lr_value_descriptor(rvd));
                 error_count += check_assign(arg_node, lvd, lr_value_descriptor(rvd));
             }
             // Remember the address of this copy instruction
