@@ -71,6 +71,10 @@ enum op {
      *      m1      method descriptor
      */
     CALL,           // call method
+    /**
+     *      arg1    error message
+     */
+    ERR,            // generate a grpc error
     FUNC,           // call internal function
     /**
      *      arg1    right value name
@@ -122,6 +126,7 @@ inline static char const *op_name(op o) {
         case SETS:  return "SETS";
         case SETI:  return "SETI";
         case SETT:  return "SETT";
+        case ERR:   return "ERR";
     }
     return "";
 };
