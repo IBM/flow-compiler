@@ -47,6 +47,7 @@ stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(F
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                   // Skip over extraneous semicolons
 
 blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                   // Blocks must be enclosed in { }
+blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }                // Empty blocks are allowed
 
 list(A) ::= elem(B).                                           { A = ast->node(FTK_blck, B); }              // FTK_blck is a list of declarations (elem)
 list(A) ::= list(B) elem(C).                                   { A = ast->nappend(B, C); }
