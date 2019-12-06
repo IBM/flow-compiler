@@ -1,6 +1,8 @@
 #ifndef H_AST_ATTRS_H
 #define H_AST_ATTRS_H
 
+#include <type_traits>
+
 namespace ast {
 template<class V> struct attribute {
     std::map<int, V> value;
@@ -35,6 +37,9 @@ template<class V> struct attribute {
         for(auto &nv: value) all.insert(nv.first);
         return all;
     }
+    //template <class = typename std::enable_if<std::is_pointer<V>::value>::type>
+    attribute(V p): no_value(p) { }
+    //attribute() {}
 };
 template <typename AT> 
 static bool has_attr(int n, AT const &attrs) {

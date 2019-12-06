@@ -73,6 +73,10 @@ struct flow_ast {
     // dimension of the data at this node
     ast::attribute<int> dimension;
 
+    flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
+            name(""), type(""), description(""), condition(0), flag(-1), dimension(0) {
+            }
+
     bool has_attributes(int n) const {
         return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag, dimension);
     }
