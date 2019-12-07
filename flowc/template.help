@@ -45,7 +45,7 @@ OPTIONS
               By default coloring is enabled only when output is to a terminal.
 
        --default-client-timeout=TIME
-              Timeout for "gRPC" calls made to any of the nodes. The default unit is seconds. This value is
+              Timeout (in millisecconds) for "gRPC" calls made to any of the nodes. This value is
               used unless a different timeout is specified for the node.
 
        --default-client-calls=NUMBER
@@ -53,9 +53,9 @@ OPTIONS
               used when replicas are not set for a given node.
 
        --default-entry-timeout=TIME
-              Default timeout for all the "gRPC" entries (servce methods.) If processing of any method exeeds
-              this timeout the method will reply with "DEADLINE_EXCEEDED". The timeout is used when no value
-              was set for a given entry.
+              Default timeout in milliseconds for all the "gRPC" entries (servce methods.) If processing of 
+              any method exeeds this timeout the method will reply with "DEADLINE_EXCEEDED". This timeout is 
+              used when no value was set for a given entry.
 
        --docker-compose, -d
               Generate a "Docker Compose" driver tool for managing the application

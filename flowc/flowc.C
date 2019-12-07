@@ -332,7 +332,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     set(global_vars, "CUSTOM_GUI_NODE_PORT", std::to_string(base_port-3));
 
     default_node_timeout = opts.opti("default-client-timeout", default_node_timeout);
-    //default_entry_timeout = opts.opti("default-server-timeout", default_entry_timeout);
+    default_entry_timeout = opts.opti("default-entry-timeout", default_entry_timeout);
     default_maxcc = opts.opti("default-client-calls", default_maxcc);
 
     rest_image = opts.opt("rest-image", rest_image);
