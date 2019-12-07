@@ -135,31 +135,24 @@ private:
     std::vector<FileDescriptor const *> fdps;
     // Lookup table for enum ids
     std::set<EnumValueDescriptor const *> enum_value_set;
-
     // Block data: a set of name value pairs in source file order
     // values are AST node ids of the value node
     typedef std::vector<std::pair<std::string, int>> block_data_t;
     // All blocks indexed by AST node
     std::map<int, block_data_t> block_store;
-
     // Table with nodes, containers and entries: names[name]: (type, block ast-node)
-    std::map<std::string, std::pair<std::string, int>> names;
-
-    // block ast-node flow graph by entry block ast-node
+    std::map<std::string, std::pair<std::string, int>> named_blocks;
+    // Block ast-node flow graph by entry block ast-node
     // for each entry a list of sets of overlapping nodes
     std::map<int, std::vector<std::set<int>>> flow_graph;
-
     // All the referenced (used) nodes and the corresponding data
-    std::map<int, node_info> referenced_nodes; 
-
+    std::map<int, node_info> referenced_nodes;
     // local vars for each group
     std::map<std::string, var_store_t> group_vars;
     // volume for each group
     std::map<std::string, std::set<std::string>> group_volumes;
-
     // All the volume names that need to be mounted
     //std::set<std::string> volumes;
-
     // All mount records indexed by AST node
     std::map<int, mount_info> mounts;
     // 

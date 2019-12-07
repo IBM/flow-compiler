@@ -817,6 +817,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
         OUT << "// " << i << " " << op << "\n";
+        std::cerr << i << ": " << op << "\n";
         switch(op.code) {
             case MTHD:
                 input_name = op.arg1;
@@ -951,11 +952,17 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "\n";
                 async_enabled = false;
                 break;
+            case RNOD:
+                if(first_node) { // non-zero if this node is the first in the set of aliases
+                    OUT << reps("std::vector<", node_dim) << get_full_name(op.d1) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_output_name << ";\n";
+                    OUT << reps("std::vector<", node_dim) << "int"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? " = 0": "") << ";\n";
+                }
+                break;
             case BNOD:
                 node_dim = op.arg[0];
                 cur_input_name = op.arg2; cur_output_name = op.arg1;
                 cur_node_name = to_lower(to_identifier(referenced_nodes.find(cur_node = op.arg[1])->second.name));
-                cur_base_node = names.find(name(cur_node))->second.second;
+                cur_base_node = named_blocks.find(name(cur_node))->second.second;
                 if(!condition.has(cur_node)) nodes_rv[name(cur_node)] = cur_output_name;
                 stage_node_names.push_back(cur_node_name);
                 
@@ -969,8 +976,11 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << " * stage: " << cur_stage_name << "\n";
                 OUT << " * is first: " << (op.arg[3] != 0? "yes": "no") << "\n";
                 OUT << " */\n";
-
-                OUT << reps("std::vector<", node_dim) << get_full_name(op.d2) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_input_name << ";\n";
+                if(op.d2 != nullptr) {
+                    // input is not needed for empty nodes
+                    OUT << reps("std::vector<", node_dim) << get_full_name(op.d2) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_input_name << ";\n";
+                }
+                // output must be set even when the node is empty if this is a first node 
                 first_node = op.arg[3] != 0;
                 if(first_node) { // non-zero if this node is the first in the set of aliases
                     OUT << reps("std::vector<", node_dim) << get_full_name(op.d1) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_output_name << ";\n";
@@ -978,8 +988,10 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 }
                 if(async_enabled) {
                     // Each node has a vector of response readers CARR_xxx and a vector of response pointers OUTP_xxxx
-                    OUT << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << get_full_name(op.d1) << ">>> " << L_CARR << ";\n";
-                    OUT << "std::vector<" << get_full_name(op.d1) << " *> " << L_OUTPTR <<  ";\n";
+                    if(op.d1 != nullptr) {
+                        OUT << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << get_full_name(op.d1) << ">>> " << L_CARR << ";\n";
+                        OUT << "std::vector<" << get_full_name(op.d1) << " *> " << L_OUTPTR <<  ";\n";
+                    }
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
                 }
                 break;
@@ -1153,7 +1165,11 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "}\n";
                 }
                 break;
-            case COMM:
+            case ERR:
+                OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\");\n";
+                OUT << "return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, " << c_escape(op.arg1) << ");\n";
+                break;
+            case NOP:
                 if(!op.arg1.empty())
                     OUT << "// " << op.arg1 << "\n";
                 if(!op.arg2.empty())
@@ -1194,7 +1210,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     int error_count = 0;
     std::set<int> entry_node_set;
     // Sort the entries in source order
-    for(auto const &ne: names) if(ne.second.first == "entry")
+    for(auto const &ne: named_blocks) if(ne.second.first == "entry")
         entry_node_set.insert(ne.second.second);
     
     ServiceDescriptor const *sdp = nullptr;
@@ -1340,7 +1356,7 @@ int flow_compiler::gc_server(std::ostream &out) {
 
     std::set<int> entry_node_set;
     // Sort the entries in source order
-    for(auto const &ne: names) if(ne.second.first == "entry") 
+    for(auto const &ne: named_blocks) if(ne.second.first == "entry") 
         entry_node_set.insert(ne.second.second);
 
     for(int entry_node: entry_node_set) {

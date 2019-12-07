@@ -11,7 +11,7 @@ using namespace google::protobuf;
 
 
 enum op { 
-    COMM,           // comment 
+    NOP,            // no operation comment
     /** 
      *      arg1    request name
      *      arg2    response name 
@@ -39,6 +39,7 @@ enum op {
      *      arg[]   dimension node stages base-node
      */
     BNOD,           // node begin
+    RNOD,           // setup result structures for this node type
     NSET,           // node setup
     CHK,            // check condition
     ENOD,           // node end
@@ -90,7 +91,7 @@ struct fop {
     Descriptor const *d2 = nullptr;
     MethodDescriptor const *m1 = nullptr;
     std::vector<int> arg;
-    fop(op c=COMM): code(c) {}
+    fop(op c=NOP): code(c) {}
     fop(op c, std::string const &a1, std::string const &a2=""): code(c), arg1(a1), arg2(a2) {}
     fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, Descriptor const *ad2=nullptr): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2) {}
     fop(op c, std::string const &a1, Descriptor const *ad1, int i): code(c), arg1(a1), d1(ad1)  {arg.push_back(i);}
@@ -103,10 +104,11 @@ struct fop {
 };
 inline static char const *op_name(op o) { 
     switch(o) {
-        case COMM:  return "#";
+        case NOP:  return "NOP";
         case LOOP:  return "LOOP";
         case MTHD:  return "MTHD";
         case BNOD:  return "BNOD";
+        case RNOD:  return "RNOD";
         case NSET:  return "NSET";
         case CHK:   return "CHK";
         case BPRP:  return "BPRP";
@@ -153,8 +155,8 @@ inline static std::ostream &operator<< (std::ostream &out, fop const &fop) {
         out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
     bool first = true;
     for(auto a: fop.arg) { 
-        out << a; 
         if(!first) out << ", ";
+        out << a; 
         first = false;
     }
     return out;

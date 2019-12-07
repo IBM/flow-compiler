@@ -63,7 +63,7 @@ int flow_compiler::genc_client(std::ostream &out) {
     int error_count = 0;
     std::map<std::string, std::vector<std::string>> local_vars;
     std::vector<MethodDescriptor const *> methods;
-    for(auto const &ep: names) if(ep.second.first == "entry")  
+    for(auto const &ep: named_blocks) if(ep.second.first == "entry")  
         methods.push_back(method_descriptor(ep.second.second));
     
     for(auto &rn: referenced_nodes) if(!rn.second.no_call) {

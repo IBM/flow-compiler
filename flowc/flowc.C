@@ -290,7 +290,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(opts.have("print-graph")) {
         std::string entry(opts.opt("print-graph", ""));
         int en = 0;
-        for(auto ei: names) if(ei.second.first == "entry") {
+        for(auto ei: named_blocks) if(ei.second.first == "entry") {
             if(ei.first == entry || ends_with(ei.first, std::string(".") + entry)) {
                 en = ei.second.second;
                 break;
@@ -376,7 +376,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // Whether REST is added or not depends on the value of the rest_image field -- for now
     bool add_rest_node = (contains(targets, "kubernetes") || contains(targets, "docker-compose")) && !rest_image.empty();
     if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
-        for(auto const &nc: names) if(nc.second.first == "container") 
+        for(auto const &nc: named_blocks) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
     }
     /********************************************************************
@@ -451,7 +451,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // Make sure the rest node name doesn't collide with any other node
     for(unsigned i = 1; i < 100; ++i) {
         // FIXME: need to ckeck against referenced_nodes
-        if(!contains(names, rest_node_label))
+        if(!contains(named_blocks, rest_node_label))
             break;
         rest_node_label = sfmt() << "rest_" << i;
     }
@@ -730,7 +730,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(add_rest_node || contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
-        for(auto ep: names) if(ep.second.first == "entry") {
+        for(auto ep: named_blocks) if(ep.second.first == "entry") {
             std::string method = ep.first;
             auto mdp = check_method(method, 0);
             int blck = ep.second.second, pv = 0;
@@ -858,7 +858,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             auto mdpe = check_method(check_entry, 0);
             // Find the node corresponding to this entry
             int node = 0;
-            for(auto ep: names) if(ep.second.first == "entry") {
+            for(auto ep: named_blocks) if(ep.second.first == "entry") {
                 node = ep.second.second; 
                 if(mdpe == method_descriptor(node))
                     break;
