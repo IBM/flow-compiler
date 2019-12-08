@@ -44,16 +44,16 @@ OPTIONS
               Force or disable ANSI coloring regardless of wheter output is to a terminal or not.
               By default coloring is enabled only when output is to a terminal.
 
-       --default-client-timeout=TIME
-              Timeout (in millisecconds) for "gRPC" calls made to any of the nodes. This value is
-              used unless a different timeout is specified for the node.
-
        --default-client-calls=NUMBER
               Number of concurent calls that can be ia synchronously made to a "gRPC" service. This value is 
               used when replicas are not set for a given node.
 
+       --default-client-timeout=TIME
+              Timeout, in secconds for "gRPC" calls made to any of the nodes. This value is used unless a 
+              different timeout is specified for the node.
+
        --default-entry-timeout=TIME
-              Default timeout in milliseconds for all the "gRPC" entries (servce methods.) If processing of 
+              Default timeout in seconds for all the "gRPC" entries (servce methods.) If processing of 
               any method exeeds this timeout the method will reply with "DEADLINE_EXCEEDED". This timeout is 
               used when no value was set for a given entry.
 
