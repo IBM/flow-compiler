@@ -817,7 +817,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
         OUT << "// " << i << " " << op << "\n";
-        std::cerr << i << ": " << op << "\n";
+        //std::cerr << i << ": " << op << "\n";
         switch(op.code) {
             case MTHD:
                 input_name = op.arg1;

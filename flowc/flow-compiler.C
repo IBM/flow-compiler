@@ -1660,7 +1660,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             std::string rs_node(cs_name("RS", name(base_node) ));
             std::string rq_node(cs_name("RQ", node));
 
-            std::cerr << "Processing " << node << " (" << name(node) << "), base: " << base_node << "[" << rs_node << ", " << rq_node << "]"
+            TRACE << "Processing " << node << " (" << name(node) << "), base: " << base_node << "[" << rs_node << ", " << rq_node << "]"
                 << " md: " << md << " output: "<< output_type << " input: " << input_type <<  " condition " << condition.get(node, 0)
                 << "\n";
             
