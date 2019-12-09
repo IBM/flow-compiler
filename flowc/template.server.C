@@ -76,9 +76,9 @@ static std::string Log_abridge(std::string const &message, unsigned max_length=2
     if(message.length() <= max_length) return message;
     return message.substr(0, (max_length - 5)/2) + " ... " + message.substr(message.length()-(max_length-5)/2);
 }
-static std::string Message_to_json(google::protobuf::Message const &message, int max_length=1024) {
+static std::string Log_abridge(google::protobuf::Message const &message, unsigned max_length=256) {
     google::protobuf::util::JsonPrintOptions options;
-    options.add_whitespace = true;
+    options.add_whitespace = false;
     options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = true;
     std::string json_reply;
@@ -115,7 +115,7 @@ public:
         os << " [" << cid;
         if(call >= 0) os << ": " << call;
         os << "] " << message;
-        if(msgp != nullptr) os << "\n" <<  Message_to_json(*msgp);
+        if(msgp != nullptr) os << "\n" <<  Log_abridge(*msgp);
         os << "\n";
         return *this;
     }
@@ -142,7 +142,7 @@ static std::string Grpc_error(long cid, int call, char const *message, grpc::Sta
     sfmt out;
     out.message(sfmt() << (message == nullptr? "": message) << "error " << status.error_code(), cid, call, reqp);
     out << "context info: " << context.debug_error_string() << "\n";
-    if(repp != nullptr) std::cerr << "the response was: " << Message_to_json(*repp) << "\n";
+    if(repp != nullptr) std::cerr << "the response was: " << Log_abridge(*repp) << "\n";
     return out;
 }
 
@@ -353,8 +353,8 @@ static int get_schema(struct mg_connection *conn, void *) {
     return json_reply(conn, sp->second);
 }
 static int field_get(const char *key, const char *value, size_t valuelen, void *user_data) {
-    std::map<std::string, std::string> &form = *(std::map<std::string, std::string> *)user_data;
-    form[key] = std::string(value, valuelen);
+    std::multimap<std::string, std::string> &form = *(std::multimap<std::string, std::string> *)user_data;
+    form.emplace(key, std::string(value, valuelen));
 	return 0;
 }
 int field_stored(const char *path, long long file_size, void *user_data) {
@@ -393,7 +393,7 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
         return 1;    
     }
 
-    std::map<std::string, std::string> form; 
+    std::multimap<std::string, std::string> form; 
 	struct mg_form_data_handler fdh = {field_found, field_get, field_stored, (void *) &form};
 	int ret = mg_handle_form_request(conn, &fdh);
     if(ret <= 0) return ret;
@@ -402,7 +402,10 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
     int c = 0;
     for(auto const &nv: form) {
         if(++c > 1) data += ",";
-        data += json_string(nv.first);
+        if(nv.first.length() > 2 && nv.first.substr(nv.first.length()-2) == "[]")
+            data += json_string(nv.first.substr(0, nv.first.length()-2));
+        else 
+            data += json_string(nv.first);
         data += ":";
         data += json_string(nv.second);
     }
@@ -464,6 +467,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
+
     ::grpc::ClientContext L_context;
     auto const L_start_time = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{ENTRY_TIMEOUT:120000}});
