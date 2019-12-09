@@ -305,8 +305,7 @@ static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &c
         << "\"code\": 500,"
         << "\"from\":" << json_string(context.peer()) << ","
         << "\"grpc-code\":" << status.error_code() << ","
-        << "\"message\":" << json_string(status.error_message()) << ","
-        << "\"details\":" << json_string(status.error_details()) << ""
+        << "\"message\":" << json_string(status.error_message())
         << "}";
     return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length());
 }
@@ -352,9 +351,21 @@ static int get_schema(struct mg_connection *conn, void *) {
         return not_found(conn, "Name not recognized");
     return json_reply(conn, sp->second);
 }
+struct form_data_t {
+    std::multimap<std::string, std::string> form;
+    std::string key;
+    std::string value;
+};
 static int field_get(const char *key, const char *value, size_t valuelen, void *user_data) {
-    std::multimap<std::string, std::string> &form = *(std::multimap<std::string, std::string> *)user_data;
-    form.emplace(key, std::string(value, valuelen));
+    auto &fd = *(form_data_t *) user_data;
+    if(key == nullptr || *key == '\0') {
+        fd.value.append(value, valuelen);
+    } else { 
+        if(!fd.key.empty()) 
+            fd.form.emplace(fd.key, fd.value);
+        fd.key = key; 
+        fd.value = std::string(value, valuelen);
+    }
 	return 0;
 }
 int field_stored(const char *path, long long file_size, void *user_data) {
@@ -393,14 +404,15 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
         return 1;    
     }
 
-    std::multimap<std::string, std::string> form; 
-	struct mg_form_data_handler fdh = {field_found, field_get, field_stored, (void *) &form};
+    form_data_t fd;
+	struct mg_form_data_handler fdh = {field_found, field_get, field_stored, (void *) &fd};
 	int ret = mg_handle_form_request(conn, &fdh);
     if(ret <= 0) return ret;
+    fd.form.emplace(fd.key, fd.value);
 
     data += "{"; 
     int c = 0;
-    for(auto const &nv: form) {
+    for(auto const &nv: fd.form) {
         if(++c > 1) data += ",";
         if(nv.first.length() > 2 && nv.first.substr(nv.first.length()-2) == "[]")
             data += json_string(nv.first.substr(0, nv.first.length()-2));
