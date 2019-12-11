@@ -73,7 +73,7 @@ static std::string json_string(std::string const &s) {
     return std::string("\"") + json_escape(s) + "\"";
 }
 static std::string Log_abridge(std::string const &message, unsigned max_length=256) {
-    if(message.length() <= max_length) return message;
+    if(max_length == 0 || message.length() <= max_length) return message;
     return message.substr(0, (max_length - 5)/2) + " ... " + message.substr(message.length()-(max_length-5)/2);
 }
 static std::string Log_abridge(google::protobuf::Message const &message, unsigned max_length=256) {
@@ -475,7 +475,11 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [ overlapped: " << use_asynchronous_calls << ", time-call: "  << time_call << " ]\n" << Log_abridge(L_inp_json) << "\n";
+
+    char const *trace_header = mg_get_header(A_conn, "x-flow-trace-call");
+    bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
+        << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -486,6 +490,9 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     L_context.set_deadline(L_deadline);
     L_context.AddMetadata("overlapped-calls", use_asynchronous_calls? "1": "0");
     L_context.AddMetadata("time-call", time_call? "1": "0");
+    if(trace_header != nullptr && *trace_header != '\0')
+        L_context.AddMetadata("trace-call", trace_header);
+
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     if(time_call) {
@@ -512,7 +519,10 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json) << "\n";
+    auto trace_header = mg_get_header(A_conn, "x-flow-trace-call");
+    bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
+
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);

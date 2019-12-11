@@ -826,7 +826,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "::grpc::Status " << get_name(op.m1) << "(::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") override {\n";
                 ++indent;
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
-                OUT << "bool Trace_call = Get_metadata_bool(Client_metadata, \"trace-call\");\n";
+                OUT << "bool Trace_call = Get_metadata_bool(Client_metadata, \"trace-call\", Global_Trace_Calls_Enabled);\n";
                 OUT << "bool Time_call = Get_metadata_bool(Client_metadata, \"time-call\");\n";
                 OUT << "bool Async_call = Get_metadata_bool(Client_metadata, \"overlapped-calls\", Async_Flag);\n";
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
