@@ -184,35 +184,42 @@
 }I}
             ]
         };
-        window.PR = {
-            ui_data: null,
-            init: function(data) {
-                PR.ui_data = data;
-                /*
-                var h = $(window).height() - $(".pr-header").outerHeight(true);
-                $('.pr-panel').css("height", h);
-                */
-                JSONEditor.defaults.iconlibs.oi = JSONEditor.AbstractIconLib.extend({
-                    mapping: {
-                        "delete": 'delete',
-                        edit: 'pencil',
-                        add: 'plus',
-                        cancel: 'ban',
-                        save: 'save',
-                        moveup: 'arrow-thick-up',
-                        movedown: 'arrow-thick-down',
-                        clear: 'circle-x',
-                        time: 'timer',
-                        calendar: 'calendar',
-                        upload: 'cloud-upload',
-                    },
-                    icon_class: 'oi',
-                    icon_prefix: 'oi oi-'
-                });
+    window.PR = {
+        ui_data: null,
+        init: function(data) {
+            PR.ui_data = data;
+            JSONEditor.defaults.iconlibs.oi = JSONEditor.AbstractIconLib.extend({
+                mapping: {
+                    "delete": 'delete',
+                    edit: 'pencil',
+                    add: 'plus',
+                    cancel: 'ban',
+                    save: 'save',
+                    moveup: 'arrow-thick-up',
+                    movedown: 'arrow-thick-down',
+                    clear: 'circle-x',
+                    time: 'timer',
+                    calendar: 'calendar',
+                    upload: 'cloud-upload',
+                },
+                icon_class: 'oi',
+                icon_prefix: 'oi oi-'
+            });
+        },
+        prepareSchema: function(schema) {
+            if('title' in schema && !('format' in schema) && schema['title'].match(/text$/i)) {
+                schema['format'] = 'textarea';
+            } 
+            if('type' in schema && schema['type'] === 'object') {
+                properties = schema['properties'];
+                for([key, val] of Object.entries(properties)) 
+                    PR.prepareSchema(val);
+            }
         },
         makeForm: function() {
             var rqt_schema = PR.ui_data["request-schema"];
             rqt_schema["format"] = "grid";
+            PR.prepareSchema(rqt_schema);
             PR.form = new JSONEditor($('#pr-form-editor')[0], {
                 "schema" : rqt_schema,
                 "theme" : "bootstrap4",

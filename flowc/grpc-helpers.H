@@ -258,6 +258,6 @@ inline static
 bool is_enum(::google::protobuf::FieldDescriptor const *fd) {
     return fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM;
 }
-std::string json_schema(::google::protobuf::Descriptor const *dp, std::string const &title="", std::string const &description="");
+std::string json_schema(::google::protobuf::Descriptor const *dp, std::string const &title="", std::string const &description="", bool extended_format=true);
 #endif
 
