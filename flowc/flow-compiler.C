@@ -347,9 +347,9 @@ static std::map<std::string, function_info> function_table = {
     { "span",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, 0}},
     { "prefix",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
     { "suffix",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
-    { "strlen",   { FTK_INTEGER, { FTK_STRING }, 1, 0 }},
+    { "length",   { FTK_INTEGER, { FTK_STRING }, 1, 0 }},
     { "concat",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 2, 0 }},
-    { "length",   { FTK_INTEGER, { 0 }, 1, 0 }},
+    { "size",     { FTK_INTEGER, { 0 }, 1, 0 }},
     { "append",   { 0, { 0 }, 1, 1 }},
     { "join",     { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0 }}
 };
@@ -1327,6 +1327,7 @@ int flow_compiler::check_assign(int error_node, lr_value_descriptor const &left,
     } else if(left.type() == right.type()) {
         return 0;
     } else {
+        std::cerr << "We are here!!!\n";
         pcerr.AddError(main_file, at(error_node), sfmt() << "cannot assign \"" << right.type_name() << "\" to left value of type \"" << left.type_name() << "\"");
     }
     return 1;
@@ -1364,13 +1365,19 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
             auto const &children = at(arg_node).children;
             std::string fname(get_id(children[0]));
             auto ftp = function_table.find(fname);
-            lr_value_descriptor return_lvd(ftp->second.return_type);
+
             // TODO generate call for this 
             for(unsigned i = 1, e = children.size(); i != e; ++i) {
                 icode.push_back(fop(SETT, lv_name, lvd.dp, arg_node));
                 std::string tmpvarname = sfmt() << "TmpVar_" << children[i];
                 lr_value_descriptor arg_lvd(ftp->second.return_type);
                 populate_message(tmpvarname, arg_lvd, children[i], node_ip);
+            }
+
+            // Check the return type against the left value type
+            if(ftp->second.return_type > 0) {
+                error_count += check_assign(arg_node, lvd, lr_value_descriptor(ftp->second.return_type));
+            } else {
             }
             icode.push_back(fop(FUNC, fname, nullptr, arg_node));
             for(unsigned i = 1, e = children.size(); i != e; ++i) 
@@ -1660,16 +1667,17 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             std::string rs_node(cs_name("RS", name(base_node) ));
             std::string rq_node(cs_name("RQ", node));
 
-            TRACE << "Processing " << node << " (" << name(node) << "), base: " << base_node << "[" << rs_node << ", " << rq_node << "]"
+            /*std::cerr << "Processing " << node << " (" << name(node) << "), base: " << base_node << "[" << rs_node << ", " << rq_node << "]"
                 << " md: " << md << " output: "<< output_type << " input: " << input_type <<  " condition " << condition.get(node, 0)
                 << "\n";
+                */
             
             int node_idx = icode.size();
             node_ip[node] = node_idx;
 
             icode.push_back(fop(BNOD, rs_node, rq_node, output_type, input_type));
 
-            // max index depth shoulf also look at condition's dimension
+            // Should max index depth also look at condition's dimension?
             for(int i = 0, e = find_max_index_depth(get_arg_node(node), node_ip, -1); i != e; ++i)
                 icode.push_back(fop(NSET));
 
@@ -1677,16 +1685,16 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             if(output_type != nullptr) {
                 // Populate the request 
-                error_count +=
-                    populate_message(rq_node, lr_value_descriptor(input_type), get_arg_node(node), node_ip);
+                error_count += populate_message(rq_node, lr_value_descriptor(input_type), get_arg_node(node), node_ip);
 
                 if(md != nullptr) 
                     icode.push_back(fop(CALL, rq_node, rs_node, md));
                 else 
                     icode.push_back(fop(COPY, rs_node, rq_node, output_type, input_type));
+
             } else {
-                icode.push_back(fop(NOP));
                 // This is either an empty or an error node
+                icode.push_back(fop(NOP));
             }
 
 
