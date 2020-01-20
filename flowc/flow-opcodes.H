@@ -53,12 +53,37 @@ enum op {
      *      d1      descriptor for message-type
      *      arg[0]  right value node-id
      */
-    SET,            // set field with another field                 
+    SET,            // set field from another field of same type
+
     SETI,           // set field with integer constant
     SETS,           // set field with string constant
     SETE,           // set field with enum constant
     SETF,           // set field with float constant
-    SETT,           // set field from temporary variable
+
+    SETT,           // set field from temporary variable of same type
+
+    SETFFI,         // set field from another field, converting float to int
+    SETFFS,         // set field from another field, converting float to string
+    SETFIF,         // set field from another field, converting integer to float
+    SETFIS,         // set field from another field, converting integer to string
+    SETFSF,         // set field from another field, converting string to float
+    SETFSI,         // set field from another field, converting string to integer
+    SETFEI,         // set field from another field, converting enum to integer
+    SETFES,         // set field from another field, converting enum to string
+    SETFEF,         // set field from another field, converting enum to float
+    SETFEE,         // set field from another field, converting enum to another compatible enum
+
+    SETTFI,         // set field from variable, converting float to int
+    SETTFS,         // set field from variable, converting float to string
+    SETTIF,         // set field from variable, converting integer to float
+    SETTIS,         // set field from variable, converting integer to string
+    SETTSF,         // set field from variable, converting string to float
+    SETTSI,         // set field from variable, converting string to integer
+    SETTEI,         // set field from variable, converting enum to integer
+    SETTES,         // set field from variable, converting enum to string
+    SETTEF,         // set field from variable, converting enum to float
+    SETTEE,         // set field from variable, converting enum to another compatible enum
+
     /** 
      *      arg1    left value string representation as message-type[[+]field-name]*
      *      arg2    right value string representation as message-type[[+]field-name]*
@@ -129,6 +154,27 @@ inline static char const *op_name(op o) {
         case SETI:  return "SETI";
         case SETT:  return "SETT";
         case ERR:   return "ERR";
+
+        case SETFFI: return "SETFFI";         
+        case SETFFS: return "SETFFS";         
+        case SETFIF: return "SETFIF";         
+        case SETFIS: return "SETFIS";         
+        case SETFSF: return "SETFSF";         
+        case SETFSI: return "SETFSI";         
+        case SETFEI: return "SETFEI";         
+        case SETFES: return "SETFES";         
+        case SETFEF: return "SETFEF";         
+        case SETFEE: return "SETFEE";        
+        case SETTFI: return "SETTFI";         
+        case SETTFS: return "SETTFS";         
+        case SETTIF: return "SETTIF";         
+        case SETTIS: return "SETTIS";         
+        case SETTSF: return "SETTSF";         
+        case SETTSI: return "SETTSI";        
+        case SETTEI: return "SETTEI";       
+        case SETTES: return "SETTES";       
+        case SETTEF: return "SETTEF";      
+        case SETTEE: return "SETTEE";     
     }
     return "";
 };

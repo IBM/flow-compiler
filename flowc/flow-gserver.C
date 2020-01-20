@@ -738,7 +738,14 @@ static std::map<int, int> bexp_op_priority = {
 bool check_bexp_op_priority(int op1, int op2) {
     return bexp_op_priority.find(op1)->second > bexp_op_priority.find(op2)->second;
 }
-
+/****
+ * Generate boolean expression
+ * out: output stream
+ * nip: current symbol-table (node name to result variable name) used to access fields
+ * rs_dims: current symbol table (node name to dimensionality of result) used to access fields
+ * bexp: expression ast node
+ * op: previous opearator in the expression, used to determine operator priority
+ */
 std::ostream &flow_compiler::gc_bexp(std::ostream &out, std::map<std::string, std::string> const &nip, std::map<std::string, int> const &rs_dims, int bexp, int op) const{ 
     std::pair<std::string, std::string> convert_code;
     auto const &bx = at(bexp);
@@ -1177,6 +1184,27 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case INDX:
                 //OUT << "// " << op << "\n";
+                break;
+        case SETFFI: 
+        case SETFFS: 
+        case SETFIF: 
+        case SETFIS: 
+        case SETFSF: 
+        case SETFSI: 
+        case SETFEI: 
+        case SETFES: 
+        case SETFEF: 
+        case SETFEE: 
+        case SETTFI: 
+        case SETTFS: 
+        case SETTIF: 
+        case SETTIS: 
+        case SETTSF: 
+        case SETTSI: 
+        case SETTEI: 
+        case SETTES: 
+        case SETTEF: 
+        case SETTEE: 
                 break;
         }
     }
