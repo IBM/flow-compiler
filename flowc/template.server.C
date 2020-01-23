@@ -385,6 +385,8 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
     use_asynchronous_calls = strtobool(mg_get_header(conn, "x-flow-overlapped-calls"), use_asynchronous_calls);
     time_call = strtobool(mg_get_header(conn, "x-flow-time-call"), time_call);
     char const *content_type = mg_get_header(conn, "Content-Type");
+    /** Default content type is application/json
+     */
     if(content_type == nullptr || strcasecmp(content_type, "application/json") == 0) {
         // The expected content type is application/json
         std::vector<char> buffer(65536);
@@ -404,6 +406,9 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
         data = std::string(buffer.begin(), buffer.begin() + read);
         return 1;    
     }
+
+    /** Otherwise attempt to build json out of form fields
+     */
 
     form_data_t fd;
 	struct mg_form_data_handler fdh = {field_found, field_get, field_stored, (void *) &fd};
@@ -479,8 +484,11 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     char const *trace_header = mg_get_header(A_conn, "x-flow-trace-call");
     bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
-    FLOGC(trace_call) << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
         << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+
+    char const *accept_header = mg_get_header(A_conn, "accept");
+    FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -523,7 +531,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     auto trace_header = mg_get_header(A_conn, "x-flow-trace-call");
     bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
 
-    FLOGC(trace_call) << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
