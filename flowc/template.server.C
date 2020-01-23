@@ -236,7 +236,8 @@ public:
 }I}
 };
 
-#define FLOG ::rest::flog() <<= sfmt()
+#define FLOGC(c) if(c) ::rest::flog() <<= sfmt()
+#define FLOG FLOG(true)
 
 namespace rest {
 class flog {
@@ -432,12 +433,12 @@ static int file_handler(struct mg_connection *conn, void *cbdata) {
         std::string filename = dir + common;
         struct stat buffer;   
         if(stat(filename.c_str(), &buffer) == 0) {
-            FLOG << "sending " << common+1 << " from " << dir << "\n";
+            FLOGC(Global_Trace_Calls_Enabled) << "sending " << common+1 << " from " << dir << "\n";
             mg_send_file(conn, filename.c_str());
             return 1;
         }
     } else if(strcmp(local_uri, "/-docs") == 0) {
-        FLOG << "list -docs contents\n";
+        FLOGC(Global_Trace_Calls_Enabled) << "list -docs contents\n";
     }
     FLOG << "get \"" << local_uri << "\" not found...\n";
     return not_found(conn, "File not found");
@@ -478,7 +479,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     char const *trace_header = mg_get_header(A_conn, "x-flow-trace-call");
     bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
+    FLOGC(trace_call) << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
         << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
@@ -522,7 +523,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     auto trace_header = mg_get_header(A_conn, "x-flow-trace-call");
     bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
 
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+    FLOGC(trace_call) << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
