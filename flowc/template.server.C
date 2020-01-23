@@ -237,7 +237,7 @@ public:
 };
 
 #define FLOGC(c) if(c) ::rest::flog() <<= sfmt()
-#define FLOG FLOG(true)
+#define FLOG FLOGC(true)
 
 namespace rest {
 class flog {
