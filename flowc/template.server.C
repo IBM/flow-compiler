@@ -291,6 +291,18 @@ static int json_reply(struct mg_connection *conn, int code, char const *msg, cha
 static int json_reply(struct mg_connection *conn, char const *content, size_t length=0, char const *xtra_headers=nullptr) {
     return json_reply(conn, 200, "OK", content, length, xtra_headers);
 }
+static int protobuf_reply(struct mg_connection *conn, google::protobuf::Message const &message, std::string const &xtra_headers="") {
+    srd::string data;
+    message.SerializeToString(&data);
+    if(xtra_headers == nullptr) xtra_headers = "";
+	mg_printf(conn, "HTTP/1.1 200 OK\r\n"
+              "Content-Type: application/x-protobuf\r\n"
+              "%s"
+              "Content-Length: %lu\r\n"
+              "\r\n", xtra_headers, data.length());
+    mg_write(conn, data.data(), data.length());
+    return 1;
+}
 static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message, std::string const &xtra_headers="") {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = false;
@@ -488,6 +500,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     char const *accept_header = mg_get_header(A_conn, "accept");
+    bool return_protobuf =  strcasecmp(content_type, "application/protobuf") == 0 || strcasecmp(content_type, "application/x-protobuf") == 0 || strcasecmp(content_type, "application/vnd.google.protobuf") == 0;
     FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
@@ -509,10 +522,12 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         auto tbmp = metadata.find("times-bin");
         if(tbmp != metadata.end()) {
             std::string tb((tbmp->second).data(), (tbmp->second).length());
-            return rest::message_reply(A_conn, L_outp, std::string("x-flow-call-times: ") + tb + "\r\n");
+            return return_protobuf?
+                rest::protobuf_reply(A_conn, L_outp, std::string("x-flow-call-times: ") + tb + "\r\n"):
+                rest::message_reply(A_conn, L_outp, std::string("x-flow-call-times: ") + tb + "\r\n");
         }
     }
-    return rest::message_reply(A_conn, L_outp);
+    return return_protobuf? rest::protobuf_reply(A_conn, L_outp): rest::message_reply(A_conn, L_outp);
 }
 }I}
 {I:CLI_NODE_NAME{
@@ -533,6 +548,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 
     FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
     char const *accept_header = mg_get_header(A_conn, "accept");
+    bool return_protobuf =  strcasecmp(content_type, "application/protobuf") == 0 || strcasecmp(content_type, "application/x-protobuf") == 0 || strcasecmp(content_type, "application/vnd.google.protobuf") == 0;
     FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
@@ -544,7 +560,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     SET_METADATA_{{CLI_NODE_ID}}(L_context)
     ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
-    return rest::message_reply(A_conn, L_outp);
+    return return_protobuf? rest::protobuf_reply(A_conn, L_outp): rest::message_reply(A_conn, L_outp);
 }
 }I}
 namespace rest {
