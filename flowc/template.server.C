@@ -506,7 +506,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
+    FLOG << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -554,7 +554,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
+    FLOG << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
