@@ -146,9 +146,14 @@
     <!-- Messages Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-message-panel" class="pr-view-panel">
-        <div id="pr-message"></div>
-        <div id="pr-message-details"></div>
-        <div id="pr-timing"></div>
+        <div class="m-4">
+            <div class="row" id="pr-message"></div>
+            <div class="row" id="pr-message-details"></div>
+            <div class="row"><div id="pr-timing"></div>
+                <button class="btn btn-outline-success btn-sm ml-auto mr-2 mb-2" id="download-request" style="display: none;" type=button>Download JSON Request</button>
+                <button class="btn btn-outline-success btn-sm ml-auto mr-2 mb-2" id="download-response" style="display: none;" type=button>Download JSON Response</button>
+            </div>
+        </div>
     </div>
         <div id="pr-extra" class="pr-view-panel"></div>
     <hr>
@@ -299,6 +304,34 @@
             }
         },
         connectButtons: function() {
+            $('#download-response').on('click', function() {
+                var a = document.createElement("a");
+                var docstr = JSON.stringify(PR.response);
+                a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(ocstr));
+                a.setAttribute('download', "response.json");
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+            $('#download-request').on('click', function() {
+                var a = document.createElement("a");
+                var docstr = JSON.stringify(PR.form.getValue());
+                a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(docstr));
+                a.setAttribute('download', "request.json");
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+            $("#clear-button").on("click", function(e) { 
+                PR.acedoc = {};
+                $("#pr-message").html('');
+                $("#pr-timing").html('');
+                $("#acedoc-view").html('');
+                $("#download-response").hide();
+                $("#download-request").hide();
+            });
             PR.ui_data.methods.map(function(m) {
                 $("#"+m.name+"-submit").on("click", function(e) { 
                     $('html, body').animate({
@@ -323,14 +356,19 @@
                                 $("#pr-timing").html('');
                                 $("#pr-response").html('');
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
+                                $("#download-response").hide();
+                                $("#download-request").hide();
                             },
                             success: function(reply_obj, sts, jqxhr) {
                                 $("#pr-message").html('');
+                                PR.response = reply_obj;
                                 PR.renderJSON(m["response-schema"], $("#pr-response"), "pr-response", reply_obj, true, null);
+                                $('#download-request').show();
+                                $('#download-response').show();
                                 try {
                                     call_times = jqxhr.getResponseHeader('x-flow-call-times');
                                     call_times = JSON.parse(call_times);
-                                    $("#pr-timing").html('<div id="pr-total-time"></div><div id="pr-stage-time"></div>');
+                                    $("#pr-timing").html('<div><span id="pr-total-time"></span><span id="pr-stage-time"></span></div>');
                                     var total_log_time = 0;
                                     call_times.forEach(function(to) {
                                         if(to.stage == 0) {             
@@ -340,12 +378,11 @@
                                             total_log_time = Math.log10(to.duration*1000) + total_log_time;
                                         }
                                     });
-                                    call_times.forEach(function(to) {
+                                    if(call_times.length > 2) call_times.forEach(function(to) {
                                         if(to.stage != 0) {             
                                             var width_perc = Math.floor(Math.log10(to.duration*1000) * 100 / total_log_time);
                                             PR.appendOrReplace($("#pr-stage-time"), 
-                                                "<span class='pr-stage-time pr-stage-time-" + (to.stage % 6) + "' style='width: "+width_perc+"%;'> "
-                                                       +to['stage-name']+": <b>"+to['duration-u']+"</b> </span>",
+                                                "<span class='pr-stage-time'> "+to['stage-name']+": <b>"+to['duration-u']+"</b> </span>",
                                                 false);
                                         }
                                     });
