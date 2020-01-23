@@ -532,6 +532,8 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
 
     FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+    char const *accept_header = mg_get_header(A_conn, "accept");
+    FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -671,6 +673,17 @@ int main(int argc, char *argv[]) {
         << "debug: " << (Global_Debug_Enabled? "yes": "no")
         << ", trace: " << (Global_Trace_Calls_Enabled? "yes": "no")
         << ", asynchronous client calls: " << (Global_Asynchronous_Calls? "yes": "no") 
+        << "\n";
+
+    std::cerr 
+        << "from {{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+        << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
+        <<  "grpc " << grpc::Version() << "\n"
+#if defined(__clang__)          
+        << "clang++ " << __clang_version__ << "\n"
+#elif defined(__GNUC__) 
+        << "g++ " << __VERSION__ << "\n"
+#else
         << std::endl;
 
     // Wait for the server to shutdown. Note that some other thread must be
