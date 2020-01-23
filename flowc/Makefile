@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.4.7
+BUILD_VERSION=0.4.8
 
 BASE_IMAGE?=alpine-edge
 INSTALL_PREFIX?=/usr/local/bin
