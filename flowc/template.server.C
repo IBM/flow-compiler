@@ -292,14 +292,13 @@ static int json_reply(struct mg_connection *conn, char const *content, size_t le
     return json_reply(conn, 200, "OK", content, length, xtra_headers);
 }
 static int protobuf_reply(struct mg_connection *conn, google::protobuf::Message const &message, std::string const &xtra_headers="") {
-    srd::string data;
+    std::string data;
     message.SerializeToString(&data);
-    if(xtra_headers == nullptr) xtra_headers = "";
 	mg_printf(conn, "HTTP/1.1 200 OK\r\n"
               "Content-Type: application/x-protobuf\r\n"
               "%s"
               "Content-Length: %lu\r\n"
-              "\r\n", xtra_headers, data.length());
+              "\r\n", xtra_headers.c_str(), data.length());
     mg_write(conn, data.data(), data.length());
     return 1;
 }
@@ -479,6 +478,12 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
         return mg_send_http_redirect(conn, "/-www/index.html", 307); 
     return not_found(conn, "Resource not found");
 }
+    
+static bool is_protobuf(char const *content_type) {
+    return content_type != nullptr && (strcasecmp(content_type, "application/protobuf") == 0 || 
+        strcasecmp(content_type, "application/x-protobuf") == 0 || 
+        strcasecmp(content_type, "application/vnd.google.protobuf") == 0);
+}
 }
 {I:ENTRY_NAME{
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
@@ -500,7 +505,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     char const *accept_header = mg_get_header(A_conn, "accept");
-    bool return_protobuf =  strcasecmp(content_type, "application/protobuf") == 0 || strcasecmp(content_type, "application/x-protobuf") == 0 || strcasecmp(content_type, "application/vnd.google.protobuf") == 0;
+    bool return_protobuf = rest::is_protobuf(accept_header);
     FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
@@ -548,7 +553,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 
     FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
     char const *accept_header = mg_get_header(A_conn, "accept");
-    bool return_protobuf =  strcasecmp(content_type, "application/protobuf") == 0 || strcasecmp(content_type, "application/x-protobuf") == 0 || strcasecmp(content_type, "application/vnd.google.protobuf") == 0;
+    bool return_protobuf = rest::is_protobuf(accept_header);
     FLOG << "accept: " << (accept_header? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
