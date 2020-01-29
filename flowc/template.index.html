@@ -126,13 +126,13 @@
             <div id="pr-form-submit" class="m-4 pr-stick-on">
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="{{MAIN_ENTRY_NAME}}-submit" 
-                    style="width: 200px; border-radius: 20px;">{{MAIN_ENTRY_NAME}}</button>
+                    style="width: 200px; border-radius: 20px;">{{MAIN_ENTRY_LABEL}}</button>
                     <span class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION_HTML}}</span>
                 </div>
 {I:ALT_ENTRY_NAME{              
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
-                    style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_NAME}}</button>
+                    style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_LABEL}}</button>
                     <span class="pr-button-text">{{ALT_ENTRY_DESCRIPTION_HTML}}</span>
                 </div>
 }I}
@@ -210,7 +210,7 @@
             });
         },
         prepareSchema: function(schema) {
-            if('title' in schema && !('format' in schema) && schema['title'].match(/text$/i)) {
+            if('type' in schema && !('format' in schema) && schema['type'] === 'string') {
                 schema['format'] = 'textarea';
             } 
             if('type' in schema && schema['type'] === 'object') {
