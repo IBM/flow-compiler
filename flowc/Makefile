@@ -14,9 +14,11 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.4.8
+BUILD_VERSION=0.4.9
 
-BASE_IMAGE?=alpine-edge
+## One of alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
+BASE_IMAGE?=redhat-ubi7
+
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets
@@ -51,6 +53,7 @@ RUNTIME_IMAGE?=flow-runtime:$(IMAGE_TAG)
 IMAGE_NAME:=$(shell echo "$(IMAGE)" | cut -d ':' -f1)
 IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 
+
 ifeq ($(BUILD_ID), )
 GIT_TS:=$(shell git show -s --format=%cD)
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
@@ -60,11 +63,12 @@ GIT_GUID:=$(GIT_GUID)-m$(GIT_MODIFIED_COUNT)
 endif
 endif
 
+## Create a build id out of the git GUID.
 BUILD_ID?=$(GIT_TS) $(GIT_GUID)
 
-ifeq ($(shell pkg-config --exists grpc++ protobuf && echo yes || echo no), no)
-$(error gRPC libraries are needed, set GRPC_LIBS and GRPC_INCS in 'makefile.local')
-endif
+#ifeq ($(shell pkg-config --exists grpc++ protobuf && echo yes || echo no), no)
+#$(error gRPC libraries are needed, set GRPC_LIBS and GRPC_INCS in 'makefile.local')
+#endif
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
@@ -87,7 +91,7 @@ flowc: $(OBJS)
 	${CXX} -o $@ -O3 $^ ${GRPC_LIBS} 
 
 flow-version.o:
-	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
+	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
 
 flow-compiler.o: flow-parser.c
 

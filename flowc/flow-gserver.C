@@ -661,7 +661,7 @@ std::string field_accessor(std::string const &field, Descriptor const *d, std::m
 }
 static
 std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, std::map<std::string, int> const &rs_dims, int cur_level=100) {
-    //std::cerr << "BEGIN get_loop_size, cur_level: "<< cur_level << "\n\tindex_set: " << index_set << "\n\trs_dims: " << rs_dims << "\n";
+    std::cerr << "BEGIN get_loop_size, cur_level: "<< cur_level << "\n\tindex_set: " << index_set << "\n\trs_dims: " << rs_dims << "\n";
     std::vector<std::pair<std::string, std::string>> indices;
     for(int ixi: index_set) {
         fop const &ix = icode[ixi-1];
@@ -671,7 +671,7 @@ std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode
         indices.push_back(std::make_pair(join(names, "+"), index_size));
     }
     std::sort(indices.begin(), indices.end());
-    //std::cerr << "\tindices: " << indices << "\n";
+    std::cerr << "\tindices: " << indices << "\n";
     // Eliminate all indices that are prefixes of other indices
     
     for(auto fp = indices.begin(), sp = fp+1, ep = indices.end(); sp != ep; ++fp, ++sp) 
@@ -684,8 +684,8 @@ std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode
         else 
             current_loop_size = std::string("std::min(")+current_loop_size + ", " + ni.second + ")";
     }
-    //std::cerr << "\tindices: " << indices << "\n";
-    //std::cerr << "END get_loop_size: " << current_loop_size <<  "\n";
+    std::cerr << "\tindices: " << indices << "\n";
+    std::cerr << "END get_loop_size: " << current_loop_size <<  "\n";
     return current_loop_size;
 }
 

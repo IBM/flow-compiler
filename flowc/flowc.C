@@ -138,6 +138,7 @@ using namespace varsub;
 
 char const *get_version();
 char const *get_build_id();
+char const *get_base_image();
 #define FLOWC_NAME "flowc"
 
 flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
@@ -155,6 +156,7 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
 
     set(global_vars, "FLOWC_BUILD", get_build_id());
     set(global_vars, "FLOWC_VERSION", get_version());
+    set(global_vars, "BASE_IMAGE", get_base_image());
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
     set(global_vars, "REST_IMAGE_PORT", std::to_string(rest_image_port));
     set(global_vars, "GUI_IMAGE_PORT", std::to_string(gui_image_port));
@@ -991,6 +993,7 @@ int main(int argc, char *argv[]) {
             std::cout << "g++ " << __VERSION__ << "\n";
 #else
 #endif
+            std::cout << "base-image " << get_base_image() << "\n";
             return 0;
         } else {
             ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
