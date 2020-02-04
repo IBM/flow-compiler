@@ -281,7 +281,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string client_bin = orchestrator_name + "-client";
     std::string client_source = output_filename(client_bin + ".C");
     std::string orchestrator_makefile = orchestrator_name + ".mak";
-    std::string orchestrator_logproto = orchestrator_name + "-flow-logger.proto";
     std::string orchestrator_dockerfile = orchestrator_name + ".Dockerfile";
 
     error_count += parse();
@@ -386,22 +385,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * Generate C files for proto and grpc
      */
     if(error_count == 0 && contains(targets, "protobuf-files")) {
-        std::string fn = output_filename(orchestrator_logproto);
-        {   // Write out the logger interface
-            std::ofstream logpf(fn.c_str());
-            if(!logpf.is_open()) {
-                ++error_count;
-                pcerr.AddError(orchestrator_logproto, -1, 0, "failed to write logger proto file");
-            } else {
-                extern char const *template_flow_logger_proto;
-                render_varsub(logpf, template_flow_logger_proto, global_vars);
-            }
-        }
         // Add the destination directory to the proto path
         // since imports are compiled by now 
         add_to_proto_path(output_filename(".")); 
-        // Compile the logger protobuf
-        error_count += compile_proto(orchestrator_logproto);
         error_count += genc_protobuf(); 
     }
 
