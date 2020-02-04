@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.5.1
+BUILD_VERSION=0.5.2
 
 ## One of alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
@@ -74,7 +74,7 @@ GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
 TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template.docker-compose.sh \
-	template.docker-compose.yaml template.flow-logger.proto template.help template.kubernetes.group.yaml \
+	template.docker-compose.yaml template.help template.kubernetes.group.yaml \
 	template.kubernetes.sh template.kubernetes.yaml template.server.C template.syntax template.runtime.Dockerfile \
 	template.index.html
 
