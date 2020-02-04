@@ -49,10 +49,8 @@
         .pr-JSON-key { font-weight: bold; font-style: italic; }
         .pr-JSON-array {  }
         .pr-JSON-object { margin-left: 24px;  }
-        .pr-JSON-tiptext, #pr-total-time, #pr-stage-time { font-weight: normal; font-size: 75% }
-        #pr-total-time, #pr-stage-time { margin-left: 24px; margin-right: 24px; }
+        .pr-JSON-tiptext, #pr-stage-time { font-weight: normal; font-size: 75% }
         .pr-stage-time { margin-left: 24px; }
-        #pr-stage-time>.pr-stage-time-1 { margin-left: 0px; }
         .pr-stage-time-1 { background-color: #FFF0F0; }
         .pr-stage-time-2 { background-color: #F0FFF0; }
         .pr-stage-time-3 { background-color: #F0F0FF; }
@@ -305,7 +303,7 @@
             $('#download-response').on('click', function() {
                 var a = document.createElement("a");
                 var docstr = JSON.stringify(PR.response);
-                a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(ocstr));
+                a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(docstr));
                 a.setAttribute('download', "response.json");
                 a.style.display = 'none';
                 document.body.appendChild(a);
@@ -366,12 +364,12 @@
                                 try {
                                     call_times = jqxhr.getResponseHeader('x-flow-call-times');
                                     call_times = JSON.parse(call_times);
-                                    $("#pr-timing").html('<div><span id="pr-total-time"></span><span id="pr-stage-time"></span></div>');
+                                    $("#pr-timing").html('<div><span id="pr-stage-time"></span></div>');
                                     var total_log_time = 0;
                                     call_times.forEach(function(to) {
                                         if(to.stage == 0) {             
                                             total_time = to;
-                                            $("#pr-total-time").html("Total time: <b>"+to['duration-u']+"</b>");
+                                            $("#pr-stage-time").html("<span class='pr-stage-time'>Total time: <b>"+to['duration-u']+"</b> </span>");
                                         } else {
                                             total_log_time = Math.log10(to.duration*1000) + total_log_time;
                                         }
