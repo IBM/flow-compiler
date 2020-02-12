@@ -49,7 +49,7 @@
         .pr-JSON-key { font-weight: bold; font-style: italic; }
         .pr-JSON-array {  }
         .pr-JSON-object { margin-left: 24px;  }
-        .pr-JSON-tiptext, #pr-stage-time { font-weight: normal; font-size: 75% }
+        #pr-stage-time { font-weight: normal; font-size: 75% }
         .pr-stage-time { margin-left: 24px; }
         .pr-stage-time-1 { background-color: #FFF0F0; }
         .pr-stage-time-2 { background-color: #F0FFF0; }
@@ -292,7 +292,6 @@
                     lc = lc + 1;
                     var localIDk = objectID+'-k'+lc;
                     var localIDv = objectID+'-v'+lc;
-                    var localIDt = objectID+'-t'+lc;
                     PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
                     var ko = $("#"+localIDk);
                     ko.text(key); 
@@ -301,8 +300,7 @@
                     else
                         schema = null;
                     if(schema && 'description' in schema) {                                                                                     
-                        ko.html(ko.html()+'<span class="pr-JSON-tiptext" id="'+localIDt+'"></span>');
-                        $("#"+localIDt).text(schema['description']);
+                        ko.attr('title', schema['description']);
                     }
                     PR.renderJSON(schema, $("#"+localIDv), localIDv, val, true, ko);
                 }
