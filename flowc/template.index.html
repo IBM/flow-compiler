@@ -147,10 +147,21 @@
         <div class="m-4">
             <div class="row" id="pr-message"></div>
             <div class="row" id="pr-message-details"></div>
-            <div class="row"><div id="pr-timing"></div>
-                <button class="btn btn-outline-success btn-sm ml-auto mr-2 mb-2" id="download-request" style="display: none;" type=button>Download JSON Request</button>
-                <button class="btn btn-outline-success btn-sm ml-auto mr-2 mb-2" id="download-response" style="display: none;" type=button>Download JSON Response</button>
+
+
+            <div class="row">
+                <div id="pr-timing" class="col-xl-8">
+                    <div>
+                        <span id="pr-stage-time">
+                        </span>
+                    </div>
+                </div>
+                <div class="col-xl-4 float-right">
+                    <button class="btn btn-outline-success btn-sm ml-auto mb-2 mr-2" id="download-request" style="display: none;" type="button">Download JSON Request</button>
+                    <button class="btn btn-outline-success btn-sm mr-2 mb-2" id="download-response" style="display: none;" type="button">Download JSON Response</button>
+                </div>
             </div>
+
         </div>
     </div>
         <div id="pr-extra" class="pr-view-panel"></div>
@@ -323,7 +334,7 @@
             $("#clear-button").on("click", function(e) { 
                 PR.acedoc = {};
                 $("#pr-message").html('');
-                $("#pr-timing").html('');
+                $("#pr-stage-time").html('');
                 $("#acedoc-view").html('');
                 $("#download-response").hide();
                 $("#download-request").hide();
@@ -349,7 +360,7 @@
                                 } else {
                                     request.setRequestHeader("x-flow-overlapped-calls", "0");
                                 }
-                                $("#pr-timing").html('');
+                                $("#pr-stage-time").html('');
                                 $("#pr-response").html('');
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
                                 $("#download-response").hide();
@@ -364,24 +375,17 @@
                                 try {
                                     call_times = jqxhr.getResponseHeader('x-flow-call-times');
                                     call_times = JSON.parse(call_times);
-                                    $("#pr-timing").html('<div><span id="pr-stage-time"></span></div>');
-                                    var total_log_time = 0;
+                                    var times_html = '';                    
                                     call_times.forEach(function(to) {
-                                        if(to.stage == 0) {             
-                                            total_time = to;
-                                            $("#pr-stage-time").html("<span class='pr-stage-time'>Total time: <b>"+to['duration-u']+"</b> </span>");
-                                        } else {
-                                            total_log_time = Math.log10(to.duration*1000) + total_log_time;
-                                        }
+                                         if(to.stage == 0) 
+                                            times_html = times_html + " <span class='pr-stage-time'> "+to['stage-name']+": <b>"+to['duration-u']+"</b> </span>";
                                     });
                                     if(call_times.length > 2) call_times.forEach(function(to) {
                                         if(to.stage != 0) {             
-                                            var width_perc = Math.floor(Math.log10(to.duration*1000) * 100 / total_log_time);
-                                            PR.appendOrReplace($("#pr-stage-time"), 
-                                                "<span class='pr-stage-time'> "+to['stage-name']+": <b>"+to['duration-u']+"</b> </span>",
-                                                false);
+                                            times_html = times_html + " <span class='pr-stage-time'> "+to['stage-name']+": <b>"+to['duration-u']+"</b> </span>";
                                         }
                                     });
+                                    $("#pr-stage-time").html(times_html);
                                                           
                                 } catch(ae) {
                                 }
