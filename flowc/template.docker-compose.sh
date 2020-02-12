@@ -21,8 +21,6 @@ download_file() {
     {{RR_GET_SH:rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}
 }
 
-# default to running in the foreground
-fg_OR_bg=
 export export_PORTS="#"
 args=()
 while [ $# -gt 0 ]
@@ -71,10 +69,6 @@ case "$1" in
     export docker_compose_TIMESTAMPS="--timestamps"
     shift
     ;;
-    -b)
-    fg_OR_bg=-d
-    shift
-    ;;
     *)
     args+=("$1")
     shift
@@ -113,14 +107,16 @@ then
     fi
 fi
 
-if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  -o "$1" == "config" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" ]
+if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
+    -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  \
+    -o "$1" == "config" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
+    -o "$1" == "run" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
+    -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" -a "$1" != "run" ]
 then
 echo "{{NAME}}-dc.sh generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $0 <up|config|provision> [-b] [-p] [-r] [-s] [-T] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "Usage $0 <up|run|config|provision> [-p] [-r] [-s] [-T] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $0 <down|logs>"
-echo ""
-echo "    -b  run docker compose in the background"
 echo ""
 echo "    -p, --export-ports  export the gRPC ports for all nodes"
 echo ""
@@ -189,11 +185,16 @@ case "$1" in
         ;;
     up)
         [ $provision_ENABLED -eq 0 ] || provision || exit 1
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up $fg_OR_bg
+        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up -d
+        rc=$?
+        ;;
+    run)
+        [ $provision_ENABLED -eq 0 ] || provision || exit 1
+        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up 
         rc=$?
         ;;
 esac
-if [ $rc -eq 0 -a "$fg_OR_bg" != "" ]
+if [ $rc -eq 0 -a "$1" == "up" ]
 then
     echo "{{NAME}} gRPC service listening on port $grpc_PORT"
     echo "{{NAME}} REST service listening on port $rest_PORT"
