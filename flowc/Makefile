@@ -105,7 +105,7 @@ flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 clean:
-	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz base.Dockerfile template.runtime.Dockerfile
+	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz template.runtime.Dockerfile
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh
 	echo "#include <string>" > $@
@@ -123,9 +123,6 @@ tar: flow-compiler-src.tgz
 flow-compiler-minsrc.tgz: $(MINSRC_FILES)
 	$(TAR) -czf $@ --transform 's,^,flow-compiler/,' $^
 
-base.Dockerfile: $(BASE_IMAGE)/base.Dockerfile
-	cp $(BASE_IMAGE)/base.Dockerfile .
-
 template.runtime.Dockerfile: 
 	echo $(BASE_IMAGE)/template.runtime.Dockerfile
 	cp $(BASE_IMAGE)/template.runtime.Dockerfile .
@@ -136,10 +133,10 @@ install: flowc
 	cp $^ $(INSTALL_PREFIX)
 
 #################### Docker image builder
-flow-base-image-info.json: template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
+flow-base-image-info.json: template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat template.runtime.Dockerfile base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
+	cat template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $@
 

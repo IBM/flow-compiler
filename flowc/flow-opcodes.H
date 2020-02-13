@@ -18,7 +18,7 @@ enum op {
      *      d1      descriptor for the request
      *      d2      descriptor for the response 
      *      m1      method descriptor
-     *      arg[]   nodes used by thie emntry
+     *      arg[]   nodes used by the entry
      */      
     MTHD,           // method begin
     END,            // method end
@@ -30,18 +30,31 @@ enum op {
      *      arg 3.. node ids
      */
     BSTG,           // stage begin
+    /**
+     *      arg1    stage name
+     *      arg[0]  stage number
+     */
     ESTG,           // stage end
     /**
      *      arg1    response name 
      *      arg2    request name
      *      d1      output descriptor
      *      d2      input descriptor
-     *      arg[]   dimension node stages base-node
+     *      arg[]   dimension, node, stages, base-node
      */
     BNOD,           // node begin
     RNOD,           // setup result structures for this node type
     NSET,           // node setup
-    CHK,            // check condition
+    /**
+     *      arg1    node name
+     *      arg[]   node, base-node, condition-node
+     */
+    NDIF,           // check node condition
+    /**
+     *      arg1    node name
+     *      arg[]   node, base-node, 0
+     */
+    BNIF,           // check node if node was visited (for base nodes)
     ENOD,           // node end
     BPRP,           // result preparation begin
     EPRP,           // result preparation end
@@ -53,6 +66,27 @@ enum op {
      *      d1      descriptor for message-type
      *      arg[0]  right value node-id
      */
+
+    SETL,           // Set field 
+    RVL,            // Right value 
+
+    COFI,           // Convert right value from float to int
+    COFS,           // Convert right value from float to string
+    COFE,           // Convert right value from float to enum
+
+    COIF,           // Convert right value from int to float
+    COIS,           // Convert right value from int to string
+    COIE,           // Convert right value from int to enum
+
+    COSF,           // Convert right value from string to float
+    COSI,           // Convert right value from string to int
+    COSE,           // Convert right value from string to enum
+
+    COEI,           // Convert right value from enum to int
+    COEF,           // Convert right value from enum to float
+    COES,           // Convert right value from enum to string
+    COEE,           // Convert right value from enum to another enum
+
     SET,            // set field from another field of same type
 
     SETI,           // set field with integer constant
@@ -61,28 +95,6 @@ enum op {
     SETF,           // set field with float constant
 
     SETT,           // set field from temporary variable of same type
-
-    SETFFI,         // set field from another field, converting float to int
-    SETFFS,         // set field from another field, converting float to string
-    SETFIF,         // set field from another field, converting integer to float
-    SETFIS,         // set field from another field, converting integer to string
-    SETFSF,         // set field from another field, converting string to float
-    SETFSI,         // set field from another field, converting string to integer
-    SETFEI,         // set field from another field, converting enum to integer
-    SETFES,         // set field from another field, converting enum to string
-    SETFEF,         // set field from another field, converting enum to float
-    SETFEE,         // set field from another field, converting enum to another compatible enum
-
-    SETTFI,         // set field from variable, converting float to int
-    SETTFS,         // set field from variable, converting float to string
-    SETTIF,         // set field from variable, converting integer to float
-    SETTIS,         // set field from variable, converting integer to string
-    SETTSF,         // set field from variable, converting string to float
-    SETTSI,         // set field from variable, converting string to integer
-    SETTEI,         // set field from variable, converting enum to integer
-    SETTES,         // set field from variable, converting enum to string
-    SETTEF,         // set field from variable, converting enum to float
-    SETTEE,         // set field from variable, converting enum to another compatible enum
 
     /** 
      *      arg1    left value string representation as message-type[[+]field-name]*
@@ -105,7 +117,7 @@ enum op {
     /**
      *      arg1    right value name
      *      d1      right value descriptor
-     *      arg     node ids for all fields up to the last repeated field
+     *      arg     ast-node-ids for all fields up to the last repeated field
      */
     INDX            // index data
 };
@@ -119,23 +131,26 @@ struct fop {
     fop(op c=NOP): code(c) {}
     fop(op c, std::string const &a1, std::string const &a2=""): code(c), arg1(a1), arg2(a2) {}
     fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, Descriptor const *ad2=nullptr): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2) {}
+    fop(op c, std::string const &a1, Descriptor const *ad1): code(c), arg1(a1), d1(ad1)  {}
     fop(op c, std::string const &a1, Descriptor const *ad1, int i): code(c), arg1(a1), d1(ad1)  {arg.push_back(i);}
     fop(op c, std::string const &a1, std::string const &a2, MethodDescriptor const *am1): code(c), arg1(a1), arg2(a2), m1(am1) {}
     fop(op c, std::string const &a1, std::string const &a2, MethodDescriptor const *am1, Descriptor const *ad1, Descriptor const *ad2): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2), m1(am1) {}
     fop(op c, int i): code(c) { arg.push_back(i); }
     fop(op c, int i, int j): code(c) { arg.push_back(i); arg.push_back(j); }
+    fop(op c, std::string const &a1, int i): code(c), arg1(a1) { arg.push_back(i); }
     fop(op c, std::string const &a1, int i, int j): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j); }
     fop(op c, std::string const &a1, int i, int j, int k): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j);  arg.push_back(k); }
 };
 inline static char const *op_name(op o) { 
     switch(o) {
-        case NOP:  return "NOP";
+        case NOP:   return "NOP";
         case LOOP:  return "LOOP";
         case MTHD:  return "MTHD";
         case BNOD:  return "BNOD";
         case RNOD:  return "RNOD";
         case NSET:  return "NSET";
-        case CHK:   return "CHK";
+        case BNIF:  return "BNIF";
+        case NDIF:  return "NDIF";
         case BPRP:  return "BPRP";
         case EPRP:  return "EPRP";
         case BSTG:  return "BSTG";
@@ -155,26 +170,22 @@ inline static char const *op_name(op o) {
         case SETT:  return "SETT";
         case ERR:   return "ERR";
 
-        case SETFFI: return "SETFFI";         
-        case SETFFS: return "SETFFS";         
-        case SETFIF: return "SETFIF";         
-        case SETFIS: return "SETFIS";         
-        case SETFSF: return "SETFSF";         
-        case SETFSI: return "SETFSI";         
-        case SETFEI: return "SETFEI";         
-        case SETFES: return "SETFES";         
-        case SETFEF: return "SETFEF";         
-        case SETFEE: return "SETFEE";        
-        case SETTFI: return "SETTFI";         
-        case SETTFS: return "SETTFS";         
-        case SETTIF: return "SETTIF";         
-        case SETTIS: return "SETTIS";         
-        case SETTSF: return "SETTSF";         
-        case SETTSI: return "SETTSI";        
-        case SETTEI: return "SETTEI";       
-        case SETTES: return "SETTES";       
-        case SETTEF: return "SETTEF";      
-        case SETTEE: return "SETTEE";     
+    case SETL: return "SETL";      
+    case RVL: return "RVL";      
+    case COFI: return "COFI";    
+    case COFS: return "COFS";   
+    case COFE: return "COFE";  
+    case COIF: return "COIF"; 
+    case COIS: return "COIS";
+    case COIE: return "COIE";     
+    case COSF: return "COSF";    
+    case COSI: return "COSI";    
+    case COSE: return "COSE";    
+    case COEI: return "COEI";   
+    case COEF: return "COEF";   
+    case COES: return "COES";   
+    case COEE: return "COEE";  
+
     }
     return "";
 };
@@ -185,10 +196,10 @@ inline static std::ostream &operator<< (std::ostream &out, fop const &fop) {
     out << op_name(fop.code) << "  ";
     if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
     if(!fop.arg2.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\"" << ansi::escape(ANSI_RESET, use_ansi) << "," << ansi::escape(ANSI_BLUE, use_ansi) 
-            << " \"" << fop.arg2 << "\" " << ansi::escape(ANSI_RESET, use_ansi);
+        out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1  << ansi::escape(ANSI_RESET, use_ansi) << ", " << ansi::escape(ANSI_BLUE, use_ansi) 
+            << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi) << " ";
     } else if(!fop.arg1.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << "\"" << fop.arg1 << "\" " << ansi::escape(ANSI_RESET, use_ansi);
+        out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi) << " ";
     }
     if(fop.d2 != nullptr) {
         if(fop.d1 == nullptr) out << "0, ";
@@ -200,6 +211,8 @@ inline static std::ostream &operator<< (std::ostream &out, fop const &fop) {
     if(fop.m1 != nullptr) 
         out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
     bool first = true;
+    if(fop.code == LOOP || (fop.code == NSET && fop.arg.size() > 0)) 
+        out << ansi::escape(ANSI_YELLOW, use_ansi) << "IDX @" << ansi::escape(ANSI_RESET, use_ansi);
     for(auto a: fop.arg) { 
         if(!first) out << ", ";
         out << a; 

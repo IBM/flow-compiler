@@ -1003,10 +1003,10 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 }
                 break;
             case NSET:
-                if(op.arg.size() == 0) break;   // ignore empty index 
-                ++loop_level;
-                cur_loop_tmp.push_back("");
-                {
+                if(op.arg.size() != 0) { // ignore empty index 
+                    ++loop_level;
+                    cur_loop_tmp.push_back("");
+                
                     std::string current_loop_size = get_loop_size(this, icode, op.arg, rs_dims, loop_level); 
                     if(node_dim > 0) {
                         std::string size_varname(sfmt() << "Size_" << cur_node_name << "_" << cur_stage << "_" << loop_level);
@@ -1027,16 +1027,15 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     }
                 }
                 break;
-            case CHK:
-                if(condition.has(cur_node)) {
-                    OUT << "if(" << L_VISITED << " == 0 && ";
-                    gc_bexp(out, nodes_rv, rs_dims, condition(cur_node), FTK_AND) << ") {\n";
-                    ++indent;
-                    OUT << "TRACEC(0, \"Condition triggered for node "<< cur_node_name << "\");\n";
-                } else {
-                    OUT << "if(" << L_VISITED << " == 0) {\n";
-                    ++indent;
-                }
+            case BNIF:
+                OUT << "if(" << L_VISITED << " == 0) {\n";
+                ++indent;
+                break;
+            case NDIF:
+                OUT << "if(" << L_VISITED << " == 0 && ";
+                gc_bexp(out, nodes_rv, rs_dims, condition(cur_node), FTK_AND) << ") {\n";
+                ++indent;
+                OUT << "TRACEC(0, \"Condition triggered for node "<< cur_node_name << "\");\n";
                 break;
             case ENOD:
                 // if visited
@@ -1183,28 +1182,22 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "// " << op.arg2 << "\n";
                 break;
             case INDX:
-                //OUT << "// " << op << "\n";
                 break;
-        case SETFFI: 
-        case SETFFS: 
-        case SETFIF: 
-        case SETFIS: 
-        case SETFSF: 
-        case SETFSI: 
-        case SETFEI: 
-        case SETFES: 
-        case SETFEF: 
-        case SETFEE: 
-        case SETTFI: 
-        case SETTFS: 
-        case SETTIF: 
-        case SETTIS: 
-        case SETTSF: 
-        case SETTSI: 
-        case SETTEI: 
-        case SETTES: 
-        case SETTEF: 
-        case SETTEE: 
+            case SETL:
+            case RVL: 
+            case COFI: 
+            case COFS: 
+            case COFE: 
+            case COIF: 
+            case COIS: 
+            case COIE: 
+            case COSF: 
+            case COSI: 
+            case COSE: 
+            case COEI: 
+            case COEF: 
+            case COES: 
+            case COEE: 
                 break;
         }
     }

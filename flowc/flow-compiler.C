@@ -619,10 +619,10 @@ int flow_compiler::compile_id_ref(int node) {
         }
     }
     if(matches.size() == 0) {
-        pcerr.AddNote(main_file, at(id_node), sfmt() << "unknown enum label \"" << id_label << "\"");
+        pcerr.AddError(main_file, at(id_node), sfmt() << "unknown enum label \"" << id_label << "\"");
         ++error_count;
     } else if(matches.size() > 1) {
-        pcerr.AddNote(main_file, at(id_node), sfmt() << "ambiguous enum label \"" << id_label << "\"");
+        pcerr.AddError(main_file, at(id_node), sfmt() << "ambiguous enum label \"" << id_label << "\"");
         ++error_count;
     }
     return error_count;
@@ -1290,19 +1290,22 @@ ITER find_next_xcode(ITER ip, ITER ie) {
     }
     return ip;
 }
-struct lr_value_descriptor {
+
+/** Encapsulation of the type information for left and right values
+ */
+struct lrv_descriptor {
     int value_type;
     int node;
     Descriptor const *dp;
     FieldDescriptor const *fp;
 
-    lr_value_descriptor(int itype, int inode=-1, Descriptor const *idp=nullptr, FieldDescriptor const *ifp=nullptr):
+    lrv_descriptor(int itype, int inode=-1, Descriptor const *idp=nullptr, FieldDescriptor const *ifp=nullptr):
         value_type(itype), node(inode), dp(idp), fp(ifp) {}
 
-    lr_value_descriptor(lr_value_descriptor const &lvd, FieldDescriptor const *ifp):
+    lrv_descriptor(lrv_descriptor const &lvd, FieldDescriptor const *ifp):
         value_type(lvd.value_type), node(lvd.node), dp(lvd.dp), fp(ifp) {}
 
-    lr_value_descriptor(Descriptor const *idp, FieldDescriptor const *ifp=nullptr):
+    lrv_descriptor(Descriptor const *idp, FieldDescriptor const *ifp=nullptr):
         value_type(0), node(-1), dp(idp), fp(ifp) {}
 
     bool is_field() const { return fp != nullptr; }
@@ -1318,8 +1321,13 @@ struct lr_value_descriptor {
         if(dp != nullptr) return dp->full_name();
         return node_name(value_type); 
     }
+    std::string grpc_type_name() const {
+        if(is_field()) return get_grpc_type_name(fp);
+        if(dp != nullptr) return dp->full_name();
+        return "undefined"; 
+    }
 };
-int flow_compiler::check_assign(int error_node, lr_value_descriptor const &left, lr_value_descriptor const &right) {
+int flow_compiler::check_assign(int error_node, lrv_descriptor const &left, lrv_descriptor const &right) {
     if(left.is_message() && right.is_message()) {
         if(left.type_name() == right.type_name()) 
             return 0;
@@ -1348,7 +1356,7 @@ int flow_compiler::check_assign(int error_node, lr_value_descriptor const &left,
  * node_ip: node to icode address 
  *
  */
-int flow_compiler::populate_message(std::string const &lv_name, lr_value_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip) {
+int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip) {
     int error_count = 0;
     if(lvd.is_repeated()) 
         icode.push_back(fop(LOOP, lv_name, "", lvd.dp));
@@ -1358,7 +1366,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
         case FTK_fldm: {
             for(int fldd_node: at(arg_node).children) {
                 auto fidp = field_descriptor(fldd_node);
-                error_count += populate_message(lv_name+"+"+name(fldd_node), lr_value_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip);
+                error_count += populate_message(lv_name+"+"+name(fldd_node), lrv_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip);
             }
         } break;
         case FTK_fldr: {
@@ -1370,13 +1378,13 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
             for(unsigned i = 1, e = children.size(); i != e; ++i) {
                 icode.push_back(fop(SETT, lv_name, lvd.dp, arg_node));
                 std::string tmpvarname = sfmt() << "TmpVar_" << children[i];
-                lr_value_descriptor arg_lvd(ftp->second.return_type);
+                lrv_descriptor arg_lvd(ftp->second.return_type);
                 populate_message(tmpvarname, arg_lvd, children[i], node_ip);
             }
 
             // Check the return type against the left value type
             if(ftp->second.return_type > 0) {
-                error_count += check_assign(arg_node, lvd, lr_value_descriptor(ftp->second.return_type));
+                error_count += check_assign(arg_node, lvd, lrv_descriptor(ftp->second.return_type));
             } else {
             }
             icode.push_back(fop(FUNC, fname, nullptr, arg_node));
@@ -1390,28 +1398,34 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
             int rvn = get_id(fields[0]) == input_label? 0: named_blocks.find(get_id(fields[0]))->second.second;
             auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name("RS", name(rvn));
             auto const rvd = message_descriptor(rvn);
+            unsigned ri = 0;
 
-            icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
             if(fields.size() > 1) {
-                error_count += check_assign(arg_node, lvd, lr_value_descriptor(rvd, field_descriptor(fields.back())));
+                auto const rvfd = lrv_descriptor(rvd, field_descriptor(fields.back()));
+
+                error_count += check_assign(arg_node, lvd, rvfd);
                 // if left and right are descriptors we copy
                 if(is_message(field_descriptor(fields.back())) && lvd.dp != nullptr) {
-                    //icode.back().d2 = field_descriptor(fields.back())->message_type();
+                    icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
                 } else {
-                    icode.back().code = SET;
+                    ri = icode.size();
+                    icode.push_back(fop(RVL, rv_name, rvfd.grpc_type_name(), rvd)); 
+                    icode.push_back(fop(SET, lv_name, rv_name, lvd.dp, rvd));
                 }
             } else {
-                error_count += check_assign(arg_node, lvd, lr_value_descriptor(rvd));
+                error_count += check_assign(arg_node, lvd, lrv_descriptor(rvd));
+                icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
             }
             // Remember the address of this copy instruction
             unsigned ci = icode.size()-1;
             std::vector<int> idxp;
+            std::string rv_fields;
             
             for(unsigned i = 1, e = fields.size(); i < e; ++i) {
                 // Append all the field names to the right value label
                 auto fid = field_descriptor(fields[i]);
-                icode[ci].arg2 += "+";
-                icode[ci].arg2 += get_id(fields[i]);
+                rv_fields += "+";
+                rv_fields += get_id(fields[i]);
 
                 if(fid->is_repeated()) {
                     fop idx(INDX, rv_name, "", rvd);
@@ -1434,6 +1448,8 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
                     idxp.push_back(xidx);
                 }
             }
+            icode[ci].arg2 = rv_name + rv_fields;
+            if(ri != 0) icode[ri].arg1 = rv_name + rv_fields;
             // Propagate the indices to the embedding loops 
             auto ip = icode.rbegin(), ie = icode.rend();
             for(auto p = idxp.crbegin(), e = idxp.crend(); p != e; ++p) {
@@ -1476,19 +1492,92 @@ int flow_compiler::populate_message(std::string const &lv_name, lr_value_descrip
             // Single id reference this is a particular case of fldx but the left value will always be a message
             int rvn = get_id(arg_node) == input_label? 0: named_blocks.find(get_id(arg_node))->second.second;
             auto const rvd = message_descriptor(rvn);
-            error_count += check_assign(arg_node, lvd.dp, lr_value_descriptor(rvd));
+            error_count += check_assign(arg_node, lvd.dp, lrv_descriptor(rvd));
+
             icode.push_back(fop(COPY, lv_name, cs_name("RS", rvn), lvd.dp, rvd));
         } break;
         case FTK_STRING: 
+            icode.push_back(fop(RVL, c_escape(get_value(arg_node)), arg_node)); 
+            switch(lvd.type()) {
+                case FTK_INTEGER:
+                    icode.push_back(fop(COSI)); 
+                    break;
+                case FTK_FLOAT:
+                    icode.push_back(fop(COSF)); 
+                    break;
+                case FTK_fldm:
+                    std::cerr << "Oopsy! fldm!\n";
+                    break;
+                case FTK_dtid:
+                    icode.push_back(fop(COSE)); 
+                    break;
+                default:
+                    break;
+            }
             icode.push_back(fop(SETS, lv_name, lvd.dp, arg_node));
             break;
         case FTK_INTEGER: 
+            icode.push_back(fop(RVL, get_value(arg_node), arg_node)); 
+            switch(lvd.type()) {
+                case FTK_STRING:
+                    icode.push_back(fop(COIS)); 
+                    break;
+                case FTK_FLOAT:
+                    icode.push_back(fop(COIF)); 
+                    break;
+                case FTK_fldm:
+                    std::cerr << "Oopsy! fldm!\n";
+                    break;
+                case FTK_dtid:
+                    icode.push_back(fop(COIE)); 
+                    break;
+                default:
+                    break;
+            }
             icode.push_back(fop(SETI, lv_name, lvd.dp, arg_node));
             break;
         case FTK_FLOAT: 
+            icode.push_back(fop(RVL, get_value(arg_node), arg_node)); 
+            switch(lvd.type()) {
+                case FTK_STRING:
+                    icode.push_back(fop(COFS)); 
+                    break;
+                case FTK_INTEGER:
+                    icode.push_back(fop(COFI)); 
+                    break;
+                case FTK_fldm:
+                    std::cerr << "Oopsy! fldm!\n";
+                    break;
+                case FTK_dtid:
+                    icode.push_back(fop(COIE)); 
+                    break;
+                default:
+                    break;
+            }
             icode.push_back(fop(SETF, lv_name, lvd.dp, arg_node));
             break;
         case FTK_dtid:
+            icode.push_back(fop(RVL, get_dotted_id(arg_node), arg_node)); 
+            switch(lvd.type()) {
+                case FTK_STRING:
+                    icode.push_back(fop(COES)); 
+                    break;
+                case FTK_INTEGER:
+                    icode.push_back(fop(COEI)); 
+                    break;
+                case FTK_FLOAT:
+                    icode.push_back(fop(COEF)); 
+                    break;
+                case FTK_fldm:
+                    std::cerr << "Oopsy! fldm!\n";
+                    break;
+                case FTK_dtid:
+                    // FIXME do not emit if enum types match
+                    icode.push_back(fop(COEE)); 
+                    break;
+                default:
+                    break;
+            }
             icode.push_back(fop(SETE, lv_name, lvd.dp, arg_node));
             break;
         default:
@@ -1681,11 +1770,14 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             for(int i = 0, e = find_max_index_depth(get_arg_node(node), node_ip, -1); i != e; ++i)
                 icode.push_back(fop(NSET));
 
-            icode.push_back(fop(CHK, name(node), node, base_node, condition.get(node, 0))); 
+            if(condition.has(node))
+                icode.push_back(fop(NDIF, name(node), node, base_node, condition(node))); 
+            else
+                icode.push_back(fop(BNIF, name(node), node, base_node, 0)); 
 
             if(output_type != nullptr) {
                 // Populate the request 
-                error_count += populate_message(rq_node, lr_value_descriptor(input_type), get_arg_node(node), node_ip);
+                error_count += populate_message(rq_node, lrv_descriptor(input_type), get_arg_node(node), node_ip);
 
                 if(md != nullptr) 
                     icode.push_back(fop(CALL, rq_node, rs_node, md));
@@ -1715,7 +1807,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                 icode[node_idx].arg.push_back(0);
             }
         }
-        icode.push_back(fop(ESTG, stage));
+        icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
         icode[stage_idx].arg[2] =  stage_dim;                 // BSTG arg 3: max node dimension 
     }
 
@@ -1744,7 +1836,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     for(int i = 0; i < rdepth; ++i)
         icode.push_back(fop(NSET));
 
-    error_count += populate_message(return_name, lr_value_descriptor(emd->output_type()), entry_arg_node, node_ip);
+    error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), entry_arg_node, node_ip);
     icode.push_back(fop(EPRP));
     icode.push_back(fop(END));
 

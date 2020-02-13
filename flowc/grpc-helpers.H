@@ -43,10 +43,11 @@ int grpc_type_to_ftk(google::protobuf::FieldDescriptor::Type t) {
             return FTK_fldm;
 
         case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
-        default:
             return 0;
     }
 }
+
+
 class FErrorPrinter: public google::protobuf::compiler::MultiFileErrorCollector {
 public:    
     std::ostream *outs;
@@ -182,6 +183,48 @@ std::string get_full_type_name(::google::protobuf::FieldDescriptor const *dp) {
         case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
         default:
             return "";
+    }
+}
+inline static
+std::string get_grpc_type_name(::google::protobuf::FieldDescriptor const *dp) {
+    switch(dp->type()) {
+        case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+            return "double";
+        case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
+            return "float";
+        case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
+            return get_full_name(dp->enum_type());
+        case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+            return "int64";
+        case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+            return "uint64";
+        case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
+            return "int32";
+        case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+            return "fixed64";
+        case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
+            return "fixed32";
+        case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
+            return "bool";
+        case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+            return "uint32";
+        case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
+            return "sfixed32";
+        case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
+            return "sfixed64";
+        case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+            return "sint32";
+        case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+            return "sint64";
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
+            return "string";
+        case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
+            return "bytes";
+        case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
+            return get_full_name(dp->message_type());
+        case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
+            return "group";
     }
 }
 inline static void 
