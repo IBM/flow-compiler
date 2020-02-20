@@ -1103,6 +1103,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case FUNC:
                 OUT << "// function call\n";
                 break;
+                /*
             case SETI: {
                 std::string value;
                 if(convert_integer(value, fd_accessor(op.arg1, op.d1), get_value(op.arg[0]), nullptr, get_integer(op.arg[0]))) {
@@ -1139,6 +1140,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this field to floating point value \"" << get_value(op.arg[0]) << "\"");
                 }
             } break;
+            */
             case SET: 
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
                 OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) 

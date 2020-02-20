@@ -97,11 +97,6 @@ enum op {
 
     SET,            // set field from another field of same type
 
-    SETI,           // set field with integer constant
-    SETS,           // set field with string constant
-    SETE,           // set field with enum constant
-    SETF,           // set field with float constant
-
     SETT,           // set field from temporary variable of same type
 
     /** 
@@ -174,10 +169,8 @@ inline static char const *op_name(op o) {
         case ESTG:  return "ESTG";
         case INDX:  return "INDX";
         case SET:   return "SET";
-        case SETF:  return "SETF";
-        case SETE:  return "SETE";
-        case SETS:  return "SETS";
-        case SETI:  return "SETI";
+
+
         case SETT:  return "SETT";
         case ERR:   return "ERR";
 
