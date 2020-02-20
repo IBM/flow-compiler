@@ -1,8 +1,8 @@
 #ifndef H_ANSI_ESCAPES_H
 #define H_ANSI_ESCAPES_H
 
-#include <iosfwd>
-
+#include <string>
+#include <sstream>
 
 enum ANSI_ESCAPE {
     ANSI_BOLD,

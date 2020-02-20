@@ -78,7 +78,7 @@ TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template
 	template.kubernetes.sh template.kubernetes.yaml template.server.C template.syntax template.runtime.Dockerfile \
 	template.index.html
 
-OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o
+OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.

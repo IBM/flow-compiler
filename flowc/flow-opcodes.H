@@ -1,14 +1,11 @@
 #ifndef H_FLOW_OPCODES_H
 #define H_FLOW_OPCODES_H
 
-#include <iostream>
+#include <iosfwd>
 #include <string>
 #include <google/protobuf/compiler/importer.h>
 
 using namespace google::protobuf;
-
-#include "ansi-escapes.H"
-
 
 enum op { 
     NOP,            // no operation comment
@@ -68,24 +65,35 @@ enum op {
      */
 
     SETL,           // Set field 
-    RVL,            // Right value 
+    RVA,            // Right value field accessor
+    RVC,            // Right value constant
 
-    COFI,           // Convert right value from float to int
+    CON1,           // Conversion NOP 1
+
+    COFI,           // Convert right value from float to int    arg[0]: grpc type to
     COFS,           // Convert right value from float to string
     COFE,           // Convert right value from float to enum
+    COFB,           // Convert right value from float to bool
+    COFF,           // Convert float to float                   argp[0]: grpc type to, arg[1] grpc type from
 
-    COIF,           // Convert right value from int to float
+    COIF,           // Convert right value from int to float    arg[0]: grpc type to 
     COIS,           // Convert right value from int to string
     COIE,           // Convert right value from int to enum
+    COIB,           // Convert right value from int to bool
+    COII,           // Convert intger to integer                arg[0]: grpc type to, arg[1]: grpc type from
 
-    COSF,           // Convert right value from string to float
-    COSI,           // Convert right value from string to int
-    COSE,           // Convert right value from string to enum
+    COSF,           // Convert right value from string to float arg[0]: grpc type to
+    COSI,           // Convert right value from string to int   arg[0]: grpc type to
+    COSE,           // Convert right value from string to enum  
+    COSB,           // Convert right value from string to bool
 
-    COEI,           // Convert right value from enum to int
-    COEF,           // Convert right value from enum to float
+    COEI,           // Convert right value from enum to int     arg[0] grpc type to
+    COEB,           // Convert right value from enum to int     arg[0] grpc type to
+    COEF,           // Convert right value from enum to float   arg[0] grpc type to    
     COES,           // Convert right value from enum to string
     COEE,           // Convert right value from enum to another enum
+
+    CON2,           // Conversion NOP 2
 
     SET,            // set field from another field of same type
 
@@ -128,6 +136,9 @@ struct fop {
     Descriptor const *d2 = nullptr;
     MethodDescriptor const *m1 = nullptr;
     std::vector<int> arg;
+    EnumDescriptor const *el = nullptr;
+    EnumDescriptor const *er = nullptr;
+    EnumValueDescriptor const *ev1 = nullptr;
     fop(op c=NOP): code(c) {}
     fop(op c, std::string const &a1, std::string const &a2=""): code(c), arg1(a1), arg2(a2) {}
     fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, Descriptor const *ad2=nullptr): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2) {}
@@ -170,54 +181,31 @@ inline static char const *op_name(op o) {
         case SETT:  return "SETT";
         case ERR:   return "ERR";
 
-    case SETL: return "SETL";      
-    case RVL: return "RVL";      
-    case COFI: return "COFI";    
-    case COFS: return "COFS";   
-    case COFE: return "COFE";  
-    case COIF: return "COIF"; 
-    case COIS: return "COIS";
-    case COIE: return "COIE";     
-    case COSF: return "COSF";    
-    case COSI: return "COSI";    
-    case COSE: return "COSE";    
-    case COEI: return "COEI";   
-    case COEF: return "COEF";   
-    case COES: return "COES";   
-    case COEE: return "COEE";  
-
+        case SETL: return "SETL";      
+        case RVA: return "RVA";      
+        case RVC: return "RVC";      
+        case COFI: return "COFI";    
+        case COFS: return "COFS";   
+        case COFE: return "COFE";  
+        case COFB: return "COFB";  
+        case COFF: return "COFF";  
+        case COIF: return "COIF"; 
+        case COIS: return "COIS";
+        case COIE: return "COIE";     
+        case COIB: return "COIB";     
+        case COII: return "COII";     
+        case COSF: return "COSF";    
+        case COSB: return "COSB";    
+        case COSI: return "COSI";    
+        case COSE: return "COSE";    
+        case COEI: return "COEI";   
+        case COEB: return "COEB";   
+        case COEF: return "COEF";   
+        case COES: return "COES";   
+        case COEE: return "COEE";  
+        case CON1: return "CON1";
+        case CON2: return "CON2";
     }
-    return "";
 };
-inline static std::ostream &operator<< (std::ostream &out, fop const &fop) {
-    bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
-
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);
-    out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
-    if(!fop.arg2.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1  << ansi::escape(ANSI_RESET, use_ansi) << ", " << ansi::escape(ANSI_BLUE, use_ansi) 
-            << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi) << " ";
-    } else if(!fop.arg1.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi) << " ";
-    }
-    if(fop.d2 != nullptr) {
-        if(fop.d1 == nullptr) out << "0, ";
-        else out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ", ";
-        out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d2: " << fop.d2->full_name() << " " << ansi::escape(ANSI_RESET, use_ansi);
-    } else if(fop.d1 != nullptr) {
-        out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << " " << ansi::escape(ANSI_RESET, use_ansi);
-    }
-    if(fop.m1 != nullptr) 
-        out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
-    bool first = true;
-    if(fop.code == LOOP || (fop.code == NSET && fop.arg.size() > 0)) 
-        out << ansi::escape(ANSI_YELLOW, use_ansi) << "IDX @" << ansi::escape(ANSI_RESET, use_ansi);
-    for(auto a: fop.arg) { 
-        if(!first) out << ", ";
-        out << a; 
-        first = false;
-    }
-    return out;
-}
+std::ostream &operator<< (std::ostream &out, fop const &fop);
 #endif
