@@ -12,6 +12,7 @@
 #include <fcntl.h>
 
 #include <grpcpp/grpcpp.h>
+#include "ansi-escapes.H"
 #include "flow-compiler.H"
 #include "helpo.H"
 #include "stru1.H"
