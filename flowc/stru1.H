@@ -104,6 +104,18 @@ std::string to_upper(std::string const &s) {
     std::transform(s.begin(), s.end(), u.begin(), ::toupper);
     return u;
 }
+inline static 
+bool string_to_bool(std::string const &s) {
+    std::string c = strip(s);
+    if(c.length() == 0) return false;
+    if(c.length() == 1) {
+        char t = c[0]; 
+        return t == 't' || t == '1' || t == 'y' || t == 'T' || t == 'Y';
+    }
+    c = to_upper(c);
+    if(c == "TRUE" || c == "ON" || c == "YES") return true;
+    return std::atof(c.c_str()) != 0;
+}
 inline static
 std::string to_lower(std::string const &s) {
     std::string u(s);
