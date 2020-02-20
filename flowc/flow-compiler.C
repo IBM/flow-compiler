@@ -449,7 +449,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
                 } else if(left_type == FTK_fldm && at(fldd.children[1]).type == FTK_fldm) {
 
                 } else if(left_type != at(fldd.children[1]).type) {
-                    pcerr.AddWarning(main_file, at(d), sfmt() << "value will be converted to \"" << node_name(left_type) << "\" before assignment to field \"" << get_name(dp) << "\"");
+                    //pcerr.AddWarning(main_file, at(d), sfmt() << "value will be converted to \"" << node_name(left_type) << "\" before assignment to field \"" << get_name(dp) << "\"");
                 }
             break;    
             case FTK_ID:
@@ -1359,7 +1359,7 @@ int flow_compiler::check_assign(int error_node, lrv_descriptor const &left, lrv_
     } else if(left.type() == FTK_STRING || left.grpc_type_name() == "bool" || left.t_size() > right.t_size()) {
         check = 3;
     } else {
-        pcerr.AddError(main_file, at(error_node), sfmt() << "conversion from \"" << right.type_name() << "\" to  \"" << left.type_name() << " could cause data loss\"");
+        pcerr.AddWarning(main_file, at(error_node), sfmt() << "conversion from \"" << right.type_name() << "\" to \"" << left.type_name() << "\" could cause data loss\"");
         check = 4;
     }
     //std::cerr << "Check " << left.type_name() << "/" << left.grpc_type_name() << " <- " << right.type_name() <<  "/" << right.grpc_type_name() << " => " << check << "\n";
@@ -1522,7 +1522,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                         if(rvfd.type() == FTK_dtid) icode.back().er = rvfd.enum_descriptor();
                     }
                     icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
-                    icode.push_back(fop(SET, lv_name, rv_name, lvd.dp, rvd));
+                    //icode.push_back(fop(SET, lv_name, rv_name, lvd.dp, rvd));
                 }
             } else {
                 error_count += check_assign(arg_node, lvd, lrv_descriptor(rvd)) == 2? 0: 1;
@@ -1608,8 +1608,10 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
             icode.push_back(fop(COPY, lv_name, cs_name("RS", rvn), lvd.dp, rvd));
         } break;
+/*
         case FTK_STRING: {
-            icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING)); 
+            icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+            
             op coop = get_conv_op(FTK_STRING, lvd.type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING, lvd.grpc_type());
             if(coop != NOP) {
                 icode.push_back(fop(coop, lvd.grpc_type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
@@ -1655,6 +1657,83 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
             icode.push_back(fop(SETE, lv_name, lvd.dp, arg_node));
         } break;
+*/
+        case FTK_STRING: 
+        case FTK_INTEGER: 
+        case FTK_FLOAT: 
+        case FTK_dtid: 
+            switch(lvd.grpc_type()) {
+                case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
+                case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
+                    if(enum_descriptor.has(arg_node)) 
+                        icode.push_back(fop(RVC, enum_descriptor(arg_node)->name(), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                    else
+                        icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                break;
+                case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
+                case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
+                    // Error
+                    ++error_count;
+                    pcerr.AddError(main_file, at(arg_node), sfmt() << "cannot assign literal value to this field");
+                break;
+                case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
+                    if(enum_descriptor.has(arg_node)) {
+                        icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number() == 0), arg_node, lvd.grpc_type()));
+                    } else if(at(arg_node).type == FTK_STRING) {
+                        auto evd = lvd.enum_descriptor()->FindValueByName(get_value(arg_node));
+                        if(evd != nullptr) {
+                            icode.push_back(fop(RVC, evd->name(), arg_node, lvd.grpc_type()));
+                            icode.back().ev1 = evd;
+                        } else {
+                            ++error_count;
+                            pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value not found: '" << get_value(arg_node) << "' in '" << lvd.enum_descriptor()->name() << "'" );
+                        }
+                    } else {
+                        int number = at(arg_node).type == FTK_INTEGER? (int) get_integer(arg_node): (int) get_float(arg_node);
+                        auto evd = lvd.enum_descriptor()->FindValueByNumber(number);
+                        if(evd != nullptr) {
+                            icode.push_back(fop(RVC, evd->name(), arg_node, lvd.grpc_type()));
+                            icode.back().ev1 = evd;
+                        } else {
+                            ++error_count;
+                            pcerr.AddError(main_file, at(arg_node), sfmt() << "no enum with value '" << number << "' was found in '"<< lvd.enum_descriptor()->name() << "'");
+                        }
+                    }
+                break;
+
+                case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
+                    if(enum_descriptor.has(arg_node)) {
+                        icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number() != 0), arg_node, lvd.grpc_type()));
+                    } else {
+                        icode.push_back(fop(RVC, std::to_string(string_to_bool(get_value(arg_node))), arg_node, lvd.grpc_type()));
+                    }
+                break;
+
+                case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+                case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
+                case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
+                case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
+                case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+                    if(enum_descriptor.has(arg_node)) {
+                        icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number()), arg_node, lvd.grpc_type()));
+                    } else if(at(arg_node).type == FTK_STRING) {
+                        pcerr.AddError(main_file, at(arg_node), sfmt() << "numeric value expected here");
+                    } else {
+                        icode.push_back(fop(RVC, get_value(arg_node), arg_node, lvd.grpc_type()));
+                    }
+                break;
+            }
+            icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
+        break;
+
+
         default:
             print_ast(std::cerr, arg_node);
             assert(false);

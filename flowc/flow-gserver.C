@@ -1151,10 +1151,11 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case SETL:
                 lvl = ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
                 OUT << "// L: " << lvl << "\n";
-                OUT << "// A: " << lvl << "" << rvl << ");\n";
+                OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
                 break;
             case RVC: 
-                rvl = op.arg1;
+                if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
+                else rvl = op.arg1;
                 OUT << "// R: " << rvl << "\n";
                 break;
             case RVA: 
