@@ -661,17 +661,21 @@ std::string field_accessor(std::string const &field, Descriptor const *d, std::m
 }
 static
 std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, std::map<std::string, int> const &rs_dims, int cur_level=100) {
-    std::cerr << "BEGIN get_loop_size, cur_level: "<< cur_level << "\n\tindex_set: " << index_set << "\n\trs_dims: " << rs_dims << "\n";
+    //std::cerr << "BEGIN get_loop_size, cur_level: "<< cur_level << "\n\tindex_set: " << index_set << "\n\trs_dims: " << rs_dims << "\n";
     std::vector<std::pair<std::string, std::string>> indices;
-    for(int ixi: index_set) {
+    // 159 INDX  RS_cleaner d1: SQuAD_reply 234, 236
+    if(index_set.size() == 0) {
+        return "1";
+    } else for(int ixi: index_set) {
         fop const &ix = icode[ixi-1];
         std::vector<std::string> names(&ix.arg1, &ix.arg1+1);
         for(int i = 1; i < ix.arg.size(); ++i) names.push_back(fc->get_id(ix.arg[i]));  
         std::string index_size(field_accessor(join(names, "+"), ix.d1, rs_dims, SIZE, cur_level)); 
         indices.push_back(std::make_pair(join(names, "+"), index_size));
     }
+
     std::sort(indices.begin(), indices.end());
-    std::cerr << "\tindices: " << indices << "\n";
+    //std::cerr << "\tindices: " << indices << "\n";
     // Eliminate all indices that are prefixes of other indices
     
     for(auto fp = indices.begin(), sp = fp+1, ep = indices.end(); sp != ep; ++fp, ++sp) 
@@ -684,8 +688,8 @@ std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode
         else 
             current_loop_size = std::string("std::min(")+current_loop_size + ", " + ni.second + ")";
     }
-    std::cerr << "\tindices: " << indices << "\n";
-    std::cerr << "END get_loop_size: " << current_loop_size <<  "\n";
+    //std::cerr << "\tindices: " << indices << "\n";
+    //std::cerr << "END get_loop_size: " << current_loop_size <<  "\n";
     return current_loop_size;
 }
 
@@ -808,6 +812,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
     std::pair<std::string, std::string> convert_code; 
     // Temporary field reference stack
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
+    std::string rvl, lvl;   // Left and right value expressions
     // 
     int loop_level = 0, cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0, cur_base_node = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
@@ -823,8 +828,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
    
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
-        OUT << "// " << i << " " << op << "\n";
-        //std::cerr << i << ": " << op << "\n";
+        OUT << "// " << i+1 << " " << op << "\n";
+        // std::cerr << i+1 << ": " << op << "\n";
         switch(op.code) {
             case MTHD:
                 input_name = op.arg1;
@@ -1136,10 +1141,25 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             } break;
             case SET: 
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
-                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << convert_code.first << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) 
+                    << convert_code.first << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
             case COPY:
-                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) << "CopyFrom(" << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) 
+                        << "CopyFrom(" << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
+                break;
+            case SETL:
+                lvl = ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
+                OUT << "// L: " << lvl << "\n";
+                OUT << "// A: " << lvl << "" << rvl << ");\n";
+                break;
+            case RVC: 
+                rvl = op.arg1;
+                OUT << "// R: " << rvl << "\n";
+                break;
+            case RVA: 
+                rvl = ::field_accessor(op.arg1, op.d1, rs_dims, RIGHT_VALUE);
+                OUT << "// R: " << rvl << "\n";
                 break;
             case SETT:
                 OUT << "// set this field from temp var\n";
@@ -1175,7 +1195,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\");\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, " << c_escape(op.arg1) << ");\n";
                 break;
-            case NOP:
+            case NOP: case CON1: case CON2:
                 if(!op.arg1.empty())
                     OUT << "// " << op.arg1 << "\n";
                 if(!op.arg2.empty())
@@ -1183,21 +1203,62 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case INDX:
                 break;
-            case SETL:
-            case RVL: 
-            case COFI: 
-            case COFS: 
-            case COFE: 
-            case COIF: 
-            case COIS: 
-            case COIE: 
-            case COSF: 
-            case COSI: 
-            case COSE: 
+
+            case COFB: 
+            case COIB: 
+                rvl = sfmt() << "!!(" << rvl << ")";
+                break;
+            case COEB:
+                rvl = sfmt() << "int(" << rvl << ") != 0";
+                break;
+
+            case COSB: 
+                rvl = sfmt() << "stringtobool(" << rvl << ")";
+                break;
+
+            case COII: 
+                if(op.arg.size() == 1 || (op.arg.size() > 1 && 
+                        strcmp(grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])),
+                               grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[1]))) != 0))
+                        rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << rvl << ")";
+                break;
+
             case COEI: 
-            case COEF: 
-            case COES: 
+            case COIF: 
+            case COFF: 
+            case COFI:
+                rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << rvl << ")";
+                break;
+
+            case COIS: 
+            case COFS: 
+                rvl = sfmt() << "std::to_string(" << rvl << ")";
+                break;
+
+            case COSE: 
+                // TODO first try the label then try to convert to number 
+                rvl = sfmt() << "atoi(" << rvl << ")"; 
+            case COFE: 
             case COEE: 
+            case COIE: 
+                // TODO check for exceptions
+                rvl = sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << rvl << "))";
+                break;
+
+            case COEF: 
+                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (int) (" << rvl << ")";
+                break;
+
+            case COSF: 
+                rvl = sfmt() << "atof(" << rvl << ")";
+                break;
+
+            case COSI: 
+                rvl = sfmt() << "atoi(" << rvl << ")";
+                break;
+
+            case COES: 
+                rvl = sfmt() << "to_string(" << rvl << ")";
                 break;
         }
     }
