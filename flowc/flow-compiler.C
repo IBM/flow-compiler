@@ -1367,7 +1367,7 @@ int flow_compiler::check_assign(int error_node, lrv_descriptor const &left, lrv_
 }
 static 
 op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
-    std::cerr << "convert " << r_type << " (" << grpc_type_name((google::protobuf::FieldDescriptor::Type) r_grpc_type) << ") to " << l_type << " (" << grpc_type_name((google::protobuf::FieldDescriptor::Type) l_grpc_type) << ")\n";
+    //std::cerr << "convert " << r_type << " (" << grpc_type_name((google::protobuf::FieldDescriptor::Type) r_grpc_type) << ") to " << l_type << " (" << grpc_type_name((google::protobuf::FieldDescriptor::Type) l_grpc_type) << ")\n";
     switch(r_type) {
         case FTK_INTEGER:
             switch(l_type) {
