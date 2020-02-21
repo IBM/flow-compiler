@@ -110,7 +110,7 @@ bool string_to_bool(std::string const &s) {
     if(c.length() == 0) return false;
     if(c.length() == 1) {
         char t = c[0]; 
-        return t == 't' || t == '1' || t == 'y' || t == 'T' || t == 'Y';
+        return t == 't' || (t > '0' && t <= '9') || t == 'y' || t == 'T' || t == 'Y';
     }
     c = to_upper(c);
     if(c == "TRUE" || c == "ON" || c == "YES") return true;
