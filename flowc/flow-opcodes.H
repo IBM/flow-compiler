@@ -72,19 +72,16 @@ enum op {
 
     COFI,           // Convert right value from float to int    arg[0]: grpc type to
     COFS,           // Convert right value from float to string
-    COFE,           // Convert right value from float to enum
     COFB,           // Convert right value from float to bool
     COFF,           // Convert float to float                   argp[0]: grpc type to, arg[1] grpc type from
 
     COIF,           // Convert right value from int to float    arg[0]: grpc type to 
     COIS,           // Convert right value from int to string
-    COIE,           // Convert right value from int to enum
     COIB,           // Convert right value from int to bool
     COII,           // Convert intger to integer                arg[0]: grpc type to, arg[1]: grpc type from
 
     COSF,           // Convert right value from string to float arg[0]: grpc type to
     COSI,           // Convert right value from string to int   arg[0]: grpc type to
-    COSE,           // Convert right value from string to enum  
     COSB,           // Convert right value from string to bool
 
     COEI,           // Convert right value from enum to int     arg[0] grpc type to
@@ -179,18 +176,15 @@ inline static char const *op_name(op o) {
         case RVC: return "RVC";      
         case COFI: return "COFI";    
         case COFS: return "COFS";   
-        case COFE: return "COFE";  
         case COFB: return "COFB";  
         case COFF: return "COFF";  
         case COIF: return "COIF"; 
         case COIS: return "COIS";
-        case COIE: return "COIE";     
         case COIB: return "COIB";     
         case COII: return "COII";     
         case COSF: return "COSF";    
         case COSB: return "COSB";    
         case COSI: return "COSI";    
-        case COSE: return "COSE";    
         case COEI: return "COEI";   
         case COEB: return "COEB";   
         case COEF: return "COEF";   
