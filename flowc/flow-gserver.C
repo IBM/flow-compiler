@@ -1239,13 +1239,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 rvl = sfmt() << "std::to_string(" << rvl << ")";
                 break;
 
-            case COSE: 
-                // TODO first try the label then try to convert to number 
-                rvl = sfmt() << "atoi(" << rvl << ")"; 
-            case COFE: 
             case COEE: 
-            case COIE: 
-                // TODO check for exceptions
                 rvl = sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << rvl << "))";
                 break;
 

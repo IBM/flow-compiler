@@ -1358,11 +1358,12 @@ int flow_compiler::check_assign(int error_node, lrv_descriptor const &left, lrv_
         check = 1; 
     } else if(left.type() == FTK_STRING || left.grpc_type_name() == "bool" || left.t_size() > right.t_size()) {
         check = 3;
+    } else if(left.type() == FTK_dtid) {
+        pcerr.AddError(main_file, at(error_node), sfmt() << "cannont convert from \"" << right.type_name() << "\" to \"" << left.enum_descriptor()->full_name() << "\"");
     } else {
-        pcerr.AddWarning(main_file, at(error_node), sfmt() << "conversion from \"" << right.type_name() << "\" to \"" << left.type_name() << "\" could cause data loss\"");
+        pcerr.AddWarning(main_file, at(error_node), sfmt() << "conversion from \"" << right.type_name() << "\" to \"" << left.type_name() << "\" could cause data loss");
         check = 4;
     }
-    //std::cerr << "Check " << left.type_name() << "/" << left.grpc_type_name() << " <- " << right.type_name() <<  "/" << right.grpc_type_name() << " => " << check << "\n";
     return check;
 }
 static 
@@ -1381,10 +1382,9 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                     return COIF;
                 case FTK_STRING:
                     return COIS;
-                case FTK_dtid:
-                    return COIE;
                 default:
-                    std::cerr << "Need to convert integer to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    //std::cerr << "Need to convert integer to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    break;
             } 
             
             break;
@@ -1399,10 +1399,9 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                     return NOP;
                 case FTK_STRING:
                     return COFS;
-                case FTK_dtid:
-                    return COFE;
                 default:
-                    std::cerr << "Need to convert float to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    //std::cerr << "Need to convert float to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    break;
             } 
             
             break;
@@ -1416,10 +1415,9 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                     return COSF;
                 case FTK_STRING:
                     return NOP;
-                case FTK_dtid:
-                    return COSE;
                 default:
-                    std::cerr << "Need to convert string to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    //std::cerr << "Need to convert string to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    break;
             }
             break;
         case FTK_dtid:
@@ -1435,7 +1433,8 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                 case FTK_dtid:
                     return COEE;
                 default:
-                    std::cerr << "Need to convert enum to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    //std::cerr << "Need to convert enum to " << r_type << "(" << r_grpc_type << ")!!\n";
+                    break;
             }
             break;
         default: 
@@ -1516,7 +1515,22 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     ri = icode.size();
                     icode.push_back(fop(RVA, rv_name, rvfd.grpc_type_name(), rvd)); 
                     op coop = get_conv_op(rvfd.type(), lvd.type(), rvfd.grpc_type(), lvd.grpc_type());
-                    if(coop != NOP && !(coop == COEE && lvd.enum_descriptor() == rvfd.enum_descriptor())) {
+                    if(coop == COEE && lvd.enum_descriptor() != rvfd.enum_descriptor()) {
+                        // Check if all values in rv can be converted to lv
+                        bool can_convert = true;
+                        for(int i = 0, vc = rvfd.enum_descriptor()->value_count(); i < vc; ++i) {
+                            auto revd = rvfd.enum_descriptor()->value(i);
+                            if(lvd.enum_descriptor()->FindValueByNumber(revd->number()) == nullptr) {
+                                error_count += 1;
+                                pcerr.AddError(main_file, at(arg_node), sfmt() << "not all values in \"" << rvfd.enum_descriptor()->full_name() << "\" can be converted to \"" << lvd.enum_descriptor()->full_name() << "\"");
+                                can_convert = false;
+                                break;
+                            }
+                        }
+                        if(can_convert) 
+                            pcerr.AddWarning(main_file, at(arg_node), sfmt() << "all \"" << rvfd.enum_descriptor()->full_name() << "\" values will be converted to their numerical correspondent values in \"" << lvd.enum_descriptor()->full_name() << "\"");
+                    }
+                    if(coop != NOP) {
                         icode.push_back(fop(coop, lvd.grpc_type(), rvfd.grpc_type()));
                         if(lvd.type() == FTK_dtid) icode.back().el = lvd.enum_descriptor();
                         if(rvfd.type() == FTK_dtid) icode.back().er = rvfd.enum_descriptor();
@@ -1608,56 +1622,6 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
             icode.push_back(fop(COPY, lv_name, cs_name("RS", rvn), lvd.dp, rvd));
         } break;
-/*
-        case FTK_STRING: {
-            icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING));
-            
-            op coop = get_conv_op(FTK_STRING, lvd.type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING, lvd.grpc_type());
-            if(coop != NOP) {
-                icode.push_back(fop(coop, lvd.grpc_type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
-                if(lvd.type() == FTK_dtid) icode.back().el = lvd.enum_descriptor();
-            }
-            icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
-            icode.push_back(fop(SETS, lv_name, lvd.dp, arg_node));
-        } break;
-        case FTK_INTEGER: {
-            icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_INT64)); 
-            op coop = get_conv_op(FTK_INTEGER, lvd.type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_INT64, lvd.grpc_type());
-            if(coop != NOP) {
-                icode.push_back(fop(coop, lvd.grpc_type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_INT64));
-                if(lvd.type() == FTK_dtid) icode.back().el = lvd.enum_descriptor();
-            }
-            icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
-            icode.push_back(fop(SETI, lv_name, lvd.dp, arg_node));
-        } break;
-        case FTK_FLOAT: {
-            icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE)); 
-            op coop = get_conv_op(FTK_FLOAT, lvd.type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE, lvd.grpc_type());
-            if(coop != NOP) {
-                icode.push_back(fop(coop, lvd.grpc_type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE));
-                if(lvd.type() == FTK_dtid) icode.back().el = lvd.enum_descriptor();
-            }
-            icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
-            icode.push_back(fop(SETF, lv_name, lvd.dp, arg_node));
-        } break;
-        case FTK_dtid: {
-            icode.push_back(fop(RVC, get_dotted_id(arg_node), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_ENUM )); 
-            icode.back().er = enum_descriptor(arg_node)->type();
-            op coop = get_conv_op(FTK_dtid, lvd.type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_ENUM, lvd.grpc_type());
-
-            if(coop != NOP && !(coop == COEE && enum_descriptor(arg_node) != nullptr && lvd.enum_descriptor() == enum_descriptor(arg_node)->type())) {
-                icode.push_back(fop(coop, lvd.grpc_type(), (int) google::protobuf::FieldDescriptor::Type::TYPE_ENUM));
-                icode.back().er = enum_descriptor(arg_node)->type();
-                if(lvd.type() == FTK_dtid) {
-                    icode.back().el = lvd.enum_descriptor();
-                    // TODO check if value is compatible with enum
-                }
-            }
-            
-            icode.push_back(fop(SETL, lv_name, lvd.grpc_type_name(), lvd.dp));
-            icode.push_back(fop(SETE, lv_name, lvd.dp, arg_node));
-        } break;
-*/
         case FTK_STRING: 
         case FTK_INTEGER: 
         case FTK_FLOAT: 
