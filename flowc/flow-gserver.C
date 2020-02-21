@@ -1256,7 +1256,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
 
             case COES: 
-                rvl = sfmt() << "to_string(" << rvl << ")";
+                rvl = sfmt() << rvl << ".Name()";
                 break;
         }
     }
