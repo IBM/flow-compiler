@@ -1157,6 +1157,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case RVC: 
                 if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
+                else if(op.arg.size() > 0 && op.arg[0] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  c_escape(op.arg1); 
                 else rvl = op.arg1;
                 OUT << "// R: " << rvl << "\n";
                 break;

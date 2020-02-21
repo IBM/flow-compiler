@@ -1666,9 +1666,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
                 case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
                     if(enum_descriptor.has(arg_node)) 
-                        icode.push_back(fop(RVC, enum_descriptor(arg_node)->name(), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                        icode.push_back(fop(RVC, enum_descriptor(arg_node)->name(), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
                     else
-                        icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int)google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                        icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
                 break;
                 case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
                 case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
@@ -1679,6 +1679,17 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
                     if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number() == 0), arg_node, lvd.grpc_type()));
+                        icode.back().ev1 = enum_descriptor(arg_node);
+                        if(enum_descriptor(arg_node)->type() != lvd.enum_descriptor()) {
+                            icode.back().ev1 = lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number());
+                            // Check if the value can be assigned
+                            if(lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number()) == nullptr) {
+                                ++error_count;
+                                pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value \"" << enum_descriptor(arg_node)->name() << "\" (\"" << enum_descriptor(arg_node)->number() << "\") not found in \"" << lvd.enum_descriptor()->name() << "\"" );
+                            } else if(lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number())->name() != enum_descriptor(arg_node)->name()) {
+                                pcerr.AddWarning(main_file, at(arg_node), sfmt() << "enum value \"" << enum_descriptor(arg_node)->name() << "\" will be assigend as \"" <<  lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number())->name() <<  "\"" );
+                            }
+                        }
                     } else if(at(arg_node).type == FTK_STRING) {
                         auto evd = lvd.enum_descriptor()->FindValueByName(get_value(arg_node));
                         if(evd != nullptr) {
@@ -1688,6 +1699,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             ++error_count;
                             pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value not found: '" << get_value(arg_node) << "' in '" << lvd.enum_descriptor()->name() << "'" );
                         }
+
                     } else {
                         int number = at(arg_node).type == FTK_INTEGER? (int) get_integer(arg_node): (int) get_float(arg_node);
                         auto evd = lvd.enum_descriptor()->FindValueByNumber(number);
@@ -1709,23 +1721,28 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     }
                 break;
 
-                case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
-                case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-                case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
-                case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
                 case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
-                case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+
+                case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+
                 case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
                 case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
-                case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
-                case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
-                case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
-                case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+
+                case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+                case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
+                case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+                case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+                    
                     if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number()), arg_node, lvd.grpc_type()));
                     } else if(at(arg_node).type == FTK_STRING) {
                         pcerr.AddError(main_file, at(arg_node), sfmt() << "numeric value expected here");
                     } else {
+                        // TODO: convert the value to the left range with the applicable warnings
                         icode.push_back(fop(RVC, get_value(arg_node), arg_node, lvd.grpc_type()));
                     }
                 break;
