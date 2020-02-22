@@ -206,7 +206,7 @@ int flow_compiler::parse() {
             case io::Tokenizer::TokenType::TYPE_INTEGER:
                 ftok.type = FTK_INTEGER;
                 ftok.text = token.text;
-                if(!io::Tokenizer::ParseInteger(token.text, UINT64_MAX, &ftok.integer_value)) {
+                if(!io::Tokenizer::ParseInteger(token.text, UINT64_MAX, (uint64_t *) &ftok.integer_value)) {
                     // Integer overflow
                     ++error_count;
                     pcerr.AddError(main_file, ftok, "integer value overflow");
@@ -234,15 +234,23 @@ int flow_compiler::parse() {
                         case ':': ftok.type = FTK_COLON; break;
                         case '#': ftok.type = FTK_HASH; break;
                         case '@': ftok.type = FTK_AT; break;
+                        case '$': ftok.type = FTK_DOLLAR; break;
+                        case '%': ftok.type = FTK_PERCENT; break;
+                        case '?': ftok.type = FTK_QUESTION; break;
                         case '{': ftok.type = FTK_OPENBRA; break;
                         case '}': ftok.type = FTK_CLOSEBRA; break;
                         case '(': ftok.type = FTK_OPENPAR; break;
                         case ')': ftok.type = FTK_CLOSEPAR; break;
                         case '[': ftok.type = FTK_OPENSQB; break;
                         case ']': ftok.type = FTK_CLOSESQB; break;
+
                         case '^': ftok.type = FTK_CARET; break;
                         case '~': ftok.type = FTK_TILDA; break;
-
+                        case '-': ftok.type = FTK_MINUS; break;
+                        case '+': ftok.type = FTK_PLUS; break;
+                        case '*': ftok.type = FTK_STAR; break;
+                        case '/': ftok.type = FTK_SLASH; break;
+                                  
                         case '=': ftok.type = FTK_EQUALS; look_ahead = true; break;
                         case '>': ftok.type = FTK_GT; look_ahead = true;  break;
                         case '<': ftok.type = FTK_LT; look_ahead = true; break;
@@ -273,6 +281,9 @@ int flow_compiler::parse() {
                                     break;
                                 case '|': 
                                     if(ftok.type == FTK_BAR) { ftok.type = FTK_OR; get_previous = false; }
+                                    break;
+                                case '>': // TODO this needs another look ahead or a loop
+                                    if(ftok.type == FTK_LE) { ftok.type = FTK_COMP; get_previous = false; }
                                     break;
                                 default:
                                     break;
@@ -1700,7 +1711,6 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
                 case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
                 case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-                    
                     if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number()), arg_node, lvd.grpc_type()));
                     } else if(at(arg_node).type == FTK_STRING) {

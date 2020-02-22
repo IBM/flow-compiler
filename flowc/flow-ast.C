@@ -48,19 +48,28 @@ char const *node_name(int i) {
         case FTK_BANG: return "!";
         case FTK_AMP: return "&";
         case FTK_BAR: return "|";
+        case FTK_PLUS: return "+";
+        case FTK_MINUS: return "-";
+        case FTK_STAR:  return "*";
+        case FTK_DOLLAR: return "$";
+        case FTK_SLASH: return "/";
+        case FTK_PERCENT: return "%";
+        case FTK_QUESTION: return "?";
+                        
+
         case FTK_NE: return "!=";
-                     
         case FTK_LE: return "<=";
         case FTK_GE: return ">=";
         case FTK_EQ: return "==";
         case FTK_OR: return "||";
         case FTK_AND: return "&&";
         
+        case FTK_COMP: return "<=>";
         default: 
              return "symbol";
     }
 }
-uint64_t flow_ast::get_integer(int node) const {
+int64_t flow_ast::get_integer(int node) const {
     assert(at(node).type == FTK_INTEGER);
     return at(node).token.integer_value;
 }
@@ -72,10 +81,16 @@ double flow_ast::get_numberf(int node) const {
     assert(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER);
     return at(node).type == FTK_FLOAT? at(node).token.float_value: at(node).token.integer_value;
 }
-std::string const &flow_ast::get_value(int node) const {
+std::string const flow_ast::get_value(int node) const {
     auto type = at(node).type;
     assert(type == FTK_STRING || type == FTK_INTEGER || type == FTK_FLOAT);
-    return at(node).token.text;
+    switch(type) {
+        case FTK_STRING: return at(node).token.text;
+        case FTK_INTEGER: return std::to_string(at(node).token.integer_value);
+        case FTK_FLOAT: return std::to_string(at(node).token.float_value);
+        default:
+            assert(false);
+    }
 }
 std::string const &flow_ast::get_string(int node) const {
     assert(at(node).type == FTK_STRING);

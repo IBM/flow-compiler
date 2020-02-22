@@ -39,7 +39,7 @@ char const *node_name(int i);
 struct flow_token {
     int type, line, column, end_column;
     std::string text;
-    uint64_t integer_value;
+    int64_t integer_value;
     double float_value;
 };
 struct flow_ast_node {
@@ -117,6 +117,12 @@ struct flow_ast {
         store[node-1].type = new_type;
         return node;
     }
+    int negate(int node) {
+        auto &t = store[node-1].token;
+        if(t.type == FTK_INTEGER) t.integer_value = -t.integer_value;
+        if(t.type == FTK_FLOAT) t.float_value = -t.float_value;
+        return node;
+    }
     int nprepend(int node, int child_node) {
         auto &children = store[node-1].children;
         children.insert(children.begin(), child_node);
@@ -144,10 +150,10 @@ struct flow_ast {
     /*** 
      * type checked accessors
      */
-    uint64_t get_integer(int node) const;
+    int64_t get_integer(int node) const;
     double get_float(int node) const;
     double get_numberf(int node) const;
-    std::string const &get_value(int node) const;
+    std::string const get_value(int node) const;
     std::string const &get_string(int node) const;
     std::string const &get_id(int node) const;
     std::string get_joined_id(int node, int start_pos, std::string const &j) const;
