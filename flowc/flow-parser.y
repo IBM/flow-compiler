@@ -7,6 +7,7 @@
 %left DOT AT.
 %left COMMA.
 %nonassoc EQUALS COLON.
+%right QUESTION.
 %left OR.
 %left AND.
 %left BAR.
@@ -14,8 +15,13 @@
 %left AMP.
 %left NE EQ.
 %left GT LT GE LE.
-%right BANG. 
+%left COMP.
+%left PLUS MINUS.
+%left STAR SLASH PERCENT.
+%right BANG.
+%right DOLLAR.
 %right HASH.
+%right UMINUS.
 %right OPENPAR CLOSEPAR OPENBRA CLOSEBRA OPENSQB CLOSESQB.
 
 %include {
@@ -41,13 +47,13 @@ main(A) ::= flow(B).                                           { A = ast->node(F
 flow(A) ::= stmt(B).                                           { A = ast->node(FTK_flow, B); }              // FTK_flow is a list of FTK_stmt
 flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappend(B, C); }
 
-stmt(A) ::= ID(B) vali(C) SEMICOLON.                           { A = ast->node(FTK_stmt, B, C); }               
+stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->node(FTK_stmt, B, C); }               
 stmt(A) ::= ID(B) dtid(C) OPENPAR bexp(E) CLOSEPAR blck(D).    { A = ast->node(FTK_stmt, B, C, D, E); }
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(FTK_stmt, B, C, D); }
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                   // Skip over extraneous semicolons
 
 blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                   // Blocks must be enclosed in { }
-blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }                // Empty blocks are allowed
+blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }            // Empty blocks are allowed
 
 list(A) ::= elem(B).                                           { A = ast->node(FTK_blck, B); }              // FTK_blck is a list of declarations (elem)
 list(A) ::= list(B) elem(C).                                   { A = ast->nappend(B, C); }
@@ -62,12 +68,23 @@ elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }       
 
 lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); }
 
-valx(A) ::= STRING(B).                                         { A = B; }
-valx(A) ::= INTEGER(B).                                        { A = B; }
-valx(A) ::= FLOAT(B).                                          { A = B; }
 
-vali(A) ::= valx(B).                                           { A = B; }
-vali(A) ::= dtid(B).                                           { A = B; }
+// valn: any numeric literal
+
+valn(A) ::= INTEGER(B).                                        { A = B; }
+valn(A) ::= FLOAT(B).                                          { A = B; }
+valn(A) ::= PLUS valn(B).                                      { A = B; } [UMINUS]
+valn(A) ::= MINUS valn(B).                                     { A = ast->negate(B); } [UMINUS]
+
+// valx: any literal except enum values
+
+valx(A) ::= STRING(B).                                         { A = B; }
+valx(A) ::= valn(B).                                           { A = B; }
+
+// vall: any literal including enum values 
+
+vall(A) ::= valx(B).                                           { A = B; }
+vall(A) ::= dtid(B).                                           { A = B; }
 
 rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_rexp, B); }              
 rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_rexp, B); }              
@@ -81,7 +98,7 @@ fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappen
 fldd(A) ::= ID(B) eqc OPENPAR fldm(C) CLOSEPAR.                { A = ast->node(FTK_fldd, B, C); }           // The right side is another message definition
 fldd(A) ::= ID(B) eqc fldr(C).                                 { A = ast->node(FTK_fldd, B, C); }           // The right side is a field expression
 
-fldr(A) ::= vali(B).                                           { A = B; }                                   // The right side can be a literal, 
+fldr(A) ::= vall(B).                                           { A = B; }                                   // The right side can be a literal, 
 fldr(A) ::= fldx(B).                                           { A = B; }                                   // a field expression node@[field[.field]] (fldx)
 fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }              // or an internal function call
 fldr(A) ::= TILDA ID(B) OPENPAR flda(C) CLOSEPAR.              { A = ast->nprepend(C, B); }                 
@@ -101,7 +118,7 @@ dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappen
 eqc ::= EQUALS.
 eqc ::= COLON.
 
-bexp(A) ::= vali(B).                                           { A = ast->node(FTK_bexp, B); }
+bexp(A) ::= vall(B).                                           { A = ast->node(FTK_bexp, B); }
 bexp(A) ::= fldx(B).                                           { A = ast->node(FTK_bexp, B); }
 bexp(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_bexp, B, C); }
 bexp(A) ::= OPENPAR bexp(B) CLOSEPAR.                          { A = B; }
