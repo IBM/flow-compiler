@@ -21,7 +21,7 @@ BASE_IMAGE?=redhat-ubi7
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets
+.PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets alpine-edge ubuntu-18.04 redhat-ubi7
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -153,7 +153,15 @@ image-info: image-info-$(HOST_OS)
 image: image-info
 	@$(MAKE) -s flow-base-image-info.json
 
-$(BASE_IMAGE): image
+alpine-edge:
+	@$(MAKE) "BASE_IMAGE=$@" image
+
+ubuntu-18.04:
+	@$(MAKE) "BASE_IMAGE=$@" image
+
+redhat-ubi7:
+	@$(MAKE) "BASE_IMAGE=$@" image
+
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
