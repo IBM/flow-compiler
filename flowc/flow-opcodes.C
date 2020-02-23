@@ -36,7 +36,7 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
         if(fop.arg.size() > 0) 
             out << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
         if(fop.arg.size() > 1)
-            out << "< " << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+            out << "<- " << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
     }
     if(fop.el != nullptr) 
         out << "el: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.el) << ansi::escape(ANSI_RESET, use_ansi) << " ";

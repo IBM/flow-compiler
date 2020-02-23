@@ -1152,7 +1152,6 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case SETL:
                 lvl = ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
-                OUT << "// L: " << lvl << "\n";
                 OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
                 break;
             case RVC: 
@@ -1162,7 +1161,6 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case RVA: 
                 rvl = ::field_accessor(op.arg1, op.d1, rs_dims, RIGHT_VALUE);
-                OUT << "// R: " << rvl << "\n";
                 break;
             case SETT:
                 OUT << "// set this field from temp var\n";
@@ -1247,15 +1245,15 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
 
             case COSF: 
-                rvl = sfmt() << "atof(" << rvl << ")";
+                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") std::atof(" << rvl << ".c_str())";
                 break;
 
             case COSI: 
-                rvl = sfmt() << "atoi(" << rvl << ")";
+                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") atol(" << rvl << ".c_str())";
                 break;
 
             case COES: 
-                rvl = sfmt() << rvl << ".Name()";
+                rvl = sfmt() << get_full_name(op.er) << "_Name(" << rvl << ")";
                 break;
         }
     }
