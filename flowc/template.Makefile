@@ -23,8 +23,8 @@ else
 GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf)
 endif
 
-CIVETWEB_INCS?=-I/usr/local/include
-CIVETWEB_LIBS?=/usr/local/include/libcivetweb.a
+CIVETWEB_INCS?=-$(shell pkg-config --cflags civetweb) 
+CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
 
 SERVER_LFLAGS+= $(GRPC_LIBS)
 SERVER_CFLAGS+= $(GRPC_INCS)
