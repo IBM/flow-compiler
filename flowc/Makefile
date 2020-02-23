@@ -133,10 +133,10 @@ install: flowc
 	cp $^ $(INSTALL_PREFIX)
 
 #################### Docker image builder
-flow-base-image-info.json: template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
+flow-base-image-info.json: $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
+	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $@
 
@@ -152,6 +152,8 @@ image-info: image-info-$(HOST_OS)
 
 image: image-info
 	@$(MAKE) -s flow-base-image-info.json
+
+$(BASE_IMAGE): image
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
