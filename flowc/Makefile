@@ -16,8 +16,6 @@
 
 BUILD_VERSION=0.7.0
 
-RUNTIMES=alpine-3.11 alpine-edge ubuntu-18.04 redhat-ubi7
-
 ## One of the runtimes alpine-3.11, alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
 
@@ -112,12 +110,14 @@ flow-parser.c: flow-parser.y
 clean:
 	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIMES:=/template.runtime.Dockerfile)
+RUNTIME_TEMPLATES=$(wildcard */template.runtime.Dockerfile)
+
+flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	echo "#include <string>" > $@
 	echo "#include <map>" >> $@
 	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; done >> $@
 	echo "std::map<std::string, char const *> template_runtime_Dockerfile = {" >> $@
-	for RUNTL in $(RUNTIMES); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
+	for RUNTL in $(RUNTIME_TEMPLATES:/template.runtime.Dockerfile=); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
 	echo "};" >> $@
 
 flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[HY]) $(TEMPLATE_FILES) flow-compiler.C
