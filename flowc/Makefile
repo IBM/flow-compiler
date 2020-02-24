@@ -21,7 +21,8 @@ BASE_IMAGE?=redhat-ubi7
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets alpine-edge ubuntu-18.04 redhat-ubi7
+.PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets 
+.PHONY: alpine-edge ubuntu-18.04 redhat-ubi7 alpine-3.11
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -136,7 +137,7 @@ install: flowc
 flow-base-image-info.json: $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
+	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -t $(IMAGE_NAME):latest -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $@
 
@@ -154,6 +155,9 @@ image: image-info
 	@$(MAKE) -s flow-base-image-info.json
 
 alpine-edge:
+	@$(MAKE) "BASE_IMAGE=$@" image
+
+alpine-3.11:
 	@$(MAKE) "BASE_IMAGE=$@" image
 
 ubuntu-18.04:
