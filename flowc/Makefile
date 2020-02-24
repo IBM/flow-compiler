@@ -14,9 +14,11 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.6.3
+BUILD_VERSION=0.7.0
 
-## One of alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
+RUNTIMES=alpine-3.11 alpine-edge ubuntu-18.04 redhat-ubi7
+
+## One of the runtimes alpine-3.11, alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
 
 INSTALL_PREFIX?=/usr/local/bin
@@ -74,16 +76,18 @@ BUILD_ID?=$(GIT_TS) $(GIT_GUID)
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template.docker-compose.sh \
-	template.docker-compose.yaml template.help template.kubernetes.group.yaml \
-	template.kubernetes.sh template.kubernetes.yaml template.server.C template.syntax template.runtime.Dockerfile \
-	template.index.html
+TEMPLATE_FILES:=template.Dockerfile template.Makefile template.client.C template.help \
+	template.docker-compose.sh template.docker-compose.yaml \
+	template.kubernetes.group.yaml template.kubernetes.sh template.kubernetes.yaml \
+	template.server.C template.syntax template.index.html \
+    	
+BASE_RUNTIME_TEMPLATE=$(BASE_IMAGE)/template.runtime.Dockerfile 
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) rr-keys.sh rr-get.sh flow-parser.y
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) $(BASE_RUNTIME_TEMPLATE) rr-keys.sh rr-get.sh flow-parser.y
 
 %.o: %.C
 	${CXX} -std=c++11 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
@@ -106,14 +110,14 @@ flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 clean:
-	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz template.runtime.Dockerfile
+	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh
+flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIMES:=/template.runtime.Dockerfile)
 	echo "#include <string>" > $@
 	echo "#include <map>" >> $@
-	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-.' '__' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; done >> $@
-	echo "std::map<std::string, char const *> templates = {" >> $@
-	for FILE in $^; do echo "{\"$$FILE\"" | sed 's/template.//' | tr -d $$'\n'; echo ", $$FILE}," | tr -- '-.' '__'; done >> $@
+	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; done >> $@
+	echo "std::map<std::string, char const *> template_runtime_Dockerfile = {" >> $@
+	for RUNTL in $(RUNTIMES); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
 	echo "};" >> $@
 
 flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[HY]) $(TEMPLATE_FILES) flow-compiler.C
@@ -123,10 +127,6 @@ tar: flow-compiler-src.tgz
 
 flow-compiler-minsrc.tgz: $(MINSRC_FILES)
 	$(TAR) -czf $@ --transform 's,^,flow-compiler/,' $^
-
-template.runtime.Dockerfile: 
-	echo $(BASE_IMAGE)/template.runtime.Dockerfile
-	cp $(BASE_IMAGE)/template.runtime.Dockerfile .
 
 install: flowc
 	mkdir -p $(INSTALL_PREFIX)

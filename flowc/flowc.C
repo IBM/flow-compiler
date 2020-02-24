@@ -139,7 +139,8 @@ using namespace varsub;
 
 char const *get_version();
 char const *get_build_id();
-char const *get_base_image();
+char const *get_default_runtime();
+std::set<std::string> available_runtimes();
 #define FLOWC_NAME "flowc"
 
 flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
@@ -154,10 +155,12 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
     default_entry_timeout = 600000;     // 10 minutes
     default_maxcc = 16;                  
     default_repository = "/";
+    runtime = get_default_runtime();
+
 
     set(global_vars, "FLOWC_BUILD", get_build_id());
     set(global_vars, "FLOWC_VERSION", get_version());
-    set(global_vars, "BASE_IMAGE", get_base_image());
+    set(global_vars, "BASE_IMAGE", runtime);
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
     set(global_vars, "REST_IMAGE_PORT", std::to_string(rest_image_port));
     set(global_vars, "GUI_IMAGE_PORT", std::to_string(gui_image_port));
@@ -274,6 +277,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     set(global_vars, "NAME_UPPER", to_upper(to_option(orchestrator_name)));
     set(global_vars, "MAIN_DESCRIPTION_JSON", c_escape(main_description));
     set(global_vars, "NAME_UPPERID", to_upper(to_identifier(orchestrator_name)));
+
     /****************************************************************
      * file names
      */
@@ -327,6 +331,13 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     rest_image_port = opts.opti("rest-port", rest_image_port);
     gui_image_port = opts.opti("rest-port", gui_image_port);
     custom_gui_image_port = opts.opti("rest-port", custom_gui_image_port);
+    
+    runtime = opts.opt("runtime", runtime);
+    if(!contains(available_runtimes(), runtime)) {
+        std::cerr << "unknown runtime: " << runtime << ", available: " << stru1::join(available_runtimes(), ", ") << "\n";
+        return ++error_count;
+    }
+    set(global_vars, "BASE_IMAGE", runtime);
 
     set(global_vars, "MAIN_PORT", std::to_string(base_port));
     set(global_vars, "REST_NODE_PORT", std::to_string(base_port-1));
@@ -338,9 +349,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     default_maxcc = opts.opti("default-client-calls", default_maxcc);
 
-    rest_image = opts.opt("rest-image", rest_image);
-    if(!rest_image.empty() && rest_image[0] == '/') rest_image = path_join(default_repository, rest_image.substr(1));
-    
     orchestrator_tag = opts.opt("image-tag", "1");
     orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
 
@@ -375,9 +383,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * All files are compiled at this pont so,
      * set all as many of values that control code generation as possible
      */
-    set(global_vars, "REST_NODE_IMAGE", rest_image);
     // Whether REST is added or not depends on the value of the rest_image field -- for now
-    bool add_rest_node = (contains(targets, "kubernetes") || contains(targets, "docker-compose")) && !rest_image.empty();
+    bool add_rest_node = contains(targets, "kubernetes") || contains(targets, "docker-compose");
     if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
         for(auto const &nc: named_blocks) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
@@ -717,7 +724,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     // Check/generate the entry list for the rest gateway
     // Do this if we have rest and generated config files
-    if(add_rest_node || contains(targets, "server")) {
+    if(contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
         for(auto ep: named_blocks) if(ep.second.first == "entry") {
@@ -787,8 +794,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
             pcerr.AddError(orchestrator_dockerfile, -1, 0, "failed to write docker file");
         } else {
-            extern char const *template_runtime_Dockerfile;
-            render_varsub(outf, template_runtime_Dockerfile, global_vars);
+            extern std::map<std::string, char const *> template_runtime_Dockerfile;
+            char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
+            render_varsub(outf, c_template_runtime_Dockerfile, global_vars);
             extern char const *template_Dockerfile;
             render_varsub(outf, template_Dockerfile, global_vars);
         }
@@ -966,7 +974,7 @@ static int remove_callback(const char *pathname, const struct stat *, int, struc
 int main(int argc, char *argv[]) {
     signal(SIGSEGV, handler);
     helpo::opts opts;
-    if(opts.parse(template_help, argc, argv) != 0 || opts.have("help") || argc != 2) {
+    if(opts.parse(template_help, argc, argv) != 0 || opts.have("version") || opts.have("help") || argc != 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
         if(opts.have("help-syntax")) {
             std::cout << ansi::emphasize(template_syntax, ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n";
@@ -980,7 +988,8 @@ int main(int argc, char *argv[]) {
             std::cout << "g++ " << __VERSION__ << "\n";
 #else
 #endif
-            std::cout << "base-image " << get_base_image() << "\n";
+            std::cout << "default runtime: " << get_default_runtime() << "\n";
+            std::cout << "available runtimes: " << stru1::join(available_runtimes(), ", ") << "\n";
             return 0;
         } else {
             ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";

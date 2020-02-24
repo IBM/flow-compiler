@@ -131,6 +131,8 @@ private:
     int default_entry_timeout;
     // Maximum number of concurrent calls made to a service when 'replicas' is not set
     int default_maxcc;              
+    // Label for the runtime - used to select the runtime base image 
+    std::string runtime; 
     // Imported proto files
     std::vector<FileDescriptor const *> fdps;
     // Lookup table for enum ids

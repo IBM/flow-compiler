@@ -135,12 +135,12 @@ OPTIONS
        --python-client
               Generate "Python" code for a client that can be used in debugging and testing the application
 
-       --rest-image=IMAGE[:TAG] -R IMAGE[:TAG]
-              Add a "REST" gateway to the configuration. Set to an empty string to disable "REST".
-
        --rest-port=PORT, -r PORT
               Make "REST" available on "PORT". Must not conflict with the aggregator "gRPC" port.
               On "Kubernetes" this port must not conflict with any of the ports used in the main pod.
+
+       --runtime=RUNTIME -R RUNTIME
+              Generate server image using flowc:version.RUNTIME as a base "Docker" image
 
        --server
               Generate code for the "gRPC" aggregator
