@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <limits>
 #include "flow-ast.H"
 #include "grpc-helpers.H"
 #include "stru1.H"
@@ -80,6 +81,87 @@ double flow_ast::get_float(int node) const {
 double flow_ast::get_numberf(int node) const {
     assert(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER);
     return at(node).type == FTK_FLOAT? at(node).token.float_value: at(node).token.integer_value;
+}
+std::string flow_ast::get_number(int node, int grpc_type) const {
+    auto const &n = at(node);
+    assert(n.type == FTK_INTEGER || n.type == FTK_FLOAT);
+    switch(grpc_type) {
+        case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+            return n.type == FTK_INTEGER? std::to_string((double) n.token.integer_value): std::to_string(n.token.float_value);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
+            return n.type == FTK_INTEGER? std::to_string((float) n.token.integer_value): std::to_string((float)n.token.float_value);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
+        case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
+        case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+            return n.type == FTK_INTEGER? std::to_string((int32_t) n.token.integer_value): std::to_string((int32_t)n.token.float_value);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
+        case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+        case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+            return n.type == FTK_INTEGER? std::to_string(n.token.integer_value): std::to_string((int64_t)n.token.float_value);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
+        case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+            return n.type == FTK_INTEGER? std::to_string((uint32_t)n.token.integer_value): std::to_string((uint32_t)n.token.float_value);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+        case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+            return n.type == FTK_INTEGER? std::to_string(*(uint64_t *)&n.token.integer_value)+"u": std::to_string((uint64_t)n.token.float_value);
+        default:
+            assert(false);
+    }
+}
+bool flow_ast::can_cast(int node, int grpc_type) const {
+    auto const &n = at(node);
+    if(n.type != FTK_INTEGER && n.type != FTK_FLOAT) return false;
+    switch(grpc_type) {
+        case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+            if(n.type == FTK_FLOAT) return true;
+            return abs(n.token.integer_value) <= (1LL << std::numeric_limits<double>::digits);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
+            if(n.type == FTK_FLOAT) return true;
+            return abs(n.token.integer_value) <= (1LL << std::numeric_limits<float>::digits);
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
+        case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
+        case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+            if(n.type == FTK_INTEGER) return n.token.integer_value >= std::numeric_limits<int32_t>::min() && 
+                n.token.integer_value <= std::numeric_limits<int32_t>::max();
+            return ceil(n.token.float_value) == n.token.float_value &&
+                n.token.float_value >= std::numeric_limits<int32_t>::min() &&
+                n.token.float_value <= std::numeric_limits<int32_t>::max();
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
+        case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+        case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+            if(n.type == FTK_INTEGER) return true;
+            return ceil(n.token.float_value) == n.token.float_value && 
+                n.token.float_value >= std::numeric_limits<int64_t>::min() &&
+                n.token.float_value <= std::numeric_limits<int64_t>::max();
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
+        case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+            if(n.type == FTK_INTEGER) return n.token.integer_value >= 0 &&
+                n.token.integer_value <= std::numeric_limits<uint32_t>::max();
+
+            return ceil(n.token.float_value) == n.token.float_value &&
+                n.token.float_value >= 0 &&
+                n.token.float_value <= std::numeric_limits<uint32_t>::max();
+
+        case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+        case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
+            if(n.type == FTK_INTEGER) return true;
+            return ceil(n.token.float_value) == n.token.float_value &&
+                n.token.float_value >= 0 &&
+                n.token.float_value <= std::numeric_limits<uint64_t>::max();
+
+        default:
+            break;
+    }
+    return false;
 }
 std::string const flow_ast::get_value(int node) const {
     auto type = at(node).type;

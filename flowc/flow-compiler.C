@@ -1696,6 +1696,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     }
                 break;
 
+
+                case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
+                case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
                 case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
                 case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
                 case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
@@ -1707,8 +1710,6 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
                 case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
 
-                case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
-                case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
                 case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
                 case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
                     if(enum_descriptor.has(arg_node)) {
@@ -1716,8 +1717,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     } else if(at(arg_node).type == FTK_STRING) {
                         pcerr.AddError(main_file, at(arg_node), sfmt() << "numeric value expected here");
                     } else {
-                        // TODO: convert the value to the left range with the applicable warnings
-                        icode.push_back(fop(RVC, get_value(arg_node), arg_node, lvd.grpc_type()));
+                        if(!can_cast(arg_node, lvd.grpc_type()))
+                            pcerr.AddWarning(main_file, at(arg_node), sfmt() << "the value \"" << get_value(arg_node) << "\" will be assigned as \"" << get_number(arg_node, lvd.grpc_type()) << "\"");
+                        icode.push_back(fop(RVC, get_number(arg_node, lvd.grpc_type()), arg_node, lvd.grpc_type()));
                     }
                 break;
             }
