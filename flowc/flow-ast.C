@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <limits>
+#include <cmath>
 #include "flow-ast.H"
 #include "grpc-helpers.H"
 #include "stru1.H"

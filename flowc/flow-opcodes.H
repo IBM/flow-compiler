@@ -193,6 +193,7 @@ inline static char const *op_name(op o) {
         case CON1: return "CON1";
         case CON2: return "CON2";
     }
+    return "?";
 };
 std::ostream &operator<< (std::ostream &out, fop const &fop);
 #endif

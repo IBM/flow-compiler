@@ -45,6 +45,7 @@ int grpc_type_to_ftk(google::protobuf::FieldDescriptor::Type t) {
         case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
             return 0;
     }
+    return 0;
 }
 
 
@@ -213,6 +214,7 @@ int get_grpc_type_size(::google::protobuf::FieldDescriptor const *dp) {
         case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
             return 100;
     }
+    return 0;
 }
 inline static
 std::string get_grpc_type_name(::google::protobuf::FieldDescriptor const *dp) {
@@ -255,6 +257,7 @@ std::string get_grpc_type_name(::google::protobuf::FieldDescriptor const *dp) {
         case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
             return "group";
     }
+    return "";
 }
 inline static
 char const *grpc_type_name(google::protobuf::FieldDescriptor::Type t) {
@@ -297,6 +300,7 @@ char const *grpc_type_name(google::protobuf::FieldDescriptor::Type t) {
         case google::protobuf::FieldDescriptor::Type::TYPE_GROUP:
             return "group";
     }
+    return "";
 }
 inline static
 char const *grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type t) {
@@ -337,6 +341,7 @@ char const *grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type t) {
         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
             return "??";
     }
+    return "???";
 }
 inline static void 
 r_get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j, std::string const &prefix, std::vector<std::string> &buf, int start_level, int current_level) {
