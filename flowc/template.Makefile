@@ -73,7 +73,6 @@ $(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P}
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	docker build --force-rm -t $(IMAGE) -f $(DOCKERFILE) .
 	-docker rmi $(IMAGE_REPO):latest 2>&1 > /dev/null
-	docker tag $(IMAGE) $(IMAGE_REPO):latest
 	docker image inspect $(IMAGE) > $@
 
 image-info-Darwin:

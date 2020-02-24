@@ -1,4 +1,4 @@
-FROM flowc AS base
+FROM flowc:{{FLOWC_VERSION}}.{{BASE_IMAGE}} AS base
 
 USER worker
 RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs && mkdir -p /home/worker/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/www
