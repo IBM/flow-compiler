@@ -823,6 +823,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
     std::map<std::string, std::string> nodes_rv;
     bool async_enabled = false;
     bool first_node = false;        // whether the current node is the first in an alias set
+    bool node_has_calls = false;    // whether this node makes grpc calls
     EnumDescriptor const *ledp, *redp;   // left and right enum descriptor needed for conversion check
     int error_count = 0;
    
@@ -1006,6 +1007,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     }
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
                 }
+
+                node_has_calls = false;
                 break;
             case NSET:
                 if(op.arg.size() != 0) { // ignore empty index 
@@ -1057,21 +1060,22 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 }
                 if(async_enabled) {
                     OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
-
-                    OUT << "if(Async_call) {\n";
-                    ++indent;
-                    // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
-                    // We use the (one based) index in the status/context vetor as a tag for the call
-                    OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
-                    ++indent;
-                    OUT << "auto &RPCx = " << L_CARR << "[Ax-" << L_BEGIN << "];\n";
-                    OUT << "RPCx->StartCall();\n";
-                    OUT << "RPCx->Finish(" << L_OUTPTR << "[Ax-" << L_BEGIN << "], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
-                    OUT << "++" << L_SENT << ";\n";
-                    --indent;
-                    OUT << "}\n";
-                    --indent;
-                    OUT << "}\n";
+                    if(node_has_calls) {
+                        OUT << "if(Async_call) {\n";
+                        ++indent;
+                        // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
+                        // We use the (one based) index in the status/context vector as a tag for the call
+                        OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
+                        ++indent;
+                        OUT << "auto &RPCx = " << L_CARR << "[Ax-" << L_BEGIN << "];\n";
+                        OUT << "RPCx->StartCall();\n";
+                        OUT << "RPCx->Finish(" << L_OUTPTR << "[Ax-" << L_BEGIN << "], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
+                        OUT << "++" << L_SENT << ";\n";
+                        --indent;
+                        OUT << "}\n";
+                        --indent;
+                        OUT << "}\n";
+                    }
                 }
                 rs_dims[cur_output_name] = node_dim; 
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
@@ -1166,6 +1170,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "// set this field from temp var\n";
                 break;
             case CALL:
+                node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
                 if(async_enabled) {
                     OUT << "if(Async_call) {\n";
