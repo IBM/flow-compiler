@@ -30,7 +30,7 @@ ifeq ($(HOST_OS), Darwin)
 ifeq ($(shell which gnutar), )
 ifeq ($(shell which gtar), )
 $(warning GNU tar is needed to build the Docker image)
-$(warning Either install it with 'sudo port install gnutar' or with 'brew install gtar',)
+$(warning Either install it with 'sudo port install gnutar' or with 'brew install gnu-tar',)
 $(warning or set TAR to a GNU tar compatible executable in 'makefile.local'.)
 else
 TAR?=gtar
