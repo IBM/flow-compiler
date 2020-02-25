@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.7.0
+BUILD_VERSION=0.7.1
 
 ## One of the runtimes alpine-3.11, alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
