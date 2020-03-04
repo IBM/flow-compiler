@@ -672,6 +672,7 @@ std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode
         for(int i = 1; i < ix.arg.size(); ++i) names.push_back(fc->get_id(ix.arg[i]));  
         std::string index_size(field_accessor(join(names, "+"), ix.d1, rs_dims, SIZE, cur_level)); 
         indices.push_back(std::make_pair(join(names, "+"), index_size));
+        //std::cerr << " . .  " << indices.back() << "\n";
     }
 
     std::sort(indices.begin(), indices.end());
@@ -1087,7 +1088,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case LOOP:
                 ++loop_level;
                 {
-                    std::string current_loop_size =  get_loop_size(this, icode, op.arg, rs_dims, loop_level); 
+                    std::string current_loop_size = get_loop_size(this, icode, op.arg, rs_dims, loop_level); 
                     OUT << "for(int I" << loop_level << " = 0, IE" << loop_level << " = " << current_loop_size << "; I" << loop_level << " != IE" << loop_level << "; ++I" << loop_level << ") {\n";
                 }
                 ++indent;
@@ -1158,17 +1159,21 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 lvl = ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
                 OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
                 break;
+
             case RVC: 
                 if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
                 else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  c_escape(op.arg1); 
                 else rvl = op.arg1;
                 break;
+
             case RVA: 
                 rvl = ::field_accessor(op.arg1, op.d1, rs_dims, RIGHT_VALUE);
                 break;
+
             case SETT:
                 OUT << "// set this field from temp var\n";
                 break;
+
             case CALL:
                 node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
@@ -1197,10 +1202,12 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "}\n";
                 }
                 break;
+
             case ERR:
                 OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\");\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, " << c_escape(op.arg1) << ");\n";
                 break;
+
             case NOP: case CON1: case CON2:
                 if(!op.arg1.empty())
                     OUT << "// " << op.arg1 << "\n";

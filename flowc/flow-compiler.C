@@ -1449,7 +1449,7 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
             }
             break;
         default: 
-            std::cerr << "Asked fot conv: " << l_type << " to " << r_type << " (" << l_grpc_type << ", " << r_grpc_type << ")\n";
+            std::cerr << "Asked to convert: " << l_type << " to " << r_type << " (" << l_grpc_type << ", " << r_grpc_type << ")\n";
     }
     return NOP;
 }
@@ -1553,7 +1553,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 error_count += check_assign(arg_node, lvd, lrv_descriptor(rvd)) == 2? 0: 1;
                 icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
             }
-            // Remember the address of this copy instruction
+            // Remember the address of this copy/assign instruction
             unsigned ci = icode.size()-1;
             std::vector<int> idxp;
             std::string rv_fields;
@@ -1566,6 +1566,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
                 if(fid->is_repeated()) {
                     fop idx(INDX, rv_name, rvd);
+                    //fop idx(INDX, rv_name+rv_fields, rvd);
                     idx.arg.assign(fields.begin(), fields.begin()+i+1);
 
                     // Add this index to the code if it doesn't exist

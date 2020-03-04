@@ -26,7 +26,7 @@ endif
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
 CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
 
-SERVER_LFLAGS+= $(GRPC_LIBS)
+SERVER_LFLAGS+= $(GRPC_LIBS) -luuid
 SERVER_CFLAGS+= $(GRPC_INCS)
 
 ifeq ($(NO_REST), 1)
@@ -69,7 +69,7 @@ docker-push: docker-info
 docker-info:
 	@docker images $(IMAGE_REPO)
 
-$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P}
+$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} $(DOCKERFILE)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	docker build --force-rm -t $(IMAGE) -f $(DOCKERFILE) .
 	-docker rmi $(IMAGE_REPO):latest 2>&1 > /dev/null

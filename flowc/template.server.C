@@ -7,6 +7,7 @@
  */
 #include <sys/stat.h>
 #include <unistd.h>
+#include <uuid/uuid.h>
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -32,9 +33,13 @@ extern "C" {
 #define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
 #endif
 
+std::string Global_Node_ID;
 bool Global_Debug_Enabled = false;
 bool Global_Asynchronous_Calls = true;
 bool Global_Trace_Calls_Enabled = false;
+bool Global_Send_ID = true;
+const std::string Global_Start_Time = 
+    std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
 
 template <class S>
 static inline bool stringtobool(S s, bool default_value=false) {
@@ -194,6 +199,10 @@ public:
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> {{CLI_NODE_ID}}_stub[{{CLI_NODE_MAX_CONCURRENT_CALLS}}];
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
+        if(Global_Send_ID) {
+            CTX.AddMetadata("node-id", Global_Node_ID);
+            CTX.AddMetadata("start-time", Global_Start_Time);
+        }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
         auto result = {{CLI_NODE_ID}}_stub[call_number % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
@@ -212,6 +221,10 @@ public:
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
         L_context.set_deadline(deadline);
+        if(Global_Send_ID) {
+            L_context.AddMetadata("node-id", Global_Node_ID);
+            L_context.AddMetadata("start-time", Global_Start_Time);
+        }
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
         ::grpc::Status L_status = {{CLI_NODE_ID}}_stub[0]->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
         if(!L_status.ok()) {
@@ -522,17 +535,29 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
+    auto const &metadata = L_context.GetServerTrailingMetadata();
+    auto tmp = metadata.find("node-id");
+    std::string xtra_headers;
+    if(tmp != metadata.end()) {
+        xtra_headers += "x-flow-node-id";
+        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
+        xtra_headers += "\r\n";
+    }
+    tmp = metadata.find("start-time");
+    if(tmp != metadata.end()) {
+        xtra_headers += "x-flow-start-time";
+        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
+        xtra_headers += "\r\n";
+    }
     if(time_call) {
-        auto const &metadata = L_context.GetServerTrailingMetadata();
         auto tbmp = metadata.find("times-bin");
         if(tbmp != metadata.end()) {
-            std::string tb((tbmp->second).data(), (tbmp->second).length());
-            return return_protobuf?
-                rest::protobuf_reply(A_conn, L_outp, std::string("x-flow-call-times: ") + tb + "\r\n"):
-                rest::message_reply(A_conn, L_outp, std::string("x-flow-call-times: ") + tb + "\r\n");
+            xtra_headers += "x-flow-call-times: ";
+            xtra_headers += std::string((tbmp->second).data(), (tbmp->second).length());
+            xtra_headers += "\r\n";
         }
     }
-    return return_protobuf? rest::protobuf_reply(A_conn, L_outp): rest::message_reply(A_conn, L_outp);
+    return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 }I}
 {I:CLI_NODE_NAME{
@@ -565,7 +590,21 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     SET_METADATA_{{CLI_NODE_ID}}(L_context)
     ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
-    return return_protobuf? rest::protobuf_reply(A_conn, L_outp): rest::message_reply(A_conn, L_outp);
+    auto const &metadata = L_context.GetServerTrailingMetadata();
+    auto tmp = metadata.find("node-id");
+    std::string xtra_headers;
+    if(tmp != metadata.end()) {
+        xtra_headers += "x-flow-node-id";
+        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
+        xtra_headers += "\r\n";
+    }
+    tmp = metadata.find("start-time");
+    if(tmp != metadata.end()) {
+        xtra_headers += "x-flow-start-time";
+        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
+        xtra_headers += "\r\n";
+    }
+    return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 }I}
 namespace rest {
@@ -625,8 +664,17 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
         std::cerr << " " << proto << "://" << host << ":" << ports[n].port;
 	}
     std::cerr << "\n";
+    std::cerr << "Web app enabled: " << (rest_only? "no": "yes") << "\n";
     return 0;
 }
+}
+
+static std::string server_id() {
+    uuid_t id;
+    uuid_generate(id);
+    char sid[64];
+    uuid_unparse(id, sid);
+    return std::string("{{NAME}}-")+sid;
 }
 
 int main(int argc, char *argv[]) {
@@ -638,10 +686,12 @@ int main(int argc, char *argv[]) {
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to disable the REST gateway service ({{REST_NODE_PORT}})\n";
        std::cout << "\n";
+       std::cout << "Set {{NAME_UPPERID}}_WEBAPP=0 to enable disable the web-app when the REST service is enabled\n";
        std::cout << "Set {{NAME_UPPERID}}_DEBUG=1 to enable debug mode\n";
        std::cout << "Set {{NAME_UPPERID}}_TRACE=1 to enable trace mode\n";
        std::cout << "Set {{NAME_UPPERID}}_ASYNC=0 to disable asynchronous client calls\n";
-       std::cout << "Set {{NAME_UPPERID}}_LOGGER=0 to disable the logger service\n";
+       std::cout << "Set {{NAME_UPPERID}}_NODE_ID=xxx to override the server ID\n"; 
+       std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
        std::cout << "\n";
        return 1;
     }
@@ -662,10 +712,14 @@ int main(int argc, char *argv[]) {
     int listening_port;
     grpc::ServerBuilder builder;
 
-    Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
+    Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), Global_Asynchronous_Calls);
     {{NAME_ID}}_service service(Global_Asynchronous_Calls{I:CLI_NODE_ID{, {{CLI_NODE_ID}}_endpoint}I});
     Global_Debug_Enabled = service.Debug_Flag = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"));
     Global_Trace_Calls_Enabled = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"));
+    Global_Send_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), Global_Send_ID);
+    bool enable_webapp = strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
+    if(std::getenv("{{CLI_NODE_UPPERID}}_NODE_ID") == nullptr) Global_Node_ID = server_id();
+    else Global_Node_ID = std::getenv("{{CLI_NODE_UPPERID}}_NODE_ID");
 
     // Listen on the given address without any authentication mechanism.
     std::string server_address("[::]:"); server_address += argv[1];
@@ -675,29 +729,8 @@ int main(int argc, char *argv[]) {
     builder.RegisterService(&service);
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
-    if(listening_port == 0) {
-        std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
-        return 1;
-    }
-    rest::gateway_endpoint = sfmt() << "localhost:" << listening_port;
-    std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
-
-    // Set up the REST gateway if enabled
-    char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
-    if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
-        if(rest::start_civetweb(rest_port) != 0) {
-            std::cerr << "Failed to start REST gateway service\n";
-            return 1;
-        }
-    }
     std::cerr 
-        << "debug: " << (Global_Debug_Enabled? "yes": "no")
-        << ", trace: " << (Global_Trace_Calls_Enabled? "yes": "no")
-        << ", asynchronous client calls: " << (Global_Asynchronous_Calls? "yes": "no") 
-        << "\n";
-
-    std::cerr 
-        << "from {{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
         <<  "grpc " << grpc::Version() << "\n"
 #if defined(__clang__)          
@@ -707,6 +740,32 @@ int main(int argc, char *argv[]) {
 #else
 #endif
         << std::endl;
+
+    if(listening_port == 0) {
+        std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
+        return 1;
+    }
+    std::cerr << "node id: " << Global_Node_ID << "\n";
+    std::cerr << "start time: " << Global_Start_Time << "\n";
+    rest::gateway_endpoint = sfmt() << "localhost:" << listening_port;
+    std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
+
+    // Set up the REST gateway if enabled
+    char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
+    if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
+        if(rest::start_civetweb(rest_port, !enable_webapp) != 0) {
+            std::cerr << "Failed to start REST gateway service\n";
+            return 1;
+        }
+    }
+    std::cerr 
+        << "call id: " << (Global_Send_ID ? "yes": "no") 
+        << ", debug: " << (Global_Debug_Enabled? "yes": "no")
+        << ", trace: " << (Global_Trace_Calls_Enabled? "yes": "no")
+        << ", asynchronous client calls: " << (Global_Asynchronous_Calls? "yes": "no") 
+        << "\n";
+
+    std::cerr << std::endl;
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
     server->Wait();
