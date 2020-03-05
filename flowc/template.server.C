@@ -7,7 +7,6 @@
  */
 #include <sys/stat.h>
 #include <unistd.h>
-#include <uuid/uuid.h>
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -28,6 +27,7 @@
 extern "C" {
 #include <civetweb.h>
 }
+
 #ifndef MAX_REST_REQUEST_SZIE
 /** Size limit for the  REST request **/
 #define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
@@ -668,7 +668,26 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
     return 0;
 }
 }
-
+#if defined(OSSP_UUID) || defined(NO_UUID)
+#include <uuid.h>
+static std::string server_id() {
+#if defined(OSS_UUID)    
+    uuid_t *puid = nullptr;
+    char sid[64];
+    if(uuid_create(&puid) == UUID_RC_OK) {
+        uuid_make(puid, UUID_MAKE_V5, UUID_MAKE_V4, UUID_MAKE_V3, UUID_MAKE_V1, 0);
+        size_t sidlen = sizeof(sid); sid[sidlen-1] = '\0';
+        uuid_export(puid, UUID_FMT_STR, sid, &sidlen);
+        uuid_destroy(puid);
+        return std::string("{{NAME}}-")+sid;
+    }
+#endif
+    srand(time(nullptr));
+    return std::string("{{NAME}}-R-")+std::to_string(rand());
+}
+#endif
+#if !defined(OSSP_UUID) && !defined(NO_UUID)
+#include <uuid/uuid.h>
 static std::string server_id() {
     uuid_t id;
     uuid_generate(id);
@@ -676,6 +695,7 @@ static std::string server_id() {
     uuid_unparse(id, sid);
     return std::string("{{NAME}}-")+sid;
 }
+#endif
 
 int main(int argc, char *argv[]) {
     if(argc != 2) {
