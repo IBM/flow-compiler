@@ -671,15 +671,15 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
 #if defined(OSSP_UUID) || defined(NO_UUID)
 #include <uuid.h>
 static std::string server_id() {
-#if defined(OSS_UUID)    
+#if defined(OSSP_UUID)    
     uuid_t *puid = nullptr;
-    char sid[64];
+    char *sid = nullptr;;
     if(uuid_create(&puid) == UUID_RC_OK) {
-        uuid_make(puid, UUID_MAKE_V5, UUID_MAKE_V4, UUID_MAKE_V3, UUID_MAKE_V1, 0);
-        size_t sidlen = sizeof(sid); sid[sidlen-1] = '\0';
-        uuid_export(puid, UUID_FMT_STR, sid, &sidlen);
+        uuid_make(puid, UUID_MAKE_V4);
+        uuid_export(puid, UUID_FMT_STR, &sid, nullptr);
+        std::string id = std::string("{{NAME}}-")+sid;
         uuid_destroy(puid);
-        return std::string("{{NAME}}-")+sid;
+        return id;
     }
 #endif
     srand(time(nullptr));
