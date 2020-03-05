@@ -161,6 +161,7 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
     set(global_vars, "FLOWC_BUILD", get_build_id());
     set(global_vars, "FLOWC_VERSION", get_version());
     set(global_vars, "BASE_IMAGE", runtime);
+    set(global_vars, "BASE_IMAGE_UPPERID", to_upper(to_identifier(runtime)));
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
     set(global_vars, "REST_IMAGE_PORT", std::to_string(rest_image_port));
     set(global_vars, "GUI_IMAGE_PORT", std::to_string(gui_image_port));
@@ -338,6 +339,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         return ++error_count;
     }
     set(global_vars, "BASE_IMAGE", runtime);
+    set(global_vars, "BASE_IMAGE_UPPERID", to_upper(to_identifier(runtime)));
 
     set(global_vars, "MAIN_PORT", std::to_string(base_port));
     set(global_vars, "REST_NODE_PORT", std::to_string(base_port-1));
