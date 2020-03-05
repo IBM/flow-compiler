@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.9.1
+BUILD_VERSION=0.9.2
 
 ## One of the runtimes alpine-3.11, alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
@@ -85,7 +85,7 @@ OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) $(BASE_RUNTIME_TEMPLATE) rr-keys.sh rr-get.sh flow-parser.y
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) rr-keys.sh rr-get.sh flow-parser.y
 
 %.o: %.C
 	${CXX} -std=c++11 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
@@ -120,7 +120,7 @@ flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	for RUNTL in $(RUNTIME_TEMPLATES:/template.runtime.Dockerfile=); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
 	echo "};" >> $@
 
-flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[HY]) $(TEMPLATE_FILES) flow-compiler.C
+flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[Hy]) $(TEMPLATE_FILES) flow-compiler.C
 	$(TAR) -czf $@ $^ --transform 's,^,flow-compiler/,'
 
 tar: flow-compiler-src.tgz 
