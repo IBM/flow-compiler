@@ -26,7 +26,7 @@ endif
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
 CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
 
-SERVER_LFLAGS+= $(GRPC_LIBS) -luuid
+SERVER_LFLAGS+= $(GRPC_LIBS) 
 SERVER_CFLAGS+= $(GRPC_INCS)
 
 ifeq ($(NO_REST), 1)
@@ -36,12 +36,22 @@ SERVER_LFLAGS+= $(CIVETWEB_LIBS)
 SERVER_CFLAGS+= $(CIVETWEB_INCS)
 endif
 
+ifeq ($(FLOWC_UUID), OSSP)
+SERVER_LFLAGS+= $(shell pkg-config --libs ossp-uuid)
+SERVER_CFLAGS+= -DOSSP_UUID
+endif
+ifeq ($(FLOWC_UUID), )
+SERVER_LFLAGS+= $(shell pkg-config --libs uuid)
+endif
+ifeq ($(FLOWC_UUID), NONE)
+SERVER_CFLAGS+= -DNO_UUID
+endif
+
 ifeq ($(PUSH_REPO), )
 DOCKER:=docker-info
 else 
 DOCKER:=docker-push
 PUSH_IMAGE:=$(PUSH_REPO:/=)/$(IMAGE_REPO):$(IMAGE_TAG)
-PUSH_IMAGE_LATEST:=$(PUSH_REPO:/=)/$(IMAGE_REPO):latest
 endif
 
 THIS_FILE:=$(lastword $(MAKEFILE_LIST))
@@ -72,7 +82,6 @@ docker-info:
 $(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} $(DOCKERFILE)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	docker build --force-rm -t $(IMAGE) -f $(DOCKERFILE) .
-	-docker rmi $(IMAGE_REPO):latest 2>&1 > /dev/null
 	docker image inspect $(IMAGE) > $@
 
 image-info-Darwin:

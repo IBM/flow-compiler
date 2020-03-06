@@ -9,7 +9,7 @@ RUN rpm --import /etc/yum.repos.d/centos7.gpg
 
 RUN yum -y install vim curl jq bc ssh unzip \
  git make autoconf automake pkgconfig libtool libtool-ltdl \
- openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel \
+ openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
  gcc-c++ file graphviz \
  && yum clean all -y
 
@@ -37,5 +37,6 @@ WORKDIR /home/worker
 ## Build civetweb (https://github.com/civetweb/civetweb)
 ADD --chown=worker:worker https://github.com/civetweb/civetweb/archive/v${CIVETWEB_VERSION}.tar.gz ./
 RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz && cd civetweb-${CIVETWEB_VERSION} && make lib WITH_IPV6=1 
-ENV CIVETWEB_INCS=-I/home/worker/civetweb-${CIVETWEB_VERSION}/include
+ENV CIVETWEB_INCS="-I/home/worker/civetweb-${CIVETWEB_VERSION}/include"
 ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl"
+ENV FLOWC_UUID=OSSP
