@@ -21,14 +21,18 @@ COPY --chown=worker:worker --from=base /home/worker/*.tar /home/worker/
 RUN tar -xvf /home/worker/bin.tar && rm /home/worker/bin.tar && chown -R worker:worker {{NAME}}
 RUN tar -xvf /home/worker/so.tar && rm /home/worker/so.tar
 RUN echo $'#!/bin/bash\n\
+function ldd_deps() {\n\
+    ldd "$1" 2>/dev/null | grep -E -o "^.*\s/.*\(0x[0-9A-Fa-f]+\)$" | sed -E -e "s/(^\s+)//" -e "s/\s*\(0x[0-9A-Fa-f]+\)$//" -e "s/\s+=>\s+/ /"\n\
+}\n\
 function need() {\n\
-	readelf -d "$1" | grep NEEDED | grep -o -E "\[.*\]$" | sed -E "s/^\[|\]$//g" | sort -u \n\
+	readelf -d "$1" | grep NEEDED | grep -o -E "\[.*\]$" | sed -E "s/(^\[)|(\]$)//g" | sort -u \n\
 }\n\
 function have() {\n\
-	ldd "$1" 2>/dev/null | grep -E -o "/.*\(0x[0-9A-Fa-f]+\)$" | sed -E -e "s/\s+\(0x[0-9A-Fa-f]+\)$//" -e "s/^.*\///" | sort -u\n\
+    ldd_deps "$1" | cut -d " " -f 1 | while read F; do basename "$F"; done \n\
+    ldd_deps "$1" | cut -d " " -f 2 | while read F; do basename "$F"; done \n\
 }\n\
 function have_fp() {\n\
-	ldd "$1" 2>/dev/null | grep -E -o "/.*\(0x[0-9A-Fa-f]+\)$" | sed -E -e "s/\s+\(0x[0-9A-Fa-f]+\)$//" | sort -u\n\
+    ldd_deps "$1" | cut -d " " -f 2\n\
 }\n\
 function minus() {\n\
 	for A in $1\n\
