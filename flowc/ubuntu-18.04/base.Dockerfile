@@ -5,7 +5,7 @@ ARG GRPC_VERSION=1.27.0
 user root
 
 RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install \
-    git libtool-bin build-essential autoconf pkg-config libssl1.0.0 graphviz \
+    git libtool-bin build-essential autoconf pkg-config libssl1.0.0 graphviz uuid-dev \
     libgflags-dev libgtest-dev && apt-get clean
 
 ## Build and install grpc for C++
