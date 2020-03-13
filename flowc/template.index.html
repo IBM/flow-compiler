@@ -250,7 +250,7 @@
             return obj;
         },
         renderJSON: function(schema, container, objectID, jo, replace, keyO) {
-            if(typeof value === 'boolean') {
+            if(typeof jo === 'boolean') {
                 PR.appendOrReplace(container, '<div class="pr-JSON-boolean" id="'+objectID+'">'+jo+"</div>", replace);
                 if(keyO) keyO.addClass("pr-JSON-sticky");
             } else 
