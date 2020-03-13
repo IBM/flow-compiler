@@ -252,7 +252,10 @@ public:
 #define FLOGC(c) if(c) ::rest::flog() <<= sfmt()
 #define FLOG FLOGC(true)
 
+#define DEFAULT_REST_THREADS 16
+
 namespace rest {
+
 class flog {
 public:
     flog &operator <<= (std::string const &v) {
@@ -411,7 +414,7 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
     char const *content_type = mg_get_header(conn, "Content-Type");
     /** Default content type is application/json
      */
-    if(content_type == nullptr || strcasecmp(content_type, "application/json") == 0) {
+    if(content_type == nullptr || strncasecmp(content_type, "application/json", strlen("application/json")) == 0) {
         // The expected content type is application/json
         std::vector<char> buffer(65536);
         unsigned long read = 0;
@@ -500,6 +503,16 @@ static bool is_protobuf(char const *content_type) {
 }
 {I:ENTRY_NAME{
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+    std::string xtra_headers;
+    if(Global_Send_ID) {
+        xtra_headers += "X-Flow-Node-Id: ";
+        xtra_headers += Global_Node_ID;
+        xtra_headers += "\r\n";
+
+        xtra_headers += "X-Flow-Start-Time: ";
+        xtra_headers += Global_Start_Time;
+        xtra_headers += "\r\n";
+    }
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
@@ -536,19 +549,6 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     auto const &metadata = L_context.GetServerTrailingMetadata();
-    auto tmp = metadata.find("node-id");
-    std::string xtra_headers;
-    if(tmp != metadata.end()) {
-        xtra_headers += "x-flow-node-id";
-        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
-        xtra_headers += "\r\n";
-    }
-    tmp = metadata.find("start-time");
-    if(tmp != metadata.end()) {
-        xtra_headers += "x-flow-start-time";
-        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
-        xtra_headers += "\r\n";
-    }
     if(time_call) {
         auto tbmp = metadata.find("times-bin");
         if(tbmp != metadata.end()) {
@@ -591,16 +591,16 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     auto const &metadata = L_context.GetServerTrailingMetadata();
-    auto tmp = metadata.find("node-id");
     std::string xtra_headers;
+    auto tmp = metadata.find("node-id");
     if(tmp != metadata.end()) {
-        xtra_headers += "x-flow-node-id";
+        xtra_headers += "X-Flow-Node-ID: ";
         xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
         xtra_headers += "\r\n";
     }
     tmp = metadata.find("start-time");
     if(tmp != metadata.end()) {
-        xtra_headers += "x-flow-start-time";
+        xtra_headers +="X-Flow-Start-Time: ";
         xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
         xtra_headers += "\r\n";
     }
@@ -608,7 +608,8 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }
 }I}
 namespace rest {
-int start_civetweb(char const *rest_port, bool rest_only=false) {
+int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
+    std::string num_threads_s(std::to_string(num_threads));
     const char *options[] = {
         "document_root", "/dev/null",
         "listening_ports", rest_port,
@@ -617,7 +618,7 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
         "extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
         "enable_auth_domain_check", "no",
         "max_request_size", "65536", 
-        "num_threads", "12",
+        "num_threads", num_threads_s.c_str(),
         0
     };
 	struct mg_callbacks callbacks;
@@ -649,7 +650,7 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
 	int port_cnt, n;
 	memset(ports, 0, sizeof(ports));
 	port_cnt = mg_get_server_ports(ctx, 32, ports);
-    std::cerr <<  "REST gateway at:";
+    std::cerr <<  "REST gateway at";
 	for(n = 0; n < port_cnt && n < 32; n++) {
 		const char *proto = ports[n].is_ssl ? "https" : "http";
 		const char *host;
@@ -663,8 +664,8 @@ int start_civetweb(char const *rest_port, bool rest_only=false) {
         }
         std::cerr << " " << proto << "://" << host << ":" << ports[n].port;
 	}
-    std::cerr << "\n";
-    std::cerr << "Web app enabled: " << (rest_only? "no": "yes") << "\n";
+    std::cerr << " running " << num_threads << " threads\n";
+    std::cerr << "web app enabled: " << (rest_only? "no": "yes") << "\n";
     return 0;
 }
 }
@@ -698,13 +699,14 @@ static std::string server_id() {
 #endif
 
 int main(int argc, char *argv[]) {
-    if(argc != 2) {
-       std::cout << "Usage: " << argv[0] << " GRPC-PORT\n\n";
+    if(argc != 2 && argc != 3) {
+       std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT]\n\n";
        std::cout << "Set the ENDPOINT variable with the host:port for each node:\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
        std::cout << "\n";
-       std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to disable the REST gateway service ({{REST_NODE_PORT}})\n";
+       std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to enable the REST gateway service\n";
+       std::cout << "Set {{NAME_UPPERID}}_REST_THREADS= to change the number of REST worker threads (" << DEFAULT_REST_THREADS << ")\n";
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_WEBAPP=0 to enable disable the web-app when the REST service is enabled\n";
        std::cout << "Set {{NAME_UPPERID}}_DEBUG=1 to enable debug mode\n";
@@ -772,8 +774,13 @@ int main(int argc, char *argv[]) {
 
     // Set up the REST gateway if enabled
     char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
+    if(rest_port == nullptr || argc >= 3) rest_port = argv[2];
     if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
-        if(rest::start_civetweb(rest_port, !enable_webapp) != 0) {
+        char const *rest_threads = std::getenv("{{NAME_UPPERID}}_REST_THREADS");
+        int num_rest_threads = rest_threads != nullptr? atoi(rest_threads): 0;
+        if(num_rest_threads <= 0) num_rest_threads = DEFAULT_REST_THREADS;
+        
+        if(rest::start_civetweb(rest_port, num_rest_threads, !enable_webapp) != 0) {
             std::cerr << "Failed to start REST gateway service\n";
             return 1;
         }
