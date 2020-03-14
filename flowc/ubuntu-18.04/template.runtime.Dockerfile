@@ -1,5 +1,7 @@
 FROM ubuntu:18.04 AS flow-runtime
 
+SHELL ["/bin/bash", "-c"]
+
 RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install locales lsb-release \
     curl jq bc ssh vim unzip binutils \
     && apt-get clean
