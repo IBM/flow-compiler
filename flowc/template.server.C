@@ -42,7 +42,7 @@ const std::string Global_Start_Time =
     std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
 
 template <class S>
-static inline bool stringtobool(S s, bool default_value=false) {
+inline static bool stringtobool(S s, bool default_value=false) {
     if(s.empty()) return default_value;
     std::string so(s.length(), ' ');
     std::transform(s.begin(), s.end(), so.begin(), ::tolower);
@@ -50,13 +50,25 @@ static inline bool stringtobool(S s, bool default_value=false) {
         return true;
     return std::atof(so.c_str()) != 0;
 }
-static inline bool strtobool(char const *s, bool default_value=false) {
+inline static bool strtobool(char const *s, bool default_value=false) {
     if(s == nullptr || *s == '\0') return default_value;
     std::string so(s);
     std::transform(so.begin(), so.end(), so.begin(), ::tolower);
     if(so == "yes" || so == "y" || so == "t" || so == "true" || so == "on")
         return true;
     return std::atof(s) != 0;
+}
+inline static long strtolong(char const *s, long default_value=0) {
+    if(s == nullptr || *s == '\0') return default_value;
+    char *endptr = nullptr;
+    auto value = strtol(s, &endptr, 10);
+    if(endptr == s) return default_value;
+    for(; *endptr != '\0' && isspace(*endptr); ++endptr);
+    if(*endptr == '\0') return value;
+    return default_value;
+}
+inline static long stringtolong(std::string const &s, long default_value=0) {
+    return strtolong(s.c_str(), default_value);
 }
 static std::string json_escape(std::string const &s) {
     std::string r;
@@ -195,8 +207,8 @@ public:
 
 #define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
 
-    int {{CLI_NODE_ID}}_maxcc = {{CLI_NODE_MAX_CONCURRENT_CALLS}};
-    std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> {{CLI_NODE_ID}}_stub[{{CLI_NODE_MAX_CONCURRENT_CALLS}}];
+    int {{CLI_NODE_ID}}_maxcc = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
+    std::vector<std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub>> {{CLI_NODE_ID}}_stub;
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
         if(Global_Send_ID) {
@@ -239,9 +251,12 @@ public:
     {{NAME_ID}}_service(bool async_a{I:CLI_NODE_ID{, std::string const &{{CLI_NODE_ID}}_endpoint}I}): Async_Flag(async_a) {
         Call_Counter.store(1);   
         
-        {I:CLI_NODE_ID{for(int i = 0; i < {{CLI_NODE_ID}}_maxcc; ++i) {
+        {I:CLI_NODE_ID{
+        std::cerr << "node {{CLI_NODE_NAME}} maximum concurrent calls: " << {{CLI_NODE_ID}}_maxcc << "\n";
+        {{CLI_NODE_ID}}_stub.resize({{CLI_NODE_ID}}_maxcc);
+        for(int i = 0; i < {{CLI_NODE_ID}}_maxcc; ++i) {
             std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
-            {{CLI_NODE_ID}}_stub[i] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);                    
+            {{CLI_NODE_ID}}_stub[i] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
         }
         }I}
     }
@@ -252,7 +267,7 @@ public:
 #define FLOGC(c) if(c) ::rest::flog() <<= sfmt()
 #define FLOG FLOGC(true)
 
-#define DEFAULT_REST_THREADS 16
+#define DEFAULT_REST_THREADS 48
 
 namespace rest {
 
@@ -707,6 +722,10 @@ int main(int argc, char *argv[]) {
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
        std::cout << "\n";
+       std::cout << "Set the MAXCC variable with the maximum number of concurrent calls allowed for each node:\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_MAXCC for node {{CLI_NODE_NAME}} ({{CLI_NODE_MAX_CONCURRENT_CALLS}})\n";
+       }I}
+       std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to enable the REST gateway service\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_THREADS= to change the number of REST worker threads (" << DEFAULT_REST_THREADS << ")\n";
        std::cout << "\n";
@@ -736,6 +755,18 @@ int main(int argc, char *argv[]) {
     int listening_port;
     grpc::ServerBuilder builder;
 
+    std::cerr 
+        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+        << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
+        <<  "grpc " << grpc::Version() << "\n"
+#if defined(__clang__)          
+        << "clang++ " << __clang_version__ << "\n"
+#elif defined(__GNUC__) 
+        << "g++ " << __VERSION__ << "\n"
+#else
+#endif
+        << std::endl;
+
     Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), Global_Asynchronous_Calls);
     {{NAME_ID}}_service service(Global_Asynchronous_Calls{I:CLI_NODE_ID{, {{CLI_NODE_ID}}_endpoint}I});
     Global_Debug_Enabled = service.Debug_Flag = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"));
@@ -753,17 +784,6 @@ int main(int argc, char *argv[]) {
     builder.RegisterService(&service);
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
-    std::cerr 
-        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
-        << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
-        <<  "grpc " << grpc::Version() << "\n"
-#if defined(__clang__)          
-        << "clang++ " << __clang_version__ << "\n"
-#elif defined(__GNUC__) 
-        << "g++ " << __VERSION__ << "\n"
-#else
-#endif
-        << std::endl;
 
     if(listening_port == 0) {
         std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
@@ -778,11 +798,8 @@ int main(int argc, char *argv[]) {
     char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
     if(rest_port == nullptr || argc >= 3) rest_port = argv[2];
     if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
-        char const *rest_threads = std::getenv("{{NAME_UPPERID}}_REST_THREADS");
-        int num_rest_threads = rest_threads != nullptr? atoi(rest_threads): 0;
-        if(num_rest_threads <= 0) num_rest_threads = DEFAULT_REST_THREADS;
-        
-        if(rest::start_civetweb(rest_port, num_rest_threads, !enable_webapp) != 0) {
+        long num_rest_threads = strtolong(std::getenv("{{NAME_UPPERID}}_REST_THREADS"), DEFAULT_REST_THREADS);
+        if(rest::start_civetweb(rest_port, (int) num_rest_threads, !enable_webapp) != 0) {
             std::cerr << "Failed to start REST gateway service\n";
             return 1;
         }
