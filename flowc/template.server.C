@@ -327,7 +327,7 @@ static int message_reply(struct mg_connection *conn, google::protobuf::Message c
     google::protobuf::util::MessageToJsonString(message, &json_message, options);
     return json_reply(conn, json_message.c_str(), json_message.length(), xtra_headers.c_str());
 }
-static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status) {
+static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status, std::string const &xtra_headers="") {
     std::string errm = sfmt() 
         << "{" 
         << "\"code\": 500,"
@@ -335,7 +335,7 @@ static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &c
         << "\"grpc-code\":" << status.error_code() << ","
         << "\"message\":" << json_string(status.error_message())
         << "}";
-    return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length());
+    return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length(), xtra_headers.c_str());
 }
 static int conversion_error(struct mg_connection *conn, google::protobuf::util::Status const &status) {
     std::string error_message = sfmt() << "{"
@@ -547,16 +547,18 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         L_context.AddMetadata("trace-call", trace_header);
 
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
-    if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
-    auto const &metadata = L_context.GetServerTrailingMetadata();
-    if(time_call) {
-        auto tbmp = metadata.find("times-bin");
-        if(tbmp != metadata.end()) {
-            xtra_headers += "x-flow-call-times: ";
-            xtra_headers += std::string((tbmp->second).data(), (tbmp->second).length());
-            xtra_headers += "\r\n";
-        }
+    for(auto const &mde: L_context.GetServerTrailingMetadata()) {
+        std::string header(mde.second.data(), mde.second.length());
+        if(header == "times-bin") 
+            header = "x-flow-call-times";
+        else 
+            header = std::string("X-Flow-") + header;
+        xtra_headers += header;
+        xtra_headers += ": ";
+        xtra_headers += std::string(mde.second.data(), mde.second.length());
+        xtra_headers += "\r\n";
     }
+    if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status, xtra_headers);
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 }I}
