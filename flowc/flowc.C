@@ -245,6 +245,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
    
     /****************************************************************
      */
+    clear(global_vars, "SERVER_XTRA_H");
+    clear(global_vars, "SERVER_XTRA_C");
     {
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
@@ -264,6 +266,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         char buffer[2048];
         buffer[std::strftime(buffer, sizeof(buffer)-1, "%a, %e %b %Y %T %z", std::localtime(&a_file_stat.st_mtime))] = '\0';
         set(global_vars, "MAIN_FILE_TS", buffer);
+
+        std::string xtra_h = path_join(dirname(real_input_filename), orchestrator_name+"-xtra.H");
+        if(stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
+            cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
+            append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
+        }
     }
 
     if(contains(targets, "www-files")) {

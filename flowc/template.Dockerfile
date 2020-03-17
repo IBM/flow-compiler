@@ -2,7 +2,7 @@ FROM flowc:{{FLOWC_VERSION}}.{{BASE_IMAGE}} AS base
 
 USER worker
 RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs && mkdir -p /home/worker/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/www
-COPY --chown=worker:worker docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} /tmp/{{NAME}}/
+COPY --chown=worker:worker docs/{{MAIN_FILE}} {P:SERVER_XTRA_H{{{SERVER_XTRA_H}} }P} {P:SERVER_XTRA_C{{{SERVER_XTRA_C}} }P} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} /tmp/{{NAME}}/
 RUN cd /tmp/{{NAME}} && flowc --client --server {{MAIN_FILE}} --name {{NAME}} && make -j2 -f {{NAME}}.mak deploy && cd /tmp && rm -fr {{NAME}}
 
 WORKDIR /home/worker

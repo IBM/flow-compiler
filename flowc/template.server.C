@@ -144,6 +144,8 @@ std::mutex global_display_mutex;
  */
 {I:CLI_NODE_ID{std::string {{CLI_NODE_ID}}_endpoint;
 }I}
+{I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
+}I}
 template <class C>
 static bool Get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
     auto vp = mm.find(key);
