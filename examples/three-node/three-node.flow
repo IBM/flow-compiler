@@ -30,6 +30,7 @@ node labels {
         GRPC_PORT="{{labels.port}}";
     }
     pod = 2;
+    replicas = 24;
 }
 entry ThreeNodeExample.tokenize {
     return (
