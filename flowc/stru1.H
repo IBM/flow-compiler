@@ -84,6 +84,12 @@ std::string basename(std::string const &filename, std::string const &suffix = ""
     return suffix.empty()? f: remove_suffix(f, suffix);
 }
 inline static 
+std::string dirname(std::string const &filename) {
+    std::string dn;
+    basename(filename, "", &dn);
+    return dn;
+}
+inline static 
 std::string path_join(std::string const &base_path, std::string const &path) {
     if(path.empty()) return base_path;
     if(base_path.empty() || path[0] == '/') return path;
