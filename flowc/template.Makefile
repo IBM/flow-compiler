@@ -71,6 +71,11 @@ info:
 	@echo ""
 	@echo "make -f $(THIS_FILE) client" 
 
+PB_GENERATED_CC:={P:PB_GENERATED_C{{{PB_GENERATED_C}} }P} {P:GRPC_GENERATED_C{{{GRPC_GENERATED_C}} }P}
+PB_GENERATED_H:={P:PB_GENERATED_H{{{PB_GENERATED_H}} }P} {P:GRPC_GENERATED_H{{{GRPC_GENERATED_H}} }P}
+SERVER_XTRA_H:={P:SERVER_XTRA_H{{{SERVER_XTRA_H}} }P} 
+SERVER_XTRA_C:={P:SERVER_XTRA_C{{{SERVER_XTRA_C}} }P} 
+
 docker-push: docker-info
 	@-docker rmi $(PUSH_IMAGE) 2>&1 > /dev/null
 	@docker tag $(IMAGE) $(PUSH_IMAGE) 
@@ -79,7 +84,7 @@ docker-push: docker-info
 docker-info:
 	@docker images $(IMAGE_REPO)
 
-$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} $(DOCKERFILE)
+$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} $(DOCKERFILE) $(SERVER_XTRA_H) $(SERVER_XTRA_C)
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	docker build --force-rm -t $(IMAGE) -f $(DOCKERFILE) .
 	docker image inspect $(IMAGE) > $@
@@ -95,11 +100,6 @@ image-info-Linux:
 image: image-info-$(shell uname -s)
 	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE) DOCKERFILE=$(DOCKERFILE) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(IMAGE_PROXY)
 	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE) DOCKERFILE=$(DOCKERFILE) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(DOCKER)
-
-PB_GENERATED_CC:={P:PB_GENERATED_C{{{PB_GENERATED_C}} }P} {P:GRPC_GENERATED_C{{{GRPC_GENERATED_C}} }P}
-PB_GENERATED_H:={P:PB_GENERATED_H{{{PB_GENERATED_H}} }P} {P:GRPC_GENERATED_H{{{GRPC_GENERATED_H}} }P}
-SERVER_XTRA_H:={P:SERVER_XTRA_H{{{SERVER_XTRA_H}} }P} 
-SERVER_XTRA_C:={P:SERVER_XTRA_C{{{SERVER_XTRA_C}} }P} 
 
 {{NAME}}-server: {{NAME}}-server.C $(PB_GENERATED_CC) $(PB_GENERATED_H) $(SERVER_XTRA_H)
 	${CXX} -std=c++11 $(SERVER_CFLAGS) -O3 -o $@  $< $(PB_GENERATED_CC) $(SERVER_XTRA_C) $(SERVER_LFLAGS)
