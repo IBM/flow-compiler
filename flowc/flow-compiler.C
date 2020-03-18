@@ -1822,7 +1822,10 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             }
             auto &mni = referenced_nodes.find(n)->second;
             mni.order = node_order[name(n)];
-            mni.name = sfmt() << name(n) << "-" << mni.order;
+            if(mni.id.empty())
+                mni.xname = sfmt() << name(n) << "-" << mni.order;
+            else 
+                mni.xname = mni.id;
         }
 
     // Add any default error nodes that would otherwise be left out
@@ -1879,7 +1882,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                 auto &mni = referenced_nodes.find(m)->second;
                 //mni.order = ++order;
                 //mni.name = sfmt() << nn << "-" << order; 
-                stage_set_names.push_back(mni.name);
+                stage_set_names.push_back(mni.xname);
             }
             
             for(int m: stage_set) if(!condition.has(m) && name(m) == nn) {
@@ -2064,7 +2067,7 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
             for(int n: ss) if(n != gv.first) {
                 referenced_nodes.emplace(n, node_info(n, (!condition.has(n)? name(n): sfmt() << name(n) << "-" << at(n).token.line << "-" << at(n).token.column), method_descriptor(n)==nullptr));
                 entry_referenced_nodes.insert(n);
-                ns.push_back(referenced_nodes.find(n)->second.name);
+                ns.push_back(referenced_nodes.find(n)->second.xname);
             }
             sout << "/" << join(ns, ",");
         }
@@ -2140,21 +2143,21 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
             for(auto nn: n) {
                 auto const &inf = referenced_nodes.find(nn)->second;
                 if(condition.has(nn))
-                    out << c_escape(inf.name) << "[label=<" << name(nn) << "<sup><font point-size=\"7\">" << inf.order << "</font></sup><br/><font point-size=\"7\" face=\"Courier\">" << html_escape(to_text(condition(nn))) << "</font>>]; ";
+                    out << c_escape(inf.xname) << "[label=<" << name(nn) << "<sup><font point-size=\"7\">" << inf.order << "</font></sup><br/><font point-size=\"7\" face=\"Courier\">" << html_escape(to_text(condition(nn))) << "</font>>]; ";
                 else
-                    out << c_escape(inf.name) << "[label=<" << name(nn) << ">]; ";
+                    out << c_escape(inf.xname) << "[label=<" << name(nn) << ">]; ";
             }
             out << s << ";\n};\n";
         }
         for(auto nn: n) {
-            std::string dot_node(c_escape(referenced_nodes.find(nn)->second.name));
+            std::string dot_node(c_escape(referenced_nodes.find(nn)->second.xname));
             // Get all incoming edges
             incoming.clear();
             for(auto i: get_node_refs(incoming, nn, FTK_oexp, true))
                 if(i.first == 0) {
                     out << input_label << " -> " << dot_node << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
                 } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
-                    std::string dot_i(c_escape(j.second.name)); 
+                    std::string dot_i(c_escape(j.second.xname)); 
                     out << dot_i << " -> " << dot_node << " [fontsize=9,style=bold,label=\"" << make_label(i.second, method_descriptor(i.first)->output_type()) << "\"];\n";
                 }
             
@@ -2163,7 +2166,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
                 if(i.first == 0) {
                     out << input_label << " -> " << dot_node << " [fontsize=9,style=dashed,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
                 } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
-                    std::string dot_i(c_escape(j.second.name)); 
+                    std::string dot_i(c_escape(j.second.xname)); 
                     out << dot_i << " -> " << dot_node << " [fontsize=9,style=dashed,label=\"" << make_label(i.second, method_descriptor(i.first)->output_type()) << "\"];\n";
                 }
         }
@@ -2175,7 +2178,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
         if(i.first == 0) {
             out << input_label << " -> " << ename << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
         } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
-            std::string dot_i(c_escape(j.second.name)); 
+            std::string dot_i(c_escape(j.second.xname)); 
             out << dot_i << " -> " << ename << " [fontsize=9,style=bold,color=dodgerblue2,label=\"" << make_label(i.second, method_descriptor(i.first)->output_type()) << "\"];\n";
         }
     out << "}\n";

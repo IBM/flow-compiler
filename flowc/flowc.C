@@ -477,7 +477,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
             auto &ni = rn.second;
-            std::string const &nn = rn.second.name;
+            std::string const &nn = rn.second.xname;
 
             int value = 0, pv = 0;
             error_count += get_block_value(value, blck, "port", false, {FTK_INTEGER});
@@ -522,7 +522,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             int blck = rn.first;
             auto &ni = rn.second;
 
-            std::string const &nn = ni.name;
+            std::string const &nn = ni.xname;
             append(global_vars, "NODE_NAME", nn);
             int value = 0, pv = 0;
 
@@ -915,7 +915,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 continue;
             decltype(global_vars) local_vars;
             set_cli_active_node_vars(local_vars, cli_node);
-            std::string const &node_name = rn.second.name;
+            std::string const &node_name = rn.second.xname;
 
             std::string outputfn = output_filename("www/"+node_name+"-index.html");
             std::ofstream outf(outputfn.c_str());

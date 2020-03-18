@@ -57,7 +57,8 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
 
 struct node_info {
     int node;               // AST pointer
-    std::string name;       // Node or container name, derived from but not always the same as name(node)
+    std::string xname;       // Node or container name, derived from but not always the same as name(node)
+    std::string id;         // Node id as decalred in the flow stanza
     int port;               // Assigned port for this service
     std::string group;      // Group label for this node
     std::string runtime;    // Runtime label for Docker
@@ -72,14 +73,14 @@ struct node_info {
     std::map<std::string, std::string> environment;
     int scale;              // Number of images or groups to run at the same time
 
-    node_info(int no=0, std::string const &na="", bool nc=false):node(no), name(na), port(0), order(0), no_call(nc), scale(0) {
+    node_info(int no=0, std::string const &na="", bool nc=false):node(no), xname(na), port(0), order(0), no_call(nc), scale(0) {
     }
     std::string label() const {
-        return to_lower(to_identifier(name));
+        return to_lower(to_identifier(xname));
     }
 };
 inline static std::ostream &operator<< (std::ostream &out, node_info const &n) {
-    out << "(@" << n.node << ": " << n.name << " group: " << n.group << " port: " << n.port << " order: " << n.order << " grpc: " << (n.no_call? "no": "yes") << ")";
+    out << "(@" << n.node << ": " << n.xname << " group: " << n.group << " port: " << n.port << " order: " << n.order << " grpc: " << (n.no_call? "no": "yes") << ")";
     return out;
 };
 

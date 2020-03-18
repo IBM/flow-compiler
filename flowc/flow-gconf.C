@@ -56,7 +56,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
     for(auto const &g: groups) 
         for(auto &nr: referenced_nodes) {
             auto &ni = nr.second;
-            std::string const &nn = ni.name;
+            std::string const &nn = ni.xname;
             int pv = ni.port;
             std::string host;
             if(ni.group == g) {
@@ -79,7 +79,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
         }
     for(auto &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
-        std::string const &nn = ni.name;
+        std::string const &nn = ni.xname;
         int blck = nr.first;
         std::vector<std::string> buf;
 
@@ -87,7 +87,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
         for(auto const &er: referenced_nodes) {
             int pv = er.second.port;
             std::string const &en = name(er.second.node);
-            std::string const &nf = er.second.name;
+            std::string const &nf = er.second.xname;
             std::string host;
             if(ni.group == er.second.group) {
                 // If the this node is part of this group, it is accessible through localhost
@@ -207,7 +207,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
     std::vector<std::string> orchestrator_env;
 
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
-        std::string const &nn = nr.second.name;
+        std::string const &nn = nr.second.xname;
         int pv = nr.second.port;
         append(local_vars, "NODE_PORT", std::to_string(++base_port));
         if(type(nr.first) == "node") {
@@ -222,7 +222,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
 
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
-        std::string const &nn = ni.name;
+        std::string const &nn = ni.xname;
         int blck = nr.first;
         int old_value = 0;
 
@@ -230,7 +230,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         for(auto const &er: referenced_nodes) {
             int pv = er.second.port;
             std::string const &en = name(er.second.node);
-            std::string const &nf = er.second.name;
+            std::string const &nf = er.second.xname;
             if((en == nf && name(nr.second.node) != en) || nf == nn) {
                 append(env_vars, en+".port", std::to_string(pv));
                 append(env_vars, en+".host", to_lower(nf));

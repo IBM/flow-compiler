@@ -255,7 +255,7 @@ public:
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status = {{CLI_NODE_ID}}_stub[0]->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
-        GRPC_RECEIVED({{CLI_NODE_UPPERID}}, L_Status, L_context, A_outp)
+        GRPC_RECEIVED({{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         if(!L_status.ok()) {
             GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
         } else {

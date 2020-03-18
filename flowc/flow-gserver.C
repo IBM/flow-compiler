@@ -820,7 +820,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
     std::string input_name, output_name;
     // dimension for every node response 
     std::map<std::string, int> rs_dims;
-    std::vector<std::string> stage_node_names;
+    std::vector<int> stage_node_ids;
     std::map<std::string, std::string> nodes_rv;
     bool async_enabled = false;
     bool first_node = false;        // whether the current node is the first in an alias set
@@ -890,7 +890,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "std::vector<std::unique_ptr<grpc::ClientContext>> " << L_CONTEXT << ";\n";
                     OUT << "std::vector<std::unique_ptr<grpc::Status>> " << L_STATUS << ";\n";
                 }
-                stage_node_names.clear();
+                stage_node_ids.clear();
                 break;
             case ESTG:
                 if(async_enabled) {
@@ -913,7 +913,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "auto &LL_Status = *" << L_STATUS << "[X-1];\n";
                     OUT << "auto &LL_Ctx = *" << L_CONTEXT << "[X-1];\n";
                     int nc = 0;
-                    for(auto nn: stage_node_names) {
+                    for(auto nni: stage_node_ids) {
+                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nni)->second.xname)));
                         // Find out what node this index belongs to by comparing with the EX_xxxx markers
                         if(nc > 0) OUT << "else ";
                         else OUT << "";
@@ -935,7 +936,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << "++" << LN_SENT(nn) << ";\n";
                         --indent;
                         OUT << "}\n";
-                        OUT << "GRPC_RECEIVED(" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
+                        if(method_descriptor(nni) != nullptr)
+                            OUT << "GRPC_RECEIVED(" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
                         OUT << "TRACECM(LL_Status.ok(), NRX, \"" << nn << " response: \", " << LN_OUTPTR(nn) <<"[NRX-1]);\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";
@@ -976,10 +978,10 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case BNOD:
                 node_dim = op.arg[0];
                 cur_input_name = op.arg2; cur_output_name = op.arg1;
-                cur_node_name = to_lower(to_identifier(referenced_nodes.find(cur_node = op.arg[1])->second.name));
+                cur_node_name = to_lower(to_identifier(referenced_nodes.find(cur_node = op.arg[1])->second.xname));
                 cur_base_node = named_blocks.find(name(cur_node))->second.second;
                 if(!condition.has(cur_node)) nodes_rv[name(cur_node)] = cur_output_name;
-                stage_node_names.push_back(cur_node_name);
+                stage_node_ids.push_back(cur_node);
                 
                 OUT << "/*\n";
                 OUT << " * node: " << cur_node << "\n";
@@ -1369,7 +1371,7 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     int error_count = 0;
     auto rn = referenced_nodes.find(cli_node);
     assert(rn != referenced_nodes.end());
-    std::string const &node_name = rn->second.name;
+    std::string const &node_name = rn->second.xname;
 
     clear(global_vars, "ALT_ENTRY_NAME");
 
@@ -1401,7 +1403,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         auto cli_node = rn.first;
         if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
             continue;
-        std::string const &node_name = rn.second.name;
+        std::string const &node_name = rn.second.xname;
 
         std::string set_metadata;
         if(rn.second.headers.size() > 0) {
