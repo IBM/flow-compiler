@@ -935,6 +935,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << "++" << LN_SENT(nn) << ";\n";
                         --indent;
                         OUT << "}\n";
+                        OUT << "GRPC_RECEIVED(" << to_upper(to_identifier(nn)) << ", LL_status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
                         OUT << "TRACECM(LL_Status.ok(), NRX, \"" << nn << " response: \", " << LN_OUTPTR(nn) <<"[NRX-1]);\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";

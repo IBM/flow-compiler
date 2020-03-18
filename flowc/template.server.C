@@ -33,6 +33,10 @@ extern "C" {
 #define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
 #endif
 
+enum Nodes_Enum {
+    NO_NODE = 0 {I:CLI_NODE_UPPERID{, {{CLI_NODE_UPPERID}}}I}
+};
+
 std::string Global_Node_ID;
 bool Global_Debug_Enabled = false;
 bool Global_Asynchronous_Calls = true;
@@ -144,8 +148,7 @@ std::mutex global_display_mutex;
  */
 {I:CLI_NODE_ID{std::string {{CLI_NODE_ID}}_endpoint;
 }I}
-{I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
-}I}
+
 template <class C>
 static bool Get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
     auto vp = mm.find(key);
@@ -197,6 +200,15 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
         sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
         CID, -1, nullptr)); }
 
+{I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
+}I}
+#ifndef GRPC_RECEIVED
+#define GRPC_RECEIVED(NODEID, STATUS, CONTEXT, RESPONSEPTR)
+#endif
+#ifndef GRPC_SENDING
+#define GRPC_SENDING(NODEID, CONTEXT, REQUESTPTR)
+#endif
+
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
     bool Debug_Flag = false;
@@ -218,6 +230,7 @@ public:
             CTX.AddMetadata("start-time", Global_Start_Time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
+        GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
         auto result = {{CLI_NODE_ID}}_stub[call_number % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
@@ -240,7 +253,9 @@ public:
             L_context.AddMetadata("start-time", Global_Start_Time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
+        GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status = {{CLI_NODE_ID}}_stub[0]->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
+        GRPC_RECEIVED({{CLI_NODE_UPPERID}}, L_Status, L_context, A_outp)
         if(!L_status.ok()) {
             GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
         } else {
