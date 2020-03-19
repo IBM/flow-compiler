@@ -175,9 +175,15 @@ static int file_{{METHOD_FULL_ID}}(std::string const &label, std::istream &ins, 
             context.set_deadline(deadline);
         }
         grpc::Status status = stub->{{METHOD_NAME}}(&context, input, &output);
-        if(show_headers) for(auto const &mde: context.GetServerTrailingMetadata()) {
-            std::string header(mde.first.data(), mde.first.length());
-            std::cerr << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+        if(show_headers) {
+            for(auto const &mde: context.GetServerInitialMetadata()) {
+                std::string header(mde.first.data(), mde.first.length());
+                std::cerr << "- " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+            }
+            for(auto const &mde: context.GetServerTrailingMetadata()) {
+                std::string header(mde.first.data(), mde.first.length());
+                std::cerr << "= " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+            }
         }
         if(!status.ok()) {
             std::cerr << label << "(" << line_count << ") from " << context.peer() << ": " << status.error_code() << ": " << status.error_message() << "\n" << status.error_details() << std::endl;
