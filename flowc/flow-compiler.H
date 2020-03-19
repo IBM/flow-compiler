@@ -277,7 +277,7 @@ public:
 
     // Code generation for orchestrator server
     std::ostream &gc_bexp(std::ostream &out, std::map<std::string, std::string> const &generated_nodes, std::map<std::string, int> const &rs_dims, int bexp, int op) const;
-    int gc_server_method(std::ostream &out, std::string const &entry_dot_name, int blck_entry);
+    int gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry);
     int gc_server(std::ostream &out);
 
     // Name generators for case sensitive languagages C, Python, etc.

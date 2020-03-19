@@ -206,6 +206,14 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
 #ifndef GRPC_SENDING
 #define GRPC_SENDING(NODEID, CONTEXT, REQUESTPTR)
 #endif
+{I:ENTRY_NAME{
+#ifndef GRPC_REPLY_{{ENTRY_NAME}}
+#define GRPC_REPLY_{{ENTRY_NAME}}(STATUS, CONTEXT, RESPONSEPTR)
+#endif
+#ifndef GRPC_REQUEST_{{ENTRY_NAME}}
+#define GRPC_REQUEST_{{ENTRY_NAME}}(CONTEXT, REQUESTPTR)
+#endif
+}I}
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:

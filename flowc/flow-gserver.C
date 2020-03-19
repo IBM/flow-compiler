@@ -800,7 +800,7 @@ std::ostream &flow_compiler::gc_bexp(std::ostream &out, std::map<std::string, st
     return out;
 }
 // Generate C++ code for a given Entry Method
-int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_dot_name, int blck_entry) {
+int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) {
     int indent = 1;
     auto eipp = entry_ip.find(blck_entry);
     OUT << "//  from " << main_file << ":" << at(blck_entry).token.line << " " << entry_dot_name << "\n";
@@ -839,6 +839,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 output_name = op.arg2;
                 OUT << "::grpc::Status " << get_name(op.m1) << "(::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") override {\n";
                 ++indent;
+                OUT << "GRPC_REQUEST_" << entry_name << "(*CTX, p" << input_name << ")\n";
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
                 OUT << "bool Trace_call = Get_metadata_bool(Client_metadata, \"trace-call\", Global_Trace_Calls_Enabled);\n";
                 OUT << "bool Time_call = Get_metadata_bool(Client_metadata, \"time-call\");\n";
@@ -857,6 +858,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case END:
                 OUT << "PTIME2(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
                 OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", TIME_INFO_GET(Time_call)); \n";
+                OUT << "if(Global_Send_ID) { CTX->AddTrailingMetadata(\"node-id\", Global_Node_ID); CTX->AddTrailingMetadata(\"start-time\", Global_Start_Time); }\n";
+                OUT << "GRPC_REPLY_" << entry_name << "(L_status, *CTX, &" << output_name << ")\n"; 
                 OUT << "TIME_INFO_END(Time_call);\n";
                 OUT << "TRACEA(\"reply " << entry_dot_name << ": \", &" << output_name << ");\n";
                 OUT << "TRACEA(Time_info.str(), nullptr);\n";
@@ -1456,7 +1459,7 @@ int flow_compiler::gc_server(std::ostream &out) {
 
     for(int entry_node: entry_node_set) {
         std::stringstream sbuf;
-        error_count += gc_server_method(sbuf,  method_descriptor(entry_node)->full_name(), entry_node);
+        error_count += gc_server_method(sbuf,  method_descriptor(entry_node)->full_name(), method_descriptor(entry_node)->name(), entry_node);
         append(local_vars, "ENTRY_CODE", sbuf.str());
     }
     ServiceDescriptor const *sdp =  method_descriptor(*entry_node_set.begin())->service();
