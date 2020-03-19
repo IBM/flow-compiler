@@ -41,13 +41,24 @@ bool show_headers = false;
 int call_timeout = 0;
 std::string trace_filename;
 
+std::map<std::string, std::string> added_headers;
+
+static void add_header(std::string const &header) {
+    auto eqp = header.find_first_of('=');
+    if(eqp == std::string::npos) 
+        added_headers[header] = "";
+    else 
+        added_headers[header.substr(0, eqp)] = header.substr(eqp+1);
+}
+
 struct option long_opts[] {
     { "help",                 no_argument, nullptr, 'h' },
     { "blocking-calls",       no_argument, nullptr, 'b' },
     { "ignore-grpc-errors",   no_argument, nullptr, 'g' },
     { "ignore-json-errors",   no_argument, nullptr, 'j' },
     { "time-calls",           no_argument, nullptr, 'c' },
-    { "headers",              no_argument, nullptr, 'H' },
+    { "show-headers",         no_argument, nullptr, 'v' },
+    { "header",               required_argument, nullptr, 'H' },
     { "timeout",              required_argument, nullptr, 'T' },
     { "trace",                required_argument, nullptr, 't' },
     { nullptr,                0,                 nullptr,  0 }
@@ -60,10 +71,11 @@ static bool parse_command_line(int &argc, char **&argv) {
             case 'b': use_blocking_calls = true; break;
             case 'g': ignore_grpc_errors = true; break;
             case 'j': ignore_json_errors = true; break;
-            case 'H': show_headers = true; break;
+            case 'v': show_headers = true; break;
             case 'c': time_calls = true; break;
             case 'h': show_help = true; break;
             case 't': trace_filename = optarg; break;
+            case 'H': add_header(optarg); break;
             case 'T': 
                 call_timeout = std::atoi(optarg); 
             break;
@@ -155,6 +167,9 @@ static int file_{{METHOD_FULL_ID}}(std::string const &label, std::istream &ins, 
         grpc::ClientContext context;
         if(use_blocking_calls) context.AddMetadata("overlapped-calls", "0");
         if(time_calls) context.AddMetadata("time-call", "1");
+        for(auto const &xhe: added_headers) 
+            context.AddMetadata(xhe.first, xhe.second);
+        
         if(call_timeout > 0) {
             auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(call_timeout);
             context.set_deadline(deadline);
@@ -204,14 +219,15 @@ int main(int argc, char *argv[]) {
     bool show_method_help = argc == 3 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0);
     if(!show_method_help && (!parse_command_line(argc, argv) || argc != 4 || show_help)) {
         std::cerr << "Usage: " << argv[0] << " [OPTIONS] <PORT|ENDPOINT> <[SERVICE.]RPC> <JSON-INPUT-FILE>\n";
-        std::cerr << "    or " << argv[0] << " --help [[SERVIVCE.]RPC]\n";
+        std::cerr << "    or " << argv[0] << " --help [[SERVICE.]RPC]\n";
         std::cerr << "\n";
         std::cerr << "Options:\n";
         std::cerr << "      --blocking-calls        Disable asynchronous calls in the aggregator\n";
         std::cerr << "      --ignore-grpc-errors    Keep going when grpc errors are encountered\n";
         std::cerr << "      --ignore-json-errors    Keep going even if json conversion fails for a request\n";
         std::cerr << "      --time-calls            Retrieve timing information for each call\n";
-        std::cerr << "      --headers               Show headers\n";
+        std::cerr << "      --header NAME=VALUE     Add header to the request\n";
+        std::cerr << "      --show-headers          Show headers\n";
         std::cerr << "      --timeout MILLISECONDS  Limit each call to the given amount of time\n";
         std::cerr << "      --trace FILE, -t FILE   Enable the trace flag and output the trace to FILE\n";
         std::cerr << "      --help                  Display this screen and exit\n";
