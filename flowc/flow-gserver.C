@@ -860,7 +860,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "TIME_INFO_END(Time_call);\n";
                 OUT << "TRACEA(\"reply " << entry_dot_name << ": \", &" << output_name << ");\n";
                 OUT << "TRACEA(Time_info.str(), nullptr);\n";
-                OUT << "TRACEAF(\"" << entry_dot_name << " done\", nullptr);\n";
+                OUT << "TRACEA(\"" << entry_dot_name << " done\", nullptr);\n";
                 OUT << "return L_status;\n";
                 --indent; 
                 OUT << "}\n";

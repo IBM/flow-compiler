@@ -134,7 +134,7 @@ public:
         std::strftime(cstr, sizeof(cstr), "%a %F %T %Z (%z)", timeinfo);
         os << cstr;
         os << " [" << cid;
-        if(call >= 0) os << ": " << call;
+        if(call >= 0) os << ":" << call;
         os << "] " << message;
         if(msgp != nullptr) os << "\n" <<  Log_abridge(*msgp);
         os << "\n";
@@ -155,7 +155,7 @@ static bool Get_metadata_bool(C mm, std::string const &key, bool default_value=f
     if(vp == mm.end()) return default_value;
     return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
 }
-static void Print_message(std::string const &message, bool finish=false) {
+static void Print_message(std::string const &message) {
     global_display_mutex.lock();
     std::cerr << message << std::flush;
     global_display_mutex.unlock();
@@ -186,14 +186,12 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
            "\"started-u\":\"" << call_elapsed_time << "\""
            "}";
 }
-#define TRACECMF(c, n, text, messagep, finish) if(Trace_call && (c)) { Print_message(sfmt().message(text, CID, n, messagep), finish); } 
-#define TRACECM(c, n, text, messagep) TRACECMF((c), (n), (text), (messagep), false) 
+#define TRACECM(c, n, text, messagep) if(Trace_call && (c)) { Print_message(sfmt().message(text, CID, n, messagep)); } 
 #define TRACE(c, text, messagep) TRACECM((c), -1, (text), (messagep)) 
 #define TRACEA(text, messagep) TRACECM(true, -1, (text), (messagep))
-#define TRACEAF(text, messagep) TRACECMF(true, -1, (text), (messagep), true)
 #define TRACEC(n, text) TRACECM(true, (n), (text), nullptr)
-#define ERROR(text) {Print_message(sfmt().message((text), CID, -1, nullptr), true); } 
-#define GRPC_ERROR(n, text, status, context, reqp, repp) Print_message(Grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)), true);
+#define ERROR(text) {Print_message(sfmt().message((text), CID, -1, nullptr)); } 
+#define GRPC_ERROR(n, text, status, context, reqp, repp) Print_message(Grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)));
 #define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) Record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
     if(Debug_Flag||Trace_call) Print_message(sfmt().message(\
@@ -231,7 +229,7 @@ public:
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
-        auto result = {{CLI_NODE_ID}}_stub[call_number % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+        auto result = {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
 
@@ -580,7 +578,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
-        std::string header(mde.second.data(), mde.second.length());
+        std::string header(mde.first.data(), mde.first.length());
         if(header == "times-bin") 
             header = "x-flow-call-times";
         else 
