@@ -27,26 +27,7 @@
 extern "C" {
 #include <civetweb.h>
 }
-
-#ifndef MAX_REST_REQUEST_SZIE
-/** Size limit for the  REST request **/
-#define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
-#endif
-
-enum Nodes_Enum {
-    NO_NODE = 0 {I:CLI_NODE_UPPERID{, {{CLI_NODE_UPPERID}}}I}
-};
-
-std::string Global_Node_ID;
-bool Global_Debug_Enabled = false;
-bool Global_Asynchronous_Calls = true;
-bool Global_Trace_Calls_Enabled = false;
-bool Global_Send_ID = true;
-const std::string Global_Start_Time = 
-    std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
-
-template <class S>
-inline static bool stringtobool(S s, bool default_value=false) {
+inline static bool stringtobool(std::string const &s, bool default_value=false) {
     if(s.empty()) return default_value;
     std::string so(s.length(), ' ');
     std::transform(s.begin(), s.end(), so.begin(), ::tolower);
@@ -74,6 +55,55 @@ inline static long strtolong(char const *s, long default_value=0) {
 inline static long stringtolong(std::string const &s, long default_value=0) {
     return strtolong(s.c_str(), default_value);
 }
+#if defined(OSSP_UUID) || defined(NO_UUID)
+#include <uuid.h>
+static std::string server_id() {
+#if defined(OSSP_UUID)    
+    uuid_t *puid = nullptr;
+    char *sid = nullptr;;
+    if(uuid_create(&puid) == UUID_RC_OK) {
+        uuid_make(puid, UUID_MAKE_V4);
+        uuid_export(puid, UUID_FMT_STR, &sid, nullptr);
+        std::string id = std::string("{{NAME}}-")+sid;
+        uuid_destroy(puid);
+        return id;
+    }
+#endif
+    srand(time(nullptr));
+    return std::string("{{NAME}}-R-")+std::to_string(rand());
+}
+#endif
+#if !defined(OSSP_UUID) && !defined(NO_UUID)
+#include <uuid/uuid.h>
+static std::string server_id() {
+    uuid_t id;
+    uuid_generate(id);
+    char sid[64];
+    uuid_unparse(id, sid);
+    return std::string("{{NAME}}-")+sid;
+}
+#endif
+
+#ifndef MAX_REST_REQUEST_SZIE
+/** Size limit for the  REST request **/
+#define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
+#endif
+
+enum Nodes_Enum {
+    NO_NODE = 0 {I:CLI_NODE_UPPERID{, {{CLI_NODE_UPPERID}}}I}
+};
+
+{I:CLI_NODE_UPPERID{bool Global_Trace_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_{{CLI_NODE_UPPERID}}"), false);
+bool Global_Reconnect_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_RECONNECT_{{CLI_NODE_UPPERID}}"), false);
+std::string Global_{{CLI_NODE_ID}}_Endpoint = "";
+}I}
+std::string Global_Node_ID = std::getenv("{{NAME_UPPERID}}_NODE_ID") == nullptr? server_id(): std::string(std::getenv("{{NAME_UPPERID}}_NODE_ID"));
+bool Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
+bool Global_Debug_Enabled  = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"), false);
+bool Global_Trace_Calls_Enabled = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"), false);
+bool Global_Send_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), true);
+std::string Global_Start_Time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
+
 static std::string json_escape(std::string const &s) {
     std::string r;
     for(auto c: s) switch (c) {
@@ -144,10 +174,6 @@ public:
 std::mutex global_display_mutex;
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
-/* Client endpoints - initialzied in main from environment variables {CLIENT_NODE_ID}_ENDPOINT
- */
-{I:CLI_NODE_ID{std::string {{CLI_NODE_ID}}_endpoint;
-}I}
 
 template <class C>
 static bool Get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
@@ -207,24 +233,29 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
 #define GRPC_SENDING(NODEID, CONTEXT, REQUESTPTR)
 #endif
 {I:ENTRY_NAME{
-#ifndef GRPC_REPLY_{{ENTRY_NAME}}
-#define GRPC_REPLY_{{ENTRY_NAME}}(STATUS, CONTEXT, RESPONSEPTR)
+#ifndef GRPC_LEAVE_{{ENTRY_NAME}}
+#define GRPC_LEAVE_{{ENTRY_NAME}}(STATUS, CONTEXT, RESPONSEPTR)
 #endif
-#ifndef GRPC_REQUEST_{{ENTRY_NAME}}
-#define GRPC_REQUEST_{{ENTRY_NAME}}(CONTEXT, REQUESTPTR)
+#ifndef GRPC_ENTER_{{ENTRY_NAME}}
+#define GRPC_ENTER_{{ENTRY_NAME}}(CONTEXT, REQUESTPTR)
+#endif
+#ifndef REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE
+#define REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE(CONTEXT, REQUESTPTR) std::make_pair<int, char const *>(200, "")
+#endif
+#ifndef REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER
+#define REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER(STATUS, CONTEXT, RESPONSEPTR, XTRA_HEADERS) std::make_pair<int, char const *>(200, "")
 #endif
 }I}
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
-    bool Debug_Flag = false;
-    bool Async_Flag;
+    bool Debug_Flag = Global_Debug_Enabled;
+    bool Async_Flag = Global_Asynchronous_Calls;
     std::atomic<long> Call_Counter;
 
 {I:CLI_NODE_NAME{
     /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
      */
-
 #define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
 
     int {{CLI_NODE_ID}}_maxcc = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
@@ -237,6 +268,10 @@ public:
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
+        if(Global_Reconnect_{{CLI_NODE_ID}}) {
+            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(Global_{{CLI_NODE_ID}}_Endpoint, ::grpc::InsecureChannelCredentials()));
+            {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
+        }
         auto result = {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
@@ -271,14 +306,14 @@ public:
         return L_status;
     }}I}
     // Constructor
-    {{NAME_ID}}_service(bool async_a{I:CLI_NODE_ID{, std::string const &{{CLI_NODE_ID}}_endpoint}I}): Async_Flag(async_a) {
+    {{NAME_ID}}_service() {
         Call_Counter.store(1);   
         
         {I:CLI_NODE_ID{
         std::cerr << "node {{CLI_NODE_NAME}} maximum concurrent calls: " << {{CLI_NODE_ID}}_maxcc << "\n";
         {{CLI_NODE_ID}}_stub.resize({{CLI_NODE_ID}}_maxcc);
         for(int i = 0; i < {{CLI_NODE_ID}}_maxcc; ++i) {
-            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
+            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(Global_{{CLI_NODE_ID}}_Endpoint, ::grpc::InsecureChannelCredentials()));
             {{CLI_NODE_ID}}_stub[i] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
         }
         }I}
@@ -583,7 +618,15 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     L_context.AddMetadata("time-call", time_call? "1": "0");
     if(trace_header != nullptr && *trace_header != '\0')
         L_context.AddMetadata("trace-call", trace_header);
-
+    {
+        auto check_before = REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE(L_context, L_inp);
+        if(check_before.first != 200) {
+            std::string error_message = sfmt() << "{"
+                << "\"code\": " << check_before.first << ","
+                << "\"message\": " << json_string(check_before.second) << "}";
+            return rest::json_reply(A_conn, check_before.first, check_before.second, error_message.c_str(), error_message.length());
+        }
+    }
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
         std::string header(mde.first.data(), mde.first.length());
@@ -596,6 +639,15 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         xtra_headers += std::string(mde.second.data(), mde.second.length());
         xtra_headers += "\r\n";
     }
+    {
+        auto check_after = REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER(L_context, L_status, L_outp, xtra_headers);
+        if(check_after.first != 200) {
+            std::string error_message = sfmt() << "{"
+                << "\"code\": " << check_after.first << ","
+                << "\"message\": " << json_string(check_after.second) << "}";
+            return rest::json_reply(A_conn, check_after.first, check_after.second, error_message.c_str(), error_message.length());
+        }
+    }
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status, xtra_headers);
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
@@ -605,7 +657,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
-    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel({{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
+    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(Global_{{CLI_NODE_ID}}_Endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
@@ -709,34 +761,6 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
     return 0;
 }
 }
-#if defined(OSSP_UUID) || defined(NO_UUID)
-#include <uuid.h>
-static std::string server_id() {
-#if defined(OSSP_UUID)    
-    uuid_t *puid = nullptr;
-    char *sid = nullptr;;
-    if(uuid_create(&puid) == UUID_RC_OK) {
-        uuid_make(puid, UUID_MAKE_V4);
-        uuid_export(puid, UUID_FMT_STR, &sid, nullptr);
-        std::string id = std::string("{{NAME}}-")+sid;
-        uuid_destroy(puid);
-        return id;
-    }
-#endif
-    srand(time(nullptr));
-    return std::string("{{NAME}}-R-")+std::to_string(rand());
-}
-#endif
-#if !defined(OSSP_UUID) && !defined(NO_UUID)
-#include <uuid/uuid.h>
-static std::string server_id() {
-    uuid_t id;
-    uuid_generate(id);
-    char sid[64];
-    uuid_unparse(id, sid);
-    return std::string("{{NAME}}-")+sid;
-}
-#endif
 
 int main(int argc, char *argv[]) {
     if(argc != 2 && argc != 3) {
@@ -764,17 +788,19 @@ int main(int argc, char *argv[]) {
     // Use the default grpc health checking service
 	grpc::EnableDefaultHealthCheckService(true);
     int error_count = 0;
-
-    {I:CLI_NODE_NAME{char const *{{CLI_NODE_ID}}_ep = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
-    if({{CLI_NODE_ID}}_ep == nullptr) {
-        std::cout << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
-        ++error_count;
+    {   
+        {I:CLI_NODE_D{
+        char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
+        if({{CLI_NODE_ID}}_env == nullptr || *{{CLI_NODE_ID}}_epenv == '\0') {
+            std::cout << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
+            ++error_count;
+        } else {
+            Global_{{CLI_NODE_ID}}_Endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
+        }
+        }I}
     }
-    }I}
     if(error_count != 0) return 1;
 
-    {I:CLI_NODE_ID{{{CLI_NODE_ID}}_endpoint = strchr({{CLI_NODE_ID}}_ep, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_ep): std::string({{CLI_NODE_ID}}_ep);
-    }I}
     int listening_port;
     grpc::ServerBuilder builder;
 
@@ -790,14 +816,8 @@ int main(int argc, char *argv[]) {
 #endif
         << std::endl;
 
-    Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), Global_Asynchronous_Calls);
-    {{NAME_ID}}_service service(Global_Asynchronous_Calls{I:CLI_NODE_ID{, {{CLI_NODE_ID}}_endpoint}I});
-    Global_Debug_Enabled = service.Debug_Flag = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"));
-    Global_Trace_Calls_Enabled = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"));
-    Global_Send_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), Global_Send_ID);
+    {{NAME_ID}}_service service;
     bool enable_webapp = strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
-    if(std::getenv("{{CLI_NODE_UPPERID}}_NODE_ID") == nullptr) Global_Node_ID = server_id();
-    else Global_Node_ID = std::getenv("{{CLI_NODE_UPPERID}}_NODE_ID");
 
     // Listen on the given address without any authentication mechanism.
     std::string server_address("[::]:"); server_address += argv[1];
@@ -806,7 +826,6 @@ int main(int argc, char *argv[]) {
     // Register services
     builder.RegisterService(&service);
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-
 
     if(listening_port == 0) {
         std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";

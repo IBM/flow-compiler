@@ -839,7 +839,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 output_name = op.arg2;
                 OUT << "::grpc::Status " << get_name(op.m1) << "(::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") override {\n";
                 ++indent;
-                OUT << "GRPC_REQUEST_" << entry_name << "(*CTX, p" << input_name << ")\n";
+                OUT << "GRPC_ENTER_" << entry_name << "(*CTX, p" << input_name << ")\n";
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
                 OUT << "bool Trace_call = Get_metadata_bool(Client_metadata, \"trace-call\", Global_Trace_Calls_Enabled);\n";
                 OUT << "bool Time_call = Get_metadata_bool(Client_metadata, \"time-call\");\n";
@@ -859,7 +859,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "PTIME2(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
                 OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", TIME_INFO_GET(Time_call)); \n";
                 OUT << "if(Global_Send_ID) { CTX->AddTrailingMetadata(\"node-id\", Global_Node_ID); CTX->AddTrailingMetadata(\"start-time\", Global_Start_Time); }\n";
-                OUT << "GRPC_REPLY_" << entry_name << "(L_status, *CTX, &" << output_name << ")\n"; 
+                OUT << "GRPC_LEAVE_" << entry_name << "(L_status, *CTX, &" << output_name << ")\n"; 
                 OUT << "TIME_INFO_END(Time_call);\n";
                 OUT << "TRACEA(\"reply " << entry_dot_name << ": \", &" << output_name << ");\n";
                 OUT << "TRACEA(Time_info.str(), nullptr);\n";
