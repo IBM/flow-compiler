@@ -96,6 +96,7 @@ enum Nodes_Enum {
 {I:CLI_NODE_UPPERID{bool Global_Trace_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_{{CLI_NODE_UPPERID}}"), false);
 bool Global_Reconnect_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_RECONNECT_{{CLI_NODE_UPPERID}}"), false);
 std::string Global_{{CLI_NODE_ID}}_Endpoint = "";
+int Global_{{CLI_NODE_ID}}_MaxCC = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
 }I}
 std::string Global_Node_ID = std::getenv("{{NAME_UPPERID}}_NODE_ID") == nullptr? server_id(): std::string(std::getenv("{{NAME_UPPERID}}_NODE_ID"));
 bool Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
@@ -258,7 +259,7 @@ public:
      */
 #define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
 
-    int {{CLI_NODE_ID}}_maxcc = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
+    int {{CLI_NODE_ID}}_maxcc = Global_{{CLI_NODE_ID}}_MaxCC;
     std::vector<std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub>> {{CLI_NODE_ID}}_stub;
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
@@ -789,13 +790,16 @@ int main(int argc, char *argv[]) {
 	grpc::EnableDefaultHealthCheckService(true);
     int error_count = 0;
     {   
-        {I:CLI_NODE_D{
+        {I:CLI_NODE_ID{
         char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
-        if({{CLI_NODE_ID}}_env == nullptr || *{{CLI_NODE_ID}}_epenv == '\0') {
-            std::cout << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
+        if({{CLI_NODE_ID}}_epenv == nullptr || *{{CLI_NODE_ID}}_epenv == '\0') {
+            std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
             ++error_count;
         } else {
             Global_{{CLI_NODE_ID}}_Endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
+            std::cerr << "{{CLI_NODE_ID}} -> " << Global_{{CLI_NODE_ID}}_Endpoint << " (" <<  Global_{{CLI_NODE_ID}}_MaxCC;
+            if(Global_Reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
+            std::cerr << ")\n";
         }
         }I}
     }
