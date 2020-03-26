@@ -292,15 +292,15 @@ public:
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
+        auto CIDX = Call_Counter_{{CLI_NODE_ID}}.fetch_add(1, std::memory_order_seq_cst) % {{CLI_NODE_ID}}_maxcc;
         if(flowc::reconnect_{{CLI_NODE_ID}}) {
             std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
-            {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
+            {{CLI_NODE_ID}}_stub[CIDX] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
         }
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
         CTX.set_deadline(deadline);
-        auto CIDX = Call_Counter_{{CLI_NODE_ID}}.fetch_add(1, std::memory_order_seq_cst);
-        auto result = {{CLI_NODE_ID}}_stub[CIDX % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+        auto result = {{CLI_NODE_ID}}_stub[CIDX]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
 
