@@ -285,14 +285,14 @@ public:
     std::vector<std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub>> {{CLI_NODE_ID}}_stub;
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
         Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
-        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << ":(" << call_number << ") {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
+        auto CIDX = Call_Counter_{{CLI_NODE_ID}}.fetch_add(1, std::memory_order_seq_cst) % {{CLI_NODE_ID}}_maxcc;
+        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << ":(" << call_number << "@" << CIDX << ") {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
             CTX.AddMetadata("node-id", flowc::global_node_ID);
             CTX.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
-        auto CIDX = Call_Counter_{{CLI_NODE_ID}}.fetch_add(1, std::memory_order_seq_cst) % {{CLI_NODE_ID}}_maxcc;
         if(flowc::reconnect_{{CLI_NODE_ID}}) {
             std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
             {{CLI_NODE_ID}}_stub[CIDX] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
