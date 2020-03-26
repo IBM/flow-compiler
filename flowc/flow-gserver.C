@@ -841,9 +841,9 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 ++indent;
                 OUT << "GRPC_ENTER_" << entry_name << "(*CTX, p" << input_name << ")\n";
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
-                OUT << "bool Trace_call = Get_metadata_bool(Client_metadata, \"trace-call\", Global_Trace_Calls_Enabled);\n";
-                OUT << "bool Time_call = Get_metadata_bool(Client_metadata, \"time-call\");\n";
-                OUT << "bool Async_call = Get_metadata_bool(Client_metadata, \"overlapped-calls\", Async_Flag);\n";
+                OUT << "bool Trace_call = flowc::get_metadata_bool(Client_metadata, \"trace-call\", flowc::trace_calls);\n";
+                OUT << "bool Time_call = flowc::get_metadata_bool(Client_metadata, \"time-call\");\n";
+                OUT << "bool Async_call = flowc::get_metadata_bool(Client_metadata, \"overlapped-calls\", Async_Flag);\n";
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
@@ -858,7 +858,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case END:
                 OUT << "PTIME2(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
                 OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", TIME_INFO_GET(Time_call)); \n";
-                OUT << "if(Global_Send_ID) { CTX->AddTrailingMetadata(\"node-id\", Global_Node_ID); CTX->AddTrailingMetadata(\"start-time\", Global_Start_Time); }\n";
+                OUT << "if(flowc::send_global_ID) { CTX->AddTrailingMetadata(\"node-id\", flowc::global_node_ID); CTX->AddTrailingMetadata(\"start-time\", flowc::global_start_time); }\n";
                 OUT << "GRPC_LEAVE_" << entry_name << "(L_status, *CTX, &" << output_name << ")\n"; 
                 OUT << "TIME_INFO_END(Time_call);\n";
                 OUT << "TRACEA(\"reply " << entry_dot_name << ": \", &" << output_name << ");\n";
@@ -940,7 +940,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         --indent;
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
-                            OUT << "GRPC_RECEIVED(" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
+                            OUT << "GRPC_RECEIVED(flowc::" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
                         OUT << "TRACECM(LL_Status.ok(), NRX, \"" << nn << " response: \", " << LN_OUTPTR(nn) <<"[NRX-1]);\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";

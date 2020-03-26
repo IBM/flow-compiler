@@ -27,6 +27,7 @@
 extern "C" {
 #include <civetweb.h>
 }
+namespace flowc {
 inline static bool stringtobool(std::string const &s, bool default_value=false) {
     if(s.empty()) return default_value;
     std::string so(s.length(), ' ');
@@ -93,17 +94,17 @@ enum Nodes_Enum {
     NO_NODE = 0 {I:CLI_NODE_UPPERID{, {{CLI_NODE_UPPERID}}}I}
 };
 
-{I:CLI_NODE_UPPERID{bool Global_Trace_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_{{CLI_NODE_UPPERID}}"), false);
-bool Global_Reconnect_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_RECONNECT_{{CLI_NODE_UPPERID}}"), false);
-std::string Global_{{CLI_NODE_ID}}_Endpoint = "";
-int Global_{{CLI_NODE_ID}}_MaxCC = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
+{I:CLI_NODE_UPPERID{bool trace_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_{{CLI_NODE_UPPERID}}"), false);
+bool reconnect_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_RECONNECT_{{CLI_NODE_UPPERID}}"), false);
+std::string {{CLI_NODE_ID}}_endpoint = "";
+int {{CLI_NODE_ID}}_maxcc = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
 }I}
-std::string Global_Node_ID = std::getenv("{{NAME_UPPERID}}_NODE_ID") == nullptr? server_id(): std::string(std::getenv("{{NAME_UPPERID}}_NODE_ID"));
-bool Global_Asynchronous_Calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
-bool Global_Debug_Enabled  = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"), false);
-bool Global_Trace_Calls_Enabled = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"), false);
-bool Global_Send_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), true);
-std::string Global_Start_Time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
+std::string global_node_ID = std::getenv("{{NAME_UPPERID}}_NODE_ID") == nullptr? server_id(): std::string(std::getenv("{{NAME_UPPERID}}_NODE_ID"));
+bool asynchronous_calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
+bool debug_enabled  = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"), false);
+bool trace_calls = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"), false);
+bool send_global_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), true);
+std::string global_start_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
 
 static std::string json_escape(std::string const &s) {
     std::string r;
@@ -124,18 +125,18 @@ static std::string json_escape(std::string const &s) {
 static std::string json_string(std::string const &s) {
     return std::string("\"") + json_escape(s) + "\"";
 }
-static std::string Log_abridge(std::string const &message, unsigned max_length=256) {
+static std::string log_abridge(std::string const &message, unsigned max_length=256) {
     if(max_length == 0 || message.length() <= max_length) return message;
     return message.substr(0, (max_length - 5)/2) + " ... " + message.substr(message.length()-(max_length-5)/2);
 }
-static std::string Log_abridge(google::protobuf::Message const &message, unsigned max_length=256) {
+static std::string log_abridge(google::protobuf::Message const &message, unsigned max_length=256) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = false;
     options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = true;
     std::string json_reply;
     google::protobuf::util::MessageToJsonString(message, &json_reply, options);
-    return Log_abridge(json_reply, max_length);
+    return log_abridge(json_reply, max_length);
 }
 inline std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
     auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
@@ -167,31 +168,45 @@ public:
         os << " [" << cid;
         if(call >= 0) os << ":" << call;
         os << "] " << message;
-        if(msgp != nullptr) os << "\n" <<  Log_abridge(*msgp);
+        if(msgp != nullptr) os << "\n" <<  log_abridge(*msgp);
         os << "\n";
         return *this;
     }
 };
 std::mutex global_display_mutex;
+class flog {
+public:
+    flog &operator <<= (std::string const &v) {
+        flowc::global_display_mutex.lock();
+        std::cerr << v << std::flush; 
+        flowc::global_display_mutex.unlock();
+        return *this;
+    }
+};
+}
+#define FLOGC(c) if(c) flowc::flog() <<= flowc::sfmt()
+#define FLOG FLOGC(true)
+
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
 
+namespace flowc {
 template <class C>
-static bool Get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
+static bool get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
     auto vp = mm.find(key);
     if(vp == mm.end()) return default_value;
     return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
 }
-static void Print_message(std::string const &message) {
+static void print_message(std::string const &message) {
     global_display_mutex.lock();
     std::cerr << message << std::flush;
     global_display_mutex.unlock();
 }
-static std::string Grpc_error(long cid, int call, char const *message, grpc::Status &status, grpc::ClientContext &context, google::protobuf::Message const *reqp=nullptr, google::protobuf::Message const *repp=nullptr) {
+static std::string grpc_error(long cid, int call, char const *message, grpc::Status &status, grpc::ClientContext &context, google::protobuf::Message const *reqp=nullptr, google::protobuf::Message const *repp=nullptr) {
     sfmt out;
     out.message(sfmt() << (message == nullptr? "": message) << "error " << status.error_code(), cid, call, reqp);
     out << "context info: " << context.debug_error_string() << "\n";
-    if(repp != nullptr) std::cerr << "the response was: " << Log_abridge(*repp) << "\n";
+    if(repp != nullptr) std::cerr << "the response was: " << log_abridge(*repp) << "\n";
     return out;
 }
 
@@ -199,7 +214,7 @@ static std::string Grpc_error(long cid, int call, char const *message, grpc::Sta
 #define TIME_INFO_GET(enabled)    ((Time_info << "]"), Time_info.str())
 #define TIME_INFO_END(enabled)
 
-static void Record_time_info(std::ostream &out, int stage, std::string const &method_name, std::string const &stage_name,
+static void record_time_info(std::ostream &out, int stage, std::string const &method_name, std::string const &stage_name,
     std::chrono::steady_clock::duration call_elapsed_time, std::chrono::steady_clock::duration stage_duration, int calls) {
     if(stage != 1) out << ",";
     out << "{" 
@@ -213,17 +228,18 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
            "\"started-u\":\"" << call_elapsed_time << "\""
            "}";
 }
-#define TRACECM(c, n, text, messagep) if(Trace_call && (c)) { Print_message(sfmt().message(text, CID, n, messagep)); } 
+#define TRACECM(c, n, text, messagep) if(Trace_call && (c)) { flowc::print_message(flowc::sfmt().message(text, CID, n, messagep)); } 
 #define TRACE(c, text, messagep) TRACECM((c), -1, (text), (messagep)) 
 #define TRACEA(text, messagep) TRACECM(true, -1, (text), (messagep))
 #define TRACEC(n, text) TRACECM(true, (n), (text), nullptr)
-#define ERROR(text) {Print_message(sfmt().message((text), CID, -1, nullptr)); } 
-#define GRPC_ERROR(n, text, status, context, reqp, repp) Print_message(Grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)));
+#define ERROR(text) {flowc::print_message(flowc::sfmt().message((text), CID, -1, nullptr)); } 
+#define GRPC_ERROR(n, text, status, context, reqp, repp) flowc::print_message(flowc::grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)));
 #define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
-    if(Time_call) Record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    if(Debug_Flag||Trace_call) Print_message(sfmt().message(\
-        sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
+    if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
+    if(Debug_Flag||Trace_call) flowc::print_message(flowc::sfmt().message(\
+        flowc::sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
         CID, -1, nullptr)); }
+}
 
 {I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
 }I}
@@ -250,8 +266,8 @@ static void Record_time_info(std::ostream &out, int stage, std::string const &me
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
-    bool Debug_Flag = Global_Debug_Enabled;
-    bool Async_Flag = Global_Asynchronous_Calls;
+    bool Debug_Flag = flowc::debug_enabled;
+    bool Async_Flag = flowc::asynchronous_calls;
     std::atomic<long> Call_Counter;
 
 {I:CLI_NODE_NAME{
@@ -259,18 +275,18 @@ public:
      */
 #define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
 
-    int {{CLI_NODE_ID}}_maxcc = Global_{{CLI_NODE_ID}}_MaxCC;
+    int {{CLI_NODE_ID}}_maxcc = flowc::{{CLI_NODE_ID}}_maxcc;
     std::vector<std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub>> {{CLI_NODE_ID}}_stub;
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
         TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
-        if(Global_Send_ID) {
-            CTX.AddMetadata("node-id", Global_Node_ID);
-            CTX.AddMetadata("start-time", Global_Start_Time);
+        if(flowc::send_global_ID) {
+            CTX.AddMetadata("node-id", flowc::global_node_ID);
+            CTX.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
-        if(Global_Reconnect_{{CLI_NODE_ID}}) {
-            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(Global_{{CLI_NODE_ID}}_Endpoint, ::grpc::InsecureChannelCredentials()));
+        if(flowc::reconnect_{{CLI_NODE_ID}}) {
+            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
             {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
         }
         auto result = {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
@@ -290,14 +306,14 @@ public:
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
         L_context.set_deadline(deadline);
-        if(Global_Send_ID) {
-            L_context.AddMetadata("node-id", Global_Node_ID);
-            L_context.AddMetadata("start-time", Global_Start_Time);
+        if(flowc::send_global_ID) {
+            L_context.AddMetadata("node-id", flowc::global_node_ID);
+            L_context.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status = {{CLI_NODE_ID}}_stub[0]->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
-        GRPC_RECEIVED({{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
+        GRPC_RECEIVED(flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         if(!L_status.ok()) {
             GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
         } else {
@@ -314,7 +330,7 @@ public:
         std::cerr << "node {{CLI_NODE_NAME}} maximum concurrent calls: " << {{CLI_NODE_ID}}_maxcc << "\n";
         {{CLI_NODE_ID}}_stub.resize({{CLI_NODE_ID}}_maxcc);
         for(int i = 0; i < {{CLI_NODE_ID}}_maxcc; ++i) {
-            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(Global_{{CLI_NODE_ID}}_Endpoint, ::grpc::InsecureChannelCredentials()));
+            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
             {{CLI_NODE_ID}}_stub[i] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
         }
         }I}
@@ -323,23 +339,10 @@ public:
 }I}
 };
 
-#define FLOGC(c) if(c) ::rest::flog() <<= sfmt()
-#define FLOG FLOGC(true)
 
 #define DEFAULT_REST_THREADS 48
 
 namespace rest {
-
-class flog {
-public:
-    flog &operator <<= (std::string const &v) {
-        global_display_mutex.lock();
-        std::cerr << v << std::flush; 
-        global_display_mutex.unlock();
-        return *this;
-    }
-};
-
 std::string gateway_endpoint;
 std::string app_directory("./app");
 std::string docs_directory("./docs");
@@ -358,8 +361,8 @@ static int log_message(const struct mg_connection *conn, const char *message) {
 	return 1;
 }
 static int not_found(struct mg_connection *conn, std::string const &message) {
-    std::string j_message = sfmt() << "{"
-        << "\"code\": 404, \"message\":" << json_string(message) << "}";
+    std::string j_message = flowc::sfmt() << "{"
+        << "\"code\": 404, \"message\":" << flowc::json_string(message) << "}";
        
 	mg_printf(conn, "HTTP/1.1 404 Not Found\r\n"
               "Content-Type: application/json\r\n"
@@ -402,32 +405,32 @@ static int message_reply(struct mg_connection *conn, google::protobuf::Message c
     return json_reply(conn, json_message.c_str(), json_message.length(), xtra_headers.c_str());
 }
 static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status, std::string const &xtra_headers="") {
-    std::string errm = sfmt() 
+    std::string errm = flowc::sfmt() 
         << "{" 
         << "\"code\": 500,"
-        << "\"from\":" << json_string(context.peer()) << ","
+        << "\"from\":" << flowc::json_string(context.peer()) << ","
         << "\"grpc-code\":" << status.error_code() << ","
-        << "\"message\":" << json_string(status.error_message())
+        << "\"message\":" << flowc::json_string(status.error_message())
         << "}";
     return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length(), xtra_headers.c_str());
 }
 static int conversion_error(struct mg_connection *conn, google::protobuf::util::Status const &status) {
-    std::string error_message = sfmt() << "{"
+    std::string error_message = flowc::sfmt() << "{"
         << "\"code\": 400,"
         << "\"message\": \"Input failed conversion to protobuf\","
-        << "\"description\":" <<json_string(status.ToString())
+        << "\"description\":" << flowc::json_string(status.ToString())
         << "}";
     return json_reply(conn, 400, "Bad Request", error_message.c_str(), error_message.length());
 }
 static int bad_request_error(struct mg_connection *conn) {
-    std::string error_message = sfmt() << "{"
+    std::string error_message = flowc::sfmt() << "{"
         << "\"code\": 422,"
         << "\"message\": \"Unprocessable Entity\""
         << "}";
     return json_reply(conn, 422, "Unprocessable Entity", error_message.c_str(), error_message.length());
 }
 static int get_info(struct mg_connection *conn, void *cbdata) {
-    std::string info = sfmt() << "{"
+    std::string info = flowc::sfmt() << "{"
         {I:ENTRY_NAME{
             << "\"/{{ENTRY_NAME}}\": {"
                "\"timeout\": {{ENTRY_TIMEOUT:120000}},"
@@ -483,8 +486,8 @@ static int field_found(const char *key, const char *filename, char *path, size_t
 }
 
 static int get_form_data(struct mg_connection *conn, std::string &data, bool &use_asynchronous_calls, bool &time_call) {
-    use_asynchronous_calls = strtobool(mg_get_header(conn, "x-flow-overlapped-calls"), use_asynchronous_calls);
-    time_call = strtobool(mg_get_header(conn, "x-flow-time-call"), time_call);
+    use_asynchronous_calls = flowc::strtobool(mg_get_header(conn, "x-flow-overlapped-calls"), use_asynchronous_calls);
+    time_call = flowc::strtobool(mg_get_header(conn, "x-flow-time-call"), time_call);
     char const *content_type = mg_get_header(conn, "Content-Type");
     /** Default content type is application/json
      */
@@ -522,11 +525,11 @@ static int get_form_data(struct mg_connection *conn, std::string &data, bool &us
     for(auto const &nv: fd.form) {
         if(++c > 1) data += ",";
         if(nv.first.length() > 2 && nv.first.substr(nv.first.length()-2) == "[]")
-            data += json_string(nv.first.substr(0, nv.first.length()-2));
+            data += flowc::json_string(nv.first.substr(0, nv.first.length()-2));
         else 
-            data += json_string(nv.first);
+            data += flowc::json_string(nv.first);
         data += ":";
-        data += json_string(nv.second);
+        data += flowc::json_string(nv.second);
     }
     data += "}";
     return ret;
@@ -539,12 +542,12 @@ static int file_handler(struct mg_connection *conn, void *cbdata) {
         std::string filename = dir + common;
         struct stat buffer;   
         if(stat(filename.c_str(), &buffer) == 0) {
-            FLOGC(Global_Trace_Calls_Enabled) << "sending " << common+1 << " from " << dir << "\n";
+            FLOGC(flowc::trace_calls) << "sending " << common+1 << " from " << dir << "\n";
             mg_send_file(conn, filename.c_str());
             return 1;
         }
     } else if(strcmp(local_uri, "/-docs") == 0) {
-        FLOGC(Global_Trace_Calls_Enabled) << "list -docs contents\n";
+        FLOGC(flowc::trace_calls) << "list -docs contents\n";
     }
     FLOG << "get \"" << local_uri << "\" not found...\n";
     return not_found(conn, "File not found");
@@ -553,7 +556,7 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
     bool rest_only = (bool) cbdata;
     char const *local_uri = mg_get_request_info(conn)->local_uri;
     if(rest_only || strcmp(local_uri, "/") != 0) 
-        return not_found(conn, sfmt() << "Resource not found");
+        return not_found(conn, flowc::sfmt() << "Resource not found");
     
     // Look first in the app directory 
     struct stat buffer;   
@@ -578,13 +581,13 @@ static bool is_protobuf(char const *content_type) {
 {I:ENTRY_NAME{
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
     std::string xtra_headers;
-    if(Global_Send_ID) {
+    if(flowc::send_global_ID) {
         xtra_headers += "X-Flow-Node-Id: ";
-        xtra_headers += Global_Node_ID;
+        xtra_headers += flowc::global_node_ID;
         xtra_headers += "\r\n";
 
         xtra_headers += "X-Flow-Start-Time: ";
-        xtra_headers += Global_Start_Time;
+        xtra_headers += flowc::global_start_time;
         xtra_headers += "\r\n";
     }
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
@@ -595,14 +598,14 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     {{ENTRY_OUTPUT_TYPE}} L_outp; 
     {{ENTRY_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
+    bool use_asynchronous_calls = flowc::asynchronous_calls, time_call = false;
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
 
     char const *trace_header = mg_get_header(A_conn, "x-flow-trace-call");
-    bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
+    bool trace_call = flowc::strtobool(trace_header, flowc::trace_calls);
     FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
-        << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+        << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
@@ -622,9 +625,9 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     {
         auto check_before = REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE(L_context, L_inp);
         if(check_before.first != 200) {
-            std::string error_message = sfmt() << "{"
+            std::string error_message = flowc::sfmt() << "{"
                 << "\"code\": " << check_before.first << ","
-                << "\"message\": " << json_string(check_before.second) << "}";
+                << "\"message\": " << flowc::json_string(check_before.second) << "}";
             return rest::json_reply(A_conn, check_before.first, check_before.second, error_message.c_str(), error_message.length());
         }
     }
@@ -643,9 +646,9 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     {
         auto check_after = REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER(L_context, L_status, L_outp, xtra_headers);
         if(check_after.first != 200) {
-            std::string error_message = sfmt() << "{"
+            std::string error_message = flowc::sfmt() << "{"
                 << "\"code\": " << check_after.first << ","
-                << "\"message\": " << json_string(check_after.second) << "}";
+                << "\"message\": " << flowc::json_string(check_after.second) << "}";
             return rest::json_reply(A_conn, check_after.first, check_after.second, error_message.c_str(), error_message.length());
         }
     }
@@ -658,18 +661,18 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
-    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(Global_{{CLI_NODE_ID}}_Endpoint, ::grpc::InsecureChannelCredentials()));
+    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    bool use_asynchronous_calls = Global_Asynchronous_Calls, time_call = false;
+    bool use_asynchronous_calls = flowc::asynchronous_calls, time_call = false;
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
     auto trace_header = mg_get_header(A_conn, "x-flow-trace-call");
-    bool trace_call = strtobool(trace_header, Global_Trace_Calls_Enabled);
+    bool trace_call = flowc::strtobool(trace_header, flowc::trace_calls);
 
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << Log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
     FLOG << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
@@ -764,8 +767,8 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
 }
 
 int main(int argc, char *argv[]) {
-    if(argc != 2 && argc != 3) {
-       std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT]\n\n";
+    if(argc < 2 || argc > 4) {
+       std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT [APP-DIRECTORY]] \n\n";
        std::cout << "Set the ENDPOINT variable with the host:port for each node:\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
@@ -786,28 +789,6 @@ int main(int argc, char *argv[]) {
        std::cout << "\n";
        return 1;
     }
-    // Use the default grpc health checking service
-	grpc::EnableDefaultHealthCheckService(true);
-    int error_count = 0;
-    {   
-        {I:CLI_NODE_ID{
-        char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
-        if({{CLI_NODE_ID}}_epenv == nullptr || *{{CLI_NODE_ID}}_epenv == '\0') {
-            std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
-            ++error_count;
-        } else {
-            Global_{{CLI_NODE_ID}}_Endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
-            std::cerr << "{{CLI_NODE_ID}} -> " << Global_{{CLI_NODE_ID}}_Endpoint << " (" <<  Global_{{CLI_NODE_ID}}_MaxCC;
-            if(Global_Reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
-            std::cerr << ")\n";
-        }
-        }I}
-    }
-    if(error_count != 0) return 1;
-
-    int listening_port;
-    grpc::ServerBuilder builder;
-
     std::cerr 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
@@ -819,9 +800,33 @@ int main(int argc, char *argv[]) {
 #else
 #endif
         << std::endl;
+    // Use the default grpc health checking service
+	grpc::EnableDefaultHealthCheckService(true);
+    int error_count = 0;
+    {   
+        {I:CLI_NODE_ID{
+        char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
+        if({{CLI_NODE_ID}}_epenv == nullptr || *{{CLI_NODE_ID}}_epenv == '\0') {
+            std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
+            ++error_count;
+        } else {
+            flowc::{{CLI_NODE_ID}}_endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
+            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (" <<  flowc::{{CLI_NODE_ID}}_maxcc;
+            if(flowc::reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
+            std::cerr << ")\n";
+        }
+        }I}
+    }
+    if(error_count != 0) return 1;
+
+    int listening_port;
+    grpc::ServerBuilder builder;
 
     {{NAME_ID}}_service service;
-    bool enable_webapp = strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
+    bool enable_webapp = flowc::strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
+    if(argc > 3) 
+        rest::app_directory = argv[3];
+    
 
     // Listen on the given address without any authentication mechanism.
     std::string server_address("[::]:"); server_address += argv[1];
@@ -835,26 +840,26 @@ int main(int argc, char *argv[]) {
         std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
         return 1;
     }
-    std::cerr << "node id: " << Global_Node_ID << "\n";
-    std::cerr << "start time: " << Global_Start_Time << "\n";
-    rest::gateway_endpoint = sfmt() << "localhost:" << listening_port;
+    std::cerr << "node id: " << flowc::global_node_ID << "\n";
+    std::cerr << "start time: " << flowc::global_start_time << "\n";
+    rest::gateway_endpoint = flowc::sfmt() << "localhost:" << listening_port;
     std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
 
     // Set up the REST gateway if enabled
     char const *rest_port = std::getenv("{{NAME_UPPERID}}_REST_PORT");
     if(rest_port == nullptr || argc >= 3) rest_port = argv[2];
     if(rest_port != nullptr && strspn("\t\r\n ", rest_port) < strlen(rest_port)) {
-        long num_rest_threads = strtolong(std::getenv("{{NAME_UPPERID}}_REST_THREADS"), DEFAULT_REST_THREADS);
+        long num_rest_threads = flowc::strtolong(std::getenv("{{NAME_UPPERID}}_REST_THREADS"), DEFAULT_REST_THREADS);
         if(rest::start_civetweb(rest_port, (int) num_rest_threads, !enable_webapp) != 0) {
             std::cerr << "Failed to start REST gateway service\n";
             return 1;
         }
     }
     std::cerr 
-        << "call id: " << (Global_Send_ID ? "yes": "no") 
-        << ", debug: " << (Global_Debug_Enabled? "yes": "no")
-        << ", trace: " << (Global_Trace_Calls_Enabled? "yes": "no")
-        << ", asynchronous client calls: " << (Global_Asynchronous_Calls? "yes": "no") 
+        << "call id: " << (flowc::send_global_ID ? "yes": "no") 
+        << ", debug: " << (flowc::debug_enabled? "yes": "no")
+        << ", trace: " << (flowc::trace_calls? "yes": "no")
+        << ", asynchronous client calls: " << (flowc::asynchronous_calls? "yes": "no") 
         << "\n";
 
     std::cerr << std::endl;
