@@ -831,7 +831,7 @@ int main(int argc, char *argv[]) {
             ++error_count;
         } else {
             flowc::{{CLI_NODE_ID}}_endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
-            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (max connections " <<  flowc::{{CLI_NODE_ID}}_maxcc << ", timeout " << flowc::{{CLI_NODE_ID}}_maxcc << "ms";
+            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (max connections " <<  flowc::{{CLI_NODE_ID}}_maxcc << ", timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
             if(flowc::reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
             std::cerr << ")\n";
         }
