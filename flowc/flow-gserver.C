@@ -900,6 +900,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "if(Async_call && 0 < " << L_STAGE_CALLS << ") {\n";
                     ++indent;
                     OUT << "void *TAG; bool NextOK = false; int " << L_RECV << " = 0;\n";
+                    OUT << "//\n";
                     OUT << "while(" << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
                     ++indent;
                     OUT << "if(CTX->IsCancelled()) {\n";
@@ -937,6 +938,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << "RPCx->StartCall();\n";
                         OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Nx], " << L_STATUS << "[Sx].get(), (void *) (long) (Sx+1));\n";
                         OUT << "++" << LN_SENT(nn) << ";\n";
+                        OUT << "SENT_CHECK(\"" << nn << "\", " << LN_BEGIN(nn) << ", " << LN_BEGIN(nn) << "+1, " << LN_SENT(nn) << ")\n";
                         --indent;
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
@@ -1080,6 +1082,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << "++" << L_SENT << ";\n";
                         --indent;
                         OUT << "}\n";
+                        OUT << "SENT_CHECK(\"" << cur_node_name << "\", " << L_BEGIN << ", std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc), " << L_SENT << ")\n";
                         --indent;
                         OUT << "}\n";
                     }
@@ -1190,7 +1193,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
                     OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
                     OUT << L_CARR << ".emplace_back("
-                        << cur_node_name << "_prep(CID, " << L_STAGE_CALLS << " - " << L_BEGIN <<", " << L_QUEUE << ", *"<< L_CONTEXT << ".back(), &" << cur_input_name <<", Debug_Flag, Trace_call));\n";
+                        << cur_node_name << "_prep(CID, " << L_STAGE_CALLS << " - " << L_BEGIN <<", " << L_QUEUE << ", *"<< L_CONTEXT << ".back(), &" << cur_input_name <<", Trace_call));\n";
                     --indent;
                     OUT << "} else {\n";
                     ++indent;
@@ -1201,7 +1204,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                 --indent;
                 OUT << "}\n";
-                OUT << "L_status = " << cur_node_name << "_call(CID, &" << cur_output_name << ", &" << cur_input_name << ", Debug_Flag, Trace_call);\n";
+                OUT << "L_status = " << cur_node_name << "_call(CID, &" << cur_output_name << ", &" << cur_input_name << ", Trace_call);\n";
                 OUT << "if(!L_status.ok()) return L_status;\n";
                 if(async_enabled) {
                     --indent;

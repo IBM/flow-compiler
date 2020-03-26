@@ -98,10 +98,10 @@ enum Nodes_Enum {
 bool reconnect_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_RECONNECT_{{CLI_NODE_UPPERID}}"), false);
 std::string {{CLI_NODE_ID}}_endpoint = "";
 int {{CLI_NODE_ID}}_maxcc = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
+long {{CLI_NODE_ID}}_timeout = strtolong(std::getenv("{{CLI_NODE_UPPERID}}_TIMEOUT"), {{CLI_NODE_TIMEOUT:3600000}});
 }I}
 std::string global_node_ID = std::getenv("{{NAME_UPPERID}}_NODE_ID") == nullptr? server_id(): std::string(std::getenv("{{NAME_UPPERID}}_NODE_ID"));
 bool asynchronous_calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
-bool debug_enabled  = strtobool(std::getenv("{{NAME_UPPERID}}_DEBUG"), false);
 bool trace_calls = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"), false);
 bool send_global_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), true);
 std::string global_start_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
@@ -232,11 +232,14 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 #define TRACE(c, text, messagep) TRACECM((c), -1, (text), (messagep)) 
 #define TRACEA(text, messagep) TRACECM(true, -1, (text), (messagep))
 #define TRACEC(n, text) TRACECM(true, (n), (text), nullptr)
+
 #define ERROR(text) {flowc::print_message(flowc::sfmt().message((text), CID, -1, nullptr)); } 
+
 #define GRPC_ERROR(n, text, status, context, reqp, repp) flowc::print_message(flowc::grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)));
+
 #define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    if(Debug_Flag||Trace_call) flowc::print_message(flowc::sfmt().message(\
+    if(Trace_call) flowc::print_message(flowc::sfmt().message(\
         flowc::sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
         CID, -1, nullptr)); }
 }
@@ -263,10 +266,12 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 #define REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER(STATUS, CONTEXT, RESPONSEPTR, XTRA_HEADERS) std::make_pair<int, char const *>(200, "")
 #endif
 }I}
+#ifndef SENT_CHECK
+#define SENT_CHECK(NODE_NAME, BEGIN, END, SENT)
+#endif
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
-    bool Debug_Flag = flowc::debug_enabled;
     bool Async_Flag = flowc::asynchronous_calls;
     std::atomic<long> Call_Counter;
 
@@ -274,11 +279,13 @@ public:
     /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
      */
 #define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
+    std::atomic<long> Call_Counter_{{CLI_NODE_ID}};
 
     int {{CLI_NODE_ID}}_maxcc = flowc::{{CLI_NODE_ID}}_maxcc;
     std::vector<std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub>> {{CLI_NODE_ID}}_stub;
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
-        TRACECM(true, call_number, "{{CLI_NODE_NAME}} prepare request: ", A_inp);
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
+        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << ":(" << call_number << ") {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
             CTX.AddMetadata("node-id", flowc::global_node_ID);
             CTX.AddMetadata("start-time", flowc::global_start_time);
@@ -289,11 +296,16 @@ public:
             std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
             {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
         }
-        auto result = {{CLI_NODE_ID}}_stub[(CID+call_number) % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+        auto const start_time = std::chrono::system_clock::now();
+        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
+        CTX.set_deadline(deadline);
+        auto CIDX = Call_Counter_{{CLI_NODE_ID}}.fetch_add(1, std::memory_order_seq_cst);
+        auto result = {{CLI_NODE_ID}}_stub[CIDX % {{CLI_NODE_ID}}_maxcc]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
         return result;
     }
 
-    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Debug_Flag, bool Trace_call) {
+    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
         ::grpc::ClientContext L_context;
         /**
          * Some notes on error codes (from https://grpc.io/grpc/cpp/classgrpc_1_1_status.html):
@@ -304,7 +316,7 @@ public:
          * FAILED_PRECONDITION - Operation was rejected because the system is not in a state required for the operation's execution.
          */
         auto const start_time = std::chrono::system_clock::now();
-        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
+        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
         L_context.set_deadline(deadline);
         if(flowc::send_global_ID) {
             L_context.AddMetadata("node-id", flowc::global_node_ID);
@@ -356,6 +368,9 @@ std::map<std::string, char const *> schema_map = {
     { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON_C}} }, 
 }I}
 };
+{I:ENTRY_NAME{ 
+long {{ENTRY_NAME}}_entry_timeout = flowc::strtolong(std::getenv("{{NAME_UPPERID}}_{{ENTRY_NAME_UPPERID}}_TIMEOUT"), {{ENTRY_TIMEOUT:3600000}});
+}I}
 static int log_message(const struct mg_connection *conn, const char *message) {
     std::cerr << message << std::flush;
 	return 1;
@@ -433,14 +448,14 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
     std::string info = flowc::sfmt() << "{"
         {I:ENTRY_NAME{
             << "\"/{{ENTRY_NAME}}\": {"
-               "\"timeout\": {{ENTRY_TIMEOUT:120000}},"
+               "\"timeout\": " << {{ENTRY_NAME}}_entry_timeout << ","
                "\"input-schema\": " << schema_map.find("/-input/{{ENTRY_NAME}}")->second << "," 
                "\"output-schema\": " << schema_map.find("/-output/{{ENTRY_NAME}}")->second << "" 
                "},"
         }I}
         {I:CLI_NODE_NAME{
           <<   "\"/-node/{{CLI_NODE_NAME}}\": {"
-               "\"timeout\": {{CLI_NODE_TIMEOUT:120000}},"
+               "\"timeout\": " << flowc::{{CLI_NODE_ID}}_timeout << ","
                "\"input-schema\": " << schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "," 
                "\"output-schema\": " << schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "" 
                "},"
@@ -616,7 +631,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     ::grpc::ClientContext L_context;
     auto const L_start_time = std::chrono::system_clock::now();
-    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{ENTRY_TIMEOUT:120000}});
+    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds(rest::{{ENTRY_NAME}}_entry_timeout);
     L_context.set_deadline(L_deadline);
     L_context.AddMetadata("overlapped-calls", use_asynchronous_calls? "1": "0");
     L_context.AddMetadata("time-call", time_call? "1": "0");
@@ -681,7 +696,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
     ::grpc::ClientContext L_context;
     auto const L_start_time = std::chrono::system_clock::now();
-    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds({{CLI_NODE_TIMEOUT:120000}});
+    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
     L_context.set_deadline(L_deadline);
     SET_METADATA_{{CLI_NODE_ID}}(L_context)
     ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
@@ -770,21 +785,26 @@ int main(int argc, char *argv[]) {
     if(argc < 2 || argc > 4) {
        std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT [APP-DIRECTORY]] \n\n";
        std::cout << "Set the ENDPOINT variable with the host:port for each node:\n";
-       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
        }I}
        std::cout << "\n";
        std::cout << "Set the MAXCC variable with the maximum number of concurrent calls allowed for each node:\n";
-       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_MAXCC for node {{CLI_NODE_NAME}} ({{CLI_NODE_MAX_CONCURRENT_CALLS}})\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_MAXCC= for node {{CLI_NODE_NAME}} ("<< flowc::{{CLI_NODE_ID}}_maxcc <<")\n";
+       }I}
+       std::cout << "\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_TIMEOUT= for node {{CLI_NODE_NAME}} in milliseconds ("<< flowc::{{CLI_NODE_ID}}_timeout <<")\n";
+       }I}
+       std::cout << "\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_TRACE=1 to enable tracing for node {{CLI_NODE_NAME}}\n";
        }I}
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to enable the REST gateway service\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_THREADS= to change the number of REST worker threads (" << DEFAULT_REST_THREADS << ")\n";
        std::cout << "\n";
-       std::cout << "Set {{NAME_UPPERID}}_WEBAPP=0 to enable disable the web-app when the REST service is enabled\n";
-       std::cout << "Set {{NAME_UPPERID}}_DEBUG=1 to enable debug mode\n";
+       std::cout << "Set {{NAME_UPPERID}}_WEBAPP=0 to disable the web-app when the REST service is enabled\n";
        std::cout << "Set {{NAME_UPPERID}}_TRACE=1 to enable trace mode\n";
        std::cout << "Set {{NAME_UPPERID}}_ASYNC=0 to disable asynchronous client calls\n";
-       std::cout << "Set {{NAME_UPPERID}}_NODE_ID=xxx to override the server ID\n"; 
+       std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
        std::cout << "\n";
        return 1;
@@ -811,7 +831,7 @@ int main(int argc, char *argv[]) {
             ++error_count;
         } else {
             flowc::{{CLI_NODE_ID}}_endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
-            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (" <<  flowc::{{CLI_NODE_ID}}_maxcc;
+            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (max connections " <<  flowc::{{CLI_NODE_ID}}_maxcc << ", timeout " << flowc::{{CLI_NODE_ID}}_maxcc << "ms";
             if(flowc::reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
             std::cerr << ")\n";
         }
@@ -857,7 +877,6 @@ int main(int argc, char *argv[]) {
     }
     std::cerr 
         << "call id: " << (flowc::send_global_ID ? "yes": "no") 
-        << ", debug: " << (flowc::debug_enabled? "yes": "no")
         << ", trace: " << (flowc::trace_calls? "yes": "no")
         << ", asynchronous client calls: " << (flowc::asynchronous_calls? "yes": "no") 
         << "\n";
