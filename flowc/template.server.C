@@ -259,12 +259,21 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 #ifndef GRPC_ENTER_{{ENTRY_NAME}}
 #define GRPC_ENTER_{{ENTRY_NAME}}(CONTEXT, REQUESTPTR)
 #endif
-#ifndef REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE
-#define REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE(CONTEXT, REQUESTPTR) std::make_pair<int, char const *>(200, "")
-#endif
-#ifndef REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER
-#define REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER(STATUS, CONTEXT, RESPONSEPTR, XTRA_HEADERS) std::make_pair<int, char const *>(200, "")
-#endif
+// http_code, return value. It must be set to the HTTP status code.
+// http_message, return value. It must be set to the HTTP status messge.
+// json_body, return value. Should be set to the body of the reply (json). If left empty, {"code": http_code, "message": http_msessage} will be returned.
+// check_header, value of the header 'X-Flow-Check'
+// contect is a reference to the gRPC context to be used in the call. 
+// inp is a pointer to the gRPC {{ENTRY_INPUT_TYPE}} message that will be sent.
+// outp is a pointer to the received {{ENTRY_OUTPUT_TYPE}} message.
+// xtra_headers, return value. A string where HTTP headers can be appended.
+// status is a reference to the gRCP status returned by the call
+// return true if check succeeded and results can be ignored (except xtra_headers).
+ 
+// rest_check_{{ENTRY_NAME}}_before(int &http_code, std::string &http_message, std::string &json_body, char const *check_header, ::grpc::ClientContext &context, {{ENTRY_INPUT_TYPE}} *inp, std::string &xtra_headers);  
+// rest_check_{{ENTRY_NAME}}_after(int &http_code, std::string &http_message, std::string &json_body, char const *check_header, ::grpc::ClientContext &context, {{ENTRY_INPUT_TYPE}} *inp, ::grpc::Status const &status,  {{ENTRY_OUTPUT_TYPE}} *outp, std::string &xtra_headers);  
+//
+// to use, define REST_CHECK_{{ENTRY_UPPERID}}_BEFORE and/or REST_CHECK_{{ENTRY_UPPERID}}_AFTER with the name of function
 }I}
 #ifndef SENT_CHECK
 #define SENT_CHECK(NODE_NAME, BEGIN, END, SENT)
@@ -369,7 +378,7 @@ std::map<std::string, char const *> schema_map = {
 }I}
 };
 {I:ENTRY_NAME{ 
-long {{ENTRY_NAME}}_entry_timeout = flowc::strtolong(std::getenv("{{NAME_UPPERID}}_{{ENTRY_NAME_UPPERID}}_TIMEOUT"), {{ENTRY_TIMEOUT:3600000}});
+long {{ENTRY_NAME}}_entry_timeout = flowc::strtolong(std::getenv("{{NAME_UPPERID}}_{{ENTRY_UPPERID}}_TIMEOUT"), {{ENTRY_TIMEOUT:3600000}});
 }I}
 static int log_message(const struct mg_connection *conn, const char *message) {
     std::cerr << message << std::flush;
@@ -637,15 +646,22 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     L_context.AddMetadata("time-call", time_call? "1": "0");
     if(trace_header != nullptr && *trace_header != '\0')
         L_context.AddMetadata("trace-call", trace_header);
+
+#if defined(REST_CHECK_{{ENTRY_UPPERID}}_BEFORE) || defined(REST_CHECK_{{ENTRY_UPPERID}}_AFTER)
+    char const *check_header = mg_get_header(A_conn, "x-flow-check");
+#endif
+    
+#ifdef REST_CHECK_{{ENTRY_UPPERID}}_BEFORE
     {
-        auto check_before = REST_GRPC_CHECK_{{ENTRY_NAME}}_BEFORE(L_context, L_inp);
-        if(check_before.first != 200) {
-            std::string error_message = flowc::sfmt() << "{"
-                << "\"code\": " << check_before.first << ","
-                << "\"message\": " << flowc::json_string(check_before.second) << "}";
-            return rest::json_reply(A_conn, check_before.first, check_before.second, error_message.c_str(), error_message.length());
+        int http_code; std::string http_message, http_body; 
+        if(!REST_CHECK_{{ENTRY_UPPERID}}_BEFORE(http_code, http_message, http_body, check_header, L_context, &L_inp, xtra_headers)) {
+            if(http_body.empty()) http_body = flowc::sfmt() << "{"
+                << "\"code\": " << http_code << ","
+                << "\"message\": " << flowc::json_string(http_message) << "}";
+            return rest::json_reply(A_conn, http_code, http_message.c_str(), http_body.c_str(), http_body.length(), xtra_headers.c_str());
         }
     }
+#endif
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
         std::string header(mde.first.data(), mde.first.length());
@@ -658,15 +674,17 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
         xtra_headers += std::string(mde.second.data(), mde.second.length());
         xtra_headers += "\r\n";
     }
+#ifdef REST_CHECK_{{ENTRY_UPPERID}}_AFTER
     {
-        auto check_after = REST_GRPC_CHECK_{{ENTRY_NAME}}_AFTER(L_context, L_status, L_outp, xtra_headers);
-        if(check_after.first != 200) {
-            std::string error_message = flowc::sfmt() << "{"
-                << "\"code\": " << check_after.first << ","
-                << "\"message\": " << flowc::json_string(check_after.second) << "}";
-            return rest::json_reply(A_conn, check_after.first, check_after.second, error_message.c_str(), error_message.length());
+        int http_code; std::string http_message, http_body; 
+        if(!REST_CHECK_{{ENTRY_UPPERID}}_AFTER(http_code, http_message, http_body, check_header, L_context, &L_inp, L_status, &L_outp, xtra_headers)) {
+            if(http_body.empty()) http_body = flowc::sfmt() << "{"
+                << "\"code\": " << http_code << ","
+                << "\"message\": " << flowc::json_string(http_message) << "}";
+            return rest::json_reply(A_conn, http_code, http_message.c_str(), http_body.c_str(), http_body.length(), xtra_headers.c_str());
         }
     }
+#endif
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status, xtra_headers);
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }

@@ -755,7 +755,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         set_all(global_vars, "REST_ENTRY", rest_entries.begin(), rest_entries.end());
         for(auto const &re: rest_entries) 
-            append(global_vars, "ENTRY_UPPERID", to_upper(to_underscore(re)));
+            append(global_vars, "REST_ENTRY_UPPERID", to_upper(to_underscore(re)));
     }
     // Generic entry and client node info. 
     // Note that client here is not necessarily an instantiated node.

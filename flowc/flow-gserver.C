@@ -1325,6 +1325,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
+        append(vars, "ENTRY_UPPERID", to_upper(mdp->name()));
         append(vars, "ENTRY_LABEL", decamelize(mdp->name()));
         append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
         append(vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
@@ -1340,6 +1341,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         if(entry_count == 1) {
             append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "MAIN_ENTRY_NAME", mdp->name());
+            append(vars, "MAIN_ENTRY_UPPERID", to_upper(mdp->name()));
             append(vars, "MAIN_ENTRY_LABEL", decamelize(mdp->name()));
             append(vars, "MAIN_ENTRY_URL", sfmt() << "/" << mdp->name());
             append(vars, "MAIN_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
@@ -1355,6 +1357,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         } else {
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "ALT_ENTRY_NAME", mdp->name());
+            append(vars, "ALT_ENTRY_UPPERID", to_upper(mdp->name()));
             append(vars, "ALT_ENTRY_LABEL", decamelize(mdp->name()));
             append(vars, "ALT_ENTRY_URL", sfmt() << "/" << mdp->name());
             append(vars, "ALT_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
