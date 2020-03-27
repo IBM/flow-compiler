@@ -802,22 +802,28 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
 int main(int argc, char *argv[]) {
     if(argc < 2 || argc > 4) {
        std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT [APP-DIRECTORY]] \n\n";
-       std::cout << "Set the ENDPOINT variable with the host:port for each node:\n";
-       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+       std::cout << "Endpoints (host:port) for each node:\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}}/{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
        }I}
        std::cout << "\n";
-       std::cout << "Set the MAXCC variable with the maximum number of concurrent calls allowed for each node:\n";
+       std::cout << "The maximum number of concurrent calls allowed for each node:\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_MAXCC= for node {{CLI_NODE_NAME}} ("<< flowc::{{CLI_NODE_ID}}_maxcc <<")\n";
        }I}
        std::cout << "\n";
-       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_TIMEOUT= for node {{CLI_NODE_NAME}} in milliseconds ("<< flowc::{{CLI_NODE_ID}}_timeout <<")\n";
+       std::cout << "Timeout used to set deadline for each node, in milliseconds:\n";
+       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_TIMEOUT= for node {{CLI_NODE_NAME}} ("<< flowc::{{CLI_NODE_ID}}_timeout <<")\n";
        }I}
        std::cout << "\n";
+       std::cout << "Enable trace for eaach node:\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_TRACE=1 to enable tracing for node {{CLI_NODE_NAME}}\n";
        }I}
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to enable the REST gateway service\n";
        std::cout << "Set {{NAME_UPPERID}}_REST_THREADS= to change the number of REST worker threads (" << DEFAULT_REST_THREADS << ")\n";
+       std::cout << "\n";
+       std::cout << "Set the timeout for each REST entry, in milliseconds:\n";
+       {I:ENTRY_NAME{std::cout << "{{NAME_UPPERID}}_{{ENTRY_UPPERID}}_TIMEOUT= for REST entry /{{ENTRY_NAME}} (" << rest::{{ENTRY_NAME}}_entry_timeout << ")\n";
+       }I}
        std::cout << "\n";
        std::cout << "Set {{NAME_UPPERID}}_WEBAPP=0 to disable the web-app when the REST service is enabled\n";
        std::cout << "Set {{NAME_UPPERID}}_TRACE=1 to enable trace mode\n";
