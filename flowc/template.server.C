@@ -259,14 +259,14 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 #ifndef GRPC_ENTER_{{ENTRY_NAME}}
 #define GRPC_ENTER_{{ENTRY_NAME}}(CONTEXT, REQUESTPTR)
 #endif
-// http_code, return value. It must be set to the HTTP status code.
-// http_message, return value. It must be set to the HTTP status messge.
+// http_code, return value. It must be set to the HTTP status code
+// http_message, return value. It must be set to the HTTP status messge
 // json_body, return value. Should be set to the body of the reply (json). If left empty, {"code": http_code, "message": http_msessage} will be returned.
-// check_header, value of the header 'X-Flow-Check'
-// contect is a reference to the gRPC context to be used in the call. 
-// inp is a pointer to the gRPC {{ENTRY_INPUT_TYPE}} message that will be sent.
-// outp is a pointer to the received {{ENTRY_OUTPUT_TYPE}} message.
-// xtra_headers, return value. A string where HTTP headers can be appended.
+// check_header, value of the header 'X-Flow-Check'. Used to convey per request information to the check before and after hooks.
+// context is a reference to the gRPC context to be used in the call
+// inp is a pointer to the gRPC {{ENTRY_INPUT_TYPE}} message that will be sent
+// outp is a pointer to the received {{ENTRY_OUTPUT_TYPE}} message
+// xtra_headers, return value. A string where HTTP headers can be appended
 // status is a reference to the gRCP status returned by the call
 // return true if check succeeded and results can be ignored (except xtra_headers).
  
