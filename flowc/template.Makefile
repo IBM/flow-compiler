@@ -15,6 +15,7 @@ IMAGE_REPO:=$(shell echo "$(IMAGE)" | sed 's/:.*$$//')
 IMAGE_TAG:=$(shell echo "$(IMAGE)" | sed 's/^.*://')
 DOCKERFILE?={{NAME}}.Dockerfile
 IMAGE_PROXY?={{NAME}}-image-info.json
+HTDOCS_PATH?={{HTDOCS_PATH}}
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 ifeq ($(GRPC_STATIC), yes)
@@ -54,6 +55,15 @@ DOCKER:=docker-push
 PUSH_IMAGE:=$(PUSH_REPO:/=)/$(IMAGE_REPO):$(IMAGE_TAG)
 endif
 
+ifeq ($(HTDOCS_PATH), )
+{{NAME}}-htdocs.tar.gz:
+	tar -czf $@ --files-from=/dev/null
+else
+{{NAME}}-htdocs.tar.gz:
+	ln -s "$(HTDOCS_PATH)" app
+	tar -czf $@ -h app
+endif
+
 THIS_FILE:=$(lastword $(MAKEFILE_LIST))
 
 info:
@@ -84,7 +94,7 @@ docker-push: docker-info
 docker-info:
 	@docker images $(IMAGE_REPO)
 
-$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} $(DOCKERFILE) $(SERVER_XTRA_H) $(SERVER_XTRA_C)
+$(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} $(DOCKERFILE) $(SERVER_XTRA_H) $(SERVER_XTRA_C) {{NAME}}-htdocs.tar.gz
 	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
 	docker build --force-rm -t $(IMAGE) -f $(DOCKERFILE) .
 	docker image inspect $(IMAGE) > $@
