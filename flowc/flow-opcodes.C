@@ -14,11 +14,13 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     out << op_name(fop.code) << "  ";
     if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP || fop.code == INDX) out << ansi::escape(ANSI_RESET, use_ansi);
 
+    bool escape_string1 = fop.code == RVC && fop.arg.size() > 1 && fop.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
+    bool escape_string2 = fop.code == RVC && fop.arg.size() > 2 && fop.arg[2] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     if(!fop.arg2.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1  << ansi::escape(ANSI_RESET, use_ansi) << ", " << ansi::escape(ANSI_BLUE, use_ansi) 
-            << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << ansi::escape(ANSI_BLUE, use_ansi) << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1)  << ansi::escape(ANSI_RESET, use_ansi) << ", " << ansi::escape(ANSI_BLUE, use_ansi) 
+            << (escape_string2? stru1::c_escape(fop.arg2): fop.arg2) << ansi::escape(ANSI_RESET, use_ansi) << " ";
     } else if(!fop.arg1.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << ansi::escape(ANSI_BLUE, use_ansi) << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1) << ansi::escape(ANSI_RESET, use_ansi) << " ";
     }
     if(fop.d2 != nullptr) {
         if(fop.d1 == nullptr) out << "0, ";
