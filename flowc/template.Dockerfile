@@ -1,15 +1,15 @@
 FROM flowc:{{FLOWC_VERSION}}.{{BASE_IMAGE}} AS base
 
 USER worker
-RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs && mkdir -p /home/worker/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/www
+RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs && mkdir -p /home/worker/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/app
 COPY --chown=worker:worker docs/{{MAIN_FILE}} {P:SERVER_XTRA_H{{{SERVER_XTRA_H}} }P} {P:SERVER_XTRA_C{{{SERVER_XTRA_C}} }P} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} /tmp/{{NAME}}/
 RUN cd /tmp/{{NAME}} && flowc --client --server {{MAIN_FILE}} --name {{NAME}} && make -j2 -f {{NAME}}.mak deploy && cd /tmp && rm -fr {{NAME}}
 
 WORKDIR /home/worker
 RUN tar -cf /home/worker/bin.tar {{NAME}}/*
 RUN mkdir -p /home/worker/lib && chown -R worker:worker /home/worker/lib
-RUN ldd /home/worker/{{NAME}}/{{NAME}}-server  2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
-RUN ldd /home/worker/{{NAME}}/{{NAME}}-client  2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
+RUN ldd /home/worker/{{NAME}}/{{NAME}}-server 2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
+RUN ldd /home/worker/{{NAME}}/{{NAME}}-client 2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
 RUN sort -u needed-libs-a.txt | while read F; do cp "$F" /home/worker/lib; done 
 RUN tar -cf /home/worker/so.tar lib/*
 

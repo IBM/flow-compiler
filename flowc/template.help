@@ -82,6 +82,9 @@ OPTIONS
        --help-syntax
               Display a page with a description of the flow syntax
 
+       --htdocs DIRECTORY
+              Copy all the files from directory in the image to be used as a custom Web application
+
        --image=IMAGE:TAG
               Set the image name and tag for the aggregator image. The default image name is the 
               aggregator name and the default tag is "1". See --image-tag for changing only the tag.
@@ -160,4 +163,5 @@ OPTIONS
               Display the version and exit
 
        --www-files
-              Output the generated UI files.
+              Output the generated UI files
+

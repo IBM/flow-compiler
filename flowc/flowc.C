@@ -279,6 +279,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         mkdir(www_directory.c_str(), 0777);
     }
 
+    if(opts.have("htdocs")) {
+        std::string htdocs_path(path_join(std::getenv("PWD"), opts.opt("htdocs")));
+        set(global_vars, "HTDOCS_PATH", htdocs_path);
+    }
+
     set(global_vars, "PROTO_FILES_PATH", path_join(std::getenv("PWD"), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
     set(global_vars, "NAME_ID", to_lower(to_identifier(orchestrator_name)));
