@@ -15,7 +15,7 @@ IMAGE_REPO:=$(shell echo "$(IMAGE)" | sed 's/:.*$$//')
 IMAGE_TAG:=$(shell echo "$(IMAGE)" | sed 's/^.*://')
 DOCKERFILE?={{NAME}}.Dockerfile
 IMAGE_PROXY?={{NAME}}-image-info.json
-HTDOCS_PATH?={{HTDOCS_PATH}}
+HTDOCS_PATH?={{HTDOCS_PATH:}}
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 ifeq ($(GRPC_STATIC), yes)
