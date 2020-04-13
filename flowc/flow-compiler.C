@@ -162,6 +162,15 @@ void flow_compiler::add_comments(std::string const &comment, int token) {
         token_comment.push_back(std::make_pair(token, text));
     }
 }
+static std::map<std::string, int> keywords = {
+    { "input", FTK_INPUT },
+    { "output", FTK_OUTPUT },
+    { "node", FTK_NODE },
+    { "container", FTK_CONTAINER },
+    { "entry", FTK_ENTRY },
+    { "return", FTK_RETURN },
+    { "mount", FTK_MOUNT }
+};
 int flow_compiler::parse() {
     io::ZeroCopyInputStream *zi = source_tree.Open(main_file);
     if(zi == nullptr) {
@@ -200,7 +209,10 @@ int flow_compiler::parse() {
                 ftok.type = 0;
                 break;
             case io::Tokenizer::TokenType::TYPE_IDENTIFIER:
-                ftok.type = FTK_ID;
+                if(keywords.find(token.text) != keywords.end()) 
+                    ftok.type = FTK_ID;
+                else
+                    ftok.type = FTK_ID;
                 ftok.text = token.text;
                 break;
             case io::Tokenizer::TokenType::TYPE_INTEGER:
@@ -945,10 +957,6 @@ int flow_compiler::compile_stmt(int stmt_node) {
             pcerr.AddError(main_file, at(stmt.children[1]), "expected image name string");
             return 1;
         }
-        if(!rest_image.empty() && imagename != rest_image) 
-            pcerr.AddWarning(main_file, at(stmt.children[1]), "rest image re-definition ignored");
-        else 
-            rest_image = imagename;
     } else if(statement == "repository") {
         std::string repository;
         if(compile_string(repository, stmt.children[1])) {

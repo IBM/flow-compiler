@@ -57,7 +57,7 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
 
 struct node_info {
     int node;               // AST pointer
-    std::string xname;       // Node or container name, derived from but not always the same as name(node)
+    std::string xname;      // Node or container name, derived from but not always the same as name(node)
     std::string id;         // Node id as decalred in the flow stanza
     int port;               // Assigned port for this service
     std::string group;      // Group label for this node
@@ -110,7 +110,6 @@ private:
     // Data
     std::string main_file; 
     std::string package_name, input_label; 
-    std::string rest_image, rest_node_label;
     // Orchestrator image name and tag
     std::string orchestrator_image;
     std::string orchestrator_tag;
@@ -126,7 +125,7 @@ private:
     // Image pull secret names (for kube deployment)
     std::set<std::string> image_pull_secrets;
     // Default port values
-    int base_port, rest_image_port, gui_image_port, custom_gui_image_port;
+    int base_port, rest_port;
     // Default timeout values 
     int default_node_timeout;
     int default_entry_timeout;
