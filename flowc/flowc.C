@@ -145,11 +145,7 @@ std::set<std::string> available_runtimes();
 
 flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
     input_label = "input";
-    rest_node_label = "rest";
-    rest_image_port = 8081;
-    gui_image_port = 8082;
-    custom_gui_image_port = 8083;
-
+    rest_port = -1;
     base_port = 53135;                  // the lowest it can be is 49152
     default_node_timeout = 180000;      // 3 minutes
     default_entry_timeout = 600000;     // 10 minutes
@@ -157,15 +153,11 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
     default_repository = "/";
     runtime = get_default_runtime();
 
-
     set(global_vars, "FLOWC_BUILD", get_build_id());
     set(global_vars, "FLOWC_VERSION", get_version());
     set(global_vars, "BASE_IMAGE", runtime);
     set(global_vars, "BASE_IMAGE_UPPERID", to_upper(to_identifier(runtime)));
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
-    set(global_vars, "REST_IMAGE_PORT", std::to_string(rest_image_port));
-    set(global_vars, "GUI_IMAGE_PORT", std::to_string(gui_image_port));
-    set(global_vars, "CUSTOM_GUI_IMAGE_PORT", std::to_string(custom_gui_image_port));
 }
 
 /**
@@ -342,9 +334,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * Override some of the vars set at compile time
      */
     base_port = opts.opti("base-port", base_port);
-    rest_image_port = opts.opti("rest-port", rest_image_port);
-    gui_image_port = opts.opti("rest-port", gui_image_port);
-    custom_gui_image_port = opts.opti("rest-port", custom_gui_image_port);
+    rest_port = opts.opti("rest-port", rest_port);
     
     runtime = opts.opt("runtime", runtime);
     if(!contains(available_runtimes(), runtime)) {
@@ -354,10 +344,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     set(global_vars, "BASE_IMAGE", runtime);
     set(global_vars, "BASE_IMAGE_UPPERID", to_upper(to_identifier(runtime)));
 
+    if(base_port == rest_port) {
+        ++error_count;
+        pcerr.AddError(main_file, -1, 0, sfmt() << "gRPC port and REST port are set to the same value: \"" << base_port << "\"");
+    }
+
+    if(rest_port < 0) rest_port = base_port -1;
     set(global_vars, "MAIN_PORT", std::to_string(base_port));
-    set(global_vars, "REST_NODE_PORT", std::to_string(base_port-1));
-    set(global_vars, "GUI_NODE_PORT", std::to_string(base_port-2));
-    set(global_vars, "CUSTOM_GUI_NODE_PORT", std::to_string(base_port-3));
+    set(global_vars, "REST_NODE_PORT", std::to_string(rest_port));
 
     default_node_timeout = get_time_value(opts.opt("default-client-timeout", std::to_string(default_node_timeout)+"ms"));
     default_entry_timeout = get_time_value(opts.opt("default-entry-timeout", std::to_string(default_entry_timeout)+"ms"));
@@ -398,8 +392,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * All files are compiled at this pont so,
      * set all as many of values that control code generation as possible
      */
-    // Whether REST is added or not depends on the value of the rest_image field -- for now
-    bool add_rest_node = contains(targets, "kubernetes") || contains(targets, "docker-compose");
     if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
         for(auto const &nc: named_blocks) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
@@ -460,21 +452,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     clear(global_vars, "HAVE_NODES");
     if(referenced_nodes.size() > 0) 
         set(global_vars, "HAVE_NODES", ""); 
-    // Make sure the rest node name doesn't collide with any other node
-    for(unsigned i = 1; i < 100; ++i) {
-        // FIXME: need to ckeck against referenced_nodes
-        if(!contains(named_blocks, rest_node_label))
-            break;
-        rest_node_label = sfmt() << "rest_" << i;
-    }
-    // Use the this var to conditionally generate rest node in templates
-    if(add_rest_node) {
-        set(global_vars, "REST_NODE_NAME", rest_node_label);
-        // FIXME: this needs to be resurected
-        //image_port[rest_node_label] = rest_image_port;
-    } else  {
-        clear(global_vars, "REST_NODE_NAME");
-    }
 
     // Grab all the image names, image ports and volume names 
     if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
@@ -692,11 +669,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         ni.headers.clear();
         error_count += get_nv_block(ni.headers, blck, "headers", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
     }
-
-    if(add_rest_node || mounts.size() > 0) 
-        set(global_vars, "HAVE_VOLUMES_OR_REST", "");
-    else 
-        clear(global_vars, "HAVE_VOLUMES_OR_REST");
 
     bool have_artifactory = false;
     bool have_cos = false;
