@@ -2,7 +2,7 @@
 %name flow_parser
 %token_prefix FTK_
 
-%nonassoc ID STRING INTEGER FLOAT SYMBOL.
+%nonassoc ID STRING INTEGER FLOAT SYMBOL INPUT OUTPUT RETURN ENTRY NODE CONTAINER MOUNT.
 %left SEMICOLON.
 %left DOT AT.
 %left COMMA.
