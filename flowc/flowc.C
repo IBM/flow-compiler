@@ -351,7 +351,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(rest_port < 0) rest_port = base_port -1;
     set(global_vars, "MAIN_PORT", std::to_string(base_port));
-    set(global_vars, "REST_NODE_PORT", std::to_string(rest_port));
+    set(global_vars, "REST_PORT", std::to_string(rest_port));
 
     default_node_timeout = get_time_value(opts.opt("default-client-timeout", std::to_string(default_node_timeout)+"ms"));
     default_entry_timeout = get_time_value(opts.opt("default-entry-timeout", std::to_string(default_entry_timeout)+"ms"));

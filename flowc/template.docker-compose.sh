@@ -15,7 +15,7 @@ export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
 export docker_compose_RW_GID=$(id -g)
 export grpc_PORT=${{{NAME_UPPERID}}_GRPC_PORT-{{MAIN_PORT}}}
-export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_NODE_PORT}}}
+export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_PORT}}}
 rget_EMBEDDED_KEY_TOOL=1
 download_file() {
     {{RR_GET_SH:rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}

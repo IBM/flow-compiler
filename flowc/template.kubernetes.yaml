@@ -74,7 +74,7 @@ $enable_htdocs$htdocs_ART          mountPath: "/etc/artifactory"
 $enable_htdocs$htdocs_ART          readOnly: true
 $enable_htdocs        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs          mountPath: "/to-1"
-$enable_htdocs          readOnly: false
+$enable_htdoes          readOnly: false
       containers:
       - name: {{NAME}}
         image: "{{PUSH_REPO:}}{{IMAGE}}"
@@ -100,7 +100,7 @@ $enable_htdocs          readOnly: false
         image: "{{REST_NODE_IMAGE}}"
         ports: 
           - name: rest
-            containerPort: {{REST_IMAGE_PORT}}
+            containerPort: {{REST_PORT}}
         command: ["/home/worker/pr/bin/runpr3.sh"]
         args: ["--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION_JSON}}, "--hostport", "localhost:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
         volumeMounts:
@@ -168,7 +168,7 @@ spec:
     protocol: TCP
     name: grpc
 {R:REST_NODE_NAME{
-  - port:  {{REST_IMAGE_PORT}}
+  - port:  {{REST_PORT}}
     protocol: TCP
     name: http
 }R}
