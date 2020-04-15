@@ -251,13 +251,13 @@
         } else 
         if(typeof jo === 'string' || jo instanceof String) {
             PR.appendOrReplace(container, '<div class="pr-JSON-string" id="'+objectID+'"></div>', replace);
+            $("#"+objectID).attr('data-text', jo);
             if(keyO && jo.length < 100 && jo.indexOf(' ') < 0) {
                 keyO.addClass("pr-sticky");
                 $("#"+objectID).addClass("pr-sticky");
                 $("#"+objectID).text(jo);
             } else {
                 $("#"+objectID).addClass("pr-wrappable");
-                $("#"+objectID).attr('data-text', jo);
                 $("#"+objectID).html(jo.replace(/(?:\r\n|\r|\n)/g, '<br>')); 
             }
             $("#"+objectID).addClass(label);
