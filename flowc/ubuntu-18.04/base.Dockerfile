@@ -1,6 +1,7 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.11
-ARG GRPC_VERSION=1.27.0
+ARG GRPC_VERSION=1.28.1
+ARG CARES_VERSION=1.16.0
 
 user root
 
@@ -23,3 +24,10 @@ RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz &
 ENV CIVETWEB_INCS=-I/home/worker/civetweb-${CIVETWEB_VERSION}/include
 ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl"
 
+## Build c-ares (https://c-ares.haxx.se)
+USER root
+ADD https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz ./
+RUN tar -xzvf c-ares-${CARES_VERSION}.tar.gz && rm -f c-ares-${CARES_VERSION}.tar.gz && \
+    cd c-ares-${CARES_VERSION} && ./configure --enable-shared=no && make && make install && \
+    cd .. && rm -fr c-ares-${CARES_VERSION}
+USER worker

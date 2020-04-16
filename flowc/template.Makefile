@@ -27,8 +27,11 @@ endif
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
 CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
 
-SERVER_LFLAGS+= $(GRPC_LIBS) 
-SERVER_CFLAGS+= $(GRPC_INCS)
+CARES_INCS?=$(shell pkg-config --cflags libcares) 
+CARES_LIBS?=$(shell pkg-config --libs libcares)
+
+SERVER_LFLAGS+= $(GRPC_LIBS) $(CARES_LIBS) 
+SERVER_CFLAGS+= $(GRPC_INCS) $(CARES_INCS)
 
 ifeq ($(NO_REST), 1)
 SERVER_CFLAGS+= -DNO_REST

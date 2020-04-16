@@ -5,28 +5,53 @@
  * with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
  * 
  */
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <ratio>
+#include <set>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <iostream>
-#include <sstream>
-#include <memory>
-#include <string>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
-#include <ratio>
-#include <chrono>
-#include <algorithm>
-#include <thread>
-#include <atomic>
-#include <mutex>
-#include <condition_variable>
+
 #include <grpc++/grpc++.h>
 #include <grpc++/health_check_service_interface.h>
 #include <google/protobuf/util/json_util.h>
+
+#include <ares.h>
+
 extern "C" {
 #include <civetweb.h>
 }
+
+/**********************************************************************************************************
+ * Hardcoded default values for certain configurable parameters
+ */
+#ifndef DEFAULT_REST_THREADS
+#define DEFAULT_REST_THREADS 48
+#endif
+#ifndef DEFAULT_CARES_REFRESH
+#define DEFAULT_CARES_REFRESH 30
+#endif
+
 namespace flowc {
 inline static bool stringtobool(std::string const &s, bool default_value=false) {
     if(s.empty()) return default_value;
@@ -186,6 +211,145 @@ public:
 }
 #define FLOGC(c) if(c) flowc::flog() <<= flowc::sfmt()
 #define FLOG FLOGC(true)
+
+namespace casd {
+static bool is_hostname(std::string const &name) {
+    if(strcasecmp(name.c_str(), "localhost") == 0) 
+        return false;
+    uint64_t ip[2] = {0, 0};
+
+    ares_inet_pton(AF_INET, name.c_str(), &ip);
+    if(ip[0] || ip[1]) 
+        return false;
+    ares_inet_pton(AF_INET6, name.c_str(), &ip);
+    return !(ip[0] || ip[1]);
+}
+static std::string arg_to_endpoint(char const *arg) {
+    bool arg_is_number = false;
+    for(char const *a = arg; *a != '\0'; ++a)
+        if(!(arg_is_number = std::isdigit(*a))) 
+            break;
+    if(!arg_is_number) return arg;
+        return std::string("localhost:") + arg;
+}
+static std::string name_from_endpoint(std::string const &endpoint) {
+    auto pp = endpoint.find_last_of(':');
+    if(pp == std::string::npos) return endpoint;
+
+    if(pp > 1 && endpoint[0] == '[' && endpoint[pp-1] == ']')
+        return endpoint.substr(1, pp-2);
+    else if(pp == endpoint.find_first_of(':'))
+        return endpoint.substr(0, pp);
+    else 
+        return endpoint;
+}
+static std::mutex address_store_mutex;
+static std::map<std::string, std::tuple<std::set<std::string>, std::string, int>> address_store;
+static int last_changed_iteration = 0;
+static int current_iteration = 0;
+static bool address_store_changed() {
+    std::lock_guard<std::mutex> guard(address_store_mutex);
+    return current_iteration == last_changed_iteration;
+}
+static bool get_addresses(int &version, std::vector<std::string> &addresses, std::string const &endpoint) {
+    std::lock_guard<std::mutex> guard(address_store_mutex);
+    if(version == last_changed_iteration) 
+        return false;
+    auto asp = address_store.find(endpoint);
+    if(asp == address_store.end()) {
+        version = last_changed_iteration;
+        return false;
+    }
+    if(std::get<2>(asp->second) > version) {
+        version = last_changed_iteration;
+        for(auto const &ip: std::get<0>(asp->second))
+            addresses.push_back(ip);
+    }
+    return true;
+}
+static void state_cb(void *data, int s, int read, int write) {
+    //FLOG << "Change state fd: " << s << " read " << read << " write " << write << "\n";
+}
+static void callback(void *arg, int status, int timeouts, struct hostent *host) {
+    if(!host || status != ARES_SUCCESS){
+        FLOG << "Failed to lookup: " << ares_strerror(status) << "\n";
+        return;
+    }
+    std::string lookup((char const *) arg);
+
+    std::lock_guard<std::mutex> guard(address_store_mutex);
+    auto asp = address_store.find(lookup);
+    if(asp == address_store.end()) {
+        address_store[lookup] = std::make_tuple(std::set<std::string>(), std::string(host->h_name), current_iteration);
+        asp = address_store.find(lookup);
+        last_changed_iteration = current_iteration;
+    } else {
+        std::get<1>(asp->second) = host->h_name;
+    }
+
+    std::set<std::string> addresses;
+    std::swap(addresses, std::get<0>(asp->second));
+    char ip[INET6_ADDRSTRLEN];
+    size_t already_in = 0;
+
+    for(int i = 0; host->h_addr_list[i]; ++i) {
+        ares_inet_ntop(host->h_addrtype, host->h_addr_list[i], ip, sizeof(ip));
+        if(addresses.find(ip) != addresses.end()) 
+            already_in += 1;
+        std::get<0>(asp->second).insert(ip);
+    }
+    if(std::get<0>(asp->second).size() != already_in)
+        std::get<2>(asp->second) = last_changed_iteration = current_iteration;
+}
+static void wait_ares(ares_channel channel) {
+    for(;;) {
+        struct timeval *tvp, tv;
+        fd_set read_fds, write_fds;
+        int nfds;
+
+        FD_ZERO(&read_fds);
+        FD_ZERO(&write_fds);
+        nfds = ares_fds(channel, &read_fds, &write_fds);
+        if(nfds == 0) 
+            break;
+        tvp = ares_timeout(channel, NULL, &tv);
+        select(nfds, &read_fds, &write_fds, NULL, tvp);
+        ares_process(channel, &read_fds, &write_fds);
+    }
+}
+static int keep_looking(std::set<std::string> const &endpoints, int interval_s, int loops) {
+    if(endpoints.size() == 0) {
+        FLOG << "ip watcher: no endpoint names to look up, leaving.\n";
+        return 0;
+    }
+
+    ares_channel channel1;
+    struct ares_options options;
+    int optmask = 0;
+
+    //options.sock_state_cb_data;
+    options.sock_state_cb = state_cb;
+    optmask |= ARES_OPT_SOCK_STATE_CB;
+
+    int status = ares_init_options(&channel1, &options, optmask);
+    if(status != ARES_SUCCESS) {
+        FLOG << "ares_init_options: " << ares_strerror(status) << "\n";
+        return 1;
+    }
+
+    for(current_iteration = 1; loops == 0 || current_iteration <= loops; ++current_iteration) {
+        for(auto const &endpoint: endpoints) {
+            char const *lookup_host = endpoint.c_str();
+            ares_gethostbyname(channel1, lookup_host, AF_INET, callback, (void *) lookup_host);
+        }
+        wait_ares(channel1);
+        sleep(interval_s);
+    }
+    ares_destroy(channel1);
+    FLOG << "ip watcher: finished.\n";
+    return 0;
+}
+}
 
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
@@ -361,7 +525,6 @@ public:
 };
 
 
-#define DEFAULT_REST_THREADS 48
 
 namespace rest {
 std::string gateway_endpoint;
@@ -806,7 +969,7 @@ int main(int argc, char *argv[]) {
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}}/{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
        }I}
        std::cout << "\n";
-       std::cout << "The maximum number of concurrent calls allowed for each node:\n";
+       std::cout << "The maximum number of concurrent calls allowed for each node, or set to 0 to use service discovery:\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_MAXCC= for node {{CLI_NODE_NAME}} ("<< flowc::{{CLI_NODE_ID}}_maxcc <<")\n";
        }I}
        std::cout << "\n";
@@ -830,6 +993,7 @@ int main(int argc, char *argv[]) {
        std::cout << "Set {{NAME_UPPERID}}_ASYNC=0 to disable asynchronous client calls\n";
        std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
+       std::cout << "Set {{NAME_UPPERID}}_CARES_REFRESH= to the number of seconds between DNS lookups (" << DEFAULT_CARES_REFRESH << ")\n"; 
        std::cout << "\n";
        return 1;
     }
@@ -847,6 +1011,7 @@ int main(int argc, char *argv[]) {
     // Use the default grpc health checking service
 	grpc::EnableDefaultHealthCheckService(true);
     int error_count = 0;
+    std::set<std::string> dnames;
     {   
         {I:CLI_NODE_ID{
         char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
@@ -854,14 +1019,35 @@ int main(int argc, char *argv[]) {
             std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
             ++error_count;
         } else {
-            flowc::{{CLI_NODE_ID}}_endpoint = strchr({{CLI_NODE_ID}}_epenv, ':') == nullptr? (std::string("localhost:")+{{CLI_NODE_ID}}_epenv): std::string({{CLI_NODE_ID}}_epenv);
-            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (max connections " <<  flowc::{{CLI_NODE_ID}}_maxcc << ", timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
+            flowc::{{CLI_NODE_ID}}_endpoint = casd::arg_to_endpoint({{CLI_NODE_ID}}_epenv); 
+            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (max connections ";
+            if(flowc::{{CLI_NODE_ID}}_maxcc == 0 && casd::is_hostname(casd::name_from_endpoint({{CLI_NODE_ID}}_epenv))) {
+                dnames.insert(casd::name_from_endpoint({{CLI_NODE_ID}}_epenv));
+                std::cerr << "auto";
+            } else if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
+                std::cerr << 1;
+            } else {
+                std::cerr << flowc::{{CLI_NODE_ID}}_maxcc;
+            }
+            std::cerr << ", timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
             if(flowc::reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
             std::cerr << ")\n";
         }
         }I}
     }
     if(error_count != 0) return 1;
+    // Initialize c-ares
+    int status;
+    status = ares_library_init(ARES_LIB_INIT_ALL);
+    if(status != ARES_SUCCESS) {
+        std::cerr << "ares_library_init: " << ares_strerror(status) << "\n";
+        return 1;
+    }
+    int cares_refresh = (int) flowc::strtolong(std::getenv("{{NAME_UPPERID}}_CARES_REFRESH"), DEFAULT_CARES_REFRESH);
+    // Start c-ares thread
+    std::thread cares_thread([&dnames, cares_refresh]{
+         casd::keep_looking(dnames, cares_refresh, 0);
+    });
 
     int listening_port;
     grpc::ServerBuilder builder;
@@ -870,7 +1056,6 @@ int main(int argc, char *argv[]) {
     bool enable_webapp = flowc::strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
     if(argc > 3) 
         rest::app_directory = argv[3];
-    
 
     // Listen on the given address without any authentication mechanism.
     std::string server_address("[::]:"); server_address += argv[1];
@@ -909,5 +1094,8 @@ int main(int argc, char *argv[]) {
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
     server->Wait();
+
+    cares_thread.join();
+    ares_library_cleanup();
     return 0;
 }
