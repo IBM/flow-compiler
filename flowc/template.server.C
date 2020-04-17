@@ -243,6 +243,11 @@ static std::string name_from_endpoint(std::string const &endpoint) {
     else 
         return endpoint;
 }
+static std::string port_from_endpoint(std::string const &endpoint) {
+    auto pp = endpoint.find_last_of(':');
+    if(pp == std::string::npos) return "";
+    return endpoint.substr(pp+1);
+}
 static std::mutex address_store_mutex;
 static std::map<std::string, std::tuple<std::set<std::string>, std::string, int>> address_store;
 static int last_changed_iteration = 0;
@@ -406,6 +411,47 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
     if(Trace_call) flowc::print_message(flowc::sfmt().message(\
         flowc::sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
         CID, -1, nullptr)); }
+
+template<class CSERVICE> class connector {
+    typedef typename CSERVICE::Stub Stub_t;
+    std::vector<std::unique_ptr<Stub_t>> stubs;
+    std::atomic<unsigned long> cc;
+public:
+    std::string label, endpoint;
+    connector(std::string const &a_label, std::string const &a_endpoint, std::vector<std::string> const &addresses):label(a_label), endpoint(a_endpoint) {
+        auto port = casd::port_from_endpoint(endpoint);
+        int i = 0;
+        for(auto const &address: addresses) {
+            std::string aep(address.find_first_of(':') == std::string::npos?
+                    sfmt() << address << ":" << port:
+                    sfmt() << "[" << address << "]:" << port);
+            FLOG << "creating " << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
+            std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
+            stubs.push_back(CSERVICE::NewStub(channel));
+            ++i;
+        }
+        cc.store(0);
+    }
+    connector(std::string const &a_label, std::string const &a_endpoint, int maxcc):label(a_label), endpoint(a_endpoint) {
+        std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(endpoint, ::grpc::InsecureChannelCredentials()));
+        stubs.resize(maxcc);
+        for(int i = 0; i < maxcc; ++i) {
+            FLOG << "creating " << label << " stub " << i << " -> " << endpoint << "\n";
+            stubs[i] = CSERVICE::NewStub(channel);
+        }
+        cc.store(0);
+    }
+    size_t count() const {
+        return stubs.size();
+    }
+    std::unique_ptr<Stub_t> &stub() {
+        auto index = cc.fetch_add(1, std::memory_order_seq_cst);
+        if(stubs.size() <= 1) return *stubs.begin();
+        FLOG << "using " << label << " stub " << index << " [" << (index %stubs.size()) << "]\n";
+        return *&stubs[index % stubs.size()];
+    }
+};
+
 }
 
 {I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
@@ -446,40 +492,8 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
     bool Async_Flag = flowc::asynchronous_calls;
+    // Global call counter used to generate an unique id for each call regardless of entry
     std::atomic<long> Call_Counter;
-
-{I:CLI_NODE_NAME{
-    /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
-     */
-#define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
-    std::atomic<long> Call_Counter_{{CLI_NODE_ID}};
-
-    int {{CLI_NODE_ID}}_maxcc = flowc::{{CLI_NODE_ID}}_maxcc;
-    std::vector<std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub>> {{CLI_NODE_ID}}_stub;
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, int call_number, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
-        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
-        auto CIDX = Call_Counter_{{CLI_NODE_ID}}.fetch_add(1, std::memory_order_seq_cst) % {{CLI_NODE_ID}}_maxcc;
-        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << ":(" << call_number << "@" << CIDX << ") {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
-        if(flowc::send_global_ID) {
-            CTX.AddMetadata("node-id", flowc::global_node_ID);
-            CTX.AddMetadata("start-time", flowc::global_start_time);
-        }
-        SET_METADATA_{{CLI_NODE_ID}}(CTX)
-        GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
-        if(flowc::reconnect_{{CLI_NODE_ID}}) {
-            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
-            {{CLI_NODE_ID}}_stub[CIDX] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
-        }
-        auto const start_time = std::chrono::system_clock::now();
-        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
-        CTX.set_deadline(deadline);
-        auto result = {{CLI_NODE_ID}}_stub[CIDX]->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
-        return result;
-    }
-
-    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
-        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
-        ::grpc::ClientContext L_context;
         /**
          * Some notes on error codes (from https://grpc.io/grpc/cpp/classgrpc_1_1_status.html):
          * UNAUTHENTICATED - The request does not have valid authentication credentials for the operation.
@@ -488,6 +502,49 @@ public:
          * INVALID_ARGUMENT - Client specified an invalid argument. 
          * FAILED_PRECONDITION - Operation was rejected because the system is not in a state required for the operation's execution.
          */
+
+{I:CLI_NODE_NAME{
+    /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
+     */
+#define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
+
+    std::string {{CLI_NODE_ID}}_dname;
+    int {{CLI_NODE_ID}}_nversion = 0;
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_conp;
+    std::mutex {{CLI_NODE_ID}}_conm;
+
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_get_connector() {
+        std::lock_guard<std::mutex> guard({{CLI_NODE_ID}}_conm);
+        if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
+            std::vector<std::string> addresses;
+            if(casd::get_addresses({{CLI_NODE_ID}}_nversion, addresses, {{CLI_NODE_ID}}_dname)) {
+                std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ncp( 
+                    new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, addresses));
+                std::swap({{CLI_NODE_ID}}_conp, ncp);
+            }
+        }
+        return {{CLI_NODE_ID}}_conp;
+    }
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
+        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
+        if(flowc::send_global_ID) {
+            CTX.AddMetadata("node-id", flowc::global_node_ID);
+            CTX.AddMetadata("start-time", flowc::global_start_time);
+        }
+        SET_METADATA_{{CLI_NODE_ID}}(CTX)
+        GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
+
+        auto const start_time = std::chrono::system_clock::now();
+        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
+        CTX.set_deadline(deadline);
+        if(ConP->count() == 0) 
+            return nullptr;
+        return ConP->stub()->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+    }
+    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
+        ::grpc::ClientContext L_context;
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
         L_context.set_deadline(deadline);
@@ -497,8 +554,13 @@ public:
         }
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
         GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
-        ::grpc::Status L_status = {{CLI_NODE_ID}}_stub[0]->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
-        GRPC_RECEIVED(flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
+        ::grpc::Status L_status;
+        if(ConP->count() == 0) {
+            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to: " << ConP->endpoint);
+        } else {
+            L_status = ConP->stub()->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
+            GRPC_RECEIVED(flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
+        }
         if(!L_status.ok()) {
             GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
         } else {
@@ -509,15 +571,13 @@ public:
     }}I}
     // Constructor
     {{NAME_ID}}_service() {
-        Call_Counter.store(1);   
-        
+        Call_Counter = 1;
         {I:CLI_NODE_ID{
-        std::cerr << "node {{CLI_NODE_NAME}} maximum concurrent calls: " << {{CLI_NODE_ID}}_maxcc << "\n";
-        {{CLI_NODE_ID}}_stub.resize({{CLI_NODE_ID}}_maxcc);
-        for(int i = 0; i < {{CLI_NODE_ID}}_maxcc; ++i) {
-            std::shared_ptr<::grpc::Channel> {{CLI_NODE_ID}}_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
-            {{CLI_NODE_ID}}_stub[i] = {{CLI_SERVICE_NAME}}::NewStub({{CLI_NODE_ID}}_channel);
-        }
+        {{CLI_NODE_ID}}_dname = casd::name_from_endpoint(flowc::{{CLI_NODE_ID}}_endpoint);
+        if(flowc::{{CLI_NODE_ID}}_maxcc == 0 && !casd::is_hostname({{CLI_NODE_ID}}_dname))
+            flowc::{{CLI_NODE_ID}}_maxcc == 1;
+        {{CLI_NODE_ID}}_nversion = 0;
+        {{CLI_NODE_ID}}_conp = std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>>(new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, flowc::{{CLI_NODE_ID}}_maxcc));
         }I}
     }
 {I:ENTRY_CODE{{{ENTRY_CODE}}
