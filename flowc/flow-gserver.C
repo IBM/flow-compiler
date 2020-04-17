@@ -716,6 +716,9 @@ static std::string stage_variable_name(std::string const &label, int stage_num) 
  */
 #define LN_CARR(n)      NODE_VN2("CARR", (n))
 #define L_CARR          LN_CARR(cur_node_name)
+#define LN_INPTR(n)     NODE_VN2("In_Ptr", (n))
+#define L_INPTR         LN_INPTR(cur_node_name)
+
 #define LN_BEGIN(n)     NODE_VN2("Base_X", (n))
 #define L_BEGIN         LN_BEGIN(cur_node_name)
 #define LN_END_X(n)     NODE_VN2("End_X", (n))
@@ -934,7 +937,9 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         // If there are still requests to be sent, add a new one, of the same kind, to the queue
                         OUT << "int Nx = " << LN_SENT(nn) << ";\n";
                         OUT << "int Sx = Nx + " << LN_BEGIN(nn) << ";\n";
+
                         OUT << "auto &RPCx = " << LN_CARR(nn) << "[Nx];\n";
+                        OUT << "RPCx = " << nn << "_prep(CID, " << nn << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Sx], " << LN_INPTR(nn)  << "[Nx], Trace_call);\n";
                         OUT << "RPCx->StartCall();\n";
                         OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Nx], " << L_STATUS << "[Sx].get(), (void *) (long) (Sx+1));\n";
                         OUT << "++" << LN_SENT(nn) << ";\n";
@@ -986,7 +991,6 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 cur_node_name = to_lower(to_identifier(referenced_nodes.find(cur_node = op.arg[1])->second.xname));
                 cur_base_node = named_blocks.find(name(cur_node))->second.second;
                 if(!condition.has(cur_node)) nodes_rv[name(cur_node)] = cur_output_name;
-                stage_node_ids.push_back(cur_node);
                 node_has_calls = false;
                 for(int j = i+1, je = icode.size(); j < je; ++j) 
                     if(icode[j].code == END || icode[j].code == ENOD) {
@@ -995,6 +999,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         node_has_calls = true;
                         break;
                     }
+                if(node_has_calls)
+                    stage_node_ids.push_back(cur_node);
                 OUT << "/*\n";
                 OUT << " * node: " << cur_node << "\n";
                 OUT << " * has calls: " << node_has_calls << "\n";
@@ -1019,9 +1025,10 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 if(node_has_calls) 
                     OUT << "auto " << cur_node_name << "_ConP = " << cur_node_name << "_get_connector();\n";
                 if(async_enabled) {
-                    // Each node has a vector of response readers CARR_xxx and a vector of response pointers OUTP_xxxx
+                    // Each node has a vector of response readers, input message poiners and output message pointers
                     if(op.d1 != nullptr) {
                         OUT << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << get_full_name(op.d1) << ">>> " << L_CARR << ";\n";
+                        OUT << "std::vector<" << get_full_name(op.d2) << " *> " << L_INPTR << ";\n";
                         OUT << "std::vector<" << get_full_name(op.d1) << " *> " << L_OUTPTR <<  ";\n";
                     }
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
@@ -1087,9 +1094,11 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         // We use the (one based) index in the status/context vector as a tag for the call
                         OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
                         ++indent;
-                        OUT << "auto &RPCx = " << L_CARR << "[Ax-" << L_BEGIN << "];\n";
+                        OUT << "auto Rx = Ax-" << L_BEGIN  << ";\n";
+                        OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
+                        OUT << "RPCx = " << cur_node_name << "_prep(CID, " << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx], Trace_call);\n";
                         OUT << "RPCx->StartCall();\n";
-                        OUT << "RPCx->Finish(" << L_OUTPTR << "[Ax-" << L_BEGIN << "], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
+                        OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
                         OUT << "++" << L_SENT << ";\n";
                         --indent;
                         OUT << "}\n";
@@ -1202,13 +1211,14 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     ++indent;
                     OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n";
                     ++indent;
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect to: \" << "<< cur_node_name <<"_ConP->endpoint);";
+                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect to: \" << "<< cur_node_name <<"_ConP->endpoint);\n";
                     --indent;
                     OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
                     OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
                     OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
-                    OUT << L_CARR << ".emplace_back("
-                        << cur_node_name << "_prep(CID, " << cur_node_name << "_ConP, " << L_QUEUE << ", *"<< L_CONTEXT << ".back(), &" << cur_input_name <<", Trace_call));\n";
+                    OUT << L_INPTR << ".emplace_back(&" << cur_input_name << ");\n";
+                    OUT << L_CARR << ".emplace_back(nullptr);\n";
+//                        << cur_node_name << "_prep(CID, " << cur_node_name << "_ConP, " << L_QUEUE << ", *"<< L_CONTEXT << ".back(), &" << cur_input_name <<", Trace_call));\n";
                     --indent;
                     OUT << "} else {\n";
                     ++indent;

@@ -34,6 +34,7 @@
 
 #include <grpc++/grpc++.h>
 #include <grpc++/health_check_service_interface.h>
+#include <grpc++/resource_quota.h>
 #include <google/protobuf/util/json_util.h>
 
 #include <ares.h>
@@ -45,6 +46,9 @@ extern "C" {
 /**********************************************************************************************************
  * Hardcoded default values for certain configurable parameters
  */
+#ifndef DEFAULT_GRPC_THREADS
+#define DEFAULT_GRPC_THREADS 0
+#endif
 #ifndef DEFAULT_REST_THREADS
 #define DEFAULT_REST_THREADS 48
 #endif
@@ -163,7 +167,7 @@ static std::string log_abridge(google::protobuf::Message const &message, unsigne
     google::protobuf::util::MessageToJsonString(message, &json_reply, options);
     return log_abridge(json_reply, max_length);
 }
-inline std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
+inline static std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
     auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
     char const *unit = "s";
     if(td < 1.0) { td *= 1000; unit = "ms"; }
@@ -171,6 +175,16 @@ inline std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::
     if(td < 1.0) { td *= 1000; unit = "ns"; }
     if(td < 1.0) { td = 0; unit = ""; }
     return out << td << unit;
+}
+template <class FE>
+inline static std::ostream &operator << (std::ostream &out, std::set<FE> const &c) {
+    char const *sep = "";
+    out << "(";
+    for(auto const &e: c) {
+        out << sep << e;
+        sep = ", ";
+    }
+    out << ")";
 }
 class sfmt {
     std::ostringstream os;
@@ -258,18 +272,19 @@ static bool address_store_changed() {
 }
 static bool get_addresses(int &version, std::vector<std::string> &addresses, std::string const &endpoint) {
     std::lock_guard<std::mutex> guard(address_store_mutex);
-    if(version == last_changed_iteration) 
-        return false;
     auto asp = address_store.find(endpoint);
     if(asp == address_store.end()) {
+        FLOG << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO DATA\n";
         version = last_changed_iteration;
         return false;
     }
-    if(std::get<2>(asp->second) > version) {
-        version = last_changed_iteration;
-        for(auto const &ip: std::get<0>(asp->second))
-            addresses.push_back(ip);
+    if(std::get<2>(asp->second) <= version) {
+        FLOG << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO CHANGE\n";
+        return false;
     }
+    addresses.assign(std::get<0>(asp->second).begin(), std::get<0>(asp->second).end());
+    FLOG << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- " << addresses.size() << " ADDRESSES\n";
+    version = last_changed_iteration;
     return true;
 }
 static void state_cb(void *data, int s, int read, int write) {
@@ -302,9 +317,12 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
         if(addresses.find(ip) != addresses.end()) 
             already_in += 1;
         std::get<0>(asp->second).insert(ip);
+        //FLOG << "GOT ADDR for " << lookup << " " << ip << "\n";
     }
-    if(std::get<0>(asp->second).size() != already_in)
+    if(std::get<0>(asp->second).size() != already_in) {
         std::get<2>(asp->second) = last_changed_iteration = current_iteration;
+        FLOG << "ADDRESESS for " << lookup << " version=" << std::get<2>(asp->second) << ", " << std::get<0>(asp->second) << "\n";
+    }
 }
 static void wait_ares(ares_channel channel) {
     for(;;) {
@@ -336,21 +354,20 @@ static int keep_looking(std::set<std::string> const &endpoints, int interval_s, 
     options.sock_state_cb = state_cb;
     optmask |= ARES_OPT_SOCK_STATE_CB;
 
-    int status = ares_init_options(&channel1, &options, optmask);
-    if(status != ARES_SUCCESS) {
-        FLOG << "ares_init_options: " << ares_strerror(status) << "\n";
-        return 1;
-    }
-
     for(current_iteration = 1; loops == 0 || current_iteration <= loops; ++current_iteration) {
+        int status = ares_init_options(&channel1, &options, optmask);
+        if(status != ARES_SUCCESS) {
+            FLOG << "ares_init_options: " << ares_strerror(status) << "\n";
+            return 1;
+        }
         for(auto const &endpoint: endpoints) {
             char const *lookup_host = endpoint.c_str();
             ares_gethostbyname(channel1, lookup_host, AF_INET, callback, (void *) lookup_host);
         }
         wait_ares(channel1);
         sleep(interval_s);
+        ares_destroy(channel1);
     }
-    ares_destroy(channel1);
     FLOG << "ip watcher: finished.\n";
     return 0;
 }
@@ -425,7 +442,7 @@ public:
             std::string aep(address.find_first_of(':') == std::string::npos?
                     sfmt() << address << ":" << port:
                     sfmt() << "[" << address << "]:" << port);
-            FLOG << "creating " << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
+            FLOG << "creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
             stubs.push_back(CSERVICE::NewStub(channel));
             ++i;
@@ -436,7 +453,7 @@ public:
         std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(endpoint, ::grpc::InsecureChannelCredentials()));
         stubs.resize(maxcc);
         for(int i = 0; i < maxcc; ++i) {
-            FLOG << "creating " << label << " stub " << i << " -> " << endpoint << "\n";
+            FLOG << "creating @" << label << " stub " << i << " -> " << endpoint << "\n";
             stubs[i] = CSERVICE::NewStub(channel);
         }
         cc.store(0);
@@ -447,7 +464,7 @@ public:
     std::unique_ptr<Stub_t> &stub() {
         auto index = cc.fetch_add(1, std::memory_order_seq_cst);
         if(stubs.size() <= 1) return *stubs.begin();
-        FLOG << "using " << label << " stub " << index << " [" << (index %stubs.size()) << "]\n";
+        FLOG << "using @" << label << " stub[" << (index %stubs.size()) << "] for call #" << index << "\n";
         return *&stubs[index % stubs.size()];
     }
 };
@@ -518,6 +535,7 @@ public:
         if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
             std::vector<std::string> addresses;
             if(casd::get_addresses({{CLI_NODE_ID}}_nversion, addresses, {{CLI_NODE_ID}}_dname)) {
+                FLOG << "new @{{CLI_NODE_NAME}} connector to " << {{CLI_NODE_ID}}_dname << ": " << addresses.size() << " addresses\n"; 
                 std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ncp( 
                     new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, addresses));
                 std::swap({{CLI_NODE_ID}}_conp, ncp);
@@ -574,8 +592,6 @@ public:
         Call_Counter = 1;
         {I:CLI_NODE_ID{
         {{CLI_NODE_ID}}_dname = casd::name_from_endpoint(flowc::{{CLI_NODE_ID}}_endpoint);
-        if(flowc::{{CLI_NODE_ID}}_maxcc == 0 && !casd::is_hostname({{CLI_NODE_ID}}_dname))
-            flowc::{{CLI_NODE_ID}}_maxcc == 1;
         {{CLI_NODE_ID}}_nversion = 0;
         {{CLI_NODE_ID}}_conp = std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>>(new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, flowc::{{CLI_NODE_ID}}_maxcc));
         }I}
@@ -1054,6 +1070,7 @@ int main(int argc, char *argv[]) {
        std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_CARES_REFRESH= to the number of seconds between DNS lookups (" << DEFAULT_CARES_REFRESH << ")\n"; 
+       std::cout << "Set {{NAME_UPPERID}}_GRPC_THREADS= to change the number of REST worker threads (" << DEFAULT_GRPC_THREADS << ")\n";
        std::cout << "\n";
        return 1;
     }
@@ -1084,9 +1101,9 @@ int main(int argc, char *argv[]) {
             if(flowc::{{CLI_NODE_ID}}_maxcc == 0 && casd::is_hostname(casd::name_from_endpoint({{CLI_NODE_ID}}_epenv))) {
                 dnames.insert(casd::name_from_endpoint({{CLI_NODE_ID}}_epenv));
                 std::cerr << "auto";
-            } else if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
-                std::cerr << 1;
             } else {
+                if(flowc::{{CLI_NODE_ID}}_maxcc == 0) 
+                    flowc::{{CLI_NODE_ID}}_maxcc = 1;
                 std::cerr << flowc::{{CLI_NODE_ID}}_maxcc;
             }
             std::cerr << ", timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
@@ -1109,8 +1126,16 @@ int main(int argc, char *argv[]) {
          casd::keep_looking(dnames, cares_refresh, 0);
     });
 
+    int grpc_threads = (int) flowc::strtolong(std::getenv("{{NAME_UPPERID}}_GRPC_THREADS"), DEFAULT_GRPC_THREADS);
+
     int listening_port;
     grpc::ServerBuilder builder;
+    if(grpc_threads > 0) {
+        grpc::ResourceQuota grq("{{NAME_UPPERID}}");
+        grq.SetMaxThreads(grpc_threads);
+        builder.SetResourceQuota(grq);
+        std::cerr << "max gRPC threads: " << grpc_threads << "\n";
+    }
 
     {{NAME_ID}}_service service;
     bool enable_webapp = flowc::strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
