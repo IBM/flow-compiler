@@ -46,10 +46,13 @@ void static enum_as_strings(std::ostream &buf, ::google::protobuf::EnumDescripto
     }
 }
 
-void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, bool extended_format) {
-    buf << "\"type\":\"object\",";
+void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, bool extended_format, int indent, int level) {
+    std::string eos;
+    if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
 
+    buf << "\"type\":\"object\",";
     buf << "\"properties\":{";
+
     for(int f = 0, fc = dp->field_count(); f != fc; ++f) {
         FieldDescriptor const *fd = dp->field(f);
         std::string ftitle = decamelize(fd->name());
@@ -66,19 +69,23 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         }
 
         if(f > 0) buf << ",";
+        buf << eos; 
         buf << "\"" << fd->json_name() << "\":{";
 
-        if(is_repeated) {
-            buf << "\"type\":\"array\",\"title\":" << c_escape(ftitle) << ",";
-            if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << ",";
-            buf << "\"items\":{";
-            ftitle.clear(); fdescription.clear();
-        }
-        if(!ftitle.empty()) buf << "\"title\":" << c_escape(ftitle) << ",";
-        if(extended_format)
-            buf << "\"propertyOrder\":" << f << ",";
-        if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << ",";
+        ++level;
+        if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
 
+        buf << eos << "\"title\":" << c_escape(ftitle) << "," << eos;
+        if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << "," << eos;
+        if(extended_format)
+            buf << "\"propertyOrder\":" << f << "," << eos;
+
+        if(is_repeated) {
+            buf << "\"type\":\"array\"," << "\"items\":{";
+            ++level;
+            if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
+            buf << eos;
+        }
         switch(fd->type()) {
             case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
@@ -109,24 +116,35 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 buf << "]";
                 break; 
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
-                json_schema_buf(buf, fd->message_type(), extended_format);
+                json_schema_buf(buf, fd->message_type(), extended_format, indent, level+1);
                 break;
             default:
                 buf << "null";
                 break;
         }
-        if(is_repeated) buf << "}";
+        --level;
+        if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
+        if(is_repeated) {
+            buf << eos << "}"; 
+            --level;
+            if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
+        }
+        buf << eos;
         buf << "}";
     }
-    buf << "}";
+    --level;
+    if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
+    buf << eos << "}";
 }
 
-std::string json_schema(::google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, bool extended_format) {
+std::string json_schema(::google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, bool extended_format, bool pretty) {
     std::ostringstream buf;
     buf << "{";
+    if(pretty) buf << "\n";
     if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";
     if(!description.empty()) buf << "\"description\":" << c_escape(description) << ",";
-    json_schema_buf(buf, dp, extended_format);
+    json_schema_buf(buf, dp, extended_format, pretty? 4: 0, 1);
+    if(pretty) buf << "\n";
     buf << "}";
     return buf.str();
 }

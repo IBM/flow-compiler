@@ -1346,8 +1346,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             pcerr.AddError(main_file, -1, 0, "all entries must be methods of the same service");
         }
         sdp = mdp->service();
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
-        std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description);
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node), true, true);
+        std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
         append(vars, "ENTRY_UPPERID", to_upper(mdp->name()));
@@ -1420,8 +1420,8 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     auto mdp = method_descriptor(cli_node);
     append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
     append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-    std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node));
-    std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node));
+    std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, true);
+    std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node), true, true);
     append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
     append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
     append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
@@ -1460,8 +1460,8 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
         append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node));
-        std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node));
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, false);
+        std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node), true, false);
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
         append(vars, "CLI_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
