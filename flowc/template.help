@@ -45,8 +45,9 @@ OPTIONS
               By default coloring is enabled only when output is to a terminal.
 
        --default-client-calls=NUMBER
-              Number of concurent calls that can be ia synchronously made to a "gRPC" service. This value is 
-              used when replicas are not set for a given node.
+              Number of concurent calls that can be synchronously made to a "gRPC" service. This value is 
+              used when replicas are not set for a given node. Set to "0" to use "DNS" to find out the number
+              of available servers.
 
        --default-client-timeout=TIME
               Timeout, in secconds for "gRPC" calls made to any of the nodes. This value is used unless a 
