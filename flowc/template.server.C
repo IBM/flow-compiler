@@ -1070,7 +1070,7 @@ int main(int argc, char *argv[]) {
        std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_CARES_REFRESH= to the number of seconds between DNS lookups (" << DEFAULT_CARES_REFRESH << ")\n"; 
-       std::cout << "Set {{NAME_UPPERID}}_GRPC_THREADS= to change the number of REST worker threads (" << DEFAULT_GRPC_THREADS << ")\n";
+       std::cout << "Set {{NAME_UPPERID}}_GRPC_THREADS= to change the number of gRPC threads, 0 for  (" << DEFAULT_GRPC_THREADS << ")\n";
        std::cout << "\n";
        return 1;
     }

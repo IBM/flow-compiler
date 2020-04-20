@@ -4,9 +4,10 @@ USER worker
 RUN mkdir -p /home/worker/{{NAME}}/docs && mkdir -p /tmp/{{NAME}}/docs && mkdir -p /home/worker/{{NAME}}/www && mkdir -p /tmp/{{NAME}}/www 
 COPY --chown=worker:worker docs/{{MAIN_FILE}} {P:SERVER_XTRA_H{{{SERVER_XTRA_H}} }P} {P:SERVER_XTRA_C{{{SERVER_XTRA_C}} }P} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} /tmp/{{NAME}}/
 RUN cd /tmp/{{NAME}} && flowc --client --server {{MAIN_FILE}} --name {{NAME}} && make -j2 -f {{NAME}}.mak deploy && cd /tmp && rm -fr {{NAME}}
-ADD {{NAME}}-htdocs.tar.gz /home/worker/{{NAME}}
 
 WORKDIR /home/worker
+COPY --chown=worker:worker {{NAME}}-htdocs.tar.gz /home/worker/{{NAME}}
+RUN tar -xzvf {{NAME}}-htdocs.tar.gz && rm -f {{NAME}}-htdocs.tar.gz
 RUN tar -cf /home/worker/bin.tar {{NAME}}/*
 RUN mkdir -p /home/worker/lib && chown -R worker:worker /home/worker/lib
 RUN ldd /home/worker/{{NAME}}/{{NAME}}-server 2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
