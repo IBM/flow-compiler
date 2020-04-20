@@ -431,8 +431,12 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 
 template<class CSERVICE> class connector {
     typedef typename CSERVICE::Stub Stub_t;
-    std::vector<std::unique_ptr<Stub_t>> stubs;
+    typedef decltype(std::chrono::system_clock::now()) ts_t;
+    std::vector<std::tuple<int, ts_t, std::unique_ptr<Stub_t>>> stubs;
+    std::vector<int> activity_index;
     std::atomic<unsigned long> cc;
+    std::mutex allocator;
+    std::unique_ptr<Stub_t> empty;
 public:
     std::string label, endpoint;
     connector(std::string const &a_label, std::string const &a_endpoint, std::vector<std::string> const &addresses):label(a_label), endpoint(a_endpoint) {
@@ -444,7 +448,8 @@ public:
                     sfmt() << "[" << address << "]:" << port);
             FLOG << "creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
-            stubs.push_back(CSERVICE::NewStub(channel));
+            stubs.push_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel)));
+            activity_index.push_back(i);
             ++i;
         }
         cc.store(0);
@@ -452,20 +457,41 @@ public:
     connector(std::string const &a_label, std::string const &a_endpoint, int maxcc):label(a_label), endpoint(a_endpoint) {
         std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(endpoint, ::grpc::InsecureChannelCredentials()));
         stubs.resize(maxcc);
+        activity_index.resize(maxcc);
         for(int i = 0; i < maxcc; ++i) {
             FLOG << "creating @" << label << " stub " << i << " -> " << endpoint << "\n";
-            stubs[i] = CSERVICE::NewStub(channel);
+            stubs[i] = std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel));
+            activity_index[i] = i;
         }
         cc.store(0);
     }
     size_t count() const {
         return stubs.size();
     }
-    std::unique_ptr<Stub_t> &stub() {
+    std::unique_ptr<Stub_t> &stub(int &connection_number) {
         auto index = cc.fetch_add(1, std::memory_order_seq_cst);
-        if(stubs.size() <= 1) return *stubs.begin();
-        FLOG << "using @" << label << " stub[" << (index %stubs.size()) << "] for call #" << index << "\n";
-        return *&stubs[index % stubs.size()];
+        auto time_now = std::chrono::system_clock::now();
+        if(stubs.size() == 0) 
+            return empty;
+        std::lock_guard<std::mutex> guard(allocator);
+        std::sort(activity_index.begin(), activity_index.end(), [this](int const &x1, int const &x2) -> bool {
+            if(std::get<0>(stubs[x1]) != std::get<0>(stubs[x2]))
+                return std::get<0>(stubs[x1]) < std::get<0>(stubs[x2]);
+            return std::get<0>(stubs[x1]) < std::get<0>(stubs[x2]);
+        });
+        connection_number = activity_index[0]; 
+        FLOG << "using @" << label << " stub[" << connection_number << "] for call #" << index << ", active calls: " << std::get<0>(stubs[connection_number]) << "\n";
+        std::get<1>(stubs[connection_number]) = std::chrono::system_clock::now();
+        std::get<0>(stubs[connection_number]) += 1;
+        FLOG << "allocation @" << label << " " << stubs.size() << "[";
+        for(auto const &s: stubs) FLOG << " " << std::get<0>(s);
+        FLOG << "]\n";
+        return *&std::get<2>(stubs[connection_number]);
+    }
+    void finished(int connection_number) {
+        FLOG << "releasing @" << label << " stub[" << connection_number << "]\n";
+        std::lock_guard<std::mutex> guard(allocator);
+        std::get<0>(stubs[connection_number]) -= 1;
     }
 };
 
@@ -543,7 +569,7 @@ public:
         }
         return {{CLI_NODE_ID}}_conp;
     }
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
         Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
         FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
@@ -558,7 +584,7 @@ public:
         CTX.set_deadline(deadline);
         if(ConP->count() == 0) 
             return nullptr;
-        return ConP->stub()->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+        return ConP->stub(ConN)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
     }
     ::grpc::Status {{CLI_NODE_ID}}_call(long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
         Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
@@ -576,7 +602,9 @@ public:
         if(ConP->count() == 0) {
             L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to: " << ConP->endpoint);
         } else {
-            L_status = ConP->stub()->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
+            int ConN = -1;
+            L_status = ConP->stub(ConN)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
+            ConP->finished(ConN);
             GRPC_RECEIVED(flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         }
         if(!L_status.ok()) {
@@ -1070,7 +1098,7 @@ int main(int argc, char *argv[]) {
        std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_CARES_REFRESH= to the number of seconds between DNS lookups (" << DEFAULT_CARES_REFRESH << ")\n"; 
-       std::cout << "Set {{NAME_UPPERID}}_GRPC_THREADS= to change the number of gRPC threads, 0 for  (" << DEFAULT_GRPC_THREADS << ")\n";
+       std::cout << "Set {{NAME_UPPERID}}_GRPC_THREADS= to change the number of gRPC threads, leave 0 for no change (" << DEFAULT_GRPC_THREADS << ")\n";
        std::cout << "\n";
        return 1;
     }
