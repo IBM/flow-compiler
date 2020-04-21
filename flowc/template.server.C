@@ -133,6 +133,7 @@ std::string global_node_ID = std::getenv("{{NAME_UPPERID}}_NODE_ID") == nullptr?
 bool asynchronous_calls = strtobool(std::getenv("{{NAME_UPPERID}}_ASYNC"), true);
 bool trace_calls = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"), false);
 bool send_global_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), true);
+bool trace_connections = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_CONNECTIONS"), false);
 std::string global_start_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
 
 static std::string json_escape(std::string const &s) {
@@ -274,16 +275,16 @@ static bool get_addresses(int &version, std::vector<std::string> &addresses, std
     std::lock_guard<std::mutex> guard(address_store_mutex);
     auto asp = address_store.find(endpoint);
     if(asp == address_store.end()) {
-        FLOG << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO DATA\n";
+        FLOGC(flowc::trace_connections) << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO DATA\n";
         version = last_changed_iteration;
         return false;
     }
     if(std::get<2>(asp->second) <= version) {
-        FLOG << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO CHANGE\n";
+        FLOGC(flowc::trace_connections) << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO CHANGE\n";
         return false;
     }
     addresses.assign(std::get<0>(asp->second).begin(), std::get<0>(asp->second).end());
-    FLOG << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- " << addresses.size() << " ADDRESSES\n";
+    FLOGC(flowc::trace_connections) << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- " << addresses.size() << " ADDRESSES\n";
     version = last_changed_iteration;
     return true;
 }
@@ -446,7 +447,7 @@ public:
             std::string aep(address.find_first_of(':') == std::string::npos?
                     sfmt() << address << ":" << port:
                     sfmt() << "[" << address << "]:" << port);
-            FLOG << "creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
+            FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
             stubs.push_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel)));
             activity_index.push_back(i);
@@ -459,7 +460,7 @@ public:
         stubs.resize(maxcc);
         activity_index.resize(maxcc);
         for(int i = 0; i < maxcc; ++i) {
-            FLOG << "creating @" << label << " stub " << i << " -> " << endpoint << "\n";
+            FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << endpoint << "\n";
             stubs[i] = std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel));
             activity_index[i] = i;
         }
@@ -480,16 +481,18 @@ public:
             return std::get<0>(stubs[x1]) < std::get<0>(stubs[x2]);
         });
         connection_number = activity_index[0]; 
-        FLOG << "using @" << label << " stub[" << connection_number << "] for call #" << index << ", active calls: " << std::get<0>(stubs[connection_number]) << "\n";
+        FLOGC(flowc::trace_connections) << "using @" << label << " stub[" << connection_number << "] for call #" << index << ", active calls: " << std::get<0>(stubs[connection_number]) << "\n";
         std::get<1>(stubs[connection_number]) = std::chrono::system_clock::now();
         std::get<0>(stubs[connection_number]) += 1;
-        FLOG << "allocation @" << label << " " << stubs.size() << "[";
-        for(auto const &s: stubs) FLOG << " " << std::get<0>(s);
-        FLOG << "]\n";
+        if(flowc::trace_connections) {
+            FLOG << "allocation @" << label << " " << stubs.size() << "[";
+            for(auto const &s: stubs) FLOG << " " << std::get<0>(s);
+            FLOG << "]\n";
+        }
         return *&std::get<2>(stubs[connection_number]);
     }
     void finished(int connection_number) {
-        FLOG << "releasing @" << label << " stub[" << connection_number << "]\n";
+        FLOGC(flowc::trace_connections) << "releasing @" << label << " stub[" << connection_number << "]\n";
         std::lock_guard<std::mutex> guard(allocator);
         std::get<0>(stubs[connection_number]) -= 1;
     }
@@ -561,7 +564,7 @@ public:
         if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
             std::vector<std::string> addresses;
             if(casd::get_addresses({{CLI_NODE_ID}}_nversion, addresses, {{CLI_NODE_ID}}_dname)) {
-                FLOG << "new @{{CLI_NODE_NAME}} connector to " << {{CLI_NODE_ID}}_dname << ": " << addresses.size() << " addresses\n"; 
+                FLOGC(flowc::trace_connections) << "new @{{CLI_NODE_NAME}} connector to " << {{CLI_NODE_ID}}_dname << ": " << addresses.size() << " addresses\n"; 
                 std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ncp( 
                     new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, addresses));
                 std::swap({{CLI_NODE_ID}}_conp, ncp);
