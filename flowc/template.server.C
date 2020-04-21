@@ -485,9 +485,11 @@ public:
         std::get<1>(stubs[connection_number]) = std::chrono::system_clock::now();
         std::get<0>(stubs[connection_number]) += 1;
         if(flowc::trace_connections) {
-            FLOG << "allocation @" << label << " " << stubs.size() << "[";
-            for(auto const &s: stubs) FLOG << " " << std::get<0>(s);
-            FLOG << "]\n";
+            std::stringstream slog;
+            slog << "allocation @" << label << " " << stubs.size() << "[";
+            for(auto const &s: stubs) slog << " " << std::get<0>(s);
+            slog << "]\n";
+            FLOG << slog.str();
         }
         return *&std::get<2>(stubs[connection_number]);
     }
