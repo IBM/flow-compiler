@@ -449,8 +449,8 @@ public:
                     sfmt() << "[" << address << "]:" << port);
             FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
-            stubs.push_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel)));
-            activity_index.push_back(i);
+            stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel)));
+            activity_index.emplace_back(i);
             ++i;
         }
         cc.store(0);

@@ -11,7 +11,7 @@ RUN rpm --import /etc/yum.repos.d/centos7.gpg
 RUN yum -y install vim curl jq bc ssh unzip \
  git make autoconf automake pkgconfig libtool libtool-ltdl \
  openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
- gcc-c++ file graphviz \
+ gcc-c++ file graphviz libasan \
  && yum clean all -y
 
 ENV LANG en_US.UTF-8
