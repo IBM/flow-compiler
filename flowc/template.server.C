@@ -30,6 +30,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include <grpc++/grpc++.h>
@@ -57,6 +58,15 @@ extern "C" {
 #endif
 
 namespace flowc {
+static std::string get_system_time() {
+    timeval tv;
+    gettimeofday(&tv, 0);
+    struct tm *nowtm = localtime(&tv.tv_sec);
+    char tmbuf[64], buf[64];
+    strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
+    snprintf(buf, sizeof(buf), "%s.%03ld", tmbuf, tv.tv_usec/1000);
+    return buf;
+}
 inline static bool stringtobool(std::string const &s, bool default_value=false) {
     if(s.empty()) return default_value;
     std::string so(s.length(), ' ');
@@ -187,25 +197,20 @@ inline static std::ostream &operator << (std::ostream &out, std::set<FE> const &
     }
     out << ")";
 }
+struct callid {
+    long scid; int ccid;
+    callid(long s, int c=0):scid(s), ccid(c) {
+    }
+};
 class sfmt {
     std::ostringstream os;
 public:
     inline operator std::string() {
         return os.str();
     }
-    template <class T> sfmt &operator <<(T v) {
-        os << v; return *this;
-    }
+    template <class T> inline sfmt &operator <<(T v);
     sfmt &message(std::string const &message, long cid, int call, google::protobuf::Message const *msgp=nullptr) {
-        time_t rawtime;
-        struct tm *timeinfo;
-        time(&rawtime);
-        timeinfo = localtime(&rawtime);
-        auto timenow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        char cstr[128];
-        std::strftime(cstr, sizeof(cstr), "%a %F %T %Z (%z)", timeinfo);
-        os << cstr;
-        os << " [" << cid;
+        os << get_system_time() << " [" << cid;
         if(call >= 0) os << ":" << call;
         os << "] " << message;
         if(msgp != nullptr) os << "\n" <<  log_abridge(*msgp);
@@ -213,6 +218,20 @@ public:
         return *this;
     }
 };
+template <> sfmt&sfmt::operator <<(callid const c) {
+    os << '[' << c.scid;
+    if(c.ccid > 0) os << ':' << c.ccid;
+    os << ']';
+    return *this;
+}
+template <> sfmt&sfmt::operator <<(google::protobuf::Message const *msgp) {
+    os << log_abridge(*msgp);
+    return *this;
+}
+template <class T> sfmt &sfmt::operator <<(T v) {
+    os << v; return *this;
+}
+
 std::mutex global_display_mutex;
 class flog {
 public:
@@ -224,7 +243,8 @@ public:
     }
 };
 }
-#define FLOGC(c) if(c) flowc::flog() <<= flowc::sfmt()
+
+#define FLOGC(c) if(c) flowc::flog() <<= flowc::sfmt() << flowc::get_system_time() << " " 
 #define FLOG FLOGC(true)
 
 namespace casd {
@@ -275,16 +295,16 @@ static bool get_addresses(int &version, std::vector<std::string> &addresses, std
     std::lock_guard<std::mutex> guard(address_store_mutex);
     auto asp = address_store.find(endpoint);
     if(asp == address_store.end()) {
-        FLOGC(flowc::trace_connections) << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO DATA\n";
+        FLOGC(flowc::trace_connections) << " get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO DATA\n";
         version = last_changed_iteration;
         return false;
     }
     if(std::get<2>(asp->second) <= version) {
-        FLOGC(flowc::trace_connections) << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO CHANGE\n";
+        FLOGC(flowc::trace_connections) << " get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO CHANGE\n";
         return false;
     }
     addresses.assign(std::get<0>(asp->second).begin(), std::get<0>(asp->second).end());
-    FLOGC(flowc::trace_connections) << "get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- " << addresses.size() << " ADDRESSES\n";
+    FLOGC(flowc::trace_connections) << " get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- " << addresses.size() << " ADDRESSES\n";
     version = last_changed_iteration;
     return true;
 }
@@ -293,7 +313,7 @@ static void state_cb(void *data, int s, int read, int write) {
 }
 static void callback(void *arg, int status, int timeouts, struct hostent *host) {
     if(!host || status != ARES_SUCCESS){
-        FLOG << "Failed to lookup: " << ares_strerror(status) << "\n";
+        FLOG << "failed to lookup: " << ares_strerror(status) << "\n";
         return;
     }
     std::string lookup((char const *) arg);
@@ -393,7 +413,7 @@ static std::string grpc_error(long cid, int call, char const *message, grpc::Sta
     sfmt out;
     out.message(sfmt() << (message == nullptr? "": message) << "error " << status.error_code(), cid, call, reqp);
     out << "context info: " << context.debug_error_string() << "\n";
-    if(repp != nullptr) std::cerr << "the response was: " << log_abridge(*repp) << "\n";
+    if(repp != nullptr) out << "the response was: " << repp << "\n";
     return out;
 }
 
@@ -415,20 +435,15 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
            "\"started-u\":\"" << call_elapsed_time << "\""
            "}";
 }
-#define TRACECM(c, n, text, messagep) if(Trace_call && (c)) { flowc::print_message(flowc::sfmt().message(text, CID, n, messagep)); } 
-#define TRACE(c, text, messagep) TRACECM((c), -1, (text), (messagep)) 
-#define TRACEA(text, messagep) TRACECM(true, -1, (text), (messagep))
-#define TRACEC(n, text) TRACECM(true, (n), (text), nullptr)
-
-#define ERROR(text) {flowc::print_message(flowc::sfmt().message((text), CID, -1, nullptr)); } 
+#define ERROR(text) { FLOG << flowc::callid(CID) << (text) << "\n"; }
 
 #define GRPC_ERROR(n, text, status, context, reqp, repp) flowc::print_message(flowc::grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)));
 
 #define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    if(Trace_call) flowc::print_message(flowc::sfmt().message(\
-        flowc::sfmt() << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)", \
-        CID, -1, nullptr)); }
+    FLOGC(Trace_call) << flowc::callid(CID) << " time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name \
+    << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
+    }
 
 template<class CSERVICE> class connector {
     typedef typename CSERVICE::Stub Stub_t;
@@ -447,7 +462,7 @@ public:
             std::string aep(address.find_first_of(':') == std::string::npos?
                     sfmt() << address << ":" << port:
                     sfmt() << "[" << address << "]:" << port);
-            FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
+            FLOGC(flowc::trace_connections) << " creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
             stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel)));
             activity_index.emplace_back(i);
@@ -469,7 +484,7 @@ public:
     size_t count() const {
         return stubs.size();
     }
-    std::unique_ptr<Stub_t> &stub(int &connection_number) {
+    std::unique_ptr<Stub_t> &stub(int &connection_number, long scid, int ccid) {
         auto index = cc.fetch_add(1, std::memory_order_seq_cst);
         auto time_now = std::chrono::system_clock::now();
         if(stubs.size() == 0) 
@@ -481,20 +496,20 @@ public:
             return std::get<0>(stubs[x1]) < std::get<0>(stubs[x2]);
         });
         connection_number = activity_index[0]; 
-        FLOGC(flowc::trace_connections) << "using @" << label << " stub[" << connection_number << "] for call #" << index << ", active calls: " << std::get<0>(stubs[connection_number]) << "\n";
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " using @" << label << " stub[" << connection_number << "] for call #" << index << ", active calls: " << std::get<0>(stubs[connection_number]) << "\n";
         std::get<1>(stubs[connection_number]) = std::chrono::system_clock::now();
         std::get<0>(stubs[connection_number]) += 1;
         if(flowc::trace_connections) {
             std::stringstream slog;
-            slog << "allocation @" << label << " " << stubs.size() << "[";
+            slog << " allocation @" << label << " " << stubs.size() << "[";
             for(auto const &s: stubs) slog << " " << std::get<0>(s);
             slog << "]\n";
-            FLOG << slog.str();
+            FLOG << flowc::callid(scid, ccid) << slog.str();
         }
         return *&std::get<2>(stubs[connection_number]);
     }
-    void finished(int connection_number) {
-        FLOGC(flowc::trace_connections) << "releasing @" << label << " stub[" << connection_number << "]\n";
+    void finished(int connection_number, long scid, int ccid) {
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " releasing @" << label << " stub[" << connection_number << "]\n";
         std::lock_guard<std::mutex> guard(allocator);
         std::get<0>(stubs[connection_number]) -= 1;
     }
@@ -505,17 +520,17 @@ public:
 {I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
 }I}
 #ifndef GRPC_RECEIVED
-#define GRPC_RECEIVED(NODEID, STATUS, CONTEXT, RESPONSEPTR)
+#define GRPC_RECEIVED(ENTRY_NAME, NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, STATUS, CONTEXT, RESPONSE_PTR)
 #endif
 #ifndef GRPC_SENDING
-#define GRPC_SENDING(NODEID, CONTEXT, REQUESTPTR)
+#define GRPC_SENDING(ENTRY_NAME, NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, CONTEXT, REQUEST_PTR)
 #endif
 {I:ENTRY_NAME{
 #ifndef GRPC_LEAVE_{{ENTRY_NAME}}
-#define GRPC_LEAVE_{{ENTRY_NAME}}(STATUS, CONTEXT, RESPONSEPTR)
+#define GRPC_LEAVE_{{ENTRY_NAME}}(ENTRY_NAME, SERVER_CALL_ID, STATUS, CONTEXT, RESPONSE_PTR)
 #endif
 #ifndef GRPC_ENTER_{{ENTRY_NAME}}
-#define GRPC_ENTER_{{ENTRY_NAME}}(CONTEXT, REQUESTPTR)
+#define GRPC_ENTER_{{ENTRY_NAME}}(ENTRY_NAME, SERVER_CALL_ID, CONTEXT, REQUEST_PTR)
 #endif
 // http_code, return value. It must be set to the HTTP status code
 // http_message, return value. It must be set to the HTTP status messge
@@ -533,9 +548,6 @@ public:
 //
 // to use, define REST_CHECK_{{ENTRY_UPPERID}}_BEFORE and/or REST_CHECK_{{ENTRY_UPPERID}}_AFTER with the name of function
 }I}
-#ifndef SENT_CHECK
-#define SENT_CHECK(NODE_NAME, BEGIN, END, SENT)
-#endif
 
 class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
@@ -574,24 +586,25 @@ public:
         }
         return {{CLI_NODE_ID}}_conp;
     }
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, long CID, int CCid,
+            std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
         Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
-        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << CID << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
+        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << "[" << CID << ":" << CCid << "] {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
             CTX.AddMetadata("node-id", flowc::global_node_ID);
             CTX.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
-        GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
+        GRPC_SENDING("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
 
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
         CTX.set_deadline(deadline);
         if(ConP->count() == 0) 
             return nullptr;
-        return ConP->stub(ConN)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+        return ConP->stub(ConN, CID, CCid)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
     }
-    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
+    ::grpc::Status {{CLI_NODE_ID}}_call(long CID, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
         Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
         ::grpc::ClientContext L_context;
         auto const start_time = std::chrono::system_clock::now();
@@ -602,21 +615,21 @@ public:
             L_context.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
-        GRPC_SENDING({{CLI_NODE_UPPERID}}, CTX, A_inp)
+        GRPC_SENDING("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status;
         if(ConP->count() == 0) {
             L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to: " << ConP->endpoint);
         } else {
             int ConN = -1;
-            L_status = ConP->stub(ConN)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
-            ConP->finished(ConN);
-            GRPC_RECEIVED(flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
+            L_status = ConP->stub(ConN, CID, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
+            ConP->finished(ConN, CID, CCid);
+            GRPC_RECEIVED("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         }
         if(!L_status.ok()) {
             GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
         } else {
-            TRACE(true, "{{CLI_NODE_NAME}} request: ", A_inp);
-            TRACE(true, "{{CLI_NODE_NAME}} reply: ", A_outp);
+            FLOGC(Trace_call) << flowc::callid(CID, CCid) << " {{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
+            FLOGC(Trace_call) << flowc::callid(CID, CCid) << " {{CLI_NODE_NAME}} reply: " << flowc::log_abridge(*A_outp) << "\n";
         }
         return L_status;
     }}I}
