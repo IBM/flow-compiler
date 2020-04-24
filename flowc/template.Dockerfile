@@ -81,4 +81,4 @@ done\n\
 RUN ./install.sh /home/worker/{{NAME}}/{{NAME}}-server && ./install.sh /home/worker/{{NAME}}/{{NAME}}-client && rm -fr /home/worker/lib
 USER worker
 WORKDIR /home/worker/{{NAME}}
-ENV GRPC_POLL_STRATEGY "epoll,poll"
+ENV GRPC_POLL_STRATEGY "poll"
