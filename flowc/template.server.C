@@ -209,23 +209,11 @@ public:
         return os.str();
     }
     template <class T> inline sfmt &operator <<(T v);
-    sfmt &message(std::string const &message, long cid, int call, google::protobuf::Message const *msgp=nullptr) {
-        os << get_system_time() << " [" << cid;
-        if(call >= 0) os << ":" << call;
-        os << "] " << message;
-        if(msgp != nullptr) os << "\n" <<  log_abridge(*msgp);
-        os << "\n";
-        return *this;
-    }
 };
 template <> sfmt&sfmt::operator <<(callid const c) {
     os << '[' << c.scid;
     if(c.ccid > 0) os << ':' << c.ccid;
     os << ']';
-    return *this;
-}
-template <> sfmt&sfmt::operator <<(google::protobuf::Message const *msgp) {
-    os << log_abridge(*msgp);
     return *this;
 }
 template <class T> sfmt &sfmt::operator <<(T v) {
@@ -404,19 +392,6 @@ static bool get_metadata_bool(C mm, std::string const &key, bool default_value=f
     if(vp == mm.end()) return default_value;
     return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
 }
-static void print_message(std::string const &message) {
-    global_display_mutex.lock();
-    std::cerr << message << std::flush;
-    global_display_mutex.unlock();
-}
-static std::string grpc_error(long cid, int call, char const *message, grpc::Status &status, grpc::ClientContext &context, google::protobuf::Message const *reqp=nullptr, google::protobuf::Message const *repp=nullptr) {
-    sfmt out;
-    out.message(sfmt() << (message == nullptr? "": message) << "error " << status.error_code(), cid, call, reqp);
-    out << "context info: " << context.debug_error_string() << "\n";
-    if(repp != nullptr) out << "the response was: " << repp << "\n";
-    return out;
-}
-
 #define TIME_INFO_BEGIN(enabled)  std::stringstream Time_info; if(enabled) Time_info << "[";
 #define TIME_INFO_GET(enabled)    ((Time_info << "]"), Time_info.str())
 #define TIME_INFO_END(enabled)
@@ -435,11 +410,10 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
            "\"started-u\":\"" << call_elapsed_time << "\""
            "}";
 }
-#define ERROR(text) { FLOG << flowc::callid(CID) << (text) << "\n"; }
 
-#define GRPC_ERROR(n, text, status, context, reqp, repp) flowc::print_message(flowc::grpc_error(CID, (n), (text), (status), (context), (reqp), (repp)));
+#define GRPC_ERROR(cid, ccid, text, status, context) FLOG << flowc::callid(cid, ccid) << (text) << "grpc error: " << (status).error_code() << " context: " << (context).debug_error_string() << "\n";
 
-#define PTIME2(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
+#define PRINT_TIME(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
     FLOGC(Trace_call) << flowc::callid(CID) << " time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name \
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
@@ -625,10 +599,10 @@ public:
             ConP->finished(ConN, CID, CCid);
             GRPC_RECEIVED("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         }
+        FLOGC(Trace_call) << flowc::callid(CID, CCid) << " {{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
         if(!L_status.ok()) {
-            GRPC_ERROR(-1, "{{CLI_NODE_NAME}}", L_status, L_context, A_inp, nullptr);
+            GRPC_ERROR(CID, CCid, "{{CLI_NODE_NAME}} ", L_status, L_context);
         } else {
-            FLOGC(Trace_call) << flowc::callid(CID, CCid) << " {{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
             FLOGC(Trace_call) << flowc::callid(CID, CCid) << " {{CLI_NODE_NAME}} reply: " << flowc::log_abridge(*A_outp) << "\n";
         }
         return L_status;
@@ -890,15 +864,6 @@ static bool is_protobuf(char const *content_type) {
 {I:ENTRY_NAME{
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
     std::string xtra_headers;
-    if(flowc::send_global_ID) {
-        xtra_headers += "X-Flow-Node-Id: ";
-        xtra_headers += flowc::global_node_ID;
-        xtra_headers += "\r\n";
-
-        xtra_headers += "X-Flow-Start-Time: ";
-        xtra_headers += flowc::global_start_time;
-        xtra_headers += "\r\n";
-    }
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
@@ -913,12 +878,12 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     char const *trace_header = mg_get_header(A_conn, "x-flow-trace-call");
     bool trace_call = flowc::strtobool(trace_header, flowc::trace_calls);
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
+    FLOG << "rest-entry: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
         << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
 
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOG << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
+    FLOGC(trace_call) << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -951,7 +916,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
         std::string header(mde.first.data(), mde.first.length());
         if(header == "times-bin") 
-            header = "x-flow-call-times";
+            header = "X-Flow-Call-Times";
         else 
             header = std::string("X-Flow-") + header;
         xtra_headers += header;
@@ -990,10 +955,10 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     auto trace_header = mg_get_header(A_conn, "x-flow-trace-call");
     bool trace_call = flowc::strtobool(trace_header, flowc::trace_calls);
 
-    FLOG << "rest: " << mg_get_request_info(A_conn)->local_uri << "\n" << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
+    FLOG << "rest-node: " << mg_get_request_info(A_conn)->local_uri << "\n" << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOG << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
+    FLOGC(trace_call) << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -1006,16 +971,15 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     auto const &metadata = L_context.GetServerTrailingMetadata();
     std::string xtra_headers;
-    auto tmp = metadata.find("node-id");
-    if(tmp != metadata.end()) {
-        xtra_headers += "X-Flow-Node-ID: ";
-        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
-        xtra_headers += "\r\n";
-    }
-    tmp = metadata.find("start-time");
-    if(tmp != metadata.end()) {
-        xtra_headers +="X-Flow-Start-Time: ";
-        xtra_headers += std::string((tmp->second).data(), (tmp->second).length());
+    for(auto const &mde: L_context.GetServerTrailingMetadata()) {
+        std::string header(mde.first.data(), mde.first.length());
+        if(header == "times-bin") 
+            header = "X-Flow-Call-Times";
+        else 
+            header = std::string("X-Flow-") + header;
+        xtra_headers += header;
+        xtra_headers += ": ";
+        xtra_headers += std::string(mde.second.data(), mde.second.length());
         xtra_headers += "\r\n";
     }
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);

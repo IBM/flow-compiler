@@ -861,9 +861,9 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "\n"; 
                 break;
             case END:
-                OUT << "PTIME2(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
+                OUT << "PRINT_TIME(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
                 OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", TIME_INFO_GET(Time_call)); \n";
-                OUT << "if(flowc::send_global_ID) { CTX->AddTrailingMetadata(\"node-id\", flowc::global_node_ID); CTX->AddTrailingMetadata(\"start-time\", flowc::global_start_time); }\n";
+                OUT << "if(flowc::send_global_ID || Trace_call) { CTX->AddTrailingMetadata(\"node-id\", flowc::global_node_ID); CTX->AddTrailingMetadata(\"start-time\", flowc::global_start_time);  CTX->AddTrailingMetadata(\"call-id\", std::to_string(CID));  }\n";
                 OUT << "GRPC_LEAVE_" << entry_name << "(\"" << entry_dot_name << "\", CID, L_status, *CTX, &" << output_name << ")\n"; 
                 OUT << "TIME_INFO_END(Time_call);\n";
                 OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \" leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
@@ -910,7 +910,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     ++indent;
                     OUT << "if(CTX->IsCancelled()) {\n";
                     ++indent;
-                    OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\");\n";
+                    OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                     OUT << L_QUEUE << ".Shutdown();\n";
                     OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                     --indent;
@@ -955,7 +955,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
 
                         OUT << "if(!LL_Status.ok()) {\n";
                         ++indent;
-                        OUT << "GRPC_ERROR(NRX, \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") " << nn << "\", LL_Status, LL_Ctx, nullptr, nullptr);\n";
+                        OUT << "GRPC_ERROR(CID, NRX, \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") " << nn << "\", LL_Status, LL_Ctx);\n";
                         OUT << L_QUEUE << ".Shutdown();\n";
                         OUT << "return LL_Status;\n";
                         --indent;
@@ -975,7 +975,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     --indent;
                     OUT << "} else {\n";
                     ++indent;
-                    OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): Next() not OK\");\n";
+                    OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): Next() not OK\\n\";\n";
                     OUT << L_QUEUE << ".Shutdown();\n";
                     OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline\");\n";
                     --indent;
@@ -986,7 +986,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "}\n";
                 }
                 OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
-                OUT << "PTIME2(\"" << entry_dot_name << "\", "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
+                OUT << "PRINT_TIME(\"" << entry_dot_name << "\", "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
                 OUT << "\n";
                 async_enabled = false;
                 break;
@@ -1237,7 +1237,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 }
                 OUT << "if(CTX->IsCancelled()) {\n";
                 ++indent;
-                OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\");\n";
+                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                 --indent;
                 OUT << "}\n";
@@ -1250,7 +1250,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
 
             case ERR:
-                OUT << "ERROR(\"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\");\n";
+                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, " << c_escape(op.arg1) << ");\n";
                 break;
 
