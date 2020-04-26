@@ -808,7 +808,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     //std::cerr << "----- before build bins: " << error_count << "\n";
     if(error_count == 0 && (contains(targets, "build-server") || contains(targets, "build-client"))) {
-        std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile << " ";
+        std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile << (orchestrator_debug_image? " DBG=yes": "") << " ";
         if(contains(targets, "build-server") && contains(targets, "build-client")) 
             makec += "-j2 all";
         else if(contains(targets, "build-server"))

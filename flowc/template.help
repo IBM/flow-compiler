@@ -67,7 +67,7 @@ OPTIONS
        --dockerfile
               Generate a "dockerfile" for the aggregator image
 
-       --debug-image -D
+       --debug-image, -D
               Generate debug image
 
        --entry=NAME, -e NAME
