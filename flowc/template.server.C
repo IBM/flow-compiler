@@ -75,6 +75,31 @@ inline static std::ostream &operator << (std::ostream &out, std::set<FE> const &
     }
     out << ")";
 }
+template <class FE>
+inline static std::ostream &operator << (std::ostream &out, std::vector<FE> const &c) {
+    char const *sep = "";
+    out << "[";
+    for(auto const &e: c) {
+        out << sep << e;
+        sep = ", ";
+    }
+    out << "]";
+}
+template <class F, class E>
+inline static std::ostream &operator << (std::ostream &out, std::pair<F, E> const &c) {
+    char const *sep = "";
+    out << "(" << c.first << ", " << c.second << ")";
+}
+template <class F, class E>
+inline static std::ostream &operator << (std::ostream &out, std::map<F,E> const &c) {
+    char const *sep = "";
+    out << "{";
+    for(auto const &e: c) {
+        out << sep << e.first << ": "<< e.second;
+        sep = ", ";
+    }
+    out << "}";
+}
 
 namespace flowc {
 inline static
@@ -237,7 +262,7 @@ public:
 template <> sfmt&sfmt::operator <<(callid const c) {
     os << '[' << c.scid;
     if(c.ccid > 0) os << ':' << c.ccid;
-    os << ']';
+    os << "] ";
     return *this;
 }
 template <class T> sfmt &sfmt::operator <<(T v) {
@@ -323,14 +348,15 @@ static bool get_addresses(int &version, std::vector<std::string> &addresses, siz
     return true;
 }
 static void state_cb(void *data, int s, int read, int write) {
-    //FLOG << "Change state fd: " << s << " read " << read << " write " << write << "\n";
+    //FLOG << "change state fd: " << s << " read " << read << " write " << write << "\n";
 }
 static void callback(void *arg, int status, int timeouts, struct hostent *host) {
+    std::string lookup((char const *) arg);
     if(!host || status != ARES_SUCCESS){
-        FLOG << "failed to lookup: " << ares_strerror(status) << "\n";
+        FLOG << "failed to lookup " << lookup << ": " << ares_strerror(status) << "\n";
         return;
     }
-    std::string lookup((char const *) arg);
+    //FLOG << "got stuff for: " << lookup << "\n";
 
     std::lock_guard<std::mutex> guard(address_store_mutex);
     auto asp = address_store.find(lookup);
@@ -343,7 +369,6 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
     }
 
     std::set<std::string> &current_set = std::get<0>(asp->second);
-    size_t current_size = current_set.size();
 
     std::set<std::string> addresses;
     char ip[INET6_ADDRSTRLEN];
@@ -351,6 +376,7 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
 
     for(int i = 0; host->h_addr_list[i]; ++i) {
         ares_inet_ntop(host->h_addrtype, host->h_addr_list[i], ip, sizeof(ip));
+        //FLOG << "got this: " << ip << "\n";
         if(current_set.find(ip) != current_set.end()) 
             already_in += 1;
         if(flowc::accumulate_addresses)
@@ -358,11 +384,13 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
         else
             addresses.insert(ip);
     }
-    if(current_size != already_in) {
+    size_t new_size = flowc::accumulate_addresses? current_set.size(): addresses.size();
+    //FLOG << "in the end: already-in: " << already_in << " current-set " <<current_set <<", addresses: " << addresses  << " accumulate " << flowc::accumulate_addresses << "new size: " << new_size << "\n";
+    if(new_size != already_in) {
         std::get<2>(asp->second) = last_changed_iteration = current_iteration;
-        FLOG << "ADDRESESS for " << lookup << " version=" << std::get<2>(asp->second) << ", " << std::get<0>(asp->second) << "\n";
         if(!flowc::accumulate_addresses)
             std::swap(addresses, current_set);
+        FLOG << "ADDRESESS for " << lookup << " version=" << std::get<2>(asp->second) << ", " << std::get<0>(asp->second) << "\n";
     }
 }
 static void wait_ares(ares_channel channel) {
@@ -386,6 +414,7 @@ static int keep_looking(std::set<std::string> const &endpoints, int interval_s, 
         FLOG << "ip watcher: no endpoint names to look up, leaving.\n";
         return 0;
     }
+    FLOGC(flowc::trace_connections) "ip watcher: every " << interval_s << "s lookig for " << endpoints << "\n";
 
     ares_channel channel1;
     struct ares_options options;
@@ -443,7 +472,7 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
            "}";
 }
 
-#define GRPC_ERROR(cid, ccid, text, status, context) FLOG << flowc::callid(cid, ccid) << (text) << "grpc error: " << (status).error_code() << " context: " << (context).debug_error_string() << "\n";
+#define GRPC_ERROR(cid, ccid, text, status, context) FLOG << flowc::callid(cid, ccid) << (text) << " grpc error: " << (status).error_code() << " context: " << (context).debug_error_string() << "\n";
 
 #define PRINT_TIME(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
@@ -468,9 +497,10 @@ public:
             std::set<std::string> const &f_endpoints, std::set<std::string> const &d_endpoints, 
             std::map<std::string, std::vector<std::string>> const &a_addresses): 
         label(a_label), addresses(a_addresses) {
+        //FLOG << "connector for @" << a_label << " fixed: " << f_endpoints << " dynamic: " << d_endpoints  << " addresses: " << a_addresses << "\n";
         int i = 0;
         for(auto const &aep: f_endpoints) {
-            FLOGC(flowc::trace_connections) << " creating @" << label << " stub " << i << " -> " << aep << "\n";
+            FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << aep << "\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
             stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel), aep, std::string()));
             activity_index.emplace_back(i);
@@ -482,16 +512,15 @@ public:
                 FLOG << "skipping invalid endpoint for @" << label << "(" <<aep << ") missing port value\n"; 
                 continue;
             }
-            auto addrp = addresses.find(aep.substr(pp));
+            auto addrp = addresses.find(aep.substr(0, pp));
             if(addrp == addresses.end()) {
                 FLOG << "skipping endpoint for @" << label << "(" <<aep << ") no addresses available\n"; 
-            }
-            for(auto const &ipaddr: addrp->second) {
+            } else for(auto const &ipaddr: addrp->second) {
                 std::string ipep(ipaddr.find_first_of(':') == std::string::npos?
                     sfmt() << ipaddr << aep.substr(pp):
                     sfmt() << "[" << ipaddr << "]" << aep.substr(pp));
                 std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(ipep, ::grpc::InsecureChannelCredentials()));
-                FLOGC(flowc::trace_connections) << " creating @" << label << " stub " << i << " -> " << aep << " (" << ipaddr << ")\n";
+                FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << aep << " (" << ipaddr << ")\n";
                 stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel), aep, ipaddr));
                 activity_index.emplace_back(i);
                 ++i;
@@ -519,7 +548,7 @@ public:
         });
         connection_number = activity_index[0]; 
         auto &stubt = stubs[connection_number];
-        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " using @" << label << " stub[" << connection_number << "] for call #" << index 
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "using @" << label << " stub[" << connection_number << "] for call #" << index 
             << ", to: " << std::get<3>(stubt) << (std::get<4>(stubt).empty() ? "": "(") << std::get<4>(stubt).empty() << (std::get<4>(stubt).empty() ? "": ")")
             << ", active: " << std::get<0>(stubt) 
             << "\n";
@@ -527,7 +556,7 @@ public:
         std::get<0>(stubt) += 1;
         if(flowc::trace_connections) {
             std::stringstream slog;
-            slog << " allocation @" << label << " " << stubs.size() << "[";
+            slog << "allocation @" << label << " " << stubs.size() << "[";
             for(auto const &s: stubs) slog << " " << std::get<0>(s);
             slog << "]\n";
             FLOG << flowc::callid(scid, ccid) << slog.str();
@@ -537,12 +566,12 @@ public:
     void finished(int connection_number, long scid, int ccid, bool in_error) {
         if(connection_number < 0)
             return;
-        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " releasing @" << label << " stub[" << connection_number << "]\n";
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "releasing @" << label << " stub[" << connection_number << "]\n";
         std::lock_guard<std::mutex> guard(allocator);
         auto &stubt = stubs[connection_number];
         std::get<0>(stubt) -= 1;
         if(in_error && flowc::accumulate_addresses && !std::get<4>(stubt).empty()) {
-            FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " dropping @" << label << " stub[" << connection_number << "] to: " 
+            FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "dropping @" << label << " stub[" << connection_number << "] to: " 
                 << std::get<3>(stubt) << (std::get<4>(stubt).empty() ? "": "(") << std::get<4>(stubt).empty() << (std::get<4>(stubt).empty() ? "": ")")
                 << "\n";
             // Mark with a very high count so it won't be allocated anymore
@@ -610,14 +639,15 @@ public:
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_conp;
 
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_get_connector() {
-        if(flowc::{{CLI_NODE_ID}}_dendpoints.size() == 0) 
+        if(flowc::{{CLI_NODE_ID}}_dendpoints.size() == 0) {
             return {{CLI_NODE_ID}}_conp;
+        }
         std::lock_guard<std::mutex> guard({{CLI_NODE_ID}}_conm);
-
 
         auto final_version = {{CLI_NODE_ID}}_nversion;
         size_t address_count = 0;
         std::map<std::string, std::vector<std::string>> addresses = {{CLI_NODE_ID}}_conp->addresses;
+        //FLOG << "begin getting addresses for "<< flowc::{{CLI_NODE_ID}}_dnames <<" cur version: " << {{CLI_NODE_ID}}_nversion << " cur set: " << addresses << "\n";
         bool changed = false;
         for(auto const &dname: flowc::{{CLI_NODE_ID}}_dnames) {
             auto nversion = {{CLI_NODE_ID}}_nversion;
@@ -626,8 +656,10 @@ public:
                 changed = true;
                 if(nversion > final_version)  final_version = nversion;
                 address_count += count;
+                //FLOG << "found for  " << dname << " " << addresses[dname] << "\n";
             } else {
                 address_count += addresses.find(dname)->second.size();
+                //FLOG << "not changed for : " << dname << "\n";
             }
         }
         if(changed) {
@@ -1198,7 +1230,7 @@ int main(int argc, char *argv[]) {
         char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
         eplist.resize(0);
 
-        if({{CLI_NODE_ID}}_epenv == nullptr || flowc::split(eplist, {{CLI_NODE_ID}}_epenv, ",") == 0) {
+        if({{CLI_NODE_ID}}_epenv == nullptr || flowc::split(eplist, {{CLI_NODE_ID}}_epenv, ", ") == 0) {
             std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
             ++error_count;
         } else for(auto const &endpoint: eplist) {
@@ -1233,6 +1265,7 @@ int main(int argc, char *argv[]) {
     }
     int cares_refresh = (int) flowc::strtolong(std::getenv("{{NAME_UPPERID}}_CARES_REFRESH"), DEFAULT_CARES_REFRESH);
     // Start c-ares thread
+    std::cerr << "lookup thread: every " << cares_refresh << "s, lookig for " << dnames << "\n";
     std::thread cares_thread([&dnames, cares_refresh]{
          casd::keep_looking(dnames, cares_refresh, 0);
     });
