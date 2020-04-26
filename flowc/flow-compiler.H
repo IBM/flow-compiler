@@ -113,6 +113,7 @@ private:
     // Orchestrator image name and tag
     std::string orchestrator_image;
     std::string orchestrator_tag;
+    bool orchestrator_debug_image;
     std::string main_name;
     // Main description, gleaned from comments
     std::string main_description;

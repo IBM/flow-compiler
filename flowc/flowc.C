@@ -292,7 +292,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string client_bin = orchestrator_name + "-client";
     std::string client_source = output_filename(client_bin + ".C");
     std::string orchestrator_makefile = orchestrator_name + ".mak";
-    std::string orchestrator_dockerfile = orchestrator_name + ".Dockerfile";
 
     error_count += parse();
     //if(opts.have("print-ast")) 
@@ -360,6 +359,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     orchestrator_tag = opts.opt("image-tag", "1");
     orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
+    orchestrator_debug_image = opts.optb("debug-image", false);
 
     set(global_vars, "IMAGE_TAG", orchestrator_tag);
 
@@ -389,10 +389,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
 
     /********************************************************************
-     * All files are compiled at this pont so,
-     * set all as many of values that control code generation as possible
+     * All files are compiled at this ponit so,
+     * set as many of values that control code generation as possible
      */
-    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
+    if(contains(targets, "kubernetes") || contains(targets, "docker-compose") || contains(targets, "docker-swarm")) {
         for(auto const &nc: named_blocks) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
     }
@@ -454,7 +454,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(global_vars, "HAVE_NODES", ""); 
 
     // Grab all the image names, image ports and volume names 
-    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
+    if(contains(targets, "kubernetes") || contains(targets, "docker-compose") || contains(targets, "docker-swarm")) {
         // Make a first pass to collect the declared ports and groups
         for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
@@ -775,11 +775,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     //std::cerr << "----- before dockerfile: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "dockerfile")) {
-        std::string fn = output_filename(orchestrator_dockerfile);
+        std::string fn = output_filename(orchestrator_name+".Dockerfile");
         std::ofstream outf(fn.c_str());
         if(!outf.is_open()) {
             ++error_count;
-            pcerr.AddError(orchestrator_dockerfile, -1, 0, "failed to write docker file");
+            pcerr.AddError(fn, -1, 0, "failed to write dockerfile");
         } else {
             extern std::map<std::string, char const *> template_runtime_Dockerfile;
             char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
@@ -787,11 +787,20 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             extern char const *template_Dockerfile;
             render_varsub(outf, template_Dockerfile, global_vars);
         }
+        std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
+        std::ofstream outf2(fn2.c_str());
+        if(!outf2.is_open()) {
+            ++error_count;
+            pcerr.AddError(fn2, -1, 0, "failed to write slim dockerfile");
+        } else {
+            extern char const *template_slim_Dockerfile;
+            render_varsub(outf2, template_slim_Dockerfile, global_vars);
+        }
     }
     //std::cerr << "----- before build image: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
-            << " DOCKERFILE=" << orchestrator_dockerfile << " image";
+             << (orchestrator_debug_image? " DBG=yes": "") << " image";
         if(system(makec.c_str()) != 0) {
             pcerr.AddError(main_file, -1, 0, "failed to build docker image");
             ++error_count;
@@ -836,6 +845,32 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
+    //std::cerr << "----- before swarm: " << error_count << "\n";
+    if(error_count == 0 && contains(targets, "docker-swarm")) {
+        std::map<std::string, std::vector<std::string>> local_vars;
+        std::ostringstream buff;
+        error_count += genc_composer(buff, local_vars);
+        set(local_vars, "DOCKER_SWARM_YAML",  buff.str());
+        extern char const *rr_keys_sh;
+        set(local_vars, "RR_KEYS_SH", rr_keys_sh);
+        extern char const *rr_get_sh;
+        buff.str("");
+        render_varsub(buff, rr_get_sh, local_vars);
+        set(local_vars, "RR_GET_SH",  buff.str());
+
+        std::string outputfn = output_filename(orchestrator_name + "-ds.sh");
+        if(error_count == 0) {
+            std::ofstream outs(outputfn.c_str());
+            if(!outs.is_open()) {
+                ++error_count;
+                pcerr.AddError(outputfn, -1, 0, "failed to write Docker Swarm driver");
+            } else {
+                error_count += genc_composer_driver(outs, local_vars);
+            }
+        }
+        if(error_count == 0) chmodx(outputfn);
+    }
+    //std::cerr << "----- before graph files: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "graph-files")) {
         for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
             // Copy the entry name into a writable string because check_entry might overwrite it
@@ -944,6 +979,7 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"build-image",       {"server", "client", "dockerfile"}},
     {"makefile",          {}},
     {"docker-compose",    {}},
+    {"docker-swarm",      {}},
     {"kubernetes",        {}},
     {"protobuf-files",    {}},
     {"www-files",         {"docs"}},

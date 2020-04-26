@@ -61,8 +61,14 @@ OPTIONS
        --docker-compose, -d
               Generate a "Docker Compose" driver tool for managing the application
 
-       --dockerfile, -D
+       --docker-swarm, -S
+              Generate a "Docker Swarm" configuratin generator tool
+
+       --dockerfile
               Generate a "dockerfile" for the aggregator image
+
+       --debug-image -D
+              Generate debug image
 
        --entry=NAME, -e NAME
               Generate code for this entry only. Can be repeated. By default code is genrated for all entries

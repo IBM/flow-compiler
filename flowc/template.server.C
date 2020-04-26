@@ -56,8 +56,33 @@ extern "C" {
 #ifndef DEFAULT_CARES_REFRESH
 #define DEFAULT_CARES_REFRESH 30
 #endif
+inline static std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
+    auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
+    char const *unit = "s";
+    if(td < 1.0) { td *= 1000; unit = "ms"; }
+    if(td < 1.0) { td *= 1000; unit = "us"; }
+    if(td < 1.0) { td *= 1000; unit = "ns"; }
+    if(td < 1.0) { td = 0; unit = ""; }
+    return out << td << unit;
+}
+template <class FE>
+inline static std::ostream &operator << (std::ostream &out, std::set<FE> const &c) {
+    char const *sep = "";
+    out << "(";
+    for(auto const &e: c) {
+        out << sep << e;
+        sep = ", ";
+    }
+    out << ")";
+}
 
 namespace flowc {
+inline static
+std::string to_lower(std::string const &s) {
+    std::string u(s);
+    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    return u;
+}
 static std::string get_system_time() {
     timeval tv;
     gettimeofday(&tv, 0);
@@ -94,6 +119,21 @@ inline static long strtolong(char const *s, long default_value=0) {
 }
 inline static long stringtolong(std::string const &s, long default_value=0) {
     return strtolong(s.c_str(), default_value);
+}
+static std::string strip(std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
+    auto b = str.find_first_not_of(strip_chars);
+    if(b == std::string::npos) b = 0;
+    auto e = str.find_last_not_of(strip_chars);
+    if(e == std::string::npos) return "";
+    return str.substr(b, e-b+1);
+}
+static size_t split(std::vector<std::string> &buf, std::string const &str, std::string const &separators) {
+    for(auto b = str.find_first_not_of(separators), e = (b == std::string::npos? b: str.find_first_of(separators, b));
+        b != std::string::npos; 
+        b = (e == std::string::npos? e: str.find_first_not_of(separators, e)),
+        e = (b == std::string::npos? b: str.find_first_of(separators, b))) 
+        buf.push_back(e == std::string::npos? str.substr(b): str.substr(b, e-b));
+    return buf.size();
 }
 #if defined(OSSP_UUID) || defined(NO_UUID)
 #include <uuid.h>
@@ -134,8 +174,10 @@ enum Nodes_Enum {
 };
 
 {I:CLI_NODE_UPPERID{bool trace_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_{{CLI_NODE_UPPERID}}"), false);
-bool reconnect_{{CLI_NODE_ID}} = strtobool(std::getenv("{{NAME_UPPERID}}_RECONNECT_{{CLI_NODE_UPPERID}}"), false);
-std::string {{CLI_NODE_ID}}_endpoint = "";
+std::set<std::string> {{CLI_NODE_ID}}_endpoints;
+std::set<std::string> {{CLI_NODE_ID}}_fendpoints;
+std::set<std::string> {{CLI_NODE_ID}}_dendpoints;
+std::set<std::string> {{CLI_NODE_ID}}_dnames;
 int {{CLI_NODE_ID}}_maxcc = (int) strtolong(std::getenv("{{CLI_NODE_UPPERID}}_MAXCC"), {{CLI_NODE_MAX_CONCURRENT_CALLS}});
 long {{CLI_NODE_ID}}_timeout = strtolong(std::getenv("{{CLI_NODE_UPPERID}}_TIMEOUT"), {{CLI_NODE_TIMEOUT:3600000}});
 }I}
@@ -145,6 +187,7 @@ bool trace_calls = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE"), false);
 bool send_global_ID = strtobool(std::getenv("{{NAME_UPPERID}}_SEND_ID"), true);
 bool trace_connections = strtobool(std::getenv("{{NAME_UPPERID}}_TRACE_CONNECTIONS"), false);
 std::string global_start_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
+bool accumulate_addresses = strtobool(std::getenv("{{NAME_UPPERID}}_CARES_ACCUMULATE"), false);
 
 static std::string json_escape(std::string const &s) {
     std::string r;
@@ -177,25 +220,6 @@ static std::string log_abridge(google::protobuf::Message const &message, unsigne
     std::string json_reply;
     google::protobuf::util::MessageToJsonString(message, &json_reply, options);
     return log_abridge(json_reply, max_length);
-}
-inline static std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
-    auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
-    char const *unit = "s";
-    if(td < 1.0) { td *= 1000; unit = "ms"; }
-    if(td < 1.0) { td *= 1000; unit = "us"; }
-    if(td < 1.0) { td *= 1000; unit = "ns"; }
-    if(td < 1.0) { td = 0; unit = ""; }
-    return out << td << unit;
-}
-template <class FE>
-inline static std::ostream &operator << (std::ostream &out, std::set<FE> const &c) {
-    char const *sep = "";
-    out << "(";
-    for(auto const &e: c) {
-        out << sep << e;
-        sep = ", ";
-    }
-    out << ")";
 }
 struct callid {
     long scid; int ccid;
@@ -247,10 +271,10 @@ static bool is_hostname(std::string const &name) {
     ares_inet_pton(AF_INET6, name.c_str(), &ip);
     return !(ip[0] || ip[1]);
 }
-static std::string arg_to_endpoint(char const *arg) {
+static std::string arg_to_endpoint(std::string const &arg) {
     bool arg_is_number = false;
-    for(char const *a = arg; *a != '\0'; ++a)
-        if(!(arg_is_number = std::isdigit(*a))) 
+    for(auto a: arg) 
+        if(!(arg_is_number = std::isdigit(a))) 
             break;
     if(!arg_is_number) return arg;
         return std::string("localhost:") + arg;
@@ -279,12 +303,13 @@ static bool address_store_changed() {
     std::lock_guard<std::mutex> guard(address_store_mutex);
     return current_iteration == last_changed_iteration;
 }
-static bool get_addresses(int &version, std::vector<std::string> &addresses, std::string const &endpoint) {
+static bool get_addresses(int &version, std::vector<std::string> &addresses, size_t &count, std::string const &endpoint) {
     std::lock_guard<std::mutex> guard(address_store_mutex);
     auto asp = address_store.find(endpoint);
     if(asp == address_store.end()) {
         FLOGC(flowc::trace_connections) << " get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- NO DATA\n";
         version = last_changed_iteration;
+        count = 0;
         return false;
     }
     if(std::get<2>(asp->second) <= version) {
@@ -294,6 +319,7 @@ static bool get_addresses(int &version, std::vector<std::string> &addresses, std
     addresses.assign(std::get<0>(asp->second).begin(), std::get<0>(asp->second).end());
     FLOGC(flowc::trace_connections) << " get-addresses(" << current_iteration << "/" << last_changed_iteration << "): " << version << " for [" << endpoint << "] -- " << addresses.size() << " ADDRESSES\n";
     version = last_changed_iteration;
+    count = addresses.size();
     return true;
 }
 static void state_cb(void *data, int s, int read, int write) {
@@ -316,21 +342,27 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
         std::get<1>(asp->second) = host->h_name;
     }
 
+    std::set<std::string> &current_set = std::get<0>(asp->second);
+    size_t current_size = current_set.size();
+
     std::set<std::string> addresses;
-    std::swap(addresses, std::get<0>(asp->second));
     char ip[INET6_ADDRSTRLEN];
     size_t already_in = 0;
 
     for(int i = 0; host->h_addr_list[i]; ++i) {
         ares_inet_ntop(host->h_addrtype, host->h_addr_list[i], ip, sizeof(ip));
-        if(addresses.find(ip) != addresses.end()) 
+        if(current_set.find(ip) != current_set.end()) 
             already_in += 1;
-        std::get<0>(asp->second).insert(ip);
-        //FLOG << "GOT ADDR for " << lookup << " " << ip << "\n";
+        if(flowc::accumulate_addresses)
+            current_set.insert(ip);
+        else
+            addresses.insert(ip);
     }
-    if(std::get<0>(asp->second).size() != already_in) {
+    if(current_size != already_in) {
         std::get<2>(asp->second) = last_changed_iteration = current_iteration;
         FLOG << "ADDRESESS for " << lookup << " version=" << std::get<2>(asp->second) << ", " << std::get<0>(asp->second) << "\n";
+        if(!flowc::accumulate_addresses)
+            std::swap(addresses, current_set);
     }
 }
 static void wait_ares(ares_channel channel) {
@@ -419,50 +451,66 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
     }
 
+
+
 template<class CSERVICE> class connector {
     typedef typename CSERVICE::Stub Stub_t;
     typedef decltype(std::chrono::system_clock::now()) ts_t;
-    std::vector<std::tuple<int, ts_t, std::unique_ptr<Stub_t>>> stubs;
+    std::vector<std::tuple<int, ts_t, std::unique_ptr<Stub_t>, std::string, std::string>> stubs;
     std::vector<int> activity_index;
     std::atomic<unsigned long> cc;
     std::mutex allocator;
-    std::unique_ptr<Stub_t> empty;
+    std::unique_ptr<Stub_t> dead_end;
 public:
-    std::string label, endpoint;
-    connector(std::string const &a_label, std::string const &a_endpoint, std::vector<std::string> const &addresses):label(a_label), endpoint(a_endpoint) {
-        auto port = casd::port_from_endpoint(endpoint);
+    std::string label; 
+    std::map<std::string, std::vector<std::string>> addresses;
+    connector(std::string const &a_label, std::set<std::string> const &d_names,
+            std::set<std::string> const &f_endpoints, std::set<std::string> const &d_endpoints, 
+            std::map<std::string, std::vector<std::string>> const &a_addresses): 
+        label(a_label), addresses(a_addresses) {
         int i = 0;
-        for(auto const &address: addresses) {
-            std::string aep(address.find_first_of(':') == std::string::npos?
-                    sfmt() << address << ":" << port:
-                    sfmt() << "[" << address << "]:" << port);
-            FLOGC(flowc::trace_connections) << " creating @" << label << " stub " << i << " -> " << endpoint << " (" << aep << ")\n";
+        for(auto const &aep: f_endpoints) {
+            FLOGC(flowc::trace_connections) << " creating @" << label << " stub " << i << " -> " << aep << "\n";
             std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
-            stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel)));
+            stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel), aep, std::string()));
             activity_index.emplace_back(i);
             ++i;
         }
-        cc.store(0);
-    }
-    connector(std::string const &a_label, std::string const &a_endpoint, int maxcc):label(a_label), endpoint(a_endpoint) {
-        std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(endpoint, ::grpc::InsecureChannelCredentials()));
-        stubs.resize(maxcc);
-        activity_index.resize(maxcc);
-        for(int i = 0; i < maxcc; ++i) {
-            FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << endpoint << "\n";
-            stubs[i] = std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel));
-            activity_index[i] = i;
+        for(auto const &aep: d_endpoints) {
+            auto pp = aep.find_last_of(':');
+            if(pp == std::string::npos) {
+                FLOG << "skipping invalid endpoint for @" << label << "(" <<aep << ") missing port value\n"; 
+                continue;
+            }
+            auto addrp = addresses.find(aep.substr(pp));
+            if(addrp == addresses.end()) {
+                FLOG << "skipping endpoint for @" << label << "(" <<aep << ") no addresses available\n"; 
+            }
+            for(auto const &ipaddr: addrp->second) {
+                std::string ipep(ipaddr.find_first_of(':') == std::string::npos?
+                    sfmt() << ipaddr << aep.substr(pp):
+                    sfmt() << "[" << ipaddr << "]" << aep.substr(pp));
+                std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(ipep, ::grpc::InsecureChannelCredentials()));
+                FLOGC(flowc::trace_connections) << " creating @" << label << " stub " << i << " -> " << aep << " (" << ipaddr << ")\n";
+                stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel), aep, ipaddr));
+                activity_index.emplace_back(i);
+                ++i;
+            }
         }
+        if(i == 0) 
+            dead_end = CSERVICE::NewStub(::grpc::CreateChannel("localhost:0", ::grpc::InsecureChannelCredentials()));
         cc.store(0);
     }
     size_t count() const {
         return stubs.size();
     }
-    std::unique_ptr<Stub_t> &stub(int &connection_number, long scid, int ccid) {
+    Stub_t *stub(int &connection_number, long scid, int ccid) {
         auto index = cc.fetch_add(1, std::memory_order_seq_cst);
         auto time_now = std::chrono::system_clock::now();
-        if(stubs.size() == 0) 
-            return empty;
+        if(stubs.size() == 0)  {
+            connection_number = -1;
+            return dead_end.get();
+        }
         std::lock_guard<std::mutex> guard(allocator);
         std::sort(activity_index.begin(), activity_index.end(), [this](int const &x1, int const &x2) -> bool {
             if(std::get<0>(stubs[x1]) != std::get<0>(stubs[x2]))
@@ -470,9 +518,13 @@ public:
             return std::get<0>(stubs[x1]) < std::get<0>(stubs[x2]);
         });
         connection_number = activity_index[0]; 
-        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " using @" << label << " stub[" << connection_number << "] for call #" << index << ", active calls: " << std::get<0>(stubs[connection_number]) << "\n";
-        std::get<1>(stubs[connection_number]) = std::chrono::system_clock::now();
-        std::get<0>(stubs[connection_number]) += 1;
+        auto &stubt = stubs[connection_number];
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " using @" << label << " stub[" << connection_number << "] for call #" << index 
+            << ", to: " << std::get<3>(stubt) << (std::get<4>(stubt).empty() ? "": "(") << std::get<4>(stubt).empty() << (std::get<4>(stubt).empty() ? "": ")")
+            << ", active: " << std::get<0>(stubt) 
+            << "\n";
+        std::get<1>(stubt) = std::chrono::system_clock::now();
+        std::get<0>(stubt) += 1;
         if(flowc::trace_connections) {
             std::stringstream slog;
             slog << " allocation @" << label << " " << stubs.size() << "[";
@@ -480,12 +532,23 @@ public:
             slog << "]\n";
             FLOG << flowc::callid(scid, ccid) << slog.str();
         }
-        return *&std::get<2>(stubs[connection_number]);
+        return std::get<2>(stubt).get();
     }
-    void finished(int connection_number, long scid, int ccid) {
+    void finished(int connection_number, long scid, int ccid, bool in_error) {
+        if(connection_number < 0)
+            return;
         FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " releasing @" << label << " stub[" << connection_number << "]\n";
         std::lock_guard<std::mutex> guard(allocator);
-        std::get<0>(stubs[connection_number]) -= 1;
+        auto &stubt = stubs[connection_number];
+        std::get<0>(stubt) -= 1;
+        if(in_error && flowc::accumulate_addresses && !std::get<4>(stubt).empty()) {
+            FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << " dropping @" << label << " stub[" << connection_number << "] to: " 
+                << std::get<3>(stubt) << (std::get<4>(stubt).empty() ? "": "(") << std::get<4>(stubt).empty() << (std::get<4>(stubt).empty() ? "": ")")
+                << "\n";
+            // Mark with a very high count so it won't be allocated anymore
+            std::get<0>(stubt) -= 100000;
+            // TODO drop address
+        }
     }
 };
 
@@ -542,21 +605,37 @@ public:
      */
 #define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
 
-    std::string {{CLI_NODE_ID}}_dname;
+    std::mutex {{CLI_NODE_ID}}_conm; // mutex to guard {{CLI_NODE_ID}}_nversion and {CLI_NODE_ID}}_conp
     int {{CLI_NODE_ID}}_nversion = 0;
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_conp;
-    std::mutex {{CLI_NODE_ID}}_conm;
 
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_get_connector() {
+        if(flowc::{{CLI_NODE_ID}}_dendpoints.size() == 0) 
+            return {{CLI_NODE_ID}}_conp;
         std::lock_guard<std::mutex> guard({{CLI_NODE_ID}}_conm);
-        if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
-            std::vector<std::string> addresses;
-            if(casd::get_addresses({{CLI_NODE_ID}}_nversion, addresses, {{CLI_NODE_ID}}_dname)) {
-                FLOGC(flowc::trace_connections) << "new @{{CLI_NODE_NAME}} connector to " << {{CLI_NODE_ID}}_dname << ": " << addresses.size() << " addresses\n"; 
-                std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ncp( 
-                    new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, addresses));
-                std::swap({{CLI_NODE_ID}}_conp, ncp);
+
+
+        auto final_version = {{CLI_NODE_ID}}_nversion;
+        size_t address_count = 0;
+        std::map<std::string, std::vector<std::string>> addresses = {{CLI_NODE_ID}}_conp->addresses;
+        bool changed = false;
+        for(auto const &dname: flowc::{{CLI_NODE_ID}}_dnames) {
+            auto nversion = {{CLI_NODE_ID}}_nversion;
+            size_t count = 0;
+            if(casd::get_addresses(nversion, addresses[dname], count, dname)) {
+                changed = true;
+                if(nversion > final_version)  final_version = nversion;
+                address_count += count;
+            } else {
+                address_count += addresses.find(dname)->second.size();
             }
+        }
+        if(changed) {
+            FLOGC(flowc::trace_connections) << "new @{{CLI_NODE_NAME}} connector to " << flowc::{{CLI_NODE_ID}}_endpoints << ": " << address_count << " addresses\n"; 
+            auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_dnames, 
+                    flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, 
+                    addresses);
+            {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
         }
         return {{CLI_NODE_ID}}_conp;
     }
@@ -592,11 +671,11 @@ public:
         GRPC_SENDING("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status;
         if(ConP->count() == 0) {
-            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to: " << ConP->endpoint);
+            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to: " << flowc::{{CLI_NODE_ID}}_endpoints);
         } else {
             int ConN = -1;
             L_status = ConP->stub(ConN, CID, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
-            ConP->finished(ConN, CID, CCid);
+            ConP->finished(ConN, CID, CCid, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
             GRPC_RECEIVED("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         }
         FLOGC(Trace_call) << flowc::callid(CID, CCid) << " {{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
@@ -611,12 +690,14 @@ public:
     {{NAME_ID}}_service() {
         Call_Counter = 1;
         {I:CLI_NODE_ID{
-        {{CLI_NODE_ID}}_dname = casd::name_from_endpoint(flowc::{{CLI_NODE_ID}}_endpoint);
         {{CLI_NODE_ID}}_nversion = 0;
-        {{CLI_NODE_ID}}_conp = std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>>(new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_endpoint, flowc::{{CLI_NODE_ID}}_maxcc));
+         auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_dnames, flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, std::map<std::string, std::vector<std::string>>());
+        {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
         }I}
     }
-{I:ENTRY_CODE{{{ENTRY_CODE}}
+{I:ENTRY_CODE{
+    // {{ENTRY_NAME}}: {{ENTRY_SERVICE_NAME}}({{ENTRY_INPUT_TYPE}} L_inp, {{ENTRY_OUTPUT_TYPE}} L_outp)
+{{ENTRY_CODE}}
 }I}
 };
 
@@ -861,8 +942,9 @@ static bool is_protobuf(char const *content_type) {
         strcasecmp(content_type, "application/vnd.google.protobuf") == 0);
 }
 }
+std::atomic<long> call_counter;
 {I:ENTRY_NAME{
-static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_{{ENTRY_NAME}}_call(long call_id, struct mg_connection *A_conn, void *A_cbdata, bool trace_call) {
     std::string xtra_headers;
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
@@ -876,14 +958,11 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
 
-    char const *trace_header = mg_get_header(A_conn, "x-flow-trace-call");
-    bool trace_call = flowc::strtobool(trace_header, flowc::trace_calls);
-    FLOG << "rest-entry: " << mg_get_request_info(A_conn)->local_uri << " [overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call << "]\n" 
-        << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
-
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOGC(trace_call) << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
+
+    FLOG << "[" << call_id << "] info: overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call 
+        << ", reply: " << (return_protobuf? "protobuf": "json") << ", body: " << flowc::log_abridge(L_inp_json) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -894,8 +973,8 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     L_context.set_deadline(L_deadline);
     L_context.AddMetadata("overlapped-calls", use_asynchronous_calls? "1": "0");
     L_context.AddMetadata("time-call", time_call? "1": "0");
-    if(trace_header != nullptr && *trace_header != '\0')
-        L_context.AddMetadata("trace-call", trace_header);
+    if(trace_call)
+        L_context.AddMetadata("trace-call", "1");
 
 #if defined(REST_CHECK_{{ENTRY_UPPERID}}_BEFORE) || defined(REST_CHECK_{{ENTRY_UPPERID}}_AFTER)
     char const *check_header = mg_get_header(A_conn, "x-flow-check");
@@ -938,13 +1017,21 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status, xtra_headers);
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
+static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+    long call_id = call_counter.fetch_add(1, std::memory_order_seq_cst);
+    bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
+    FLOG << "[" << call_id << "] REST-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
+    int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata, trace_call);
+    FLOGC(trace_call) << "REST-return: " << rc << "\n";
+    return rc;
+}
 }I}
 {I:CLI_NODE_NAME{
-static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_node_{{CLI_NODE_ID}}_call(long call_id, struct mg_connection *A_conn, void *A_cbdata, bool trace_call) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
-
-    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(flowc::{{CLI_NODE_ID}}_endpoint, ::grpc::InsecureChannelCredentials()));
+    // FIXME: need to use the connector here
+    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(*flowc::{{CLI_NODE_ID}}_fendpoints.begin(), ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
@@ -952,13 +1039,10 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     bool use_asynchronous_calls = flowc::asynchronous_calls, time_call = false;
 
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
-    auto trace_header = mg_get_header(A_conn, "x-flow-trace-call");
-    bool trace_call = flowc::strtobool(trace_header, flowc::trace_calls);
 
-    FLOG << "rest-node: " << mg_get_request_info(A_conn)->local_uri << "\n" << flowc::log_abridge(L_inp_json, trace_call? 0: 256) << "\n";
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOGC(trace_call) << "accept: " << (accept_header == nullptr? "null": accept_header) << "\n";
+    FLOG << "[" << call_id << "] reply: " << (return_protobuf? "protobuf": "json") << ", body: " << flowc::log_abridge(L_inp_json) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
@@ -984,9 +1068,18 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     }
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
+static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+    long call_id = call_counter.fetch_add(1, std::memory_order_seq_cst);
+    bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
+    FLOG << "[" << call_id << "] REST-node-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
+    int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata, trace_call);
+    FLOGC(trace_call) << "REST-node-return: " << rc << "\n";
+    return rc;
+}
 }I}
 namespace rest {
 int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
+    call_counter = 1;
     std::string num_threads_s(std::to_string(num_threads));
     const char *options[] = {
         "document_root", "/dev/null",
@@ -1100,25 +1193,33 @@ int main(int argc, char *argv[]) {
     int error_count = 0;
     std::set<std::string> dnames;
     {   
+        std::vector<std::string> eplist; 
         {I:CLI_NODE_ID{
         char const *{{CLI_NODE_ID}}_epenv = std::getenv("{{CLI_NODE_UPPERID}}_ENDPOINT");
-        if({{CLI_NODE_ID}}_epenv == nullptr || *{{CLI_NODE_ID}}_epenv == '\0') {
+        eplist.resize(0);
+
+        if({{CLI_NODE_ID}}_epenv == nullptr || flowc::split(eplist, {{CLI_NODE_ID}}_epenv, ",") == 0) {
             std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
             ++error_count;
-        } else {
-            flowc::{{CLI_NODE_ID}}_endpoint = casd::arg_to_endpoint({{CLI_NODE_ID}}_epenv); 
-            std::cerr << "{{CLI_NODE_ID}} -> " << flowc::{{CLI_NODE_ID}}_endpoint << " (max connections ";
-            if(flowc::{{CLI_NODE_ID}}_maxcc == 0 && casd::is_hostname(casd::name_from_endpoint({{CLI_NODE_ID}}_epenv))) {
-                dnames.insert(casd::name_from_endpoint({{CLI_NODE_ID}}_epenv));
-                std::cerr << "auto";
+        } else for(auto const &endpoint: eplist) {
+            auto ep = casd::arg_to_endpoint(flowc::strip(flowc::to_lower(endpoint)));
+            if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
+                auto epn = casd::name_from_endpoint(ep);
+                if(casd::is_hostname(epn)) {
+                    flowc::{{CLI_NODE_ID}}_dendpoints.insert(ep);
+                    flowc::{{CLI_NODE_ID}}_dnames.insert(epn);
+                    dnames.insert(epn);
+                } else {
+                    flowc::{{CLI_NODE_ID}}_fendpoints.insert(ep);
+                }
             } else {
-                if(flowc::{{CLI_NODE_ID}}_maxcc == 0) 
-                    flowc::{{CLI_NODE_ID}}_maxcc = 1;
-                std::cerr << flowc::{{CLI_NODE_ID}}_maxcc;
+                flowc::{{CLI_NODE_ID}}_fendpoints.insert(ep);
             }
-            std::cerr << ", timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
-            if(flowc::reconnect_{{CLI_NODE_ID}}) std::cerr << " / reconnect";
-            std::cerr << ")\n";
+            flowc::{{CLI_NODE_ID}}_endpoints.insert(ep);
+            std::cerr << "{{CLI_NODE_ID}}: timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
+            if(0 < flowc::{{CLI_NODE_ID}}_fendpoints.size()) std::cerr << ", fixed " << flowc::{{CLI_NODE_ID}}_fendpoints.size();
+            if(0 < flowc::{{CLI_NODE_ID}}_dendpoints.size()) std::cerr << ", auto " << flowc::{{CLI_NODE_ID}}_dendpoints.size();
+            std::cerr << " " << flowc::{{CLI_NODE_ID}}_endpoints << "\n";
         }
         }I}
     }

@@ -935,7 +935,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         // The index in the node vectors (result and result reader)
                         OUT << "int NRX = X - " << LN_BEGIN(nn) << ";\n";
                         // Mark this connection as finished
-                        OUT << nn << "_ConP->finished(" << LN_CONN(nn) << "[NRX-1], CID, X);\n";
+                        OUT << nn << "_ConP->finished(" << LN_CONN(nn) << "[NRX-1], CID, X, LL_Status.error_code() == ::grpc::StatusCode::UNAVAILABLE);\n";
                         OUT << "if(" << LN_SENT(nn) << " != " << LN_END_X(nn) <<  " - " << LN_BEGIN(nn) << ") {\n";
                         ++indent;
                         // If there are still requests to be sent, add a new one, of the same kind, to the queue
@@ -1223,7 +1223,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     ++indent;
                     OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n";
                     ++indent;
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect to: \" << "<< cur_node_name <<"_ConP->endpoint);\n";
+                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect to: \" << flowc::"<< cur_node_name <<"_endpoints);\n";
                     --indent;
                     OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
                     OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
