@@ -1233,21 +1233,23 @@ int main(int argc, char *argv[]) {
         if({{CLI_NODE_ID}}_epenv == nullptr || flowc::split(eplist, {{CLI_NODE_ID}}_epenv, ", ") == 0) {
             std::cerr << "Endpoint environment variable ({{CLI_NODE_UPPERID}}_ENDPOINT) not set for node {{CLI_NODE_NAME}}\n";
             ++error_count;
-        } else for(auto const &endpoint: eplist) {
-            auto ep = casd::arg_to_endpoint(flowc::strip(flowc::to_lower(endpoint)));
-            if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
-                auto epn = casd::name_from_endpoint(ep);
-                if(casd::is_hostname(epn)) {
-                    flowc::{{CLI_NODE_ID}}_dendpoints.insert(ep);
-                    flowc::{{CLI_NODE_ID}}_dnames.insert(epn);
-                    dnames.insert(epn);
+        } else {
+            for(auto const &endpoint: eplist) {
+                auto ep = casd::arg_to_endpoint(flowc::strip(flowc::to_lower(endpoint)));
+                if(flowc::{{CLI_NODE_ID}}_maxcc == 0) {
+                    auto epn = casd::name_from_endpoint(ep);
+                    if(casd::is_hostname(epn)) {
+                        flowc::{{CLI_NODE_ID}}_dendpoints.insert(ep);
+                        flowc::{{CLI_NODE_ID}}_dnames.insert(epn);
+                        dnames.insert(epn);
+                    } else {
+                        flowc::{{CLI_NODE_ID}}_fendpoints.insert(ep);
+                    }
                 } else {
                     flowc::{{CLI_NODE_ID}}_fendpoints.insert(ep);
                 }
-            } else {
-                flowc::{{CLI_NODE_ID}}_fendpoints.insert(ep);
+                flowc::{{CLI_NODE_ID}}_endpoints.insert(ep);
             }
-            flowc::{{CLI_NODE_ID}}_endpoints.insert(ep);
             std::cerr << "{{CLI_NODE_ID}}: timeout " << flowc::{{CLI_NODE_ID}}_timeout << "ms";
             if(0 < flowc::{{CLI_NODE_ID}}_fendpoints.size()) std::cerr << ", fixed " << flowc::{{CLI_NODE_ID}}_fendpoints.size();
             if(0 < flowc::{{CLI_NODE_ID}}_dendpoints.size()) std::cerr << ", auto " << flowc::{{CLI_NODE_ID}}_dendpoints.size();
