@@ -353,7 +353,7 @@ static void update_addresses(std::string const &entry, std::set<std::string> con
                 current_set.insert(ip);
         changed = previous_size != current_set.size();
     } else {
-        changed == current_set.size() != ips.size();
+        changed = current_set.size() != ips.size();
         for(auto a: ips) {
             addresses.insert(a);
             if(!changed && current_set.find(a) == current_set.end())
@@ -520,7 +520,7 @@ int get_latest_addresses(std::map<std::string, std::vector<std::string>> &addrs,
 
 }
 
-
+class {{NAME_ID}}_service *{{NAME_ID}}_service_ptr = nullptr;
 
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
@@ -719,10 +719,10 @@ public:
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_conp;
 
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_get_connector() {
+        std::lock_guard<std::mutex> guard({{CLI_NODE_ID}}_conm);
         if(flowc::{{CLI_NODE_ID}}_dendpoints.size() == 0) {
             return {{CLI_NODE_ID}}_conp;
         }
-        std::lock_guard<std::mutex> guard({{CLI_NODE_ID}}_conm);
 
         std::map<std::string, std::vector<std::string>> addresses = {{CLI_NODE_ID}}_conp->addresses;
         int ver = casd::get_latest_addresses(addresses, {{CLI_NODE_ID}}_nversion,  flowc::{{CLI_NODE_ID}}_dnames);
@@ -789,7 +789,7 @@ public:
         Call_Counter = 1;
         {I:CLI_NODE_ID{
         {{CLI_NODE_ID}}_nversion = 0;
-         auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_maxcc, flowc::{{CLI_NODE_ID}}_dnames, flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, std::map<std::string, std::vector<std::string>>());
+        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_maxcc, flowc::{{CLI_NODE_ID}}_dnames, flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, std::map<std::string, std::vector<std::string>>());
         {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
         }I}
     }
@@ -1128,14 +1128,13 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 static int REST_node_{{CLI_NODE_ID}}_call(long call_id, struct mg_connection *A_conn, void *A_cbdata, bool trace_call) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
-    // FIXME: need to use the connector here
-    std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(*flowc::{{CLI_NODE_ID}}_fendpoints.begin(), ::grpc::InsecureChannelCredentials()));
-    std::unique_ptr<{{CLI_SERVICE_NAME}}::Stub> L_client_stub = {{CLI_SERVICE_NAME}}::NewStub(L_channel);                    
+
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> connector = {{NAME_ID}}_service_ptr->{{CLI_NODE_ID}}_get_connector();
+
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
     bool use_asynchronous_calls = flowc::asynchronous_calls, time_call = false;
-
     if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
 
     char const *accept_header = mg_get_header(A_conn, "accept");
@@ -1144,12 +1143,18 @@ static int REST_node_{{CLI_NODE_ID}}_call(long call_id, struct mg_connection *A_
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
-    ::grpc::ClientContext L_context;
+
     auto const L_start_time = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
+
+    ::grpc::ClientContext L_context;
     L_context.set_deadline(L_deadline);
     SET_METADATA_{{CLI_NODE_ID}}(L_context)
-    ::grpc::Status L_status = L_client_stub->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
+
+    int connection_n = -1;
+    ::grpc::Status L_status = connector->stub(connection_n, call_id, -1)->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
+    connector->finished(connection_n, call_id, -1, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
+
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     auto const &metadata = L_context.GetServerTrailingMetadata();
     std::string xtra_headers;
@@ -1333,6 +1338,7 @@ int main(int argc, char *argv[]) {
     }
 
     {{NAME_ID}}_service service;
+    {{NAME_ID}}_service_ptr = &service;
     bool enable_webapp = flowc::strtobool(std::getenv("{{NAME_UPPERID}}_WEBAPP"), true);
     if(argc > 3) 
         rest::app_directory = argv[3];

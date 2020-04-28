@@ -39,7 +39,7 @@ bool enable_trace = false;
 bool show_help = false;
 bool show_headers = false;
 int call_timeout = 0;
-std::string trace_filename;
+int concurrent_calls = 1;
 
 std::map<std::string, std::string> added_headers;
 
@@ -60,7 +60,7 @@ struct option long_opts[] {
     { "show-headers",         no_argument, nullptr, 'v' },
     { "header",               required_argument, nullptr, 'H' },
     { "timeout",              required_argument, nullptr, 'T' },
-    { "trace",                required_argument, nullptr, 't' },
+    { "streams",              required_argument, nullptr, 'n' },
     { nullptr,                0,                 nullptr,  0 }
 };
 
@@ -74,8 +74,8 @@ static bool parse_command_line(int &argc, char **&argv) {
             case 'v': show_headers = true; break;
             case 'c': time_calls = true; break;
             case 'h': show_help = true; break;
-            case 't': trace_filename = optarg; break;
             case 'H': add_header(optarg); break;
+            case 'n': concurrent_calls = atoi(optarg); break;
             case 'T': 
                 call_timeout = std::atoi(optarg); 
             break;
@@ -230,19 +230,23 @@ int main(int argc, char *argv[]) {
         std::cerr << "Options:\n";
         std::cerr << "      --blocking-calls        Disable asynchronous calls in the aggregator\n";
         std::cerr << "      --ignore-grpc-errors    Keep going when grpc errors are encountered\n";
-        std::cerr << "      --ignore-json-errors    Keep going even if json conversion fails for a request\n";
-        std::cerr << "      --time-calls            Retrieve timing information for each call\n";
+        std::cerr << "      --ignore-json-errors    Keep going even if input JSON fails conversion to protobuf\n";
         std::cerr << "      --header NAME=VALUE     Add header to the request\n";
-        std::cerr << "      --show-headers          Show headers\n";
-        std::cerr << "      --timeout MILLISECONDS  Limit each call to the given amount of time\n";
-        std::cerr << "      --trace FILE, -t FILE   Enable the trace flag and output the trace to FILE\n";
         std::cerr << "      --help                  Display this screen and exit\n";
+        std::cerr << "      --show-headers          Display headers returned with the reply\n";
+        std::cerr << "      --streams INTEGER       Number of concurrent calls to make through the connection\n";         
+        std::cerr << "      --time-calls            Retrieve timing information for each call\n";
+        std::cerr << "      --timeout MILLISECONDS  Limit each call to the given amount of time\n";
         std::cerr << "\n";
         std::cerr << "gRPC Methods:\n";
         for(auto mid: rpc_methods) 
             std::cerr << "\t" << mid.first << "\n";
         std::cerr << "\n";
         return show_help? 1: 0;
+    }
+    if(concurrent_calls <= 0) {
+        std::cerr << "Invalid number of concurrent calls: " << concurrent_calls << "\n";
+        return 1;
     }
     rpc_method_id mid = get_rpc_method_id(argv[2]);
     if(mid == NONE) return 1;
