@@ -1223,7 +1223,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     ++indent;
                     OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n";
                     ++indent;
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect to: \" << flowc::"<< cur_node_name <<"_endpoints);\n";
+                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n";
                     --indent;
                     OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
                     OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
