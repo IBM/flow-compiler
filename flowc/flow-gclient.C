@@ -73,7 +73,6 @@ int flow_compiler::genc_client(std::ostream &out) {
         methods.push_back(method_descriptor(cli_node));
     }
     std::set<MethodDescriptor const *> mset;
-    std::ostringstream buff;
     for(auto mdp: methods) {
         if(contains(mset, mdp)) continue;
         mset.insert(mdp);
@@ -88,13 +87,14 @@ int flow_compiler::genc_client(std::ostream &out) {
         append(local_vars, "SERVICE_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(local_vars, "SERVICE_INPUT_ID", to_identifier(get_full_name(mdp->input_type())));
         append(local_vars, "SERVICE_OUTPUT_ID", to_identifier(get_full_name(mdp->output_type())));
-        buff.str("");
-        cpp_descriptor(buff, mdp->input_type());
-        append(local_vars, "SERVICE_INPUT_DESC", buff.str());
-        buff.str("");
-        cpp_descriptor(buff, mdp->output_type());
-        append(local_vars, "SERVICE_OUTPUT_DESC", buff.str());
-       
+
+        std::string output_schema = json_schema(mdp->output_type(), mdp->output_type()->full_name(), "", true, false);
+        std::string input_schema = json_schema(mdp->input_type(),  mdp->input_type()->full_name(), "", true, false);
+
+        append(local_vars, "SERVICE_OUTPUT_SCHEMA_JSON", output_schema);
+        append(local_vars, "SERVICE_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
+        append(local_vars, "SERVICE_INPUT_SCHEMA_JSON", input_schema);
+        append(local_vars, "SERVICE_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
     }
     if(methods.size() < 1) {
         pcerr.AddError(main_file, -1, 0, "no service entry or node found, cannot generate client");

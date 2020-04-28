@@ -40,6 +40,7 @@ bool show_help = false;
 bool show_headers = false;
 int call_timeout = 0;
 int concurrent_calls = 1;
+std::string show_input, show_output;
 
 std::map<std::string, std::string> added_headers;
 
@@ -56,26 +57,30 @@ struct option long_opts[] {
     { "blocking-calls",       no_argument, nullptr, 'b' },
     { "ignore-grpc-errors",   no_argument, nullptr, 'g' },
     { "ignore-json-errors",   no_argument, nullptr, 'j' },
-    { "time-calls",           no_argument, nullptr, 'c' },
+    { "time-calls",           no_argument, nullptr, 't' },
     { "show-headers",         no_argument, nullptr, 'v' },
     { "header",               required_argument, nullptr, 'H' },
     { "timeout",              required_argument, nullptr, 'T' },
     { "streams",              required_argument, nullptr, 'n' },
+    { "input-schema",         required_argument, nullptr, 's' },
+    { "output-schema",        required_argument, nullptr, 'S' },
     { nullptr,                0,                 nullptr,  0 }
 };
 
 static bool parse_command_line(int &argc, char **&argv) {
     int ch;
-    while((ch = getopt_long(argc, argv, "hbgjT:t:", long_opts, nullptr)) != -1) {
+    while((ch = getopt_long(argc, argv, "hbgjT:n:s:S:", long_opts, nullptr)) != -1) {
         switch (ch) {
             case 'b': use_blocking_calls = true; break;
             case 'g': ignore_grpc_errors = true; break;
             case 'j': ignore_json_errors = true; break;
             case 'v': show_headers = true; break;
-            case 'c': time_calls = true; break;
+            case 't': time_calls = true; break;
             case 'h': show_help = true; break;
             case 'H': add_header(optarg); break;
             case 'n': concurrent_calls = atoi(optarg); break;
+            case 'S': show_output = optarg; break;
+            case 's': show_input = optarg; break;
             case 'T': 
                 call_timeout = std::atoi(optarg); 
             break;
@@ -98,47 +103,7 @@ static std::map<std::string, rpc_method_id> rpc_methods = {
 {I:METHOD_FULL_UPPERID{    {"{{METHOD_FULL_NAME}}", {{METHOD_FULL_UPPERID}}},
 }I}
 };
-struct arg_field_descriptor { 
-    int next; 
-    char type; 
-    char const *name; 
-};
-int help(std::string const &name, arg_field_descriptor const *d, int p = 0, int indent = 0) {
-    if(indent == 0) std::cerr << "gRPC method " << name << " {\n";
-    indent += 4;
-    while(d[p].type) {
-        std::cerr << std::string(indent, ' ') << d[p].name << ": ";
-        switch(tolower(d[p].type)) {
-            case 'm': 
-                std::cerr << "{\n";
-                indent += 4;
-                break;
-            case 'n':
-                std::cerr << " NUMBER\n";
-                break;
-            case 'e':
-                std::cerr << " ENUM\n";
-                break;
-            case 's':
-                std::cerr << " STRING\n";
-                break;
-            default:
-                break;
-        }
-        if(d[p].next == 0) {
-            indent -= 4;
-            std::cerr << std::string(indent, ' ') << "}\n";
-        }
-        ++p;
-    }
-    std::cerr << "}\n";
-    return p;
-}
-/*
-        bool Trace_call = Get_metadata_value(Client_metadata, "trace-call");
-        bool Time_call = Get_metadata_value(Client_metadata, "time-call");
-        bool Async_call = !Get_metadata_value(Client_metadata, "blocking-calls", !Async_Flag);
-        */
+
 {I:METHOD_FULL_UPPERID{/****** {{METHOD_FULL_NAME}}
  */
 static int file_{{METHOD_FULL_ID}}(std::string const &label, std::istream &ins, std::unique_ptr<{{SERVICE_NAME}}::Stub> const &stub) {
@@ -196,10 +161,8 @@ static int file_{{METHOD_FULL_ID}}(std::string const &label, std::istream &ins, 
     }
     return 0;
 }
-static arg_field_descriptor const {{METHOD_FULL_ID}}_di_{{SERVICE_INPUT_ID}}[] { 
-    {{SERVICE_INPUT_DESC}}, 
-    { 0, '\0', "" }
-};
+static std::string input_schema_{{METHOD_FULL_ID}} = {{SERVICE_INPUT_SCHEMA_JSON_C}};
+static std::string output_schema_{{METHOD_FULL_ID}} = {{SERVICE_OUTPUT_SCHEMA_JSON_C}};
 }I}
 static rpc_method_id get_rpc_method_id(std::string const &name) {
     rpc_method_id id = NONE;
@@ -222,44 +185,66 @@ static rpc_method_id get_rpc_method_id(std::string const &name) {
     }
 }
 int main(int argc, char *argv[]) {
-    bool show_method_help = argc == 3 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0);
-    if(!show_method_help && (!parse_command_line(argc, argv) || argc != 4 || show_help)) {
-        std::cerr << "Usage: " << argv[0] << " [OPTIONS] <PORT|ENDPOINT> <[SERVICE.]RPC> <JSON-INPUT-FILE>\n";
-        std::cerr << "    or " << argv[0] << " --help [[SERVICE.]RPC]\n";
+    if(!parse_command_line(argc, argv) || show_help || (argc != 4 && show_input.empty() && show_output.empty())) {
+        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC JSON-INPUT-FILE\n";
+        std::cerr << "    or " << argv[0] << " --input-schema|--output-schema [SERVICE.]RPC\n";
+        std::cerr << "    or " << argv[0] << " --help\n";
         std::cerr << "\n";
         std::cerr << "Options:\n";
-        std::cerr << "      --blocking-calls        Disable asynchronous calls in the aggregator\n";
-        std::cerr << "      --ignore-grpc-errors    Keep going when grpc errors are encountered\n";
-        std::cerr << "      --ignore-json-errors    Keep going even if input JSON fails conversion to protobuf\n";
-        std::cerr << "      --header NAME=VALUE     Add header to the request\n";
-        std::cerr << "      --help                  Display this screen and exit\n";
-        std::cerr << "      --show-headers          Display headers returned with the reply\n";
-        std::cerr << "      --streams INTEGER       Number of concurrent calls to make through the connection\n";         
-        std::cerr << "      --time-calls            Retrieve timing information for each call\n";
-        std::cerr << "      --timeout MILLISECONDS  Limit each call to the given amount of time\n";
+        std::cerr << "  -b, --blocking-calls        Disable asynchronous calls in the aggregator\n";
+        std::cerr << "  -g, --ignore-grpc-errors    Keep going when grpc errors are encountered\n";
+        std::cerr << "  -j, --ignore-json-errors    Keep going even if input JSON fails conversion to protobuf\n";
+        std::cerr << "  -H, --header NAME=VALUE     Add header to the request\n";
+        std::cerr << "  -h, --help                  Display this help\n";
+        std::cerr << "  -s, --input-schema RPC      Input JSON schema for RPC\n";
+        std::cerr << "  -S, --output-schema RPC     Output JSON schema for RPC\n";
+        std::cerr << "  -v, --show-headers          Display headers returned with the reply\n";
+        std::cerr << "  -n, --streams INTEGER       Number of concurrent calls to make through the connection\n";         
+        std::cerr << "  -t, --time-calls            Retrieve timing information for each call\n";
+        std::cerr << "  -T, --timeout MILLISECONDS  Limit each call to the given amount of time\n";
         std::cerr << "\n";
         std::cerr << "gRPC Methods:\n";
         for(auto mid: rpc_methods) 
-            std::cerr << "\t" << mid.first << "\n";
+            std::cerr << "  " << mid.first << "\n";
         std::cerr << "\n";
         return show_help? 1: 0;
     }
-    if(concurrent_calls <= 0) {
-        std::cerr << "Invalid number of concurrent calls: " << concurrent_calls << "\n";
+    std::string mname;
+    if(!show_input.empty())
+        mname = show_input;
+    else if(!show_output.empty())
+        mname = show_output;
+    else 
+        mname = argv[2];
+
+    rpc_method_id mid = get_rpc_method_id(mname);
+    if(mid == NONE) 
         return 1;
-    }
-    rpc_method_id mid = get_rpc_method_id(argv[2]);
-    if(mid == NONE) return 1;
-    if(show_method_help) {
+    if(!show_input.empty()) {
         switch(mid) {
 {I:METHOD_FULL_UPPERID{        case {{METHOD_FULL_UPPERID}}: 
-                help("{{METHOD_FULL_NAME}}", {{METHOD_FULL_ID}}_di_{{SERVICE_INPUT_ID}});
+                std::cout << input_schema_{{METHOD_FULL_ID}};
                 break;
 }I}
             case NONE:
                 break;
         }
         return 0;
+    }
+    if(!show_output.empty()) {
+        switch(mid) {
+{I:METHOD_FULL_UPPERID{        case {{METHOD_FULL_UPPERID}}: 
+                std::cout << output_schema_{{METHOD_FULL_ID}};
+                break;
+}I}
+            case NONE:
+                break;
+        }
+        return 0;
+    }
+    if(concurrent_calls <= 0) {
+        std::cerr << "Invalid number of concurrent calls: " << concurrent_calls << "\n";
+        return 1;
     }
     std::string endpoint(strchr(argv[1], ':') == nullptr? std::string("localhost:")+argv[1]: std::string(argv[1]));
     std::shared_ptr<grpc::Channel> channel(grpc::CreateChannel(endpoint, grpc::InsecureChannelCredentials()));
