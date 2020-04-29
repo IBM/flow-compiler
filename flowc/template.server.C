@@ -555,7 +555,7 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 
 #define PRINT_TIME(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    FLOGC(Trace_call) << flowc::callid(CID) << " time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name \
+    FLOGC(Trace_call) << flowc::callid(CID) << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name \
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
     }
 

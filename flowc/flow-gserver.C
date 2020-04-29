@@ -866,7 +866,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "if(flowc::send_global_ID || Trace_call) { CTX->AddTrailingMetadata(\"node-id\", flowc::global_node_ID); CTX->AddTrailingMetadata(\"start-time\", flowc::global_start_time);  CTX->AddTrailingMetadata(\"call-id\", std::to_string(CID));  }\n";
                 OUT << "GRPC_LEAVE_" << entry_name << "(\"" << entry_dot_name << "\", CID, L_status, *CTX, &" << output_name << ")\n"; 
                 OUT << "TIME_INFO_END(Time_call);\n";
-                OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \" leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
+                OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \"leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
 
                 OUT << "return L_status;\n";
                 --indent; 
@@ -905,7 +905,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     ++indent;
                     OUT << "void *TAG; bool NextOK = false; int " << L_RECV << " = 0;\n";
                     OUT << "//\n";
-                    OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \" begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
+                    OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     OUT << "while(" << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
                     ++indent;
                     OUT << "if(CTX->IsCancelled()) {\n";
@@ -918,7 +918,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "if(NextOK) {\n";
                     ++indent;
                     OUT << "int X = (int) (long) TAG;\n";
-                    OUT << "FLOGC(Trace_call) << flowc::callid(CID, X) << \" woke up in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
+                    OUT << "FLOGC(Trace_call) << flowc::callid(CID, X) << \"woke up in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     OUT << "auto &LL_Status = *" << L_STATUS << "[X-1];\n";
                     OUT << "auto &LL_Ctx = *" << L_CONTEXT << "[X-1];\n";
                     int nc = 0;
@@ -951,7 +951,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
                             OUT << "GRPC_RECEIVED(\"" << entry_name << "\", \"" << nn << "\", CID, NRX, flowc::" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
-                        OUT << "FLOGC(Trace_call && LL_Status.ok()) << flowc::callid(CID, NRX) << \" " << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
+                        OUT << "FLOGC(Trace_call && LL_Status.ok()) << flowc::callid(CID, NRX) << \"" << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";
                         ++indent;
