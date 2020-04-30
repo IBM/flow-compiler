@@ -103,66 +103,95 @@ static std::map<std::string, rpc_method_id> rpc_methods = {
 {I:METHOD_FULL_UPPERID{    {"{{METHOD_FULL_NAME}}", {{METHOD_FULL_UPPERID}}},
 }I}
 };
+{I:METHOD_FULL_ID{
+static std::string input_schema_{{METHOD_FULL_ID}} = {{SERVICE_INPUT_SCHEMA_JSON_C}};
+static std::string output_schema_{{METHOD_FULL_ID}} = {{SERVICE_OUTPUT_SCHEMA_JSON_C}};
+}I}
 
 {I:METHOD_FULL_UPPERID{/****** {{METHOD_FULL_NAME}}
  */
-static int file_{{METHOD_FULL_ID}}(std::string const &label, std::istream &ins, std::unique_ptr<{{SERVICE_NAME}}::Stub> const &stub) {
-    {{SERVICE_INPUT_TYPE}} input;
-    {{SERVICE_OUTPUT_TYPE}} output;
+static int file_{{METHOD_FULL_ID}}(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::unique_ptr<{{SERVICE_NAME}}::Stub> const &stub) {
+    grpc::CompletionQueue cq;
+
+    std::vector<{{SERVICE_INPUT_TYPE}}> inputs(concurrent_calls);
+    std::vector<{{SERVICE_OUTPUT_TYPE}}> outputs(concurrent_calls);
+    std::vector<std::unique_ptr<grpc::ClientContext>> contexts(concurrent_calls);
+    std::vector<grpc::Status> statuses(concurrent_calls);
+    std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<{{SERVICE_OUTPUT_TYPE}}>>> carrs(concurrent_calls);
+    std::vector<bool> busy(concurrent_calls, false);
+
     std::string input_line;
     unsigned line_count = 0;
-    while(std::getline(ins, input_line)) {
-        ++line_count;
-        auto b = input_line.find_first_not_of("\t\r\a\b\v\f ");
-        if(b == std::string::npos || input_line[b] == '#') {
-            // Empty or comment line in the input. Reflect it as is in the output.
-            std::cout << input_line << "\n";
-            continue;
-        }
-        input.Clear(); 
-        auto conv_status = google::protobuf::util::JsonStringToMessage(input_line, &input);
-        if(!conv_status.ok()) {
-            std::cerr << label << "(" << line_count << "): " << conv_status.ToString() << std::endl;
-            if(!ignore_json_errors) 
-                return 1;
-            // Ouput a new line to keep the input and the output files in sync
-            std::cout << "\n";
-        }
-        output.Clear();
-        grpc::ClientContext context;
-        if(use_blocking_calls) context.AddMetadata("overlapped-calls", "0");
-        if(time_calls) context.AddMetadata("time-call", "1");
-        for(auto const &xhe: added_headers) 
-            context.AddMetadata(xhe.first, xhe.second);
-        
-        if(call_timeout > 0) {
-            auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(call_timeout);
-            context.set_deadline(deadline);
-        }
-        grpc::Status status = stub->{{METHOD_NAME}}(&context, input, &output);
-        if(show_headers) {
-            for(auto const &mde: context.GetServerInitialMetadata()) {
-                std::string header(mde.first.data(), mde.first.length());
-                std::cerr << "- " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
-            }
-            for(auto const &mde: context.GetServerTrailingMetadata()) {
-                std::string header(mde.first.data(), mde.first.length());
-                std::cerr << "= " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+    unsigned queued_count = 0;
+    bool have_input;
+
+    while((have_input = !!std::getline(ins, input_line)) || queued_count > 0) {
+        if(have_input) {
+            ++line_count;
+            auto b = input_line.find_first_not_of("\t\r\a\b\v\f ");
+            if(b == std::string::npos || input_line[b] == '#') {
+                // Empty or comment line in the input. Reflect it as is in the output.
+                std::cout << input_line << "\n";
+                continue;
             }
         }
-        if(!status.ok()) {
-            std::cerr << label << "(" << line_count << ") from " << context.peer() << ": " << status.error_code() << ": " << status.error_message() << "\n" << status.error_details() << std::endl;
-            if(!ignore_grpc_errors)
-                return 1;
-            // Otput a comment line with the error message to keep the input and output file in sync
-            std::cout << "# " << status.error_code() << ": " << status.error_message() << "\n";
+
+        // find the first available slot
+        unsigned x = 0; while(x < concurrent_calls && busy[x]) ++x;
+        if(x == concurrent_calls || !have_input) {
+            /*
+            while(cq.Next(&TAG, &NextOK)) {
+            }
+            */
+            if(show_headers) {
+                for(auto const &mde: contexts[x]->GetServerInitialMetadata()) {
+                    std::string header(mde.first.data(), mde.first.length());
+                    std::cerr << "- " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+                }
+                for(auto const &mde: contexts[x]->GetServerTrailingMetadata()) {
+                    std::string header(mde.first.data(), mde.first.length());
+                    std::cerr << "= " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+                }
+            }
+            if(!statuses[x].ok()) {
+                std::cerr << label << "(" << line_count << ") from " << contexts[x]->peer() << ": " << statuses[x].error_code() << ": " << statuses[x].error_message() << "\n" << statuses[x].error_details() << std::endl;
+                if(!ignore_grpc_errors)
+                    return 1;
+                // Otput a comment line with the error message to keep the input and output file in sync
+                std::cout << "# " << statuses[x].error_code() << ": " << statuses[x].error_message() << "\n";
+            }
+            std::cout << message_to_json(outputs[x], false)  << "\n";
         }
-        std::cout << message_to_json(output, false)  << "\n";
+
+        if(have_input) {
+            // prepare the input
+
+            inputs[x].Clear();
+            auto conv_status = google::protobuf::util::JsonStringToMessage(input_line, &inputs[x]);
+            if(!conv_status.ok()) {
+                std::cerr << label << "(" << line_count << "): " << conv_status.ToString() << std::endl;
+                if(!ignore_json_errors) 
+                    return 1;
+                // Output a new line to keep the input and the output files in sync
+                std::cout << "\n";
+            }
+            outputs[x].Clear();
+            contexts[x] = std::unique_ptr<::grpc::ClientContext>(new ::grpc::ClientContext);
+
+            if(use_blocking_calls) contexts[x]->AddMetadata("overlapped-calls", "0");
+            if(time_calls) contexts[x]->AddMetadata("time-call", "1");
+            for(auto const &xhe: added_headers) 
+                contexts[x]->AddMetadata(xhe.first, xhe.second);
+
+            if(call_timeout > 0) {
+                auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(call_timeout);
+                contexts[x]->set_deadline(deadline);
+            }
+            stub->PrepareAsync{{METHOD_NAME}}(contexts[x].get(), inputs[x], &cq);
+        }
     }
     return 0;
 }
-static std::string input_schema_{{METHOD_FULL_ID}} = {{SERVICE_INPUT_SCHEMA_JSON_C}};
-static std::string output_schema_{{METHOD_FULL_ID}} = {{SERVICE_OUTPUT_SCHEMA_JSON_C}};
 }I}
 static rpc_method_id get_rpc_method_id(std::string const &name) {
     rpc_method_id id = NONE;
@@ -268,7 +297,7 @@ int main(int argc, char *argv[]) {
 {I:METHOD_FULL_UPPERID{        case {{METHOD_FULL_UPPERID}}: {
             std::cerr << "method: {{METHOD_FULL_NAME}}\n";
             std::unique_ptr<{{SERVICE_NAME}}::Stub> client_stub({{SERVICE_NAME}}::NewStub(channel));
-            rc = file_{{METHOD_FULL_ID}}(input_label, *in, client_stub);
+            rc = file_{{METHOD_FULL_ID}}(concurrent_calls, input_label, *in, client_stub);
         } break;
 }I}
         case NONE:
