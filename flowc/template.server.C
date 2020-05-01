@@ -555,7 +555,7 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 
 #define PRINT_TIME(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
     if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    FLOGC(Trace_call) << flowc::callid(CID) << "time-call " << Time_call << ": " << method << " stage " << stage << " (" << stage_name \
+    FLOGC(Trace_call) << flowc::callid(CID) << "time-call: " << method << " stage " << stage << " (" << stage_name \
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
     }
 
@@ -831,7 +831,7 @@ static int not_found(struct mg_connection *conn, std::string const &message) {
               "Content-Length: %lu\r\n"
               "\r\n", j_message.length());
 	mg_printf(conn, "%s", j_message.c_str());
-    return 1;
+    return 404;
 }
 static int json_reply(struct mg_connection *conn, int code, char const *msg, char const *content, size_t length=0, char const *xtra_headers=nullptr) {
     if(xtra_headers == nullptr) xtra_headers = "";
@@ -841,7 +841,7 @@ static int json_reply(struct mg_connection *conn, int code, char const *msg, cha
               "Content-Length: %lu\r\n"
               "\r\n", code, msg, xtra_headers, length == 0? strlen(content): length);
 	mg_printf(conn, "%s", content);
-	return 1;
+	return code;
 }
 static int json_reply(struct mg_connection *conn, char const *content, size_t length=0, char const *xtra_headers=nullptr) {
     return json_reply(conn, 200, "OK", content, length, xtra_headers);
@@ -855,7 +855,7 @@ static int protobuf_reply(struct mg_connection *conn, google::protobuf::Message 
               "Content-Length: %lu\r\n"
               "\r\n", xtra_headers.c_str(), data.length());
     mg_write(conn, data.data(), data.length());
-    return 1;
+    return 200;
 }
 static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message, std::string const &xtra_headers="") {
     google::protobuf::util::JsonPrintOptions options;
@@ -874,7 +874,18 @@ static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &c
         << "\"grpc-code\":" << status.error_code() << ","
         << "\"message\":" << flowc::json_string(status.error_message())
         << "}";
-    return json_reply(conn, 500, "gRPC Error", errm.c_str(), errm.length(), xtra_headers.c_str());
+    int code = 500;
+    switch(status.error_code()) {
+        case grpc::StatusCode::UNAVAILABLE:
+            code = 503;
+            break;
+        case grpc::StatusCode::DEADLINE_EXCEEDED:
+            code = 408;
+            break;
+        default:
+            break;
+    }
+    return json_reply(conn, code, "gRPC Error", errm.c_str(), errm.length(), xtra_headers.c_str());
 }
 static int conversion_error(struct mg_connection *conn, google::protobuf::util::Status const &status) {
     std::string error_message = flowc::sfmt() << "{"
@@ -1006,7 +1017,7 @@ static int file_handler(struct mg_connection *conn, void *cbdata) {
         if(stat(filename.c_str(), &buffer) == 0) {
             FLOGC(flowc::trace_calls) << "sending " << common+1 << " from " << dir << "\n";
             mg_send_file(conn, filename.c_str());
-            return 1;
+            return 200;
         }
     } else if(strcmp(local_uri, "/-docs") == 0) {
         FLOGC(flowc::trace_calls) << "list -docs contents\n";
@@ -1120,7 +1131,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
     FLOG << "[" << call_id << "] REST-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
     int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata, trace_call);
-    FLOGC(trace_call) << "REST-return: " << rc << "\n";
+    FLOGC(trace_call) << "[" << call_id << "] REST-return: " << rc << "\n";
     return rc;
 }
 }I}
@@ -1176,7 +1187,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
     FLOG << "[" << call_id << "] REST-node-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
     int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata, trace_call);
-    FLOGC(trace_call) << "REST-node-return: " << rc << "\n";
+    FLOGC(trace_call) << "[" << call_id << "] REST-node-return: " << rc << "\n";
     return rc;
 }
 }I}
