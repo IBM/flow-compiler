@@ -566,15 +566,19 @@ template<class CSERVICE> class connector {
     typedef decltype(std::chrono::system_clock::now()) ts_t;
     std::vector<std::tuple<int, ts_t, std::unique_ptr<Stub_t>, std::string, std::string>> stubs;
     std::vector<int> activity_index;
-    std::atomic<unsigned long> cc;
+    unsigned long cc;
+    unsigned total_active;
     std::mutex allocator;
     std::unique_ptr<Stub_t> dead_end;
 public:
+    std::atomic<int> const &active_calls;
     std::string label; 
     std::map<std::string, std::vector<std::string>> addresses;
-    connector(std::string const &a_label, int maxcc, std::set<std::string> const &d_names,
+    connector(std::atomic<int> const &a_active_calls, std::string const &a_label, int maxcc, std::set<std::string> const &d_names,
             std::set<std::string> const &f_endpoints, std::set<std::string> const &d_endpoints, 
             std::map<std::string, std::vector<std::string>> const &a_addresses): 
+        cc(0), total_active(0),
+        active_calls(a_active_calls),
         label(a_label), addresses(a_addresses) {
         //FLOG << "connector for @" << a_label << " fixed: " << f_endpoints << " dynamic: " << d_endpoints  << " addresses: " << a_addresses << "\n";
         if(a_addresses.size() > 0) maxcc = 1;
@@ -608,19 +612,26 @@ public:
         }
         if(i == 0) 
             dead_end = CSERVICE::NewStub(::grpc::CreateChannel("localhost:0", ::grpc::InsecureChannelCredentials()));
-        cc.store(0);
     }
     size_t count() const {
         return stubs.size();
     }
+    std::string log_allocation() const {
+        std::stringstream slog;
+        slog << "allocation @" << label << " " << stubs.size() << " [";
+        auto sep = "";
+        for(auto const &s: stubs) { slog << sep << std::get<0>(s); sep = " "; }
+        slog << "] " << total_active << " / " << active_calls.load();
+        return slog.str();
+    }
     Stub_t *stub(int &connection_number, long scid, int ccid) {
-        auto index = cc.fetch_add(1, std::memory_order_seq_cst);
+        std::lock_guard<std::mutex> guard(allocator);
+        auto index = ++cc;
         auto time_now = std::chrono::system_clock::now();
         if(stubs.size() == 0)  {
             connection_number = -1;
             return dead_end.get();
         }
-        std::lock_guard<std::mutex> guard(allocator);
         std::sort(activity_index.begin(), activity_index.end(), [this](int const &x1, int const &x2) -> bool {
             if(std::get<0>(stubs[x1]) != std::get<0>(stubs[x2]))
                 return std::get<0>(stubs[x1]) < std::get<0>(stubs[x2]);
@@ -634,29 +645,34 @@ public:
             << "\n";
         std::get<1>(stubt) = std::chrono::system_clock::now();
         std::get<0>(stubt) += 1;
-        if(flowc::trace_connections) {
-            std::stringstream slog;
-            slog << "allocation @" << label << " " << stubs.size() << "[";
-            for(auto const &s: stubs) slog << " " << std::get<0>(s);
-            slog << "]\n";
-            FLOG << flowc::callid(scid, ccid) << slog.str();
-        }
+        total_active += 1;
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "+ " << log_allocation() << "\n";
         return std::get<2>(stubt).get();
     }
-    
-    void finished(int connection_number, long scid, int ccid, bool in_error) {
-        if(connection_number < 0)
-            return;
-        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "releasing @" << label << " stub[" << connection_number << "]\n";
+    void finished(int &connection_number, long scid, int ccid, bool in_error) {
         std::lock_guard<std::mutex> guard(allocator);
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "releasing @" << label << " stub[" << connection_number << "]\n";
+        if(connection_number < 0 || connection_number+1 > count())
+            return;
         auto &stubt = stubs[connection_number];
+        connection_number = -1;
         std::get<0>(stubt) -= 1;
+        total_active -= 1;
+        FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "- " << log_allocation() << "\n";
         if(in_error && flowc::accumulate_addresses && !std::get<4>(stubt).empty()) {
             FLOGC(flowc::trace_connections) << flowc::callid(scid, ccid) << "dropping @" << label << " stub[" << connection_number << "] to: " 
                 << std::get<3>(stubt) << "(" << std::get<4>(stubt) <<  ")\n";
             // Mark with a very high count so it won't be allocated anymore
             std::get<0>(stubt) -= 100000;
             casd::remove_address(std::get<4>(stubt));
+        }
+    }
+    template <class INTP>
+    void release(long scid, INTP begin, INTP end) {
+        while(begin != end) {
+            int p = *begin;
+            if(p >= 0) finished(p, scid, -1, false);
+            ++begin;
         }
     }
 };
@@ -700,6 +716,9 @@ public:
     bool Async_Flag = flowc::asynchronous_calls;
     // Global call counter used to generate an unique id for each call regardless of entry
     std::atomic<long> Call_Counter;
+    // Current number of active calls for regardless of entry
+    std::atomic<int> Active_Calls;
+
         /**
          * Some notes on error codes (from https://grpc.io/grpc/cpp/classgrpc_1_1_status.html):
          * UNAUTHENTICATED - The request does not have valid authentication credentials for the operation.
@@ -731,7 +750,7 @@ public:
         {{CLI_NODE_ID}}_nversion = ver;
 
         FLOGC(flowc::trace_connections) << "new @{{CLI_NODE_NAME}} connector to " << flowc::{{CLI_NODE_ID}}_fendpoints << " " << flowc::{{CLI_NODE_ID}}_dendpoints << "\n"; 
-        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_maxcc, flowc::{{CLI_NODE_ID}}_dnames,  
+        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>({{CLI_NODE_ID}}_conp->active_calls, "{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_maxcc, flowc::{{CLI_NODE_ID}}_dnames,  
                     flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, 
                     addresses);
         {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
@@ -787,16 +806,27 @@ public:
     // Constructor
     {{NAME_ID}}_service() {
         Call_Counter = 1;
+        Active_Calls = 0;
         {I:CLI_NODE_ID{
         {{CLI_NODE_ID}}_nversion = 0;
-        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>("{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_maxcc, flowc::{{CLI_NODE_ID}}_dnames, flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, std::map<std::string, std::vector<std::string>>());
+        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>(Active_Calls, "{{CLI_NODE_NAME}}", flowc::{{CLI_NODE_ID}}_maxcc, flowc::{{CLI_NODE_ID}}_dnames, flowc::{{CLI_NODE_ID}}_fendpoints, flowc::{{CLI_NODE_ID}}_dendpoints, std::map<std::string, std::vector<std::string>>());
         {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
         }I}
+        {I:ENTRY_CODE{
+}I}
     }
 {I:ENTRY_CODE{
-    // {{ENTRY_NAME}}: {{ENTRY_SERVICE_NAME}}({{ENTRY_INPUT_TYPE}} L_inp, {{ENTRY_OUTPUT_TYPE}} L_outp)
+    // {{ENTRY_SERVICE_NAME}}::{{ENTRY_NAME}}(::grpc::ServerContext *, {{ENTRY_INPUT_TYPE}} const *, {{ENTRY_OUTPUT_TYPE}} *);
 {{ENTRY_CODE}}
+    ::grpc::Status {{ENTRY_NAME}}(::grpc::ServerContext *context, {{ENTRY_INPUT_TYPE}} const *pinput, {{ENTRY_OUTPUT_TYPE}} *poutput) override {
+        auto call_id = Call_Counter.fetch_add(1, std::memory_order_seq_cst);
+        Active_Calls.fetch_add(1, std::memory_order_seq_cst);
+        auto s = {{ENTRY_NAME}}(call_id, context, pinput, poutput);
+        Active_Calls.fetch_add(-1, std::memory_order_seq_cst);
+        return s;
+    }
 }I}
+    
 };
 
 
