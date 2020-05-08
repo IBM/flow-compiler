@@ -1161,7 +1161,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
     bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
     FLOG << "[" << call_id << "] REST-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
     int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata, trace_call);
-    FLOGC(trace_call) << "[" << call_id << "] REST-return: " << rc << "\n";
+    FLOG << "[" << call_id << "] REST-return: " << rc << "\n";
     return rc;
 }
 }I}
@@ -1217,7 +1217,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
     FLOG << "[" << call_id << "] REST-node-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
     int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata, trace_call);
-    FLOGC(trace_call) << "[" << call_id << "] REST-node-return: " << rc << "\n";
+    FLOG << "[" << call_id << "] REST-node-return: " << rc << "\n";
     return rc;
 }
 }I}
