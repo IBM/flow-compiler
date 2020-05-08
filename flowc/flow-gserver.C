@@ -565,19 +565,37 @@ static std::string base_name(std::string const &name) {
 }
 
 struct accessor_info {
-    int loop_level;
     std::map<std::string, int> rs_dims;
     std::vector<std::set<std::string>> loop_sizes;
 
-    accessor_info(): loop_level(0) {
+    accessor_info() {
     }
     void add_rs(std::string const &name, int dim) { 
         rs_dims[name] = dim; 
     }
+    int loop_level() const {
+        return (int) loop_sizes.size();
+    }
     std::string loop_iter_name(int loop_level) const {
         return sfmt() << "I" << loop_level;
     }
-
+    std::string loop_iter_name() const {
+        return loop_iter_name(loop_level());
+    }
+    std::string loop_end_name(int loop_level) const {
+        return sfmt() << "IE" << loop_level;
+    }
+    std::string loop_end_name() const {
+        return loop_end_name(loop_level());
+    }
+    int incr_loop_level() {
+        loop_sizes.emplace_back(std::set<std::string>());
+        return loop_level();
+    }
+    int decr_loop_level() {
+        if(loop_level() > 0) loop_sizes.pop_back();
+        return loop_level();
+    }
 };
 
 inline static 
@@ -587,7 +605,8 @@ std::ostream &operator<<(std::ostream &out, accessor_info const &ai) {
 
 static 
 std::string field_accessor(indented_stream &indenter, std::string const &field, Descriptor const *d, accessor_info const &acinf, accessor_type kind, int cur_level=-1) {
-    OUTD << " /*field_accessor(" << field << ", " << acinf << ", " << kind << ", " << cur_level << ")*/ ";
+    cur_level = acinf.loop_level();
+    OUTD << " /*field_accessor(" << field << ", " << acinf << ", " << kind << ", " << cur_level << ")*/\n";
     std::stringstream buf;
     std::string base, fields;
     // The first field is the local variable name
@@ -618,9 +637,17 @@ std::string field_accessor(indented_stream &indenter, std::string const &field, 
         d = fd->message_type();
 
         if(fd->is_repeated()) {
+            // find level in loop sizes
+            std::string stem = field.substr(0, field.length() - fields.length() - 1);
+            for(int l = level, le = acinf.loop_level(); l < le; ++l) 
+                if(contains(acinf.loop_sizes[l], stem)) {
+                    level = l; break;
+                }
+
             ++level;
+
             if(right) {
-                buf << base << "(I" << level << ").";
+                buf << base << "(" << acinf.loop_iter_name(level) << ")."; ///*A level " << level << ", stem: "<< stem << " */.";
             } else if(left) {
                 buf.str("");
                 buf << ".";
@@ -647,7 +674,7 @@ std::string field_accessor(indented_stream &indenter, std::string const &field, 
             break;
         case RIGHT_VALUE:
             if(fd->is_repeated()) 
-                buf << base << "(I"<<++level<<")";
+                buf << base << "("<< acinf.loop_iter_name(++level) << ")";
             else 
                 buf << base << "()";
             break;
@@ -669,7 +696,12 @@ std::string field_accessor(indented_stream &indenter, std::string const &field, 
     return buf.str();
 }
 static
-std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, accessor_info const &acinf, int cur_level=100) {
+std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, accessor_info &acinf) {
+    if(acinf.loop_level() == 0) 
+        DOUT << "get_loop_size called at level !\n";
+    else if(acinf.loop_sizes.back().size() != 0)
+        DOUT << "get_loop_size has sizes: " << acinf.loop_sizes.back() << "\n";
+
     std::vector<std::pair<std::string, std::string>> indices;
     // 159 INDX  RS_cleaner d1: SQuAD_reply 234, 236
     if(index_set.size() == 0) {
@@ -678,11 +710,12 @@ std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, st
         fop const &ix = icode[ixi-1];
         std::vector<std::string> names(&ix.arg1, &ix.arg1+1);
         for(int i = 1; i < ix.arg.size(); ++i) names.push_back(fc->get_id(ix.arg[i]));  
-        std::string index_size(field_accessor(indenter, join(names, "+"), ix.d1, acinf, SIZE, cur_level)); 
+        std::string index_size(field_accessor(indenter, join(names, "+"), ix.d1, acinf, SIZE, acinf.loop_level())); 
         indices.push_back(std::make_pair(join(names, "+"), index_size));
         //std::cerr << " . .  " << indices.back() << "\n";
     }
 
+    auto &current_set = acinf.loop_sizes.back();
     std::sort(indices.begin(), indices.end());
     DOUT << "indices: " << indices << "\n";
 
@@ -698,6 +731,7 @@ std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, st
             current_loop_size = ni.second;
         else 
             current_loop_size = std::string("std::min(")+current_loop_size + ", " + ni.second + ")";
+        current_set.insert(ni.first);
     }
     DOUT << "get_loop_size: " << current_loop_size <<  "\n";
     return current_loop_size;
@@ -829,7 +863,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
     std::string rvl, lvl;   // Left and right value expressions
     // 
-    int loop_level = 0, cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0, cur_base_node = 0;
+    int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0, cur_base_node = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
     std::string input_name, output_name;
     // dimension for every node response and current loop sizes
@@ -1068,28 +1102,29 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
             case NSET:
                 if(op.arg.size() != 0) { // ignore empty index 
-                    ++loop_level;
+                    acinf.incr_loop_level();
                     cur_loop_tmp.push_back("");
                 
-                    DOUT << "NSET1: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
-                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf, loop_level); 
-                    DOUT << "NSET2: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
+                    DOUT << "NSET1: " << acinf << ", index_set: " << op.arg << "\n";
+                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
+                    DOUT << "NSET2: " << acinf << ", index_set: " << op.arg << "\n";
                     if(node_dim > 0) {
-                        std::string size_varname(sfmt() << "Size_" << cur_node_name << "_" << cur_stage << "_" << loop_level);
+                        std::string size_varname(sfmt() << "Size_" << cur_node_name << "_" << cur_stage << "_" << acinf.loop_level());
                         OUT << "auto " << size_varname << " = "  <<  current_loop_size << ";\n";
                         current_loop_size = size_varname;
-                        OUT << reps("v", node_dim-loop_level+1) << cur_input_name << ".resize("<< current_loop_size << ");\n";
+                        OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< current_loop_size << ");\n";
                         if(first_node) {
-                            OUT << reps("v", node_dim-loop_level+1) << cur_output_name << ".resize("<< current_loop_size << ");\n";
-                            OUT << reps("v", node_dim-loop_level+1) << L_VISITED << ".resize("<< current_loop_size << (node_dim-loop_level==0? ", 0": "") << ");\n";
+                            OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< current_loop_size << ");\n";
+                            OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< current_loop_size << (node_dim-acinf.loop_level()==0? ", 0": "") << ");\n";
                         }
                     }
-                    OUT << "for(int I" << loop_level << " = 0, IE" << loop_level << " = " << current_loop_size << "; I" << loop_level << " != IE" << loop_level << "; ++I" << loop_level << ") {\n";
-                    ++indenter;
+                    OUT << "for(int " << acinf.loop_iter_name() << " = 0, " << acinf.loop_end_name() << " = " << current_loop_size << "; " << acinf.loop_iter_name() << " != " << acinf.loop_end_name() << "; ++" << acinf.loop_iter_name() << ") {\n" << indent();
                     if(node_dim > 0) {
-                        OUT << "auto &" << reps("v", node_dim-loop_level) << cur_input_name << " = " << reps("v", node_dim-loop_level+1) << cur_input_name << "[I" << loop_level << "];\n";
-                        OUT << "auto &" << reps("v", node_dim-loop_level) << cur_output_name << " = " << reps("v", node_dim-loop_level+1) << cur_output_name << "[I" << loop_level << "];\n";
-                        OUT << "auto &" << reps("v", node_dim-loop_level) << L_VISITED << " = " << reps("v", node_dim-loop_level+1) << L_VISITED << "[I" << loop_level << "];\n";
+                        std::string rep_pref = reps("v", node_dim-acinf.loop_level());
+                        std::string rep_pref_next = reps("v", node_dim-acinf.loop_level()+1);
+                        OUT << "auto &" << rep_pref << cur_input_name << " = " << rep_pref_next << cur_input_name << "[" << acinf.loop_iter_name() << "];\n";
+                        OUT << "auto &" << rep_pref << cur_output_name << " = " << rep_pref_next << cur_output_name << "[" << acinf.loop_iter_name() << "];\n";
+                        OUT << "auto &" << rep_pref << L_VISITED << " = " << rep_pref_next << L_VISITED << "[" << acinf.loop_iter_name() << "];\n";
                     }
                 }
                 break;
@@ -1098,7 +1133,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 ++indenter;
                 break;
             case NDIF:
-                DOUT << "NDIF1: " << loop_level << " rs_dims: " << acinf << "\n";
+                DOUT << "NDIF1: " << acinf << "\n";
                 OUT << "if(" << L_VISITED << " == 0 && ";
                 gc_bexp(indenter, nodes_rv, acinf, condition(cur_node), FTK_AND) << ") {\n";
                 ++indenter;
@@ -1111,8 +1146,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "}\n";
             case EPRP:
                 //OUT << "// " << op << "\n";
-                while(loop_level > 0) {
-                    --loop_level;
+                while(acinf.loop_level() > 0) {
+                    acinf.decr_loop_level();
                     --indenter; 
                     OUT << "}\n";
                     cur_loop_tmp.pop_back();
@@ -1140,36 +1175,34 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "}\n";
                     }
                 }
-                DOUT << "EPRP1: " << loop_level << " rs_dims: " << acinf << "\n";
+                DOUT << "EPRP1: " << acinf << "\n";
                 acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
-                DOUT << "EPRP2: " << loop_level << " rs_dims; " << acinf << "\n";
+                DOUT << "EPRP2: " << acinf << "\n";
                 break;
             case BPRP:
                 OUT << "// prepare the "<< op.d1->full_name() << " result for " << entry_dot_name << "\n";
                 break;
             case LOOP:
-                ++loop_level;
+                acinf.incr_loop_level();
                 {
-                    DOUT << "LOOP1: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
-                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf, loop_level); 
-                    DOUT << "LOOP2: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
-                    OUT << "for(int I" << loop_level << " = 0, IE" << loop_level << " = " << current_loop_size << "; I" << loop_level << " != IE" << loop_level << "; ++I" << loop_level << ") {\n";
-                    ++indenter;
+                    DOUT << "LOOP1: " << acinf << ", index_set: " << op.arg << "\n";
+                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
+                    DOUT << "LOOP2: " << acinf << ", index_set: " << op.arg << "\n";
+                    OUT << "for(int " << acinf.loop_iter_name() << " = 0, " << acinf.loop_end_name() << " = " << current_loop_size << "; " << acinf.loop_iter_name() << " != " << acinf.loop_end_name() << "; ++" << acinf.loop_iter_name() << ") {\n" << indent();
                 }
                 if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
-                    OUT << "auto &Tmp" << loop_level << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, loop_level-1) << ");\n"; 
-                    cur_loop_tmp.push_back(sfmt() << "Tmp" << loop_level);
+                    OUT << "auto &Tmp" << acinf.loop_level() << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()-1) << ");\n"; 
+                    cur_loop_tmp.push_back(sfmt() << "Tmp" << acinf.loop_level());
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
                 break;
             case ELP:
                 cur_loop_tmp.pop_back();
-                --loop_level;
-                --indenter;
-                OUT << "}\n";
+                acinf.decr_loop_level();
+                OUT << unindent() << "}\n";
                 break;
             case FUNC:
                 OUT << "// function call\n";
@@ -1215,17 +1248,17 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case SET: 
                 DOUT << "SET1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
-                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, loop_level) 
+                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()) 
                     << convert_code.first << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
             case COPY:
                 DOUT << "COPY1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
-                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_STEM, loop_level) 
+                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_STEM, acinf.loop_level()) 
                         << "CopyFrom(" << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << ");\n";
                 break;
             case SETL:
                 DOUT << "SETL1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
-                lvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, loop_level);
+                lvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level());
                 OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
                 break;
 
