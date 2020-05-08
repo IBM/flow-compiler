@@ -14,9 +14,10 @@
 
 using namespace varsub;
 using namespace stru1;
-#define DEBUG_GC 1
+#define DEBUG_CG 0
 #define OUT indenter
-#define DOUT if(DEBUG_GC) OUT << "// "
+#define OUTD if(DEBUG_CG) OUT
+#define DOUT OUTD << "// "
 
 static 
 int check_enum(EnumDescriptor const *ledp, int value, std::string *symname=nullptr) {
@@ -563,9 +564,30 @@ static std::string base_name(std::string const &name) {
     return n;
 }
 
+struct accessor_info {
+    int loop_level;
+    std::map<std::string, int> rs_dims;
+    std::vector<std::set<std::string>> loop_sizes;
+
+    accessor_info(): loop_level(0) {
+    }
+    void add_rs(std::string const &name, int dim) { 
+        rs_dims[name] = dim; 
+    }
+    std::string loop_iter_name(int loop_level) const {
+        return sfmt() << "I" << loop_level;
+    }
+
+};
+
+inline static 
+std::ostream &operator<<(std::ostream &out, accessor_info const &ai) {
+    out << "<" << ai.rs_dims << ", " << ai.loop_sizes << ">";
+}
+
 static 
-std::string field_accessor(indented_stream &indenter, std::string const &field, Descriptor const *d, std::map<std::string, int> const &rs_dims, accessor_type kind, int cur_level=-1) {
-    DOUT << "field_accessor(" << field << ", " << rs_dims << ", " << kind << ", " << cur_level << "):\n";
+std::string field_accessor(indented_stream &indenter, std::string const &field, Descriptor const *d, accessor_info const &acinf, accessor_type kind, int cur_level=-1) {
+    OUTD << " /*field_accessor(" << field << ", " << acinf << ", " << kind << ", " << cur_level << ")*/ ";
     std::stringstream buf;
     std::string base, fields;
     // The first field is the local variable name
@@ -578,12 +600,12 @@ std::string field_accessor(indented_stream &indenter, std::string const &field, 
     bool left = kind == LEFT_VALUE || kind == LEFT_STEM;
     bool right = kind == RIGHT_VALUE || kind == RIGHT_STEM || kind == SIZE;
 
-    int level = right && rs_dims.find(base) != rs_dims.end()? rs_dims.find(base)->second: 0;
+    int level = right && acinf.rs_dims.find(base) != acinf.rs_dims.end()? acinf.rs_dims.find(base)->second: 0;
 
     if(right) {
         buf << reps("v", level) << base;
         for(int i = 0; i < level; ++i)
-            buf << "[I" << (i+1) << "]";
+            buf << "[" << acinf.loop_iter_name(i+1) << "]";
     } else {
         buf << base;
     }
@@ -647,7 +669,7 @@ std::string field_accessor(indented_stream &indenter, std::string const &field, 
     return buf.str();
 }
 static
-std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, std::map<std::string, int> const &rs_dims, int cur_level=100) {
+std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, accessor_info const &acinf, int cur_level=100) {
     std::vector<std::pair<std::string, std::string>> indices;
     // 159 INDX  RS_cleaner d1: SQuAD_reply 234, 236
     if(index_set.size() == 0) {
@@ -656,7 +678,7 @@ std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, st
         fop const &ix = icode[ixi-1];
         std::vector<std::string> names(&ix.arg1, &ix.arg1+1);
         for(int i = 1; i < ix.arg.size(); ++i) names.push_back(fc->get_id(ix.arg[i]));  
-        std::string index_size(field_accessor(indenter, join(names, "+"), ix.d1, rs_dims, SIZE, cur_level)); 
+        std::string index_size(field_accessor(indenter, join(names, "+"), ix.d1, acinf, SIZE, cur_level)); 
         indices.push_back(std::make_pair(join(names, "+"), index_size));
         //std::cerr << " . .  " << indices.back() << "\n";
     }
@@ -743,7 +765,7 @@ bool check_bexp_op_priority(int op1, int op2) {
  * bexp: expression ast node
  * op: previous opearator in the expression, used to determine operator priority
  */
-indented_stream &flow_compiler::gc_bexp(indented_stream &indenter, std::map<std::string, std::string> const &nip, std::map<std::string, int> const &rs_dims, int bexp, int op) const{ 
+indented_stream &flow_compiler::gc_bexp(indented_stream &indenter, std::map<std::string, std::string> const &nip, accessor_info const &acinf, int bexp, int op) const{ 
     std::pair<std::string, std::string> convert_code;
     auto const &bx = at(bexp);
     bool need_parens = false;
@@ -751,28 +773,28 @@ indented_stream &flow_compiler::gc_bexp(indented_stream &indenter, std::map<std:
         case FTK_bexp:
             switch(bx.children.size()) {
                 case 1:
-                    gc_bexp(indenter, nip, rs_dims, bx.children[0], op);
+                    gc_bexp(indenter, nip, acinf, bx.children[0], op);
                     break;
                 case 2:
                     need_parens = check_bexp_op_priority(op, at(bx.children[0]).type);
                     if(need_parens) indenter << "(";
                     indenter << " " << node_name(at(bx.children[0]).type);
                     // TODO length operator should return 1 for non repeated field?
-                    gc_bexp(indenter, nip, rs_dims, bx.children[1], at(bx.children[0]).type);
+                    gc_bexp(indenter, nip, acinf, bx.children[1], at(bx.children[0]).type);
                     if(need_parens) indenter <<  ")";
                     break;
                 case 3:
                     need_parens = check_bexp_op_priority(op, at(bx.children[1]).type);
                     if(need_parens) indenter << "(";
-                    gc_bexp(indenter, nip, rs_dims, bx.children[0], at(bx.children[1]).type);
+                    gc_bexp(indenter, nip, acinf, bx.children[0], at(bx.children[1]).type);
                     indenter <<  " " << node_name(at(bx.children[1]).type) << " ";
-                    gc_bexp(indenter, nip, rs_dims, bx.children[2], at(bx.children[1]).type);
+                    gc_bexp(indenter, nip, acinf, bx.children[2], at(bx.children[1]).type);
                     if(need_parens) indenter << ")";
                     break;
             }
             break;
         case FTK_fldx:
-            indenter << ::field_accessor(indenter, nip.find(get_id(bx.children[0]))->second + "+" + get_joined_id(bexp, 1, "+"), message_descriptor(bx.children[0]), rs_dims, RIGHT_VALUE);
+            indenter << ::field_accessor(indenter, nip.find(get_id(bx.children[0]))->second + "+" + get_joined_id(bexp, 1, "+"), message_descriptor(bx.children[0]), acinf, RIGHT_VALUE);
             break;
         case FTK_INTEGER:
             indenter << get_value(bexp);
@@ -810,8 +832,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     int loop_level = 0, cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0, cur_base_node = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
     std::string input_name, output_name;
-    // dimension for every node response 
-    std::map<std::string, int> rs_dims;
+    // dimension for every node response and current loop sizes
+    accessor_info acinf;
+    //std::map<std::string, int> rs_dims;
     std::vector<int> stage_node_ids;
     std::map<std::string, std::string> nodes_rv;
     bool async_enabled = false;
@@ -1048,9 +1071,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     ++loop_level;
                     cur_loop_tmp.push_back("");
                 
-                    DOUT << "NSET1: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
-                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, rs_dims, loop_level); 
-                    DOUT << "NSET2: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
+                    DOUT << "NSET1: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
+                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf, loop_level); 
+                    DOUT << "NSET2: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
                     if(node_dim > 0) {
                         std::string size_varname(sfmt() << "Size_" << cur_node_name << "_" << cur_stage << "_" << loop_level);
                         OUT << "auto " << size_varname << " = "  <<  current_loop_size << ";\n";
@@ -1075,9 +1098,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 ++indenter;
                 break;
             case NDIF:
-                DOUT << "NDIF1: " << loop_level << " rs_dims; " << rs_dims << "\n";
+                DOUT << "NDIF1: " << loop_level << " rs_dims: " << acinf << "\n";
                 OUT << "if(" << L_VISITED << " == 0 && ";
-                gc_bexp(indenter, nodes_rv, rs_dims, condition(cur_node), FTK_AND) << ") {\n";
+                gc_bexp(indenter, nodes_rv, acinf, condition(cur_node), FTK_AND) << ") {\n";
                 ++indenter;
                 OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \" condition triggered for node " << cur_node_name << "\\n\";\n";
                 break;
@@ -1117,11 +1140,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "}\n";
                     }
                 }
-                DOUT << "EPRP1: " << loop_level << " rs_dims; " << rs_dims << "\n";
-                rs_dims[cur_output_name] = node_dim; 
+                DOUT << "EPRP1: " << loop_level << " rs_dims: " << acinf << "\n";
+                acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
-                DOUT << "EPRP2: " << loop_level << " rs_dims; " << rs_dims << "\n";
+                DOUT << "EPRP2: " << loop_level << " rs_dims; " << acinf << "\n";
                 break;
             case BPRP:
                 OUT << "// prepare the "<< op.d1->full_name() << " result for " << entry_dot_name << "\n";
@@ -1129,14 +1152,14 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case LOOP:
                 ++loop_level;
                 {
-                    DOUT << "LOOP1: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
-                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, rs_dims, loop_level); 
-                    DOUT << "LOOP1: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
+                    DOUT << "LOOP1: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
+                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf, loop_level); 
+                    DOUT << "LOOP2: " << loop_level << " rs_dims: " << acinf << ", index_set: " << op.arg << "\n";
                     OUT << "for(int I" << loop_level << " = 0, IE" << loop_level << " = " << current_loop_size << "; I" << loop_level << " != IE" << loop_level << "; ++I" << loop_level << ") {\n";
                     ++indenter;
                 }
                 if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
-                    OUT << "auto &Tmp" << loop_level << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level-1) << ");\n"; 
+                    OUT << "auto &Tmp" << loop_level << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, loop_level-1) << ");\n"; 
                     cur_loop_tmp.push_back(sfmt() << "Tmp" << loop_level);
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
@@ -1190,19 +1213,19 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             } break;
             */
             case SET: 
-                DOUT << "SET1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << rs_dims << "\n";
+                DOUT << "SET1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
-                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) 
-                    << convert_code.first << ::field_accessor(indenter, op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, loop_level) 
+                    << convert_code.first << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
             case COPY:
-                DOUT << "COPY1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << rs_dims << "\n";
-                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) 
-                        << "CopyFrom(" << ::field_accessor(indenter, op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
+                DOUT << "COPY1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_STEM, loop_level) 
+                        << "CopyFrom(" << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << ");\n";
                 break;
             case SETL:
-                DOUT << "SETL1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << rs_dims << "\n";
-                lvl = ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
+                DOUT << "SETL1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
+                lvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, loop_level);
                 OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
                 break;
 
@@ -1213,8 +1236,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
 
             case RVA: 
-                DOUT << "RVA1: " << op.arg1 << " rs_dims; " << rs_dims << "\n";
-                rvl = ::field_accessor(indenter, op.arg1, op.d1, rs_dims, RIGHT_VALUE);
+                DOUT << "RVA1: " << op.arg1 << " rs_dims; " << acinf << "\n";
+                rvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
                 break;
 
             case SETT:
