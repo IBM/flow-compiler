@@ -11,6 +11,8 @@
 #include "stru1.H"
 #include "grpc-helpers.H"
 
+using namespace stru1;
+
 int flow_compiler::genc_protobuf() {
     int error_count = 0;
     for(auto fdp: fdps) {
