@@ -10,7 +10,7 @@
 #	Destination directory for the executable file 
 #INSTALL_PREFIX?=/usr/local/bin
 #
-#   Base image label - set of docker files with the base images for flowc and for the application
+#   Base image label - Default base image for when --runtime is not used with flowc 
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
