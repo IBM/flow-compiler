@@ -28,6 +28,8 @@
 #include <unistd.h>
 #include <ftw.h>
 
+
+using namespace stru1;
 /** 
  * Set this to false to turn off ANSI coloring 
  */

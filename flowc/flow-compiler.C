@@ -15,6 +15,8 @@
 #include "flow-ast.H"
 #include "flow-parser.c"
 
+using namespace stru1;
+
 static void get_enums(std::set<EnumValueDescriptor const *> &edset, Descriptor const *dd) {
     for(int e = 0, ec = dd->enum_type_count(); e != ec; ++e) {
         auto ed = dd->enum_type(e);
@@ -1808,7 +1810,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
     std::vector<std::set<int>> node_stages(fg);
 
-    TRACE << "Processing entry " << entry_blck_node << ": " << get_name(emd) << "(" <<  cs_name("", 0) << "): " << return_name << "\n";
+    //TRACE << "Processing entry " << entry_blck_node << ": " << get_name(emd) << "(" <<  cs_name("", 0) << "): " << return_name << "\n";
 
     // MTHD marks the beggining of a method implementation.
     // The list of all nodes that can be visited by this method is stored in the args (in source order).
@@ -1899,7 +1901,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             }
         }
         
-        TRACE << "Creating stage set name: " << join(stage_set_names, ", ") << "\n";
+        //TRACE << "Creating stage set name: " << join(stage_set_names, ", ") << "\n";
         icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
         
         for(int node: stage_nodes) {
@@ -1974,7 +1976,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
     int ldepth = at(entry_arg_node).type == FTK_ID? 0: get_index_depth(emd->output_type());
 
-    TRACE << "Preparing for reply set: entry_arg_node: " << entry_arg_node << ", ldepth: " << ldepth << ", rdepth: " << rdepth << "\n";
+    //TRACE << "Preparing for reply set: entry_arg_node: " << entry_arg_node << ", ldepth: " << ldepth << ", rdepth: " << rdepth << "\n";
     if(trace_on) print_ast(std::cerr, entry_arg_node);
 
     if(ldepth < rdepth) {

@@ -13,6 +13,7 @@
 #include "grpc-helpers.H"
 
 using namespace varsub;
+using namespace stru1;
 
 int flow_compiler::find_in_blck(int block_node, std::string const &name, int *pos) const {
     auto blp = block_store.find(block_node);

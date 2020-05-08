@@ -13,6 +13,7 @@
 #include "grpc-helpers.H"
 
 using namespace varsub;
+using namespace stru1;
 
 int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types) {
     int error_count = 0;

@@ -8,6 +8,7 @@
 #include <sstream>
 #include <algorithm>
 #include <tuple>
+#include "stru1.H"
 
 namespace varsub {
 /********************************************************************
@@ -176,7 +177,7 @@ std::ostream &to_json(std::ostream &out, MAP1 const &map1) {
         if(c++ != 0) out << ",\n";
         std::string me1_name = me1.first;
         bool escape = !(stru1::ends_with(me1_name, "_YAMLSTR") || stru1::ends_with(me1_name, "_JSON_C") || stru1::ends_with(me1_name, "_JSON"));
-        out << c_escape(me1_name) << ":";
+        out << stru1::c_escape(me1_name) << ":";
         if(me1.second.size() == 0) {
             out << "null"; 
         } else {

@@ -16,11 +16,6 @@ using namespace google::protobuf;
 #include "helpo.H"
 #include "flow-opcodes.H"
 
-using namespace stru1;
-
-#define INDENT std::string((indent_size), ' ')
-#define TRACE if(trace_on) std::cerr
-
 typedef std::map<std::string, std::vector<std::string>> var_store_t;
 inline static 
 var_store_t &append(var_store_t &vars, std::string const &name, std::string const &value) {
@@ -54,7 +49,6 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
     return vars;
 }
 
-
 struct node_info {
     int node;               // AST pointer
     std::string xname;      // Node or container name, derived from but not always the same as name(node)
@@ -76,7 +70,7 @@ struct node_info {
     node_info(int no=0, std::string const &na="", bool nc=false):node(no), xname(na), port(0), order(0), no_call(nc), scale(0) {
     }
     std::string label() const {
-        return to_lower(to_identifier(xname));
+        return stru1::to_lower(stru1::to_identifier(xname));
     }
 };
 inline static std::ostream &operator<< (std::ostream &out, node_info const &n) {
@@ -170,7 +164,7 @@ public:
     flow_compiler();
     void set_main_file(std::string const &a_file);
     std::string file_loc(flow_token const &token) const {
-        return sfmt() << "//** "<< main_file << ":" << token.line+1 << ":" << token.column+1 << " ** ";
+        return stru1::sfmt() << "//** "<< main_file << ":" << token.line+1 << ":" << token.column+1 << " ** ";
     }
     std::string file_loc(flow_ast_node const &n) const {
         return file_loc(n.token);
@@ -276,7 +270,7 @@ public:
     int get_blck_timeout(int blck, int default_timeout);
 
     // Code generation for orchestrator server
-    std::ostream &gc_bexp(std::ostream &out, std::map<std::string, std::string> const &generated_nodes, std::map<std::string, int> const &rs_dims, int bexp, int op) const;
+    class stru1::indented_stream &gc_bexp(class stru1::indented_stream &out, std::map<std::string, std::string> const &generated_nodes, std::map<std::string, int> const &rs_dims, int bexp, int op) const;
     int gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry);
     int gc_server(std::ostream &out);
 
@@ -295,9 +289,9 @@ public:
     }
     std::string get_node_label(int node) const {
         if(node == 0) 
-            return std::string("I_") + to_lower(to_identifier(input_label)); 
+            return std::string("I_") + stru1::to_lower(stru1::to_identifier(input_label)); 
         if(type(node) == "entry") 
-            return std::string("E_") + to_lower(to_identifier(method_descriptor(node)->name()));
+            return std::string("E_") + stru1::to_lower(stru1::to_identifier(method_descriptor(node)->name()));
         return referenced_nodes.find(node)->second.label();
     }
     std::string cs_name(std::string const &prefix, int node, std::string const &suffix="") const {
@@ -328,7 +322,7 @@ public:
 
 
     // Main call sequence
-    int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts);
+    int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);
 };
 
 #endif

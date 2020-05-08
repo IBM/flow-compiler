@@ -14,15 +14,10 @@
 
 using namespace varsub;
 using namespace stru1;
+#define DEBUG_GC 1
+#define OUT indenter
+#define DOUT if(DEBUG_GC) OUT << "// "
 
-#define OUT out << std::string(indent*4, ' ')
-
-static 
-std::string reps(std::string rep, unsigned count) {
-    std::stringstream buf;
-    for(; count != 0; --count) buf << rep;
-    return buf.str();
-}
 static 
 int check_enum(EnumDescriptor const *ledp, int value, std::string *symname=nullptr) {
     for(int i = 0, c = ledp->value_count(); i != c; ++i) {
@@ -68,7 +63,6 @@ FieldDescriptor const *fd_accessor(std::string const &field, Descriptor const *d
     }
     return d->FindFieldByName(base);
 }
-
 /***
  * Convert an enum to the type of field (left_fd)
  * Returns false if the conversion failed
@@ -570,8 +564,8 @@ static std::string base_name(std::string const &name) {
 }
 
 static 
-std::string field_accessor_d(bool trace_on, std::string const &field, Descriptor const *d, std::map<std::string, int> const &rs_dims, accessor_type kind, int cur_level=-1) {
-    TRACE << "field_accessor(" << field << ", " << rs_dims << ", " << kind << ", " << cur_level << "):\n";
+std::string field_accessor(indented_stream &indenter, std::string const &field, Descriptor const *d, std::map<std::string, int> const &rs_dims, accessor_type kind, int cur_level=-1) {
+    DOUT << "field_accessor(" << field << ", " << rs_dims << ", " << kind << ", " << cur_level << "):\n";
     std::stringstream buf;
     std::string base, fields;
     // The first field is the local variable name
@@ -652,16 +646,8 @@ std::string field_accessor_d(bool trace_on, std::string const &field, Descriptor
     }
     return buf.str();
 }
-static 
-std::string field_accessor(std::string const &field, Descriptor const *d, std::map<std::string, int> const &rs_dims, accessor_type kind, int cur_level=-1) {
-    bool trace_on = false;
-    std::string fa = field_accessor_d(trace_on, field, d, rs_dims, kind, cur_level);
-    TRACE << "  " << fa << "\n";
-    return fa;
-}
 static
-std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, std::map<std::string, int> const &rs_dims, int cur_level=100) {
-    //std::cerr << "BEGIN get_loop_size, cur_level: "<< cur_level << "\n\tindex_set: " << index_set << "\n\trs_dims: " << rs_dims << "\n";
+std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, std::map<std::string, int> const &rs_dims, int cur_level=100) {
     std::vector<std::pair<std::string, std::string>> indices;
     // 159 INDX  RS_cleaner d1: SQuAD_reply 234, 236
     if(index_set.size() == 0) {
@@ -670,17 +656,19 @@ std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode
         fop const &ix = icode[ixi-1];
         std::vector<std::string> names(&ix.arg1, &ix.arg1+1);
         for(int i = 1; i < ix.arg.size(); ++i) names.push_back(fc->get_id(ix.arg[i]));  
-        std::string index_size(field_accessor(join(names, "+"), ix.d1, rs_dims, SIZE, cur_level)); 
+        std::string index_size(field_accessor(indenter, join(names, "+"), ix.d1, rs_dims, SIZE, cur_level)); 
         indices.push_back(std::make_pair(join(names, "+"), index_size));
         //std::cerr << " . .  " << indices.back() << "\n";
     }
 
     std::sort(indices.begin(), indices.end());
-    //std::cerr << "\tindices: " << indices << "\n";
+    DOUT << "indices: " << indices << "\n";
+
     // Eliminate all indices that are prefixes of other indices
-    
     for(auto fp = indices.begin(), sp = fp+1, ep = indices.end(); sp != ep; ++fp, ++sp) 
         if(stru1::starts_with(sp->first, fp->first+"+")) fp->first.clear();
+
+    DOUT << "trimmed indices: " << indices << "\n";
     
     std::string current_loop_size;
     for(auto ni: indices) if(!ni.first.empty()) {
@@ -689,8 +677,7 @@ std::string get_loop_size(flow_compiler const *fc, std::vector<fop> const &icode
         else 
             current_loop_size = std::string("std::min(")+current_loop_size + ", " + ni.second + ")";
     }
-    //std::cerr << "\tindices: " << indices << "\n";
-    //std::cerr << "END get_loop_size: " << current_loop_size <<  "\n";
+    DOUT << "get_loop_size: " << current_loop_size <<  "\n";
     return current_loop_size;
 }
 
@@ -756,7 +743,7 @@ bool check_bexp_op_priority(int op1, int op2) {
  * bexp: expression ast node
  * op: previous opearator in the expression, used to determine operator priority
  */
-std::ostream &flow_compiler::gc_bexp(std::ostream &out, std::map<std::string, std::string> const &nip, std::map<std::string, int> const &rs_dims, int bexp, int op) const{ 
+indented_stream &flow_compiler::gc_bexp(indented_stream &indenter, std::map<std::string, std::string> const &nip, std::map<std::string, int> const &rs_dims, int bexp, int op) const{ 
     std::pair<std::string, std::string> convert_code;
     auto const &bx = at(bexp);
     bool need_parens = false;
@@ -764,49 +751,49 @@ std::ostream &flow_compiler::gc_bexp(std::ostream &out, std::map<std::string, st
         case FTK_bexp:
             switch(bx.children.size()) {
                 case 1:
-                    gc_bexp(out, nip, rs_dims, bx.children[0], op);
+                    gc_bexp(indenter, nip, rs_dims, bx.children[0], op);
                     break;
                 case 2:
                     need_parens = check_bexp_op_priority(op, at(bx.children[0]).type);
-                    if(need_parens) out << "(";
-                    out << " " << node_name(at(bx.children[0]).type);
+                    if(need_parens) indenter << "(";
+                    indenter << " " << node_name(at(bx.children[0]).type);
                     // TODO length operator should return 1 for non repeated field?
-                    gc_bexp(out, nip, rs_dims, bx.children[1], at(bx.children[0]).type);
-                    if(need_parens) out << ")";
+                    gc_bexp(indenter, nip, rs_dims, bx.children[1], at(bx.children[0]).type);
+                    if(need_parens) indenter <<  ")";
                     break;
                 case 3:
                     need_parens = check_bexp_op_priority(op, at(bx.children[1]).type);
-                    if(need_parens) out << "(";
-                    gc_bexp(out, nip, rs_dims, bx.children[0], at(bx.children[1]).type);
-                    out << " " << node_name(at(bx.children[1]).type) << " ";
-                    gc_bexp(out, nip, rs_dims, bx.children[2], at(bx.children[1]).type);
-                    if(need_parens) out << ")";
+                    if(need_parens) indenter << "(";
+                    gc_bexp(indenter, nip, rs_dims, bx.children[0], at(bx.children[1]).type);
+                    indenter <<  " " << node_name(at(bx.children[1]).type) << " ";
+                    gc_bexp(indenter, nip, rs_dims, bx.children[2], at(bx.children[1]).type);
+                    if(need_parens) indenter << ")";
                     break;
             }
             break;
         case FTK_fldx:
-            out << ::field_accessor(nip.find(get_id(bx.children[0]))->second + "+" + get_joined_id(bexp, 1, "+"), message_descriptor(bx.children[0]), rs_dims, RIGHT_VALUE);
+            indenter << ::field_accessor(indenter, nip.find(get_id(bx.children[0]))->second + "+" + get_joined_id(bexp, 1, "+"), message_descriptor(bx.children[0]), rs_dims, RIGHT_VALUE);
             break;
         case FTK_INTEGER:
-            out << get_value(bexp);
+            indenter << get_value(bexp);
             break;
         case FTK_FLOAT:
-            out << get_value(bexp);
+            indenter <<  get_value(bexp);
             break;
         case FTK_STRING:
-            out << c_escape(get_string(bexp));
+            indenter <<  c_escape(get_string(bexp));
             break;
         case FTK_dtid:
             // std::cerr << get_full_name(enum_descriptor(bexp)) << "\n";
-            out << get_full_name(enum_descriptor(bexp));
+            indenter <<  get_full_name(enum_descriptor(bexp));
             //out << enum_descriptor(bexp)->number();
             break;
     }
-    return out;
+    return indenter;
 }
 // Generate C++ code for a given Entry Method
-int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) {
-    int indent = 1;
+int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) {
+    indented_stream indenter(os, 1);
     auto eipp = entry_ip.find(blck_entry);
     OUT << "//  from " << main_file << ":" << at(blck_entry).token.line << " " << entry_dot_name << "\n";
     if(eipp == entry_ip.end()) {
@@ -843,7 +830,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 nodes_rv[input_label] = input_name;
                 output_name = op.arg2;
                 OUT << "::grpc::Status " << get_name(op.m1) << "(long CID, ::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") {\n";
-                ++indent;
+                ++indenter;
                 OUT << "GRPC_ENTER_" << entry_name << "(\"" << entry_dot_name << "\", CID, *CTX, p" << input_name << ")\n";
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
                 OUT << "bool Trace_call = flowc::get_metadata_bool(Client_metadata, \"trace-call\", flowc::trace_calls);\n";
@@ -868,7 +855,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \"leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
 
                 OUT << "return L_status;\n";
-                --indent; 
+                --indenter; 
                 OUT << "}\n";
                 done = 1;
                 break;
@@ -901,21 +888,21 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case ESTG:
                 if(async_enabled) {
                     OUT << "if(Async_call && 0 < " << L_STAGE_CALLS << ") {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << "void *TAG; bool NextOK = false; int " << L_RECV << " = 0;\n";
                     OUT << "//\n";
                     OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     OUT << "while(" << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << "if(CTX->IsCancelled()) {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                     OUT << L_QUEUE << ".Shutdown();\n";
                     OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
-                    --indent;
+                    --indenter;
                     OUT << "}\n";
                     OUT << "if(NextOK) {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << "int X = (int) (long) TAG;\n";
                     OUT << "FLOGC(Trace_call) << flowc::callid(CID, X) << \"woke up in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     OUT << "auto &LL_Status = *" << L_STATUS << "[X-1];\n";
@@ -927,16 +914,16 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         if(nc > 0) OUT << "else ";
                         else OUT << "";
                         if(++nc == stage_nodes)
-                            out << "{\n";
+                            indenter << "{\n";
                         else 
-                            out << "if(X <= " << LN_END_X(nn) << ") {\n";
-                        ++indent;
+                            indenter << "if(X <= " << LN_END_X(nn) << ") {\n";
+                        ++indenter;
                         // The index in the node vectors (result and result reader)
                         OUT << "int NRX = X - " << LN_BEGIN(nn) << ";\n";
                         // Mark this connection as finished
                         OUT << nn << "_ConP->finished(" << LN_CONN(nn) << "[NRX-1], CID, X, LL_Status.error_code() == ::grpc::StatusCode::UNAVAILABLE);\n";
                         OUT << "if(" << LN_SENT(nn) << " != " << LN_END_X(nn) <<  " - " << LN_BEGIN(nn) << ") {\n";
-                        ++indent;
+                        ++indenter;
                         // If there are still requests to be sent, add a new one, of the same kind, to the queue
                         OUT << "int Nx = " << LN_SENT(nn) << ";\n";
                         OUT << "int Sx = Nx + " << LN_BEGIN(nn) << ";\n";
@@ -946,14 +933,14 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << "RPCx->StartCall();\n";
                         OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Nx], " << L_STATUS << "[Sx].get(), (void *) (long) (Sx+1));\n";
                         OUT << "++" << LN_SENT(nn) << ";\n";
-                        --indent;
+                        --indenter;
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
                             OUT << "GRPC_RECEIVED(\"" << entry_name << "\", \"" << nn << "\", CID, NRX, flowc::" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
                         OUT << "FLOGC(Trace_call && LL_Status.ok()) << flowc::callid(CID, X) << \"" << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";
-                        ++indent;
+                        ++indenter;
                         OUT << "GRPC_ERROR(CID, X, \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") " << nn << "\", LL_Status, LL_Ctx);\n";
                         OUT << L_QUEUE << ".Shutdown();\n";
 
@@ -962,23 +949,23 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                             OUT << nn << "_ConP->release(CID, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
                         }
                         OUT << "return LL_Status;\n";
-                        --indent;
+                        --indenter;
                         OUT << "}\n";
-                        --indent;
+                        --indenter;
                         OUT << "}\n";
                     }
                     OUT << "if(++" << L_RECV << " >= " << L_STAGE_CALLS << ") {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << L_QUEUE << ".Shutdown();\n";
-                    --indent;
+                    --indenter;
                     OUT << "} else {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \"back waiting for \" << (" << L_STAGE_CALLS << " - " << L_RECV << ") << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
-                    --indent;
+                    --indenter;
                     OUT << "}\n";
-                    --indent;
+                    --indenter;
                     OUT << "} else {\n";
-                    ++indent;
+                    ++indenter;
                     OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): Next() not OK\\n\";\n";
                     OUT << L_QUEUE << ".Shutdown();\n";
                     for(auto nnj: stage_node_ids) {
@@ -986,11 +973,11 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         OUT << nn << "_ConP->release(CID, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
                     }
                     OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline\");\n";
-                    --indent;
+                    --indenter;
                     OUT << "}\n";
-                    --indent;
+                    --indenter;
                     OUT << "}\n";
-                    --indent;
+                    --indenter;
                     OUT << "}\n";
                 }
                 OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
@@ -1061,7 +1048,9 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     ++loop_level;
                     cur_loop_tmp.push_back("");
                 
-                    std::string current_loop_size = get_loop_size(this, icode, op.arg, rs_dims, loop_level); 
+                    DOUT << "NSET1: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
+                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, rs_dims, loop_level); 
+                    DOUT << "NSET2: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
                     if(node_dim > 0) {
                         std::string size_varname(sfmt() << "Size_" << cur_node_name << "_" << cur_stage << "_" << loop_level);
                         OUT << "auto " << size_varname << " = "  <<  current_loop_size << ";\n";
@@ -1073,7 +1062,7 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                         }
                     }
                     OUT << "for(int I" << loop_level << " = 0, IE" << loop_level << " = " << current_loop_size << "; I" << loop_level << " != IE" << loop_level << "; ++I" << loop_level << ") {\n";
-                    ++indent;
+                    ++indenter;
                     if(node_dim > 0) {
                         OUT << "auto &" << reps("v", node_dim-loop_level) << cur_input_name << " = " << reps("v", node_dim-loop_level+1) << cur_input_name << "[I" << loop_level << "];\n";
                         OUT << "auto &" << reps("v", node_dim-loop_level) << cur_output_name << " = " << reps("v", node_dim-loop_level+1) << cur_output_name << "[I" << loop_level << "];\n";
@@ -1083,24 +1072,25 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
             case BNIF:
                 OUT << "if(" << L_VISITED << " == 0) {\n";
-                ++indent;
+                ++indenter;
                 break;
             case NDIF:
+                DOUT << "NDIF1: " << loop_level << " rs_dims; " << rs_dims << "\n";
                 OUT << "if(" << L_VISITED << " == 0 && ";
-                gc_bexp(out, nodes_rv, rs_dims, condition(cur_node), FTK_AND) << ") {\n";
-                ++indent;
+                gc_bexp(indenter, nodes_rv, rs_dims, condition(cur_node), FTK_AND) << ") {\n";
+                ++indenter;
                 OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \" condition triggered for node " << cur_node_name << "\\n\";\n";
                 break;
             case ENOD:
                 // if visited
                 OUT <<  L_VISITED << " = " << cur_node << ";\n";
-                --indent;
+                --indenter;
                 OUT << "}\n";
             case EPRP:
                 //OUT << "// " << op << "\n";
                 while(loop_level > 0) {
-                    --indent; 
                     --loop_level;
+                    --indenter; 
                     OUT << "}\n";
                     cur_loop_tmp.pop_back();
                 }
@@ -1108,28 +1098,30 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                     OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
                     if(node_has_calls) {
                         OUT << "if(Async_call) {\n";
-                        ++indent;
+                        ++indenter;
                         OUT << "auto " << cur_node_name << "_maxcc = (int)" << cur_node_name << "_ConP->count();\n";
                         // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
                         // We use the (one based) index in the status/context vector as a tag for the call
                         OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
-                        ++indent;
+                        ++indenter;
                         OUT << "auto Rx = Ax-" << L_BEGIN  << ";\n";
                         OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
                         OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CID, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx], Trace_call);\n";
                         OUT << "RPCx->StartCall();\n";
                         OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
                         OUT << "++" << L_SENT << ";\n";
-                        --indent;
+                        --indenter;
                         OUT << "}\n";
+                        --indenter;
 
-                        --indent;
                         OUT << "}\n";
                     }
                 }
+                DOUT << "EPRP1: " << loop_level << " rs_dims; " << rs_dims << "\n";
                 rs_dims[cur_output_name] = node_dim; 
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
+                DOUT << "EPRP2: " << loop_level << " rs_dims; " << rs_dims << "\n";
                 break;
             case BPRP:
                 OUT << "// prepare the "<< op.d1->full_name() << " result for " << entry_dot_name << "\n";
@@ -1137,21 +1129,23 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             case LOOP:
                 ++loop_level;
                 {
-                    std::string current_loop_size = get_loop_size(this, icode, op.arg, rs_dims, loop_level); 
+                    DOUT << "LOOP1: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
+                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, rs_dims, loop_level); 
+                    DOUT << "LOOP1: " << loop_level << " rs_dims: " << rs_dims << ", index_set: " << op.arg << "\n";
                     OUT << "for(int I" << loop_level << " = 0, IE" << loop_level << " = " << current_loop_size << "; I" << loop_level << " != IE" << loop_level << "; ++I" << loop_level << ") {\n";
+                    ++indenter;
                 }
-                ++indent;
                 if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
-                    OUT << "auto &Tmp" << loop_level << " = *" <<  cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level-1) << ");\n"; 
+                    OUT << "auto &Tmp" << loop_level << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level-1) << ");\n"; 
                     cur_loop_tmp.push_back(sfmt() << "Tmp" << loop_level);
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
                 break;
             case ELP:
-                --indent;
                 cur_loop_tmp.pop_back();
                 --loop_level;
+                --indenter;
                 OUT << "}\n";
                 break;
             case FUNC:
@@ -1196,16 +1190,19 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
             } break;
             */
             case SET: 
+                DOUT << "SET1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << rs_dims << "\n";
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
-                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) 
-                    << convert_code.first << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) 
+                    << convert_code.first << ::field_accessor(indenter, op.arg2, op.d2, rs_dims, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
             case COPY:
-                OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) 
-                        << "CopyFrom(" << ::field_accessor(op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
+                DOUT << "COPY1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << rs_dims << "\n";
+                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_STEM, loop_level) 
+                        << "CopyFrom(" << ::field_accessor(indenter, op.arg2, op.d2, rs_dims, RIGHT_VALUE) << ");\n";
                 break;
             case SETL:
-                lvl = ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
+                DOUT << "SETL1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << rs_dims << "\n";
+                lvl = ::field_accessor(indenter, op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level);
                 OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
                 break;
 
@@ -1216,7 +1213,8 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 break;
 
             case RVA: 
-                rvl = ::field_accessor(op.arg1, op.d1, rs_dims, RIGHT_VALUE);
+                DOUT << "RVA1: " << op.arg1 << " rs_dims; " << rs_dims << "\n";
+                rvl = ::field_accessor(indenter, op.arg1, op.d1, rs_dims, RIGHT_VALUE);
                 break;
 
             case SETT:
@@ -1227,34 +1225,28 @@ int flow_compiler::gc_server_method(std::ostream &out, std::string const &entry_
                 node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
                 if(async_enabled) {
-                    OUT << "if(Async_call) {\n";
-                    ++indent;
-                    OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n";
-                    ++indent;
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n";
-                    --indent;
+                    OUT << "if(Async_call) {\n" << indent(); 
+
+                    OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << indent() <<
+                                "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n" << unindent();
                     OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
                     OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
                     OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
                     OUT << L_INPTR << ".emplace_back(&" << cur_input_name << ");\n";
                     OUT << L_CARR << ".emplace_back(nullptr);\n";
                     OUT << L_CONN << ".push_back(-1);\n";
-                    --indent;
-                    OUT << "} else {\n";
-                    ++indent;
+
+                    OUT << unindent() << "} else {\n" << indent();
                 }
-                OUT << "if(CTX->IsCancelled()) {\n";
-                ++indent;
+                OUT << "if(CTX->IsCancelled()) {\n" << indent();
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
-                --indent;
-                OUT << "}\n";
+                OUT << unindent() << "}\n";
                 OUT << "L_status = " << cur_node_name << "_call(CID, " << L_STAGE_CALLS << ", " << cur_node_name << "_ConP, &" << cur_output_name << ", &" << cur_input_name << ", Trace_call);\n";
                 OUT << "if(!L_status.ok()) return L_status;\n";
-                if(async_enabled) {
-                    --indent;
-                    OUT << "}\n";
-                }
+
+                if(async_enabled) 
+                    OUT << unindent() << "}\n";
                 break;
 
             case ERR:
