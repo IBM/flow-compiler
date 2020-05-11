@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ftw.h>
+#include <errno.h>
 
 
 using namespace stru1;
@@ -785,6 +786,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             extern char const *template_Makefile;
             render_varsub(makf, template_Makefile, global_vars);
         }
+
+        // Create a link to this makefile if Makefile isn't in the way
+        std::string mp = output_filename("Makefile");
+        std::string od = output_filename(".");
+        int output_fd = open(od.c_str(), O_DIRECTORY);
+        // Ignore the error
+        if(0 != symlinkat(orchestrator_makefile.c_str(), output_fd, "Makefile"));
+        close(output_fd);
+        //std::cerr << strerror(errno);
     }
     //std::cerr << "----- before dockerfile: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "dockerfile")) {
