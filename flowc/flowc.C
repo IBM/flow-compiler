@@ -300,6 +300,18 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     //    print_ast(std::cout);
     if(error_count == 0)
         error_count += compile(targets);
+
+    // Ids are necessary to generate node labels
+    // Make another pass through the nodes and assign any missing ids
+    /*
+    for(auto &rn: referenced_nodes) {
+        int blck = rn.first;
+        auto &ni = rn.second;
+
+        std::cerr << ni << "\n";
+    }
+    */
+
     if(opts.have("print-graph")) {
         std::string entry(opts.opt("print-graph", ""));
         int en = 0;
@@ -455,6 +467,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(referenced_nodes.size() > 0) 
         set(global_vars, "HAVE_NODES", ""); 
 
+
+
     // Grab all the image names, image ports and volume names 
     if(contains(targets, "kubernetes") || contains(targets, "docker-compose") || contains(targets, "docker-swarm")) {
         // Make a first pass to collect the declared ports and groups
@@ -474,10 +488,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             ni.port = pv;
 
-            error_count += get_block_value(value, blck, "pod", false, {FTK_STRING, FTK_INTEGER});
-            std::string pod_name;
-            if(!opts.have("single-pod") && value > 0) pod_name = get_value(value);
-            ni.group = pod_name;
+            // opts.have("single-pod") needs to be used when kube stuff is generated
         }
         // Allocate port values for the nodes that have not declared one
         while(true) {
@@ -510,20 +521,20 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "NODE_NAME", nn);
             int value = 0, pv = 0;
 
-            std::string pod_name = ni.group;
-            append(global_vars, "NODE_GROUP", pod_name);
-            append(group_vars[pod_name], "G_NODE_GROUP", pod_name);
-            append(group_vars[pod_name], "G_NODE_GROUP_UPPER", to_upper(to_underscore(pod_name)));
-            append(group_vars[pod_name], "G_NODE_NAME", nn);
-            append(group_vars[pod_name], "G_NODE_OPTION", to_option(nn));
-            append(group_vars[pod_name], "G_NODE_SERVICE", sfmt() << to_option(orchestrator_name) << "-" << pod_name);
+            std::string group_name = ni.group;
+            append(global_vars, "NODE_GROUP", group_name);
+            append(group_vars[group_name], "G_NODE_GROUP", group_name);
+            append(group_vars[group_name], "G_NODE_GROUP_UPPER", to_upper(to_underscore(group_name)));
+            append(group_vars[group_name], "G_NODE_NAME", nn);
+            append(group_vars[group_name], "G_NODE_OPTION", to_option(nn));
+            append(group_vars[group_name], "G_NODE_SERVICE", sfmt() << to_option(orchestrator_name) << "-" << group_name);
 
             pv = ni.port;
             append(global_vars, "IMAGE_PORT", std::to_string(pv));
-            append(group_vars[pod_name], "G_IMAGE_PORT", std::to_string(pv));
+            append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
 
             // For kubernetes check that ports in the same pod don't clash
-            if(contains(targets, "kubernetes")) for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == pod_name) {
+            if(contains(targets, "kubernetes")) for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == group_name) {
                 ++error_count;
                 pcerr.AddError(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.first << "\"");
                 // Only generate one port conflict message
@@ -548,15 +559,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
 
             append(global_vars, "NODE_IMAGE", ni.image_name);
-            append(group_vars[pod_name], "G_NODE_IMAGE", ni.image_name);
+            append(group_vars[group_name], "G_NODE_IMAGE", ni.image_name);
             append(global_vars, "NODE_ENDPOINT", ni.external_endpoint);
-            append(group_vars[pod_name], "G_NODE_ENDPOINT", ni.external_endpoint);
+            append(group_vars[group_name], "G_NODE_ENDPOINT", ni.external_endpoint);
             if(external_node) {
                 append(global_vars, "EXTERN_NODE", "#");
-                append(group_vars[pod_name], "G_EXTERN_NODE", "#");
+                append(group_vars[group_name], "G_EXTERN_NODE", "#");
             } else {
                 append(global_vars, "EXTERN_NODE", "");
-                append(group_vars[pod_name], "G_EXTERN_NODE", "");
+                append(group_vars[group_name], "G_EXTERN_NODE", "");
             }
 
             value = 0;
@@ -627,7 +638,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                     std::string path = get_string(v);
                     if(path.empty()) 
                         pcerr.AddWarning(main_file, at(v), "empty \"path\" value");
-                    group_volumes[pod_name].insert(mount_name);
+                    group_volumes[group_name].insert(mount_name);
                     //ni.mounts.push_back(std::make_tuple(mount_name, path, read_write));
                     minf.paths.push_back(path);
                 }
@@ -639,7 +650,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 error_count += get_nv_block(ni.environment, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
         }
 
-        // Avoid pod name collision
+        // Avoid group name collision
         set(global_vars, "MAIN_POD", "main");
         for(int i = 1; i < 100 && contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
             set(global_vars, "MAIN_POD", sfmt() << "main" << i);

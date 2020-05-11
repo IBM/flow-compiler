@@ -1821,7 +1821,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     for(auto n: method_set) icode.back().arg.push_back(n);      // MTHD arg 1... nodes used by this entry
     std::set<int> visited;
 
-    // Reorder tnodes and label them accordingly
+    // Reorder nodes and label them accordingly
     std::map<std::string, int> node_order;
     for(auto const &stage_set: node_stages) 
         for(int n: stage_set) if(condition.has(n)) {
@@ -1830,12 +1830,16 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             } else {
                 node_order[name(n)] = 1;
             }
-            auto &mni = referenced_nodes.find(n)->second;
-            mni.order = node_order[name(n)];
-            if(mni.id.empty())
-                mni.xname = sfmt() << name(n) << "-" << mni.order;
-            else 
-                mni.xname = mni.id;
+            auto &ni = referenced_nodes.find(n)->second;
+            ni.order = node_order[name(n)];
+
+            if(ni.id.empty() && ni.order == 0) {
+                ni.xname = name(ni.node);
+            } else if(ni.id.empty()) {
+                ni.xname = sfmt() << name(ni.node) << "-" << ni.order;
+            } else {
+                ni.xname = sfmt() << name(ni.node) << "-" << ni.id;
+            }
         }
 
     // Add any default error nodes that would otherwise be left out
@@ -2059,6 +2063,7 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         error_count += build_flow_graph(ep.second.second);
     }
 
+
     icode.clear();
     if(error_count > 0) return error_count;
 
@@ -2070,28 +2075,47 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     for(auto const &gv: flow_graph) {
         auto const &e = at(gv.first);
         std::set<int> entry_referenced_nodes;
-        std::stringstream sout;
-        sout << "entry(" << e.token.line << "," << e.token.column << ")";
         for(auto const &ss: gv.second) {
-            std::vector<std::string> ns;
             for(int n: ss) if(n != gv.first) {
                 referenced_nodes.emplace(n, node_info(n, (!condition.has(n)? name(n): sfmt() << name(n) << "-" << at(n).token.line << "-" << at(n).token.column), method_descriptor(n)==nullptr));
                 entry_referenced_nodes.insert(n);
-                ns.push_back(referenced_nodes.find(n)->second.xname);
+                auto &ni = referenced_nodes.find(n)->second;
+
+                int value = 0;
+                error_count += get_block_value(value, n, "id", false, {FTK_INTEGER, FTK_STRING});
+
+                if(value > 0) {
+                    ni.id = get_value(value);
+                    // Check that id doesn't clash with other ids
+                    for(auto &cn: referenced_nodes) {
+                        if(&ni == &cn.second) 
+                            continue;
+
+                        if(name(cn.second.node) == name(ni.node) && cn.second.id == ni.id) {
+                            pcerr.AddError(main_file, at(value), sfmt() << "illegal reuse of ID \"" << ni.id << "\" for \"" << name(ni.node) << "\" nodes");
+                            pcerr.AddNote(main_file, at(cn.second.node), sfmt() << "previously used here");
+                            ++error_count;
+                            break;
+                        }
+                    }
+                }
+
+                value = 0;
+                error_count += get_block_value(value, n, "group", false, {FTK_INTEGER, FTK_STRING});
+                if(value > 0) 
+                    ni.group = get_value(value);
             }
-            sout << "/" << join(ns, ",");
         }
         if(verbose && entry_referenced_nodes.size() == 0) 
             pcerr.AddWarning(main_file, e, sfmt() << "entry \""<< method_descriptor(gv.first)->full_name()<< "\" doesn't use any nodes");
-        else if(verbose) 
-            pcerr.AddNote(main_file, e, sfmt() << "node sequence: " << sout.str());
+
+
         // Mark the entry point 
         entry_ip[gv.first] = icode.size();
         error_count += compile_flow_graph(gv.first, gv.second, entry_referenced_nodes);
     }
     for(auto ne: named_blocks) if(ne.second.first == "node" && !contains(referenced_nodes, ne.second.second)) 
         pcerr.AddWarning(main_file, at(ne.second.second), sfmt() << "node \"" << ne.first << "\" is not used by any entry");
-    //std::cerr << referenced_nodes << "\n";
 
     return error_count;
 }

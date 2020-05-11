@@ -147,7 +147,7 @@ OPTIONS
 
        --rest-port=PORT, -r PORT
               Make "REST" available on "PORT". Must not conflict with the aggregator "gRPC" port.
-              On "Kubernetes" this port must not conflict with any of the ports used in the main pod.
+              On "Kubernetes" this port must not conflict with any of the ports used in the main group.
 
        --runtime=RUNTIME -R RUNTIME
               Generate server image using flowc:version.RUNTIME as a base "Docker" image
@@ -156,7 +156,7 @@ OPTIONS
               Generate code for the "gRPC" aggregator
 
        --single-pod
-              Ignore all pod labels and generate a single pod deployment with all the nodes.
+              Ignore all group labels and generate a single pod deployment with all the nodes.
               This is a "Kubernetes" specific option.
 
        --svg-files
