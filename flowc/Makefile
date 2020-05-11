@@ -135,19 +135,24 @@ install: flowc
 
 #################### Docker image builder
 flow-base-image-info.json: $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
-	-docker rmi -f $(IMAGE) 2>&1 > /dev/null
+	-docker rmi -f $(IMAGE)  > /dev/null 2>&1
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
 	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
 	rm -f flow-compiler-minsrc.tgz
-	-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $@
+	-docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > $@
 
 image-info-Darwin:
 	@rm -f flow-base-image-info.json
-	@-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > flow-base-image-info.json && touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json
+	@-docker image inspect $(IMAGE) > /dev/null 2>&1 \
+	&& docker image inspect $(IMAGE) > flow-base-image-info.json && touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json \
+	|| true
+
 
 image-info-Linux:
 	@rm -f flow-base-image-info.json
-	@-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > flow-base-image-info.json && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE)` flow-base-image-info.json
+	@-docker image inspect $(IMAGE) > /dev/null 2>&1 \
+	&& docker image inspect $(IMAGE) > flow-base-image-info.json && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE)` flow-base-image-info.json \
+	|| true
 
 image-info: image-info-$(HOST_OS)
 
