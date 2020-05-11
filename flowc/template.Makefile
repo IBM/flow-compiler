@@ -1,4 +1,5 @@
 .PHONY: info image clean all image-info-Darwin image-info-Linux client server deploy
+.SILENT: image-info-Darwin image-info-Linux 
 
 ########################################################################
 # {{NAME}}.mak 
@@ -14,11 +15,10 @@ else
 endif
 
 PUSH_REPO?={{PUSH_REPO:}}
-IMAGE_TAG?={{IMAGE_TAG}}
-DEFAULT_IMAGE:={{NAME}}:$(IMAGE_TAG)
-IMAGE?={{IMAGE:$(DEFAULT_IMAGE)}}	
-IMAGE_REPO:=$(shell echo "$(IMAGE)" | sed 's/:.*$$//')
-IMAGE_TAG:=$(shell echo "$(IMAGE)" | sed 's/^.*://')
+IMAGE?={{IMAGE}}
+IMAGE_NAME?=$(shell echo $(IMAGE) | sed 's/:.*$$//')
+IMAGE_TAG?=$(shell echo $(IMAGE) | sed 's/^.*://')
+
 IMAGE_PROXY?={{NAME}}-image-info.json
 HTDOCS_PATH?={{HTDOCS_PATH:}}
 
@@ -60,7 +60,7 @@ ifeq ($(PUSH_REPO), )
 DOCKER:=docker-info
 else 
 DOCKER:=docker-push
-PUSH_IMAGE:=$(PUSH_REPO:/=)/$(IMAGE_REPO):$(IMAGE_TAG)
+PUSH_IMAGE:=$(PUSH_REPO:/=)/$(IMAGE_NAME):$(IMAGE_TAG)
 endif
 
 ifeq ($(HTDOCS_PATH), )
@@ -75,9 +75,8 @@ endif
 THIS_FILE:=$(lastword $(MAKEFILE_LIST))
 
 info:
-	@echo "Target \"image\" will build a docker image, with the tag \"$(IMAGE)\""
-	@echo "Override IMAGE_TAG or IMAGE to change the image tag from the default"
-	@echo "Set PUSH_REPO to the remote repository where the freshly built image needs to be pushed"
+	@echo "Target \"image\" will build a docker image tagged \"$(IMAGE_NAME):$(IMAGE_TAG)\""
+	@echo "Set PUSH_REPO to a remote repository if the freshly built image needs to be pushed"
 	@echo ""
 	@echo "make -f $(THIS_FILE) IMAGE={{NAME}}:0.5 image"
 	@echo ""
@@ -95,33 +94,37 @@ SERVER_XTRA_H:={P:SERVER_XTRA_H{{{SERVER_XTRA_H}} }P}
 SERVER_XTRA_C:={P:SERVER_XTRA_C{{{SERVER_XTRA_C}} }P} 
 
 docker-push: docker-info
-	@-docker rmi $(PUSH_IMAGE) 2>&1 > /dev/null
-	@docker tag $(IMAGE) $(PUSH_IMAGE) 
+	@-docker rmi $(PUSH_IMAGE) > /dev/null 2>&1
+	@docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(PUSH_IMAGE) 
 	docker push $(PUSH_IMAGE)
 
 docker-info:
-	@docker images $(IMAGE_REPO)
+	@docker images $(IMAGE_NAME)
 
 $(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile $(SERVER_XTRA_H) $(SERVER_XTRA_C) {{NAME}}-htdocs.tar.gz
-	@-docker rmi -f $(IMAGE) 2>&1 > /dev/null
+	@-docker rmi -f $(IMAGE_NAME):$(IMAGE_TAG) 2> /dev/null
 ifeq ($(DBG), yes)
-	docker build --build-arg DEBUG_IMAGE=$(DBG) --force-rm -t $(IMAGE) -f {{NAME}}.Dockerfile .
+	docker build --build-arg DEBUG_IMAGE=$(DBG) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f {{NAME}}.Dockerfile .
 else
-	cat {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile | docker build --build-arg DEBUG_IMAGE=$(DBG) --force-rm -t $(IMAGE) -f - .
+	cat {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile | docker build --build-arg DEBUG_IMAGE=$(DBG) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f - .
 endif
-	docker image inspect $(IMAGE) > $@
+	docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > $@
 
 image-info-Darwin:
 	@rm -f $(IMAGE_PROXY)
-	@-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $(IMAGE_PROXY) 2>&1 > /dev/null && touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) 2> /dev/null | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S' 2>/dev/null) $(IMAGE_PROXY)
+	@-docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > /dev/null 2>&1 && docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > $(IMAGE_PROXY) > /dev/null 2>&1 \
+	&& touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE_NAME):$(IMAGE_TAG) 2> /dev/null | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S' 2>/dev/null) $(IMAGE_PROXY) \
+	|| true
 
 image-info-Linux:
 	@rm -f $(IMAGE_PROXY)
-	@-docker image inspect $(IMAGE) 2>&1 > /dev/null && docker image inspect $(IMAGE) > $(IMAGE_PROXY) 2>&1 > /dev/null && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE) 2>/dev/null` $(IMAGE_PROXY)
+	@-docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > /dev/null 2>&1 > /dev/null && docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > $(IMAGE_PROXY) > /dev/null 2>&1 \
+	&& touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null` $(IMAGE_PROXY) \
+	|| true
 
 image: image-info-$(shell uname -s)
-	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(IMAGE_PROXY)
-	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(DOCKER)
+	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE_NAME):$(IMAGE_TAG) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(IMAGE_PROXY)
+	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE_NAME):$(IMAGE_TAG) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(DOCKER)
 
 {{NAME}}-server: {{NAME}}-server.C $(PB_GENERATED_CC) $(PB_GENERATED_H) $(SERVER_XTRA_H)
 	${CXX} -std=c++11 $(SERVER_CFLAGS) $(CFLAGS) -o $@  $< $(PB_GENERATED_CC) $(SERVER_XTRA_C) $(SERVER_LFLAGS)
