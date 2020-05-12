@@ -496,21 +496,24 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
  * 2nd pass, this should be called after all nodes are compiled
  * Resolve message_descriptor attributes for node references
  */
-int flow_compiler::compile_node_ref(int id_node) {
-    std::string node_name(get_id(id_node));
+int flow_compiler::compile_node_ref(int node) {
+    std::string node_name(get_id(node));
     Descriptor const *dp = nullptr;
     if(node_name == input_label) {
         dp = input_dp;
     } else {
         auto nnp = named_blocks.find(node_name);
         if(nnp == named_blocks.end()) {
-            pcerr.AddError(main_file, at(id_node), sfmt() << "unknown node \"" << node_name << "\"");
+            pcerr.AddError(main_file, at(node), sfmt() << "unknown node \"" << node_name << "\"");
             return 1;
         }
-        int node_node = nnp->second.second;
-        dp = method_descriptor(node_node)->output_type();
+        int blk = nnp->second.second;
+        if(message_descriptor(blk) != nullptr)
+            dp = message_descriptor(blk);
+        else if(method_descriptor(blk) != nullptr) 
+            dp = method_descriptor(blk)->output_type();
     }
-    message_descriptor.put(id_node, dp);
+    message_descriptor.put(node, dp);
     return 0;
 }
 /*
@@ -719,6 +722,7 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
                     if(value_node_type == FTK_oexp) {
                         auto const &oexp = at(*exp_node);
                         std::string dotted_id = get_dotted_id(oexp.children[0]);
+                       
                         if(elem_id == "output") {
                             auto md = check_method(dotted_id, oexp.children[0]);
                             method_descriptor.put(*exp_node, md);
@@ -2192,7 +2196,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
                     out << input_label << " -> " << dot_node << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
                 } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
                     std::string dot_i(c_escape(j.second.xname)); 
-                    out << dot_i << " -> " << dot_node << " [fontsize=9,style=bold,label=\"" << make_label(i.second, method_descriptor(i.first)->output_type()) << "\"];\n";
+                    out << dot_i << " -> " << dot_node << " [fontsize=9,style=bold,label=\"" << make_label(i.second, message_descriptor(i.first)) << "\"];\n";
                 }
             
             incoming.clear();
@@ -2201,7 +2205,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
                     out << input_label << " -> " << dot_node << " [fontsize=9,style=dashed,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
                 } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
                     std::string dot_i(c_escape(j.second.xname)); 
-                    out << dot_i << " -> " << dot_node << " [fontsize=9,style=dashed,label=\"" << make_label(i.second, method_descriptor(i.first)->output_type()) << "\"];\n";
+                    out << dot_i << " -> " << dot_node << " [fontsize=9,style=dashed,label=\"" << make_label(i.second, message_descriptor(i.first)) << "\"];\n";
                 }
         }
     }
@@ -2213,7 +2217,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
             out << input_label << " -> " << ename << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
         } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
             std::string dot_i(c_escape(j.second.xname)); 
-            out << dot_i << " -> " << ename << " [fontsize=9,style=bold,color=dodgerblue2,label=\"" << make_label(i.second, method_descriptor(i.first)->output_type()) << "\"];\n";
+            out << dot_i << " -> " << ename << " [fontsize=9,style=bold,color=dodgerblue2,label=\"" << make_label(i.second, message_descriptor(i.first)) << "\"];\n";
         }
     out << "}\n";
 }
