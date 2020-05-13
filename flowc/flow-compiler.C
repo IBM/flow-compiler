@@ -14,6 +14,7 @@
 #include "grpc-helpers.H"
 #include "flow-ast.H"
 #include "flow-parser.c"
+#include "massert.H"
 
 using namespace stru1;
 
@@ -1025,7 +1026,6 @@ void flow_compiler::get_fldm_node_refs(std::map<int, std::set<std::string>> &nos
 }
 /**
  * Return a map node->[field-set] referenced by the conditional expression of node bexp_node
- * FIXME: add all the precursor node expression to the dpendency
  */
 void flow_compiler::get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node) {
     switch(at(bexp_node).type) {
@@ -1055,10 +1055,11 @@ void flow_compiler::get_bexp_node_refs(std::map<int, std::set<std::string>> &nos
 }
 std::vector<int> flow_compiler::all_nodes(std::string const &name) const {
     auto f = named_blocks.find(name);
-    assert(f != named_blocks.end() && type(f->second.second) == "node");
+    MASSERT(f != named_blocks.end()) << "\"" << name << "\" is not a block's name\n";
     return all_nodes(f->second.second);
 }
 std::vector<int> flow_compiler::all_nodes(int node) const {
+    MASSERT(type(node) == "node") << node << " is not a node\n";
     std::vector<int> all;
     
     // Get all the conditional nodes that have the same name
@@ -1066,6 +1067,7 @@ std::vector<int> flow_compiler::all_nodes(int node) const {
     for(auto n: condition.nodes()) if(name(n) == node_name) 
         all.push_back(n);
     auto f = named_blocks.find(node_name);
+
     if(f == named_blocks.end() || type(f->second.second) != "node") {
         std::cerr << node << " id [" << node_name <<  "] ?? " << (f == named_blocks.end())<< "\n";
         assert(false);
@@ -1100,14 +1102,13 @@ int flow_compiler::get_arg_node(int blck_node) const {
 // <type> can be either bexp or oexp, or 0 for both.
 // The input node will also be added.
 std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type) {
-    std::cerr << "get node refs: blck node: " << blck_node << ", name " << name(blck_node) << " type " << type << ", type() "<< this->type(blck_node)<< "\n";
+    //std::cerr << "get node refs: blck node: " << blck_node << ", name " << name(blck_node) << " type " << type << ", type() "<< this->type(blck_node)<< "\n";
     if(blck_node == 0) return noset;
     if((type == 0 || type == FTK_bexp) && this->type(blck_node) == "node") {
-        // TODO
         // Add the condition of all previous nodes
-        for(auto n: all_nodes(blck_node)) if(condition.has(n) && (n <= blck_node || !condition.has(blck_node))) {
+        for(auto n: all_nodes(blck_node)) if(condition.has(n) && (n <= blck_node || !condition.has(blck_node))) 
             get_bexp_node_refs(noset, condition(n));
-        }
+        
     }
     if(type == 0 || type == FTK_oexp) {
         int arg_node = get_arg_node(blck_node);
@@ -1130,7 +1131,7 @@ std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int,
 int flow_compiler::build_flow_graph(int blk_node) {
     int error_count = 0;
 
-    std::cerr << "blocks: " << named_blocks << "\n";
+    //std::cerr << "blocks: " << named_blocks << "\n";
        
 
     // All the nodes reachable from the entry, including the entry itself
@@ -1793,8 +1794,6 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
     std::vector<std::set<int>> node_stages(fg);
 
-    //TRACE << "Processing entry " << entry_blck_node << ": " << get_name(emd) << "(" <<  cs_name("", 0) << "): " << return_name << "\n";
-
     // MTHD marks the beggining of a method implementation.
     // The list of all nodes that can be visited by this method is stored in the args (in source order).
     icode.push_back(fop(MTHD, cs_name("", 0), return_name, emd, emd->input_type(), emd->output_type()));
@@ -1807,40 +1806,27 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     // Reorder nodes and label them accordingly
     std::map<std::string, int> node_order;
     for(auto const &stage_set: node_stages) 
-        for(int n: stage_set) if(condition.has(n)) {
-            if(contains(node_order, name(n))) {
-                ++node_order[name(n)];
-            } else {
-                node_order[name(n)] = 1;
-            }
+        for(int n: stage_set) {
             auto &ni = referenced_nodes.find(n)->second;
-            ni.order = node_order[name(n)];
+            if(condition.has(n)) {
+                if(contains(node_order, name(n))) {
+                    ++node_order[name(n)];
+                } else {
+                    node_order[name(n)] = 1;
+                }
+                ni.order = node_order[name(n)];
+            }
 
-            if(ni.id.empty() && ni.order == 0) {
+            if(ni.id.empty() && ni.order == 0) 
                 ni.xname = name(ni.node);
-            } else if(ni.id.empty()) {
+            else if(ni.id.empty()) 
                 ni.xname = sfmt() << name(ni.node) << "-" << ni.order;
-            } else {
+            else 
                 ni.xname = sfmt() << name(ni.node) << "-" << ni.id;
-            }
         }
 
-    // Add any default error nodes that would otherwise be left out
-    /*
-    std::set<std::string> def_err_set;
-    for(auto s = node_stages.rbegin(), e = node_stages.rend(); s != e; ++s) {
-        std::set<int> added;
-        for(auto n: *s) if(!contains(def_err_set, name(n))) {
-            for(auto p: type.nodes()) if(type(p) == "node" && name(n) == name(p) && !condition.has(p) && !message_descriptor.has(p)) {
-                std::cerr << "would like to add node " << p << ", " << name(p) << " to " << *s << "\n";
-                def_err_set.insert(name(p));
-                added.insert(p);
-            }
-        }
-        if(added.size() > 0) s->insert(added.begin(), added.end());
-    }
-    */
-    // FIXME: need to revisit this strategy 
+    //std::cerr << "REFERENCED_NODES: " << referenced_nodes << "\n";
+
     int stage = 0;
     for(auto const &stage_set: node_stages) {
         ++stage;
@@ -1862,14 +1848,15 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
         // Every default node (i.e. node without condition) has to be moved after all conditional nodes with the same name.
         std::set<std::string> distinct_names;    
+
         for(int n: stage_set) {
             icode[stage_idx].arg.push_back(n);   // BSTG arg 4... nodes in this stage
-
             std::string nn(name(n));             // default name for this node
 
             // Process nodes named the same in the order they appear in the source
             if(contains(distinct_names, nn))
                 continue;
+
             distinct_names.insert(nn);
 
             // First, conditional names
@@ -1877,19 +1864,19 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             for(int m: stage_set) if(condition.has(m) && name(m) == nn) {
                 stage_nodes.push_back(m);
                 auto &mni = referenced_nodes.find(m)->second;
-                //mni.order = ++order;
-                //mni.name = sfmt() << nn << "-" << order; 
                 stage_set_names.push_back(mni.xname);
             }
             
             for(int m: stage_set) if(!condition.has(m) && name(m) == nn) {
                 stage_nodes.push_back(m);
-                stage_set_names.push_back(nn);
+                auto &mni = referenced_nodes.find(m)->second;
+                stage_set_names.push_back(mni.xname);
             }
         }
+
         
-        //TRACE << "Creating stage set name: " << join(stage_set_names, ", ") << "\n";
         icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
+        //std::cerr << "DISTINCT NAMES: " << distinct_names << " NAMES: " << stage_set_names << " ARG: "<< icode[stage_idx].arg << " LABEL: "<< icode[stage_idx].arg1<< "\n";
         
         for(int node: stage_nodes) {
             auto md = method_descriptor(node);

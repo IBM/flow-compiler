@@ -74,7 +74,7 @@ struct node_info {
     }
 };
 inline static std::ostream &operator<< (std::ostream &out, node_info const &n) {
-    out << "(@" << n.node << ": " << n.xname << " group: " << n.group << " port: " << n.port << " order: " << n.order << " grpc: " << (n.no_call? "no": "yes") << ")";
+    out << "(@" << n.node << ": " << n.xname << " id: " << n.id << " group: " << n.group << " port: " << n.port << " order: " << n.order << " grpc: " << (n.no_call? "no": "yes") << ")";
     return out;
 };
 
@@ -246,14 +246,11 @@ public:
     std::vector<int> all_nodes(std::string const &name) const;
     std::vector<int> all_nodes(int node) const;
     // Get the node nodes referenced by the fldm node
-    void get_fldm_node_refs(std::set<int> &noset, int fdlm_node, bool include_input=false);
-    void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node, bool include_input=false);
+    void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node);
     // Get all the node nodes referenced in this conditional expression
-    void get_bexp_node_refs(std::set<int> &noset, int bexp_node, bool include_input=false);
-    void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node, bool include_input=false);
+    void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node);
     // Get the node referenced by either FTK_oexp, FTK_bexp or both (0) for this blck_node
-    std::set<int> &get_node_refs_o(std::set<int> &noset, int blck_node, int type=0, bool include_input=false);
-    std::map<int, std::set<std::string>> &get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type=0, bool include_input=false);
+    std::map<int, std::set<std::string>> &get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type=0);
     // Search a blk node for a rexp or oexp entry and return the arg node
     int get_arg_node(int blck_node) const;
     int build_flow_graph(int entry_blk_node);
