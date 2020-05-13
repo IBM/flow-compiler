@@ -82,16 +82,21 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 BASE_RUNTIME_TEMPLATE=$(BASE_IMAGE)/template.runtime.Dockerfile 
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
+ifeq ($(DBG), yes) 
+CCFLAGS?=-Og -g
+else
+CCFLAGS?=-O3
+endif
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
 MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) rr-keys.sh rr-get.sh flow-parser.y
 
 %.o: %.C
-	${CXX} -std=c++11 ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $< 
+	${CXX} -std=c++11 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $< 
 
 flowc: $(OBJS) 
-	${CXX} -o $@ -O3 $^ ${GRPC_LIBS} 
+	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} 
 
 flow-version.o:
 	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
@@ -99,7 +104,7 @@ flow-version.o:
 flow-compiler.o: flow-parser.c
 
 flowc.o: flowc.C
-	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
+	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
