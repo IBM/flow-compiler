@@ -5,7 +5,6 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <cassert>
 #include <google/protobuf/compiler/importer.h>
 #ifndef FTK_ID
 #include "flow-parser.h"
