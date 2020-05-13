@@ -229,8 +229,8 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         if(type.has(node)) sout << " type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
         if(condition.has(node)) sout << " condition: " << ANSI_RED << ANSI_BOLD << condition(node) << ANSI_RESET;
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
-        if(method_descriptor.has(node)) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
-        if(message_descriptor.has(node)) sout << " message: " << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
+        if(method_descriptor.has(node) && method_descriptor(node) != nullptr) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
+        if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(input_descriptor.has(node)) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
         if(field_descriptor.has(node)) sout << " field: " << ANSI_GREEN << *field_descriptor(node) << ANSI_RESET;
         if(enum_descriptor.has(node)) sout << " enum: " << ANSI_RED << *enum_descriptor(node) << ANSI_RESET;
