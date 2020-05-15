@@ -575,14 +575,14 @@ int flow_compiler::compile_fldx(int node) {
         std::string id(get_id(f));
         FieldDescriptor const *fidp = dp->FindFieldByName(id);
         if(fidp == nullptr) {
-            pcerr.AddError(main_file, at(f), sfmt() << "Unknown field name \"" << id << "\"");
+            pcerr.AddError(main_file, at(f), sfmt() << "unknown field name \"" << id << "\"");
             return error_count + 1;
         }
         field_descriptor.put(f, fidp);
         if(is_message(fidp)) {
             dp = fidp->message_type(); 
         } else if(i + 1 <  fldx.children.size()) {
-            pcerr.AddError(main_file, at(f), sfmt() << "The \"" << id << "\" field in \"" << get_name(dp) << "\" is not of message type");
+            pcerr.AddError(main_file, at(f), sfmt() << "the \"" << id << "\" field in \"" << get_name(dp) << "\" is not of message type");
             return error_count + 1;
         }
     }
@@ -828,6 +828,13 @@ int flow_compiler::compile_if_import(int stmt_node) {
         pcerr.AddError(main_file, stmt.token, sfmt() << "failed to import \"" << filename << "\"");
     return ec;
 }
+template <class SET>
+static inline SET set_union(SET const &s1, SET const & s2) {
+    SET s; 
+    s.insert(s1.begin(), s1.end()); 
+    s.insert(s2.begin(), s2.end()); 
+    return s;
+}
 int flow_compiler::compile_stmt(int stmt_node) {
     int exp_node = 0;
     int error_count = 0;
@@ -835,8 +842,6 @@ int flow_compiler::compile_stmt(int stmt_node) {
     assert(stmt.type == FTK_stmt && stmt.children.size() >= 2);
     std::string statement;
     compile_id(statement, stmt.children[0]); // sytax checked for ID already
-    // Nodes compiled so far
-    std::set<int> compiled_nodes;
 
     if(statement == "import") {
         // ignore imports as they have been processed already
@@ -874,7 +879,7 @@ int flow_compiler::compile_stmt(int stmt_node) {
             }
         }
         // Check this node against other nodes with the same name
-        for(int visited: compiled_nodes) if(name(visited) == node_name) {
+        for(int visited: set_union(node_set, container_set)) if(name(visited) == node_name) {
            
             if(type(visited) != type(node_node)) {
                 pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << node_name << "\" with a different type");
@@ -893,25 +898,30 @@ int flow_compiler::compile_stmt(int stmt_node) {
                 pcerr.AddNote(main_file, at(visited), "previously defined here");
                 return 1;
             }
-            if(message_descriptor.has(visited)  && message_descriptor.has(node_node) &&
+            if(message_descriptor.has(visited) && message_descriptor.has(node_node) &&
                message_descriptor(visited) != message_descriptor(node_node)) {
                 pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "node \"" << node_name << "\" redefined with a different output type");
                 pcerr.AddNote(main_file, at(visited), "previously defined here");
                 return 1;
             }
         } 
+        if(statement == "node")
+            node_set.insert(node_node);
+        else if(statement == "container") 
+            container_set.insert(node_node);
 
         // find the first node with this name
-        auto nep = named_blocks.find(node_name);
+        auto nep = named_blocks_w.find(node_name);
         if(nep == named_blocks.end()) {
             // Quick access to the block node id
-            named_blocks[node_name] = std::make_pair(statement, node_node);
+            named_blocks_w[node_name] = std::make_pair(statement, node_node);
         } else {
             // Keep in the table the node without condition but with an output type
             if((!condition.has(node_node) || !method_descriptor.has(nep->second.second)) && method_descriptor.has(node_node))
                 nep->second.second = node_node;
         }
     } else if(statement == "entry") {
+
         std::string method; 
         if(compile_method(method, stmt.children[1])) {
             pcerr.AddError(main_file, at(stmt.children[1]), "expected method name");
@@ -942,7 +952,8 @@ int flow_compiler::compile_stmt(int stmt_node) {
             return 1;
         }
         // Quick access to the block node id 
-        named_blocks[method] = std::make_pair(statement, stmt.children[2]);
+        named_blocks_w[method] = std::make_pair(statement, stmt.children[2]);
+        entry_set.insert(stmt.children[2]);
         //entries[method] = stmt.children[2];
         // All entries must have the same input type
         if(input_dp == nullptr) {
@@ -1041,7 +1052,7 @@ void flow_compiler::get_bexp_node_refs(std::map<int, std::set<std::string>> &nos
                 get_bexp_node_refs(noset, at(bexp_node).children[2]); 
                 break;
             default:
-                assert(false);
+                MASSERT(false) << "\"" << bexp_node << "\" node has " <<  at(bexp_node).children.size() << "children\n";
         } break;
         case FTK_fldx:
             if(get_id(at(bexp_node).children[0]) != input_label) 
@@ -1053,36 +1064,18 @@ void flow_compiler::get_bexp_node_refs(std::map<int, std::set<std::string>> &nos
             break;
     }
 }
-std::vector<int> flow_compiler::all_nodes(std::string const &name) const {
-    auto f = named_blocks.find(name);
-    MASSERT(f != named_blocks.end()) << "\"" << name << "\" is not a block's name\n";
-    return all_nodes(f->second.second);
+std::vector<int> flow_compiler::all_nodes(std::string const &node_name) const {
+    std::vector<int> all;
+    for(auto n: node_set) if(name(n) == node_name && condition.has(n))
+        all.push_back(n);
+    for(auto n: node_set) if(name(n) == node_name && !condition.has(n))
+        all.push_back(n);
+    MASSERT(all.size() > 0) << "\"" << node_name << "\" is not a node name\n";
+    return all;
 }
 std::vector<int> flow_compiler::all_nodes(int node) const {
-    MASSERT(type(node) == "node") << node << " is not a node\n";
-    std::vector<int> all;
-    
-    // Get all the conditional nodes that have the same name
-    std::string node_name = name(node);
-    for(auto n: condition.nodes()) if(name(n) == node_name) 
-        all.push_back(n);
-    auto f = named_blocks.find(node_name);
-
-    if(f == named_blocks.end() || type(f->second.second) != "node") {
-        std::cerr << node << " id [" << node_name <<  "] ?? " << (f == named_blocks.end())<< "\n";
-        assert(false);
-    }
-    if(!contains(std::set<int>(all.begin(), all.end()), f->second.second)) 
-        all.push_back(f->second.second);
-
-    // Get any empty unconditional node with the same name
-    /*
-    for(auto n: type.nodes()) if(type(n)== "node" && name(n) == node_name && !condition.has(n) && !contains(std::set<int>(all.begin(), all.end()), n)) {
-        all.push_back(n);
-        break;
-    }*/
-
-    return all;
+    MASSERT(contains(node_set, node)) << node << " is not a node\n";
+    return all_nodes(name(node));
 }
 // Search a blk node for a rexp or oexp entry and return the arg node
 int flow_compiler::get_arg_node(int blck_node) const {
@@ -1130,9 +1123,6 @@ std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int,
 }
 int flow_compiler::build_flow_graph(int blk_node) {
     int error_count = 0;
-
-    //std::cerr << "blocks: " << named_blocks << "\n";
-       
 
     // All the nodes reachable from the entry, including the entry itself
     std::set<int> used_nodes; 
@@ -1788,6 +1778,7 @@ int flow_compiler::find_max_index_depth(int right_value_node, std::map<int, int>
 int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &fg, std::set<int> const &node_set) {
     int error_count = 0;
 
+    // pointer to the begining of code for each node
     std::map<int, int> node_ip;
     auto emd = method_descriptor(entry_blck_node);
     std::string return_name = cs_name("RS", entry_blck_node);
@@ -1801,7 +1792,6 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     for(auto const &stage_set: node_stages) 
         for(auto n: stage_set) method_set.insert(n);
     for(auto n: method_set) icode.back().arg.push_back(n);      // MTHD arg 1... nodes used by this entry
-    std::set<int> visited;
 
     // Reorder nodes and label them accordingly
     std::map<std::string, int> node_order;
@@ -1825,12 +1815,14 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                 ni.xname = sfmt() << name(ni.node) << "-" << ni.id;
         }
 
-    //std::cerr << "REFERENCED_NODES: " << referenced_nodes << "\n";
+    // Keep track of node sets 
+    std::set<std::string> foak;
+    // Keep track of nodes with output
+    std::set<std::string> foak_wo;
 
     int stage = 0;
     for(auto const &stage_set: node_stages) {
         ++stage;
-        //std::cerr << "NOW in STAGE " << stage << ": " << stage_set  << "\n";
         int stage_idx = icode.size();
         int stage_dim = 0; 
         // BSTG marks the beginning of an execution stage. 
@@ -1843,84 +1835,74 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         icode[stage_idx].arg.push_back(stage_set.size());     // BSTG arg 2: the number of nodes in this stage
         icode[stage_idx].arg.push_back(0);                    // BSTG arg 3: max node dimension (placeholder)
 
-        std::vector<int> stage_nodes;
         std::vector<std::string> stage_set_names;
 
-        // Every default node (i.e. node without condition) has to be moved after all conditional nodes with the same name.
         std::set<std::string> distinct_names;    
 
         for(int n: stage_set) {
             icode[stage_idx].arg.push_back(n);   // BSTG arg 4... nodes in this stage
             std::string nn(name(n));             // default name for this node
 
-            // Process nodes named the same in the order they appear in the source
-            if(contains(distinct_names, nn))
-                continue;
+            auto &mni = referenced_nodes.find(n)->second;
+            stage_set_names.push_back(mni.xname);
 
             distinct_names.insert(nn);
-
-            // First, conditional names
-            int order = 0;
-            for(int m: stage_set) if(condition.has(m) && name(m) == nn) {
-                stage_nodes.push_back(m);
-                auto &mni = referenced_nodes.find(m)->second;
-                stage_set_names.push_back(mni.xname);
-            }
-            
-            for(int m: stage_set) if(!condition.has(m) && name(m) == nn) {
-                stage_nodes.push_back(m);
-                auto &mni = referenced_nodes.find(m)->second;
-                stage_set_names.push_back(mni.xname);
-            }
         }
-
         
         icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
-        //std::cerr << "DISTINCT NAMES: " << distinct_names << " NAMES: " << stage_set_names << " ARG: "<< icode[stage_idx].arg << " LABEL: "<< icode[stage_idx].arg1<< "\n";
         
-        for(int node: stage_nodes) {
+        for(int pass = 0; pass < 2; ++pass) for(int node: stage_set) if((pass == 0 && method_descriptor(node) == nullptr) || (pass == 1 && method_descriptor(node) != nullptr)) {
             auto md = method_descriptor(node);
-            if(!method_descriptor.has(node)) md = nullptr;
-            auto input_type = input_descriptor(node);
             auto output_type = message_descriptor(node);
-            if(!message_descriptor.has(node)) output_type = nullptr;
-            if(!input_descriptor.has(node)) input_type = output_type;
+            auto input_type = input_descriptor(node, output_type);
 
-            int base_node = named_blocks.find(name(node))->second.second;
-
-            std::string rs_node(cs_name("RS", name(base_node) ));
-            std::string rq_node(cs_name("RQ", node));
+            std::string rs_name;
+            if(output_type != nullptr) rs_name = cs_name("RS", name(node));
+            std::string rq_name;
+            if(input_type != nullptr) rq_name = cs_name("RQ", node);
 
             int node_idx = icode.size();
             node_ip[node] = node_idx;
 
-            icode.push_back(fop(BNOD, rs_node, rq_node, output_type, input_type));
+            icode.push_back(fop(BNOD, rs_name, rq_name, output_type, input_type));
 
             // Should max index depth also look at condition's dimension?
             for(int i = 0, e = find_max_index_depth(get_arg_node(node), node_ip, -1); i != e; ++i)
                 icode.push_back(fop(NSET));
+                
+            icode.push_back(fop(IFNC, name(node), node, condition(node))); 
 
-            if(condition.has(node))
-                icode.push_back(fop(NDIF, name(node), node, base_node, condition(node))); 
-            else
-                icode.push_back(fop(BNIF, name(node), node, base_node, 0)); 
+            // Add all the conditions for the nodes with the same name that haven't been compiled yet
+            bool seen_nc_node = false;
+            for(auto n: all_nodes(name(node))) 
+                if(!contains(node_ip, n)) {
+                    if(condition.has(n))
+                        icode.back().arg.push_back(condition(n));
+                } else if(!condition.has(n)) {
+                    seen_nc_node = true;
+                }
+            // We don't need to check the condition on the last node if we already have a default node
+            if(icode.back().arg.size() == 2 && seen_nc_node) 
+                icode.back().arg[1] = 0;
 
             if(output_type != nullptr) {
                 // Populate the request 
-                error_count += populate_message(rq_node, lrv_descriptor(input_type), get_arg_node(node), node_ip);
+                error_count += populate_message(rq_name, lrv_descriptor(input_type), get_arg_node(node), node_ip);
 
                 if(md != nullptr) 
-                    icode.push_back(fop(CALL, rq_node, rs_node, md));
+                    icode.push_back(fop(CALL, rq_name, rs_name, md));
                 else 
-                    icode.push_back(fop(COPY, rs_node, rq_node, output_type, input_type));
+                    icode.push_back(fop(COPY, rs_name, rq_name, output_type, input_type));
 
             } else {
                 // This is either an empty or an error node
-                icode.push_back(fop(NOP));
+                int errm_node = find_first(node, type, "error");
+                MASSERT(errm_node != 0) << "Expected error message in error node\n";
+                icode.push_back(fop(ERR, get_string(errm_node)));
             }
 
             icode.back().arg.push_back(node);
-            icode.push_back(fop(ENOD, rs_node));
+            icode.push_back(fop(ENOD, rs_name));
             // update the BNOD with the number of indices (the dimension of the result)
             int dim = 0;
             for(int p = node_idx+1; p < icode.size() && icode[p].code == NSET; ++p) 
@@ -1929,12 +1911,33 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             icode[node_idx].arg.push_back(node);
             icode[node_idx].arg.push_back(stage);
             stage_dim = std::max(stage_dim, dim);
-            if(!contains(visited, base_node)) {
-                visited.insert(base_node);
-                icode[node_idx].arg.push_back(base_node);
+
+            // set the foak arg
+            if(!contains(foak, name(node))) {
+                foak.insert(name(node));
+                icode[node_idx].arg.push_back(node);
             } else {
                 icode[node_idx].arg.push_back(0);
             }
+            // set the foak with output arg
+            if(output_type != nullptr &&  !contains(foak_wo, name(node))) {
+                foak_wo.insert(name(node));
+                icode[node_idx].arg.push_back(node);
+            } else {
+                icode[node_idx].arg.push_back(0);
+            }
+
+            // fixup all the nodes without output 
+            
+            for(auto nip: node_ip) if(nip.first != node && name(nip.first) == name(node)) {
+                //MASSERT(icode[nip.second].arg[0] == dim || icode[nip.second].arg[0] == 0) << "No output node " << nip.first << " has dimension " << icode[nip.second].arg[0] << ", expected 0 or " << dim << "\n";
+                if(icode[nip.second].arg[0] != dim) {
+                    pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
+                    pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
+                    ++error_count;
+                }
+            }
+            
         }
         icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
         icode[stage_idx].arg[2] =  stage_dim;                 // BSTG arg 3: max node dimension 
@@ -2006,7 +2009,7 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         if(message_descriptor.has(node))
             continue;
         ++error_count;
-        pcerr.AddError(main_file, at(node), sfmt() << "Cannot determine output type for node \""<< name(node) <<"\n");
+        pcerr.AddError(main_file, at(node), sfmt() << "cannot determine output type for node \""<< name(node) <<"\n");
     }
     if(error_count > 0) return error_count;
 

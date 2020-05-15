@@ -146,7 +146,7 @@ char const *get_default_runtime();
 std::set<std::string> available_runtimes();
 #define FLOWC_NAME "flowc"
 
-flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
+flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr), named_blocks(named_blocks_w) {
     input_label = "input";
     rest_port = -1;
     base_port = 53135;                  // the lowest it can be is 49152

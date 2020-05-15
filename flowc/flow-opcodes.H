@@ -37,21 +37,15 @@ enum op {
      *      arg2    request name
      *      d1      output descriptor
      *      d2      input descriptor
-     *      arg[]   dimension, node, stages, base-node
+     *      arg[]   dimension, node, stages, foak, foak-with-output
      */
     BNOD,           // node begin
-    RNOD,           // setup result structures for this node type
     NSET,           // node setup
-    /**
+    /**    
      *      arg1    node name
-     *      arg[]   node, base-node, condition-node
+     *      arg[]   node, condition-node, neg condition-node...
      */
-    NDIF,           // check node condition
-    /**
-     *      arg1    node name
-     *      arg[]   node, base-node, 0
-     */
-    BNIF,           // check node if node was visited (for base nodes)
+    IFNC,           // check node condition 
     ENOD,           // node end
     BPRP,           // result preparation begin
     EPRP,           // result preparation end
@@ -143,57 +137,6 @@ struct fop {
     fop(op c, std::string const &a1, int i): code(c), arg1(a1) { arg.push_back(i); }
     fop(op c, std::string const &a1, int i, int j): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j); }
     fop(op c, std::string const &a1, int i, int j, int k): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j);  arg.push_back(k); }
-};
-inline static char const *op_name(op o) { 
-    switch(o) {
-        case NOP:   return "NOP";
-        case LOOP:  return "LOOP";
-        case MTHD:  return "MTHD";
-        case BNOD:  return "BNOD";
-        case RNOD:  return "RNOD";
-        case NSET:  return "NSET";
-        case BNIF:  return "BNIF";
-        case NDIF:  return "NDIF";
-        case BPRP:  return "BPRP";
-        case EPRP:  return "EPRP";
-        case BSTG:  return "BSTG";
-        case CALL:  return "CALL";
-        case FUNC:  return "FUNC";
-        case COPY:  return "COPY";
-        case ELP:   return "ELP";
-        case END:   return "END";
-        case ENOD:  return "ENOD";
-        case ESTG:  return "ESTG";
-        case INDX:  return "INDX";
-        case SET:   return "SET";
-
-
-        case SETT:  return "SETT";
-        case ERR:   return "ERR";
-
-        case SETL: return "SETL";      
-        case RVA: return "RVA";      
-        case RVC: return "RVC";      
-        case COFI: return "COFI";    
-        case COFS: return "COFS";   
-        case COFB: return "COFB";  
-        case COFF: return "COFF";  
-        case COIF: return "COIF"; 
-        case COIS: return "COIS";
-        case COIB: return "COIB";     
-        case COII: return "COII";     
-        case COSF: return "COSF";    
-        case COSB: return "COSB";    
-        case COSI: return "COSI";    
-        case COEI: return "COEI";   
-        case COEB: return "COEB";   
-        case COEF: return "COEF";   
-        case COES: return "COES";   
-        case COEE: return "COEE";  
-        case CON1: return "CON1";
-        case CON2: return "CON2";
-    }
-    return "?";
 };
 std::ostream &operator<< (std::ostream &out, fop const &fop);
 #endif

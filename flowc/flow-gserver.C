@@ -863,7 +863,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
     std::string rvl, lvl;   // Left and right value expressions
     // 
-    int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0, cur_base_node = 0;
+    int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
     std::string input_name, output_name;
     // dimension for every node response and current loop sizes
@@ -874,6 +874,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     bool async_enabled = false;
     bool first_node = false;        // whether the current node is the first in an alias set
     bool node_has_calls = false;    // whether this node makes grpc calls
+    bool first_with_output = false; // whether this node is the first in an alias set that has output
+    bool node_cg_done = false;      // done generating code for the node
     EnumDescriptor const *ledp, *redp;   // left and right enum descriptor needed for conversion check
     int error_count = 0;
    
@@ -1042,51 +1044,48 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "\n";
                 async_enabled = false;
                 break;
-            case RNOD:
-                if(first_node) { // non-zero if this node is the first in the set of aliases
-                    OUT << reps("std::vector<", node_dim) << get_full_name(op.d1) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_output_name << ";\n";
-                    OUT << reps("std::vector<", node_dim) << "int"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? " = 0": "") << ";\n";
-                }
-                break;
             case BNOD:
+                node_cg_done = false;
                 node_dim = op.arg[0];
-                cur_input_name = op.arg2; cur_output_name = op.arg1;
+                cur_input_name = op.arg2; 
+                cur_output_name = op.arg1;
                 cur_node_name = to_lower(to_identifier(referenced_nodes.find(cur_node = op.arg[1])->second.xname));
-                cur_base_node = named_blocks.find(name(cur_node))->second.second;
-                if(!condition.has(cur_node)) nodes_rv[name(cur_node)] = cur_output_name;
-                node_has_calls = false;
-                for(int j = i+1, je = icode.size(); j < je; ++j) 
-                    if(icode[j].code == END || icode[j].code == ENOD) {
-                        break;
-                    } else if(icode[j].code == CALL) {
-                        node_has_calls = true;
-                        break;
-                    }
+                node_has_calls = method_descriptor(cur_node) != nullptr;
+
                 if(node_has_calls)
                     stage_node_ids.push_back(cur_node);
+
+                first_node = op.arg[3] != 0;
+                first_with_output = op.arg[4] != 0;
+                if(first_with_output) 
+                    nodes_rv[name(cur_node)] = cur_output_name;
+
                 OUT << "/*\n";
                 OUT << " * node: " << cur_node << "\n";
-                OUT << " * has calls: " << node_has_calls << "\n";
+                OUT << " * has calls: " << (node_has_calls? "yes" : "no") << "\n";
                 OUT << " * name: " << cur_node_name << "\n";
                 OUT << " * type: " << name(cur_node) << "\n";
                 OUT << " * dimension: " << node_dim << "\n";
                 OUT << " * input name: " << cur_input_name << "\n";
                 OUT << " * output name: " << cur_output_name << "\n";
                 OUT << " * stage: " << cur_stage_name << "\n";
-                OUT << " * is first: " << (op.arg[3] != 0? "yes": "no") << "\n";
+                OUT << " * is first: " << (first_node? "yes": "no") << "\n";
+                OUT << " * is first with output: " << (first_with_output? "yes": "no") << "\n";
                 OUT << " */\n";
-                if(op.d2 != nullptr) {
-                    // input is not needed for empty nodes
+                // input is not needed for no-call nodes
+                if(op.d2 != nullptr) 
                     OUT << reps("std::vector<", node_dim) << get_full_name(op.d2) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_input_name << ";\n";
-                }
-                // output must be set even when the node is empty if this is a first node 
-                first_node = op.arg[3] != 0;
-                if(first_node) { // non-zero if this node is the first in the set of aliases
+                
+                // output must be set even when the node makes no calls if this is a first node with output
+                if(first_with_output) 
                     OUT << reps("std::vector<", node_dim) << get_full_name(op.d1) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_output_name << ";\n";
+                
+                if(first_node) 
                     OUT << reps("std::vector<", node_dim) << "int"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? " = 0": "") << ";\n";
-                }
+                
                 if(node_has_calls) 
                     OUT << "auto " << cur_node_name << "_ConP = " << cur_node_name << "_get_connector();\n";
+
                 if(async_enabled) {
                     // Each node has a vector of response readers, input message poiners and output message pointers
                     if(op.d1 != nullptr) {
@@ -1097,7 +1096,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     }
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
                 }
-
 
                 break;
             case NSET:
@@ -1113,8 +1111,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "auto " << size_varname << " = "  <<  current_loop_size << ";\n";
                         current_loop_size = size_varname;
                         OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< current_loop_size << ");\n";
-                        if(first_node) {
+                        if(first_with_output) {
                             OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< current_loop_size << ");\n";
+                        }
+                        if(first_node) {
                             OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< current_loop_size << (node_dim-acinf.loop_level()==0? ", 0": "") << ");\n";
                         }
                     }
@@ -1128,20 +1128,28 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     }
                 }
                 break;
-            case BNIF:
-                OUT << "if(" << L_VISITED << " == 0) {\n";
-                ++indenter;
-                break;
-            case NDIF:
+            case IFNC:
                 DOUT << "NDIF1: " << acinf << "\n";
-                OUT << "if(" << L_VISITED << " == 0 && ";
-                gc_bexp(indenter, nodes_rv, acinf, condition(cur_node), FTK_AND) << ") {\n";
+                OUT << "if(" << L_VISITED << " == 0";
+                if(op.arg[1] != 0) {
+                    OUT << " && (";
+                    gc_bexp(indenter, nodes_rv, acinf, op.arg[1], FTK_AND);
+                    OUT << ")";
+                }
+                for(unsigned u = 2, ac = op.arg.size(); u < ac; ++u) 
+                    if(op.arg[u] != 0) {
+                        OUT << " && !(";
+                        gc_bexp(indenter, nodes_rv, acinf, op.arg[u], FTK_AND);
+                        OUT << ")";
+                    }
+                OUT << ") {\n";
                 ++indenter;
                 OUT << "FLOGC(Trace_call) << flowc::callid(CID) << \" condition triggered for node " << cur_node_name << "\\n\";\n";
                 break;
             case ENOD:
                 // if visited
-                OUT <<  L_VISITED << " = " << cur_node << ";\n";
+                if(!node_cg_done)
+                    OUT <<  L_VISITED << " = " << cur_node << ";\n";
                 --indenter;
                 OUT << "}\n";
             case EPRP:
@@ -1179,6 +1187,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
+                first_with_output = false;
                 DOUT << "EPRP2: " << acinf << "\n";
                 break;
             case BPRP:
@@ -1308,6 +1317,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case ERR:
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, " << c_escape(op.arg1) << ");\n";
+                // Prevent generating unreachable code
+                node_cg_done = true;
                 break;
 
             case NOP: case CON1: case CON2:

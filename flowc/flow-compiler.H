@@ -138,7 +138,12 @@ private:
     // All blocks indexed by AST node
     std::map<int, block_data_t> block_store;
     // Table with nodes, containers and entries: names[name]: (type, block ast-node)
-    std::map<std::string, std::pair<std::string, int>> named_blocks;
+    std::map<std::string, std::pair<std::string, int>> named_blocks_w;
+    decltype(named_blocks_w) const &named_blocks;
+    std::set<int> node_set;
+    std::set<int> entry_set;
+    std::set<int> container_set;
+
     // Block ast-node flow graph by entry block ast-node
     // for each entry a list of sets of overlapping nodes
     std::map<int, std::vector<std::set<int>>> flow_graph;
@@ -316,7 +321,6 @@ public:
     int set_entry_vars(decltype(global_vars) &vars);
     int set_cli_node_vars(decltype(global_vars) &vars);
     int set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node);
-
 
     // Main call sequence
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);
