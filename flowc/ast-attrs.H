@@ -5,25 +5,30 @@
 
 namespace ast {
 template<class V> struct attribute {
-    std::map<int, V> value;
+    typedef V value_t;
+    std::map<int, value_t> value;
     V no_value;
-    bool put(int n, V const v) {
+
+    bool put(int n, value_t const v) {
         assert(value.find(n) == value.end());
         value[n] = v;
         return true;
     }
-    bool update(int n, V const v) {
+    bool update(int n, value_t const v) {
         value[n] = v;
         return true;
     }
     bool has(int n) const { return value.find(n) != value.end(); }
-    V const &operator ()(int n) const { 
-        auto p = value.find(n); return p == value.end()? no_value: p->second;
-    }
-    V const get(int n, V const def_value) const { 
+    value_t const get(int n, value_t const def_value) const { 
         auto p = value.find(n); return p == value.end()? def_value: p->second;
     }
-    bool has_value(V const some_value) const {
+    value_t const operator()(int n, V const def_value) const { 
+        return get(n, def_value);
+    }
+    value_t const &operator ()(int n) const { 
+        auto p = value.find(n); return p == value.end()? no_value: p->second;
+    }
+    bool has_value(value_t const some_value) const {
         for(auto &nv: value) if(some_value == nv.second) return true;
         return false;
     }
@@ -37,9 +42,7 @@ template<class V> struct attribute {
         for(auto &nv: value) all.insert(nv.first);
         return all;
     }
-    //template <class = typename std::enable_if<std::is_pointer<V>::value>::type>
-    attribute(V p): no_value(p) { }
-    //attribute() {}
+    attribute(value_t p): no_value(p) { }
 };
 template <typename AT> 
 static bool has_attr(int n, AT const &attrs) {

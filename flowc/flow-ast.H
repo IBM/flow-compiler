@@ -173,6 +173,30 @@ struct flow_ast {
      * The node must be of a basic type or have the corresponding attribute set (enum_descriptor or message_descriptor)
      */
     std::string get_full_typename(int node) const;
+
+    /**
+     * Find the first subnode that matches condition
+     */
+    template<class MATCH>
+    int find_first(int node, MATCH match) const {
+        if(match(node)) 
+            return node;
+        
+        for(auto n: at(node).children) {
+            int f  = find_first(n, match);
+            if(f > 0) return f;
+        }
+        return 0;
+    }
+    /**
+     * Find the first subnode that has an attribute of a certain value
+     */
+    template<class ATTR>
+    int find_first(int node, ATTR const &attribute, typename ATTR::value_t value) const {
+        return find_first(node, [&attribute, value](int n) {
+            return attribute.has(n) && value == attribute(n);
+        });
+    }
 };
 
 #endif
