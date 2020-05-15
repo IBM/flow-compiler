@@ -49,11 +49,12 @@ public:
     inline indented_stream &operator-- () {
         --indent_level; return *this;
     }
-    bool indent() {
+    void indent() {
         if(add_indentation) {
             if(indent_level > 0) os << std::string(indent_value * indent_level, ' ');
             add_indentation = false;
         }
+
     }
 };
 template <> inline indented_stream &indented_stream::operator << (std::string const &t){

@@ -600,7 +600,7 @@ struct accessor_info {
 
 inline static 
 std::ostream &operator<<(std::ostream &out, accessor_info const &ai) {
-    out << "<" << ai.rs_dims << ", " << ai.loop_sizes << ">";
+    return out << "<" << ai.rs_dims << ", " << ai.loop_sizes << ">";
 }
 
 static 
