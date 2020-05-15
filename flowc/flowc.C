@@ -302,17 +302,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count == 0)
         error_count += compile(targets);
 
-    // Ids are necessary to generate node labels
-    // Make another pass through the nodes and assign any missing ids
-    /*
-    for(auto &rn: referenced_nodes) {
-        int blck = rn.first;
-        auto &ni = rn.second;
-
-        std::cerr << ni << "\n";
-    }
-    */
-
     if(opts.have("print-graph")) {
         std::string entry(opts.opt("print-graph", ""));
         int en = 0;

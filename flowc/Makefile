@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.11.3
+BUILD_VERSION=0.11.4
 
 ## One of the runtimes alpine-3.11, alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
@@ -22,7 +22,7 @@ BASE_IMAGE?=redhat-ubi7
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets 
-.PHONY: alpine-edge ubuntu-18.04 redhat-ubi7 alpine-3.11
+.PHONY: alpine-edge ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -171,6 +171,9 @@ alpine-3.11:
 	@$(MAKE) "BASE_IMAGE=$@" image
 
 ubuntu-18.04:
+	@$(MAKE) "BASE_IMAGE=$@" image
+
+ubuntu-20.04:
 	@$(MAKE) "BASE_IMAGE=$@" image
 
 redhat-ubi7:
