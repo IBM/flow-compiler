@@ -74,6 +74,7 @@ inline static std::ostream &operator << (std::ostream &out, std::set<FE> const &
         sep = ", ";
     }
     out << ")";
+    return out;
 }
 template <class FE>
 inline static std::ostream &operator << (std::ostream &out, std::vector<FE> const &c) {
@@ -84,11 +85,13 @@ inline static std::ostream &operator << (std::ostream &out, std::vector<FE> cons
         sep = ", ";
     }
     out << "]";
+    return out;
 }
 template <class F, class E>
 inline static std::ostream &operator << (std::ostream &out, std::pair<F, E> const &c) {
     char const *sep = "";
     out << "(" << c.first << ", " << c.second << ")";
+    return out;
 }
 template <class F, class E>
 inline static std::ostream &operator << (std::ostream &out, std::map<F,E> const &c) {
@@ -99,6 +102,7 @@ inline static std::ostream &operator << (std::ostream &out, std::map<F,E> const 
         sep = ", ";
     }
     out << "}";
+    return out;
 }
 
 namespace flowc {
@@ -112,7 +116,7 @@ static std::string get_system_time() {
     timeval tv;
     gettimeofday(&tv, 0);
     struct tm *nowtm = localtime(&tv.tv_sec);
-    char tmbuf[64], buf[64];
+    char tmbuf[64], buf[256];
     strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
     snprintf(buf, sizeof(buf), "%s.%03ld", tmbuf, tv.tv_usec/1000);
     return buf;
