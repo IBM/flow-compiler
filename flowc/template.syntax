@@ -54,8 +54,8 @@ Node Level Properties:
 "environment"     Name-value map with the envitonment variables to be set when the image is run. 
                 The values must be strings. 
 
-"pod"             Label to be used as a deployment name in the "Kubernetes" configuration. If this value 
-                is missing the nodes image will be run togther with the orchestrator in the main pod.
+"group"           Label to be used as a deployment name in the "Kubernetes" configuration. 
+                Nodes with the same group will run together in the same container as a pod.
 
 "limits"          Name-value map with settings that will be used as resource limits in the "Kubernetes" 
                 deployment. The values must be strings and will be copied verbatim into the yaml file.

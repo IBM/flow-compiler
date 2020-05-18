@@ -396,7 +396,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * All files are compiled at this ponit so,
      * set as many of values that control code generation as possible
      */
-    if(contains(targets, "kubernetes") || contains(targets, "docker-compose") || contains(targets, "docker-swarm")) {
+    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
         for(auto const &nc: named_blocks) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
     }
@@ -460,7 +460,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
 
     // Grab all the image names, image ports and volume names 
-    if(contains(targets, "kubernetes") || contains(targets, "docker-compose") || contains(targets, "docker-swarm")) {
+    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
         // Make a first pass to collect the declared ports and groups
         for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
@@ -566,6 +566,18 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             value = 0;
             get_block_value(value, blck, "scale", false, {FTK_FLOAT, FTK_INTEGER});
             if(value > 0) ni.scale = (int) get_numberf(value);
+
+            get_block_value(value, blck, "min_cpus", false, {FTK_FLOAT, FTK_INTEGER});
+            if(value > 0) ni.min_cpus = (int) get_numberf(value);
+
+            get_block_value(value, blck, "max_cpus", false, {FTK_FLOAT, FTK_INTEGER});
+            if(value > 0) ni.max_cpus = (int) get_numberf(value);
+
+            get_block_value(value, blck, "max_memory", false, {FTK_STRING});
+            if(value > 0) ni.max_memory = get_string(value);
+
+            get_block_value(value, blck, "min_memory", false, {FTK_STRING});
+            if(value > 0) ni.min_memory = get_string(value);
 
             // Volume mounts
             int old_value = 0;
@@ -857,31 +869,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    //std::cerr << "----- before swarm: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "docker-swarm")) {
-        std::map<std::string, std::vector<std::string>> local_vars;
-        std::ostringstream buff;
-        error_count += genc_composer(buff, local_vars);
-        set(local_vars, "DOCKER_SWARM_YAML",  buff.str());
-        extern char const *rr_keys_sh;
-        set(local_vars, "RR_KEYS_SH", rr_keys_sh);
-        extern char const *rr_get_sh;
-        buff.str("");
-        render_varsub(buff, rr_get_sh, local_vars);
-        set(local_vars, "RR_GET_SH",  buff.str());
-
-        std::string outputfn = output_filename(orchestrator_name + "-ds.sh");
-        if(error_count == 0) {
-            std::ofstream outs(outputfn.c_str());
-            if(!outs.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write Docker Swarm driver");
-            } else {
-                error_count += genc_composer_driver(outs, local_vars);
-            }
-        }
-        if(error_count == 0) chmodx(outputfn);
-    }
     //std::cerr << "----- before graph files: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "graph-files")) {
         for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
@@ -991,7 +978,6 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"build-image",       {"server", "client", "dockerfile"}},
     {"makefile",          {}},
     {"docker-compose",    {}},
-    {"docker-swarm",      {}},
     {"kubernetes",        {}},
     {"protobuf-files",    {}},
     {"www-files",         {"docs"}},

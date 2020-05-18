@@ -1,7 +1,13 @@
-version: '2.3'
+${use_COMPOSE}version: '2.3'
+${use_SWARM}version: '3.7'
 services:
   {{NAME}}:
-    environment: [ "{{NAME_UPPERID}}_REST_PORT={{REST_PORT}}", "{{NAME_UPPERID}}_DEBUG=1", "{{NAME_UPPERID}}_ASYNC=1", {{ORCHESTRATOR_ENVIRONMENT}} ]
+    environment: 
+      {{NAME_UPPERID}}_REST_PORT: "{{REST_PORT}}"
+      {{NAME_UPPERID}}_DEBUG: "1"
+      {{NAME_UPPERID}}_ASYNC: "1"
+{E:MAIN_EP_ENVIRONMENT_NAME{      {{MAIN_EP_ENVIRONMENT_NAME}}: "{{MAIN_EP_ENVIRONMENT_VALUE}}"
+}E}
     image: "{{PUSH_REPO:}}{{IMAGE}}"
     ports: ["$grpc_PORT:{{MAIN_PORT}}", "$rest_PORT:{{REST_PORT}}"]
 $enable_custom_app    volumes: 
@@ -16,6 +22,16 @@ $enable_custom_app      - ${{NAME_UPPERID}}_HTDOCS:/home/worker/{{NAME}}/app:ro
 {{EXTERN_NODE}}$default_RUNTIME{{SET_NODE_RUNTIME}}    runtime: {{NODE_RUNTIME}}
 {{EXTERN_NODE}}    {{NODE_ENVIRONMENT:}}
 {{EXTERN_NODE}}    {{NODE_MOUNTS:}}
+{{EXTERN_NODE}}$use_SWARM    deploy:
+{{EXTERN_NODE}}$use_SWARM        endpoint_mode: dnsrr
+{{EXTERN_NODE}}$use_SWARM            replicas: $scale_{{NODE_UPPERID}}
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}$use_SWARM            resources:
+{{EXTERN_NODE}}{{NODE_HAVE_MIN}}$use_SWARM                reservations:
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}$use_SWARM                    memory: {{NODE_MIN_MEMORY}}
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_CPUS}}$use_SWARM                    cpus: {{NODE_MIN_CPUS}}
+{{EXTERN_NODE}}{{NODE_HAVE_MAX}}$use_SWARM                limits:
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_MEMORY}}$use_SWARM                    memory: {{NODE_MAX_MEMORY}}
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_CPUS}}$use_SWARM                    cpus: {{NODE_MAX_CPUS}}
 }N}
 {V:HAVE_VOLUMES{
 volumes:{{HAVE_VOLUMES}}

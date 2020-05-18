@@ -67,7 +67,11 @@ struct node_info {
     std::map<std::string, std::string> environment;
     int scale;              // Number of images or groups to run at the same time
 
-    node_info(int no=0, std::string const &na="", bool nc=false):node(no), xname(na), port(0), order(0), no_call(nc), scale(0) {
+    int min_cpus, max_cpus; // CPU limits 
+    int min_gpus, max_gpus; // GPU limits 
+    string min_memory, max_memory; // memory limits 
+
+    node_info(int no=0, std::string const &na="", bool nc=false):node(no), xname(na), port(0), order(0), no_call(nc), scale(0), min_cpus(0), max_cpus(0), min_gpus(0), max_gpus(0) {
     }
     std::string label() const {
         return stru1::to_lower(stru1::to_identifier(xname));

@@ -5,11 +5,17 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
+export docker_COMPOSE_PROJECT_NAME={{NAME}}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
 {O:VOLUME_NAME_VAR{export flow_{{VOLUME_NAME_VAR}}={{VOLUME_LOCAL}}
 }O}
-docker_COMPOSE_PROJECT_NAME={{NAME}}
+{O:MAIN_EP_ENVIRONMENT_NAME{export {{MAIN_EP_ENVIRONMENT_NAME}}_DN={{MAIN_DN_ENVIRONMENT_VALUE}}
+}O}
+{N:NODE_NAME{export scale_{{NODE_UPPERID}}={{NODE_SCALE}}
+}N}
+export use_COMPOSE=
+export use_SWARM="#"
 export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
@@ -53,6 +59,11 @@ case "$1" in
     shift
     shift
     ;;
+    -P|--project-name)
+    export docker_COMPOSE_PROJECT_NAME="$2"
+    shift
+    shift
+    ;;
     -s|--skip-provision)
     export provision_ENABLED=0
     shift
@@ -63,6 +74,18 @@ case "$1" in
     ;;
     -r|--default-runtime)
     export default_RUNTIME="#"
+    shift
+    ;;
+    -S|--swarm)
+    export use_COMPOSE="#"
+    export use_SWARM=
+{O:MAIN_EP_ENVIRONMENT_NAME{    if [ $scale_{{NODE_UPPERID}} -gt 1 ]
+    then
+        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="@tasks.${docker_COMPOSE_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
+    else
+        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="tasks.${docker_COMPOSE_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
+    fi
+}O}
     shift
     ;;
     -T|--timestamps)
@@ -115,25 +138,50 @@ if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
 then
 echo "{{NAME}}-dc.sh generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $0 <up|run|config|provision> [-p] [-r] [-s] [-T] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
-echo "   or $0 <down|logs>"
+echo "Usage $(basename "$0") <up|run|config> [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "   or $(basename "$0") [-S] [--project-name NAME] <down>"
+echo "   or $(basename "$0") [-T] <logs>"
+{V:HAVE_VOLUMES{
+echo "   or $(basename "$0") <provision> {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+}V}
 echo ""
-echo "    -p, --export-ports  export the gRPC ports for all nodes"
+echo "Commands:"
+echo "   up         Start the application in the background"
+echo "   run        Run the application in the foreground (not available in swarm mode)"
+echo "   config     Display the configuration file that is sent to Docker"
+echo "   down       Stop the running application"
+echo "   logs       Display logs from all the containers (compose mode only)"
+{V:HAVE_VOLUMES{
+echo "   provision  Download thte external data into local directories so it can be mounted inside the running containers"
+}V}
 echo ""
-echo "    -r, --default-runtime  ignore runtime settings and run with the default Docker runtime"
+echo "Options:"
+echo "    -p, --export-ports"
+echo "        Export the gRPC ports for all nodes"
 echo ""
-echo "    -s, --skip-provision  skip checking for new data files at startup"
+echo "    -r, --default-runtime"
+echo "        Ignore runtime settings and run with the default Docker runtime"
 echo ""
-echo "    -T, --timestamps  show timestamps in logs"
+echo "    -S, --swarm"
+echo "        Enable swarm mode"
 echo ""
-echo   "    --grpc-port PORT  (or set {{NAME_UPPERID}}_GRPC_PORT)"
-echo   "        Override GRPC port (default is $grpc_PORT)"
+echo "    -s, --skip-provision"
+echo "        Skip checking for new data files at startup"
 echo ""
-echo   "    --rest-port PORT  (or set {{NAME_UPPERID}}_REST_PORT)"
-echo   "        Override REST API port (default is $rest_PORT)"
+echo "    -T, --timestamps"
+echo "        Show timestamps in logs"
 echo ""
-echo   "    --htdocs DIRECTORY  (or set {{NAME_UPPERID}}_HTDOCS)"
-echo   "        Directory with custom application files (default is \"${{NAME_UPPERID}}_HTDOCS\")"
+echo "    --project-name NAME"
+echo "        Set the Docker Compose project name to NAME (default is $docker_COMPOSE_PROJECT_NAME)"
+echo ""
+echo "    --grpc-port PORT  (or set {{NAME_UPPERID}}_GRPC_PORT)"
+echo "        Override GRPC port (default is $grpc_PORT)"
+echo ""
+echo "    --rest-port PORT  (or set {{NAME_UPPERID}}_REST_PORT)"
+echo "        Override REST API port (default is $rest_PORT)"
+echo ""
+echo "    --htdocs DIRECTORY  (or set {{NAME_UPPERID}}_HTDOCS)"
+echo "        Directory with custom application files (default is \"${{NAME_UPPERID}}_HTDOCS\")"
 echo ""
 {O:VOLUME_OPTION{
 echo   "    --mount-{{VOLUME_OPTION:}} DIRECTORY  (or set {{VOLUME_NAME_VAR}})"
@@ -168,36 +216,76 @@ provision() {
 
 case "$1" in
     provision)
-        provision
-        exit $?
+        if [ -z "$use_COMPOSE" ]
+        then
+            provision
+            exit $?
+        else
+            echo "Not available in swarm mode"
+            exit 1
+        fi
         ;;
     config)
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" config
-        exit $?
+        if [ -z "$use_COMPOSE" ]
+        then
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" config
+            exit $?
+        else
+            echo "$docker_COMPOSE_YAML" | envsubst | grep -v '^#'
+            exit $?
+        fi
         ;;
     down)
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" down -v
-        exit $?
+        if [ -z "$use_COMPOSE" ]
+        then
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" down -v
+            exit $?
+        else 
+            docker stack delete "$docker_COMPOSE_PROJECT_NAME"
+            exit $?
+        fi
         ;;
     logs)
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
-        exit $?
+        if [ -z "$use_COMPOSE" ]
+        then
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
+            exit $?
+        else
+            echo "Not available in swarm mode"
+            exit 1
+        fi
         ;;
     up)
-        [ $provision_ENABLED -eq 0 ] || provision || exit 1
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up -d
-        rc=$?
+        if [ -z "$use_COMPOSE" ]
+        then
+            [ $provision_ENABLED -eq 0 ] || provision || exit 1
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up -d
+            rc=$?
+        else
+            echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$docker_COMPOSE_PROJECT_NAME"
+            rc=$?
+        fi
         ;;
     run)
-        [ $provision_ENABLED -eq 0 ] || provision || exit 1
-        echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up 
-        rc=$?
+        if [ -z "$use_COMPOSE" ]
+        then
+            [ $provision_ENABLED -eq 0 ] || provision || exit 1
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up 
+            rc=$?
+        else
+            echo "Not available in swarm mode"
+            exit 1
+        fi
         ;;
 esac
 if [ $rc -eq 0 -a "$1" == "up" ]
 then
     echo "{{NAME}} gRPC service listening on port $grpc_PORT"
     echo "{{NAME}} REST service listening on port $rest_PORT"
+fi
+if [ ! -z "$use_COMPOSE" ] 
+then
+    docker stack ls "$docker_COMPOSE_PROJECT_NAME"
 fi
 exit $rc
 

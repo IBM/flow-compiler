@@ -205,20 +205,21 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
     int base_port = this->base_port;
 
     // Make a list of all nodes and containers
-    std::vector<std::string> orchestrator_env;
-
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         std::string const &nn = nr.second.xname;
         int pv = nr.second.port;
         append(local_vars, "NODE_PORT", std::to_string(++base_port));
         if(type(nr.first) == "node") {
-            if(nr.second.external_endpoint.empty())
-                orchestrator_env.push_back(sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT=" << to_lower(nn) << ":" << pv);
-            else 
-                orchestrator_env.push_back(sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT=" << nr.second.external_endpoint);
+            append(local_vars, "MAIN_EP_ENVIRONMENT_NAME",  sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT");
+            if(nr.second.external_endpoint.empty()) {
+                append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << "$" << to_upper(to_identifier(nn)) << "_ENDPOINT_DN:" << pv);
+                append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", sfmt() << to_lower(nn));
+            } else {
+                append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << nr.second.external_endpoint);
+                append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", "");
+            }
         }
     }
-    set(local_vars, "ORCHESTRATOR_ENVIRONMENT", join(orchestrator_env, ", ", "", "", "\"", "\""));
     int tmp_count = 0;
 
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
@@ -254,6 +255,24 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
         append(local_vars, "SET_NODE_RUNTIME", ni.runtime.empty()? "#": "");
         append(local_vars, "NODE_RUNTIME", ni.runtime.empty()? ni.runtime: c_escape(ni.runtime));
+        append(local_vars, "NODE_SCALE", std::to_string(ni.scale <= 0? 1: ni.scale));
+        append(local_vars, "NODE_MIN_CPUS", std::to_string(ni.min_cpus <= 0? 0: ni.min_cpus));
+        append(local_vars, "NODE_MAX_CPUS", std::to_string(ni.max_cpus <= 0? 0: ni.max_cpus));
+        append(local_vars, "NODE_MIN_GPUS", std::to_string(ni.min_gpus <= 0? 0: ni.min_gpus));
+        append(local_vars, "NODE_MAX_GPUS", std::to_string(ni.max_gpus <= 0? 0: ni.max_gpus));
+        append(local_vars, "NODE_MIN_MEMORY", ni.min_memory);
+        append(local_vars, "NODE_MAX_MEMORY", ni.max_memory);
+        append(local_vars, "NODE_HAVE_MIN_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0 
+                                             || !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
+        append(local_vars, "NODE_HAVE_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0? "": "#");
+        append(local_vars, "NODE_HAVE_MIN", !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
+        append(local_vars, "NODE_HAVE_MIN_MEMORY", !ni.min_memory.empty()? "": "#");
+        append(local_vars, "NODE_HAVE_MAX_MEMORY", !ni.max_memory.empty()? "": "#");
+        append(local_vars, "NODE_HAVE_MAX_CPUS", ni.max_cpus > 0? "": "#");
+        append(local_vars, "NODE_HAVE_MIN_CPUS", ni.min_cpus > 0? "": "#");
+        append(local_vars, "NODE_HAVE_MAX_GPUS", ni.max_gpus > 0? "": "#");
+        append(local_vars, "NODE_HAVE_MIN_GPUS", ni.min_gpus > 0? "": "#");
+        append(local_vars, "NODE_UPPERID", to_upper(to_identifier(ni.xname)));
 
         std::vector<std::string> mts;
         bool have_rw_mounts = false;

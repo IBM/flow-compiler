@@ -59,10 +59,7 @@ OPTIONS
               used when no value was set for a given entry.
 
        --docker-compose, -d
-              Generate a "Docker Compose" driver tool for managing the application
-
-       --docker-swarm, -S
-              Generate a "Docker Swarm" configuratin generator tool
+              Generate a "Docker Compose" and "Docker Swarm" driver tool for managing the application
 
        --dockerfile
               Generate a "dockerfile" for the aggregator image
