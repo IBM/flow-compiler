@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##################################################################################
-# {{NAME}}-dc.sh
+# Docker Compose/Swarm configuration generator for {{NAME}}
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
@@ -136,7 +136,8 @@ if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" == "run" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" -a "$1" != "run" ]
 then
-echo "{{NAME}}-dc.sh generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
+echo "Docker Compose/Swarm configuration generator for {{NAME}}"
+echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
 echo "Usage $(basename "$0") <up|run|config> [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $(basename "$0") [-S] [--project-name NAME] <down>"

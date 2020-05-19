@@ -857,7 +857,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         render_varsub(buff, rr_get_sh, local_vars);
         set(local_vars, "RR_GET_SH",  buff.str());
 
-        std::string outputfn = output_filename(orchestrator_name + "-dc.sh");
+        std::string outputfn = output_filename(orchestrator_name + "-dcs.sh");
         if(error_count == 0) {
             std::ofstream outs(outputfn.c_str());
             if(!outs.is_open()) {
@@ -945,7 +945,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_kube(yaml);
 
         //std::cerr << "----- before kubernetes driver: " << error_count << "\n";
-        std::string outputfn = output_filename(orchestrator_name + "-kube.sh");
+        std::string outputfn = output_filename(orchestrator_name + "-k8s.sh");
         if(error_count == 0) {
             std::ofstream outf(outputfn.c_str());
             if(!outf.is_open()) {
