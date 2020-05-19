@@ -660,14 +660,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         
         for(auto const &gv: group_vars) {
             clear(group_vars[gv.first], "G_HAVE_NODES");
-            // TODO: check here if all nodes in the group are external
             if(group_vars[gv.first]["G_NODE_NAME"].size() > 0) 
                 set(group_vars[gv.first], "G_HAVE_NODES", "");
             clear(group_vars[gv.first], "G_HAVE_VOLUMES");
             if(group_volumes[gv.first].size() > 0)
                 set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
         }
-        // TODO: check here if all nodes are external
         set(global_vars, "HAVE_NODES", ""); 
 
         if(mounts.size() > 0) 

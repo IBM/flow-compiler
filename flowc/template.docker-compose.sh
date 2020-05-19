@@ -232,7 +232,7 @@ case "$1" in
             echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" config
             exit $?
         else
-            echo "$docker_COMPOSE_YAML" | envsubst | grep -v '^#'
+            echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
             exit $?
         fi
         ;;

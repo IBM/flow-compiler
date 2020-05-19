@@ -51,11 +51,19 @@ ${{{VOLUME_UPPERID}}_ART}          readOnly: true
 }W}
       containers:
 {N:G_NODE_NAME{
-      - name: {{G_NODE_OPTION}}
-        image: "{{G_NODE_IMAGE}}"
-        {{G_NODE_ENVIRONMENT}}
-        {{G_NODE_MOUNTS}}
-        {{G_NODE_LIMITS}}
+{{G_EXTERN_NODE}}      - name: {{G_NODE_OPTION}}
+{{G_EXTERN_NODE}}        image: "{{G_NODE_IMAGE}}"
+{{G_EXTERN_NODE}}        {{G_NODE_ENVIRONMENT}}
+{{G_EXTERN_NODE}}        {{G_NODE_MOUNTS}}
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MAX}}        resources:
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN}}          requests:
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MEMORY}}            memory: "{{G_NODE_MIN_MEMORY}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_CPUS}}            cpu: "{{G_NODE_MIN_CPUS}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{G_NODE_MIN_GPUS}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX}}          limis:
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_MEMORY}}            memory: "{{G_NODE_MAX_MEMORY}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_CPUS}}            cpu: "{{G_NODE_MAX_CPUS}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
 }N}
 {V:HAVE_VOLUMES{
       volumes:{{HAVE_VOLUMES}}
@@ -84,9 +92,9 @@ metadata:
 spec:
   ports:
 {N:G_NODE_NAME{
-  - port: {{G_IMAGE_PORT}}
-    protocol: TCP
-    name: {{G_NODE_OPTION}}-port
+{{G_EXTERN_NODE}}  - port: {{G_IMAGE_PORT}}
+{{G_EXTERN_NODE}}    protocol: TCP
+{{G_EXTERN_NODE}}    name: {{G_NODE_OPTION}}-port
 }N}
   selector:
     app: {{NAME}}-{{G_NODE_GROUP}}

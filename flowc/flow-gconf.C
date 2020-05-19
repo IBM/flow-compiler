@@ -54,7 +54,8 @@ int flow_compiler::genc_kube(std::ostream &out) {
 
     for(auto const &nn: referenced_nodes) 
         groups.insert(nn.second.group);
-    for(auto const &g: groups) 
+    for(auto const &g: groups) {
+        int group_scale = 1;
         for(auto &nr: referenced_nodes) {
             auto &ni = nr.second;
             std::string const &nn = ni.xname;
@@ -63,21 +64,25 @@ int flow_compiler::genc_kube(std::ostream &out) {
             if(ni.group == g) {
                 // If the this node is part of this group, it is accessible through localhost
                 host = "localhost";
+                group_scale = std::max(ni.scale, group_scale);
+
             } else {
                 // This node is accessible through service in this group
-                host = to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << ni.group));
+                host = std::string("@") + to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << ni.group));
             }
             //append(env_vars[g], nn+".host", host);
             //append(env_vars[g], nn+".port", port);
 
             if(g.empty()) {
-                append(group_vars[g], "ORCHESTRATOR_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT");
+                append(group_vars[g], "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT");
                 if(ni.external_endpoint.empty()) 
-                    append(group_vars[g], "ORCHESTRATOR_ENVIRONMENT_VALUE", sfmt() << host << ":" << pv);
+                    append(group_vars[g], "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << pv);
                 else 
-                    append(group_vars[g], "ORCHESTRATOR_ENVIRONMENT_VALUE", ni.external_endpoint);
+                    append(group_vars[g], "MAIN_ENVIRONMENT_VALUE", ni.external_endpoint);
             }
         }
+        append(group_vars[g], "GROUP_SCALE", std::to_string(group_scale));
+    }
     for(auto &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
         std::string const &nn = ni.xname;
@@ -134,7 +139,25 @@ int flow_compiler::genc_kube(std::ostream &out) {
             }
             buf.push_back(sfmt() << get_id(elem.children[0]) <<  ": " << c_escape(get_value(elem.children[1])));
         }
-        append(group_vars[ni.group], "G_NODE_LIMITS", join(buf, ", ", "", "resources: {limits: {", "", "", "}}"));
+        append(group_vars[ni.group], "G_NODE_MIN_MEMORY", ni.min_memory);
+        append(group_vars[ni.group], "G_NODE_MIN_CPUS", std::to_string(ni.min_cpus));
+        append(group_vars[ni.group], "G_NODE_MIN_GPUS", std::to_string(ni.min_gpus));
+        append(group_vars[ni.group], "G_NODE_MAX_MEMORY", ni.max_memory);
+        append(group_vars[ni.group], "G_NODE_MAX_CPUS", std::to_string(ni.max_cpus));
+        append(group_vars[ni.group], "G_NODE_MAX_GPUS", std::to_string(std::max(ni.max_gpus, ni.min_gpus)));
+
+
+        append(group_vars[ni.group], "G_NODE_HAVE_MIN_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0 
+                                             || !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MIN", !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MIN_MEMORY", !ni.min_memory.empty()? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MAX_MEMORY", !ni.max_memory.empty()? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MAX_CPUS", ni.max_cpus > 0? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MIN_CPUS", ni.min_cpus > 0? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MAX_GPUS", std::max(ni.max_gpus, ni.min_gpus) > 0? "": "#");
+        append(group_vars[ni.group], "G_NODE_HAVE_MIN_GPUS", ni.min_gpus > 0? "": "#");
+        append(group_vars[ni.group], "NODE_UPPERID", to_upper(to_identifier(ni.xname)));
 
         std::vector<int> init_blcks;
         int init_count = 0;
@@ -255,6 +278,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
         append(local_vars, "SET_NODE_RUNTIME", ni.runtime.empty()? "#": "");
         append(local_vars, "NODE_RUNTIME", ni.runtime.empty()? ni.runtime: c_escape(ni.runtime));
+
         append(local_vars, "NODE_SCALE", std::to_string(ni.scale <= 0? 1: ni.scale));
         append(local_vars, "NODE_MIN_CPUS", std::to_string(ni.min_cpus <= 0? 0: ni.min_cpus));
         append(local_vars, "NODE_MAX_CPUS", std::to_string(ni.max_cpus <= 0? 0: ni.max_cpus));
@@ -262,6 +286,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_MAX_GPUS", std::to_string(ni.max_gpus <= 0? 0: ni.max_gpus));
         append(local_vars, "NODE_MIN_MEMORY", ni.min_memory);
         append(local_vars, "NODE_MAX_MEMORY", ni.max_memory);
+
         append(local_vars, "NODE_HAVE_MIN_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0 
                                              || !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
         append(local_vars, "NODE_HAVE_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0? "": "#");
@@ -363,8 +388,10 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
         append(local_vars, "GROUP_UPPER", to_upper(g.first));
         append(local_vars, "GROUP_UPPERID", to_upper(to_underscore(g.first)));
         append(local_vars, "GROUP_NODES", join(all(group_vars[g.first], "G_NODE_NAME"), ", "));
+        append(local_vars, "GROUP_SCALE", get(group_vars[g.first], "GROUP_SCALE"));
     } else {
         append(local_vars, "MAIN_GROUP_NODES", join(all(group_vars[g.first], "G_NODE_NAME"), ", "));
+        append(local_vars, "MAIN_SCALE", get(group_vars[g.first], "GROUP_SCALE"));
     }
 
 #if 0

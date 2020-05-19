@@ -1,17 +1,3 @@
-{R:REST_NODE_NAME{
-apiVersion: v1
-data:
-{P:PROTO_FILE{
-  {{PROTO_FILE}}: {{PROTO_FILE_YAMLSTR}}
-}P}
-{E:REST_ENTRY{
-  {{REST_ENTRY}}.svg: {{ENTRY_SVG_YAMLSTR}}
-}E}
-kind: ConfigMap
-metadata:
-  name: {{NAME}}-protos
----
-}R}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -83,48 +69,41 @@ $enable_htdoes          readOnly: false
         ports:
           - name: grpc
             containerPort: {{MAIN_PORT}}
-{E:HAVE_NODES{
-        env:{{HAVE_NODES}}
-          - name: {{NAME_UPPERID}}_TRACE
-            value: "0"
+          - name: rest
+            containerPort: {{REST_PORT}}
+        env:
+          - name: {{NAME_UPPERID}}_REST_PORT
+            value: "{{REST_PORT}}"
           - name: {{NAME_UPPERID}}_DEBUG
             value: "1"
           - name: {{NAME_UPPERID}}_ASYNC
             value: "1"
-{K:ORCHESTRATOR_ENVIRONMENT_KEY{
-          - name: {{ORCHESTRATOR_ENVIRONMENT_KEY}}
-            value: "{{ORCHESTRATOR_ENVIRONMENT_VALUE}}"
-}K}}E}
-{R:REST_NODE_NAME{
-      - name: {{REST_NODE_NAME}}
-        image: "{{REST_NODE_IMAGE}}"
-        ports: 
-          - name: rest
-            containerPort: {{REST_PORT}}
-        command: ["/home/worker/pr/bin/runpr3.sh"]
-        args: ["--name", "{{NAME_UPPER}}", "--description", {{MAIN_DESCRIPTION_JSON}}, "--hostport", "localhost:{{MAIN_PORT}}"{E:REST_ENTRY{, "--service", "{{REST_ENTRY}}"}E}]
-        volumeMounts:
-        - name: {{REST_VOLUME_NAME}}
-          mountPath: "/home/worker/pr/input"
-          readOnly: true
+{K:MAIN_ENVIRONMENT_KEY{
+          - name: {{MAIN_ENVIRONMENT_KEY}}
+            value: "{{MAIN_ENVIRONMENT_VALUE}}"
+}K}
+$enable_htdocs        volumeMounts:
 $enable_htdocs        - name: {{HTDOCS_VOLUME_NAME}}
 $enable_htdocs          mountPath: "/home/worker/pr/htdocs"
 $enable_htdocs          readOnly: true
-}R}
+
 {N:G_NODE_NAME{
-      - name: {{G_NODE_OPTION}}
-        image: "{{G_NODE_IMAGE}}"
-        {{G_NODE_ENVIRONMENT}}
-        {{G_NODE_MOUNTS}}
-        {{G_NODE_LIMITS}}
+{{G_EXTERN_NODE}}      - name: {{G_NODE_OPTION}}
+{{G_EXTERN_NODE}}        image: "{{G_NODE_IMAGE}}"
+{{G_EXTERN_NODE}}        {{G_NODE_ENVIRONMENT}}
+{{G_EXTERN_NODE}}        {{G_NODE_MOUNTS}}
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MAX}}        resources:
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN}}          requests:
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MEMORY}}            memory: "{{G_NODE_MIN_MEMORY}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_CPUS}}            cpu: "{{G_NODE_MIN_CPUS}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{G_NODE_MIN_GPUS}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX}}          limis:
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_MEMORY}}            memory: "{{G_NODE_MAX_MEMORY}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_CPUS}}            cpu: "{{G_NODE_MAX_CPUS}}"
+{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
 }N}
-{V:HAVE_VOLUMES_OR_REST{
-      volumes:{{HAVE_VOLUMES_OR_REST}}
-}V}
-{R:REST_NODE_NAME{
-        - name: {{REST_VOLUME_NAME}}
-          configMap:
-            name: {{NAME}}-protos
+
+$enable_htdocs      volumes:
 $enable_htdocs$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}    
 $enable_htdocs$htdocs_PVC          persistentVolumeClaim:
 $enable_htdocs$htdocs_PVC            claimName: ${{{NAME_UPPERID}}_HTDOCS}
@@ -138,7 +117,7 @@ $enable_htdocs$htdocs_COS        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs$htdocs_COS          emptyDir: {}
 $enable_htdocs$htdocs_ART        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs$htdocs_ART          emptyDir: {}
-}R}
+
 {W:VOLUME_NAME{
 ${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
 ${{{VOLUME_UPPERID}}_PVC}          persistentVolumeClaim:
@@ -167,10 +146,8 @@ spec:
   - port: {{MAIN_PORT}}
     protocol: TCP
     name: grpc
-{R:REST_NODE_NAME{
   - port:  {{REST_PORT}}
     protocol: TCP
     name: http
-}R}
   selector:
     app: {{NAME}}

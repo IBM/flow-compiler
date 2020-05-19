@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##################################################################################
-# {{NAME}}-kube.sh
+# Kubernetes configuration generator for {{NAME}}
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
@@ -16,8 +16,8 @@ export {{VOLUME_UPPERID}}_SECRET_NAME=$flow_{{VOLUME_UPPERID}}_SECRET_NAME
 }A}
 cur_KUBECTL=${KUBECTL-kubectl}
 kube_PROJECT_NAME={{NAME}}
-export replicas_{{NAME_UPPERID}}=${{{NAME_UPPERID}}_REPLICAS-1}
-{G:GROUP_UPPER{export replicas_{{NAME_UPPERID}}_{{GROUP_UPPERID}}=${{{NAME_UPPERID}}_{{GROUP_UPPERID}}_REPLICAS-1}
+export replicas_{{NAME_UPPERID}}=${{{NAME_UPPERID}}_REPLICAS-{{MAIN_SCALE}}}
+{G:GROUP_UPPER{export replicas_{{NAME_UPPERID}}_{{GROUP_UPPERID}}=${{{NAME_UPPERID}}_{{GROUP_UPPERID}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
 kubernetes_YAML=$(cat <<"ENDOFYAML"
 {{KUBERNETES_YAML}}
@@ -123,13 +123,20 @@ fi
 
 if [ $# -eq 0 -o "$1" == "deploy" -a $have_ALL_VOLUME_CLAIMS -eq 0 -o "$1" == "config" -a $have_ALL_VOLUME_CLAIMS -eq 0 -o "$1" != "deploy" -a "$1" != "delete" -a "$1" != "config" -a "$1" != "show" ]
 then
-echo "$0 generated from {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
+echo "Kubernetes configuration generator for {{NAME}}"
+echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $0 <deploy|config> [OPTIONS]"
+echo "Usage $(basename "$0") <deploy|config> [OPTIONS]"
 # {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} <VOLUME-CLAIM-NAME> }O} --{{NAME}}-replicas <NUM> {G:GROUP_UPPER{--{{GROUP}}-replicas <NUM> }G}
-echo "   or $0 <show|delete>"
+echo "   or $(basename "$0") <show|delete>"
 echo ""
-echo "OPTIONS"
+echo "Commands:"
+echo "   deploy     Invoke kubectl deploy with the generated confing file"
+echo "   config     Display the configuration file that is sent to kubectl"
+echo "   show       Display the status of the deployment"
+echo "   delete     Delete all objects associated with this deployment"
+echo ""
+echo "Options:"
 {O:VOLUME_OPTION{
     echo   "    --mount-{{VOLUME_OPTION:}} <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{VOLUME_UPPERID}})"
     echo   "        Default is \"${{VOLUME_UPPERID}}\""
@@ -173,7 +180,7 @@ exit 1
 fi
 if [ "$1" == "config" ]
 then
-echo "$kubernetes_YAML" | envsubst | sed '/^ *$/d'
+echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
 exit 0
 fi
 if [ "$1" == "deploy" ]
