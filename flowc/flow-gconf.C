@@ -146,7 +146,6 @@ int flow_compiler::genc_kube(std::ostream &out) {
         append(group_vars[ni.group], "G_NODE_MAX_CPUS", std::to_string(ni.max_cpus));
         append(group_vars[ni.group], "G_NODE_MAX_GPUS", std::to_string(std::max(ni.max_gpus, ni.min_gpus)));
 
-
         append(group_vars[ni.group], "G_NODE_HAVE_MIN_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0 
                                              || !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
         append(group_vars[ni.group], "G_NODE_HAVE_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0? "": "#");
@@ -191,7 +190,6 @@ int flow_compiler::genc_kube(std::ostream &out) {
                 append(group_vars[g], "VOLUME_COMMENT", to_line_comment(join(cp->second, " "), "# "));
             else 
                 append(group_vars[g], "VOLUME_COMMENT", "");
-
             append(group_vars[g], "VOLUME_NAME", vn);
             append(group_vars[g], "VOLUME_UPPERID", to_upper(to_identifier(vn)));
             append(group_vars[g], "VOLUME_OPTION", to_option(vn));
