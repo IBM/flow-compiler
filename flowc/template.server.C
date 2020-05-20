@@ -277,45 +277,88 @@ static std::string log_abridge(google::protobuf::Message const &message, unsigne
     google::protobuf::util::MessageToJsonString(message, &json_reply, options);
     return log_abridge(json_reply, max_length);
 }
-struct call_id {
+struct call_info {
     long id;
     std::string id_str;
-    bool time_call, async_calls, trace_call;
     std::string entry_name;
+    std::unique_ptr<std::stringstream> tissp;
+    bool time_call, async_calls, trace_call;
 
-    call_id(std::string const &entry, long num, struct mg_connection *A_conn): entry_name(entry), id(num) {
+    call_info(std::string const &entry, long num, struct mg_connection *A_conn): entry_name(entry), id(num) {
         char const *id = mg_get_header(A_conn, RFH_CALL_ID);
         if(id == nullptr) id = mg_get_header(A_conn, RFH_ALT_CALL_ID);
         if(id != nullptr) id_str = id;
         async_calls = flowc::strtobool(mg_get_header(A_conn, RFH_OVERLAPPED_CALLS), flowc::asynchronous_calls);
         time_call = flowc::strtobool(mg_get_header(A_conn, RFH_TIME_CALL), time_call);
         trace_call = flowc::strtobool(mg_get_header(A_conn, RFH_TRACE_CALL), flowc::trace_calls);
+        if(time_call) {
+            tissp.reset(new std::stringstream);
+            *tissp << "[";
+        }
     }
-    call_id(std::string const &entry, long num, std::multimap<grpc::string_ref, grpc::string_ref> const &md): 
+    call_info(std::string const &entry, long num, std::multimap<grpc::string_ref, grpc::string_ref> const &md): 
         entry_name(entry), id(num), id_str(flowc::get_metadata_string(md, GFH_CALL_ID)) {
         trace_call = flowc::get_metadata_bool(md, GFH_TRACE_CALL, flowc::trace_calls);
         time_call = flowc::get_metadata_bool(md, GFH_TIME_CALL);
         async_calls = flowc::get_metadata_bool(md, GFH_OVERLAPPED_CALLS, flowc::asynchronous_calls);
+        if(time_call) {
+            tissp.reset(new std::stringstream);
+            *tissp << "[";
+        }
     }
     std::ostream &printcc(std::ostream &out, int cc=0) const {
         out << "[" << id;
         if(cc != 0) out << ":" << cc;
         out << "]";
-        if(!id_str.empty()) out << "[" << id_str << "]";
+        if(!id_str.empty()) out << "<" << id_str << ">";
         out << " ";
         return out;
     }
+    std::string get_time_info() const {
+        if(time_call)
+            return tissp->str() + "]";
+        return "";
+    }
+    void record_time_info(int stage, std::string const &stage_name, std::chrono::steady_clock::duration call_elapsed_time, std::chrono::steady_clock::duration stage_duration, int calls) const {
+        if(stage != 1) *tissp << ",";
+        *tissp << "{" 
+            "\"method\":" << json_string(entry_name) << ","
+            "\"stage-name\":" << json_string(stage_name) << ","
+            "\"stage\":" << stage << ","
+            "\"calls\":" << calls << ","
+            "\"duration\":" << double(stage_duration.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
+            "\"started\":" << double(call_elapsed_time.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
+            "\"duration-u\":\"" << stage_duration << "\","
+            "\"started-u\":\"" << call_elapsed_time << "\""
+            "}";
+    }
 };
-class sfmt {
+}
+inline static std::ostream &operator << (std::ostream &out, flowc::call_info const &cid) {
+        return cid.printcc(out, 0);
+}
+inline static std::ostream &operator << (std::ostream &out, std::tuple<flowc::call_info const *, int> const &ccid) {
+    return std::get<0>(ccid)->printcc(out, std::get<1>(ccid));
+}
+namespace flowc {
+struct sfmt {
     std::ostringstream os;
-public:
     inline operator std::string() {
         return os.str();
     }
-    template <class T> inline sfmt &operator <<(T v) {
-        os << v; return *this;
-    }
+    template <class T> 
+    inline sfmt &operator <<(T const &v);
 };
+/*
+template<>
+sfmt &sfmt::operator <<(call_info const &v) {
+    os << v; return *this;
+}
+*/
+template <class T>
+sfmt &sfmt::operator <<(T const &v) {
+    os << v; return *this;
+}
 std::mutex global_display_mutex;
 class flog {
 public:
@@ -327,12 +370,7 @@ public:
     }
 };
 }
-inline static std::ostream &operator << (std::ostream &out, flowc::call_id const &cid) {
-        return cid.printcc(out, 0);
-}
-inline static std::ostream &operator << (std::ostream &out, std::tuple<flowc::call_id const *, int> const &ccid) {
-    return std::get<0>(ccid)->printcc(out, std::get<1>(ccid));
-}
+
 
 #define FLOGC(c) if(c) flowc::flog() <<= flowc::sfmt() << flowc::get_system_time() << " " 
 #define FLOG FLOGC(true)
@@ -580,30 +618,13 @@ class {{NAME_ID}}_service *{{NAME_ID}}_service_ptr = nullptr;
 }I}
 
 namespace flowc {
-#define TIME_INFO_BEGIN(enabled)  std::stringstream Time_info; if(enabled) Time_info << "[";
-#define TIME_INFO_GET(enabled)    ((Time_info << "]"), Time_info.str())
-#define TIME_INFO_END(enabled)
 
-static void record_time_info(std::ostream &out, int stage, std::string const &method_name, std::string const &stage_name,
-    std::chrono::steady_clock::duration call_elapsed_time, std::chrono::steady_clock::duration stage_duration, int calls) {
-    if(stage != 1) out << ",";
-    out << "{" 
-           "\"method\":" << json_string(method_name) << ","
-           "\"stage-name\":" << json_string(stage_name) << ","
-           "\"stage\":" << stage << ","
-           "\"calls\":" << calls << ","
-           "\"duration\":" << double(stage_duration.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
-           "\"started\":" << double(call_elapsed_time.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den << ","
-           "\"duration-u\":\"" << stage_duration << "\","
-           "\"started-u\":\"" << call_elapsed_time << "\""
-           "}";
-}
 
 #define GRPC_ERROR(cid, ccid, text, status, context) FLOG << std::make_tuple(&cid, ccid) << (text) << " grpc error: " << (status).error_code() << " context: " << (context).debug_error_string() << "\n";
 
-#define PRINT_TIME(CIF, method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
-    if(CIF.time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    FLOGC(CIF.trace_call) << CIF << "time-call: " << method << " stage " << stage << " (" << stage_name \
+#define PRINT_TIME(CIF, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
+    if(CIF.time_call) CIF.record_time_info(stage, stage_name, (call_elapsed_time), (stage_duration), calls);\
+    FLOGC(CIF.trace_call) << CIF << "time-call: " << CIF.entry_name << " stage " << stage << " (" << stage_name \
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
     }
 
@@ -670,7 +691,7 @@ public:
         slog << "] " << total_active << " / " << active_calls.load();
         return slog.str();
     }
-    Stub_t *stub(int &connection_number, flowc::call_id const &scid, int ccid) {
+    Stub_t *stub(int &connection_number, flowc::call_info const &scid, int ccid) {
         std::lock_guard<std::mutex> guard(allocator);
         auto index = ++cc;
         auto time_now = std::chrono::system_clock::now();
@@ -695,7 +716,7 @@ public:
         FLOGC(flowc::trace_connections) << std::make_tuple(&scid, ccid) << "+ " << log_allocation() << "\n";
         return std::get<2>(stubt).get();
     }
-    void finished(int &connection_number, flowc::call_id const &scid, int ccid, bool in_error) {
+    void finished(int &connection_number, flowc::call_info const &scid, int ccid, bool in_error) {
         std::lock_guard<std::mutex> guard(allocator);
         FLOGC(flowc::trace_connections) << std::make_tuple(&scid, ccid) << "releasing @" << label << " stub[" << connection_number << "]\n";
         if(connection_number < 0 || connection_number+1 > count())
@@ -714,7 +735,7 @@ public:
         }
     }
     template <class INTP>
-    void release(flowc::call_id const &scid, INTP begin, INTP end) {
+    void release(flowc::call_info const &scid, INTP begin, INTP end) {
         while(begin != end) {
             int p = *begin;
             if(p >= 0) finished(p, scid, -1, false);
@@ -800,7 +821,7 @@ public:
         {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
         return {{CLI_NODE_ID}}_conp;
     }
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, flowc::call_id const &CIF, int CCid,
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, flowc::call_info const &CIF, int CCid,
             std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp) {
         FLOGC(CIF.trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CIF, CCid) << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
@@ -816,7 +837,7 @@ public:
             return nullptr;
         return ConP->stub(ConN, CIF, CCid)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
     }
-    ::grpc::Status {{CLI_NODE_ID}}_call(flowc::call_id const &CIF, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp) {
+    ::grpc::Status {{CLI_NODE_ID}}_call(flowc::call_info const &CIF, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp) {
         ::grpc::ClientContext L_context;
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
@@ -862,8 +883,17 @@ public:
     ::grpc::Status {{ENTRY_NAME}}(::grpc::ServerContext *context, {{ENTRY_INPUT_TYPE}} const *pinput, {{ENTRY_OUTPUT_TYPE}} *poutput) override {
         Active_Calls.fetch_add(1, std::memory_order_seq_cst);
         auto const &client_metadata = context->client_metadata();
-        flowc::call_id call_id("{{ENTRY_NAME}}", Call_Counter.fetch_add(1, std::memory_order_seq_cst), context->client_metadata());
+        flowc::call_info call_id("{{ENTRY_NAME}}", Call_Counter.fetch_add(1, std::memory_order_seq_cst), context->client_metadata());
+
         auto s = {{ENTRY_NAME}}(call_id, context, pinput, poutput);
+
+        if(call_id.time_call) 
+            context->AddTrailingMetadata(GFH_CALL_TIMES, call_id.get_time_info());
+        if(flowc::send_global_ID || call_id.trace_call) { 
+            context->AddTrailingMetadata(GFH_NODE_ID, flowc::global_node_ID); 
+            context->AddTrailingMetadata(GFH_START_TIME, flowc::global_start_time); 
+            context->AddTrailingMetadata(GFH_CALL_ID, std::to_string(call_id.id)); 
+        }
         Active_Calls.fetch_add(-1, std::memory_order_seq_cst);
         return s;
     }
@@ -1121,7 +1151,7 @@ static bool is_protobuf(char const *content_type) {
 }
 std::atomic<long> call_counter;
 {I:ENTRY_NAME{
-static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
     std::string xtra_headers;
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
@@ -1196,7 +1226,7 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_con
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    flowc::call_id call_id("{{ENTRY_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
+    flowc::call_info call_id("{{ENTRY_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
 
     FLOG << call_id << "REST-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
     int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata);
@@ -1205,7 +1235,7 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 }
 }I}
 {I:CLI_NODE_NAME{
-static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
@@ -1251,7 +1281,7 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct 
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    flowc::call_id call_id("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
+    flowc::call_info call_id("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
 
     FLOG <<  call_id << "REST-node-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
     int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata);

@@ -888,15 +888,14 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 input_name = op.arg1;
                 nodes_rv[input_label] = input_name;
                 output_name = op.arg2;
-                OUT << "::grpc::Status " << get_name(op.m1) << "(flowc::call_id const &CIF, ::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") {\n";
+                OUT << "::grpc::Status " << get_name(op.m1) << "(flowc::call_info const &CIF, ::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") {\n";
                 ++indenter;
                 OUT << "GRPC_ENTER_" << entry_name << "(\"" << entry_dot_name << "\", CIF, *CTX, p" << input_name << ")\n";
                 //OUT << "auto CID = CIF.call_id;\n";
-                OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
+                //OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
-                OUT << "TIME_INFO_BEGIN(CIF.time_call);\n";
                 OUT << "auto ST = std::chrono::steady_clock::now();\n";
                 OUT << "int Total_calls = 0;\n";
 
@@ -904,11 +903,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "\n"; 
                 break;
             case END:
-                OUT << "PRINT_TIME(CIF, \"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
-                OUT << "if(CIF.time_call) CTX->AddTrailingMetadata(GFH_CALL_TIMES, TIME_INFO_GET(CIF.time_call)); \n";
-                OUT << "if(flowc::send_global_ID || CIF.trace_call) { CTX->AddTrailingMetadata(GFH_NODE_ID, flowc::global_node_ID); CTX->AddTrailingMetadata(GFH_START_TIME, flowc::global_start_time); CTX->AddTrailingMetadata(GFH_CALL_ID, std::to_string(CIF.id)); }\n";
+                OUT << "PRINT_TIME(CIF, 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
                 OUT << "GRPC_LEAVE_" << entry_name << "(\"" << entry_dot_name << "\", CIF, L_status, *CTX, &" << output_name << ")\n"; 
-                OUT << "TIME_INFO_END(CIF.time_call);\n";
                 OUT << "FLOGC(CIF.trace_call) << CIF << \"leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
 
                 OUT << "return L_status;\n";
@@ -1038,7 +1034,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "}\n";
                 }
                 OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
-                OUT << "PRINT_TIME(CIF, \"" << entry_dot_name << "\", "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
+                OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
                 OUT << "\n";
                 async_enabled = false;
                 break;
