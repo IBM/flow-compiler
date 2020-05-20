@@ -309,9 +309,8 @@ struct call_info {
     std::ostream &printcc(std::ostream &out, int cc=0) const {
         out << "[" << id;
         if(cc != 0) out << ":" << cc;
-        out << "]";
-        if(!id_str.empty()) out << "<" << id_str << ">";
-        out << " ";
+        if(!id_str.empty()) out << "~" << id_str;
+        out << "] ";
         return out;
     }
     std::string get_time_info() const {
@@ -823,7 +822,7 @@ public:
     }
     std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, flowc::call_info const &CIF, int CCid,
             std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp) {
-        FLOGC(CIF.trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CIF, CCid) << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
+        FLOGC(CIF.trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
             CTX.AddMetadata("node-id", flowc::global_node_ID);
             CTX.AddMetadata("start-time", flowc::global_start_time);
