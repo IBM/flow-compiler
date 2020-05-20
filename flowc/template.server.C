@@ -43,7 +43,26 @@
 extern "C" {
 #include <civetweb.h>
 }
-
+/**********************************************************************************************************
+ * REST headers 
+ */
+#define RFH_ALT_CALL_ID "x-call-id"
+#define RFH_CALL_ID "x-flow-call-id"
+#define RFH_CALL_TIMES "X-Flow-Call-Times"
+#define RFH_CHECK "x-flow-check"
+#define RFH_OVERLAPPED_CALLS "x-flow-overlapped-calls"
+#define RFH_TIME_CALL "x-flow-time-call"
+#define RFH_TRACE_CALL "x-flow-trace-call"
+/**********************************************************************************************************
+ * gRPC headers 
+ */
+#define GFH_CALL_ID "call-id"
+#define GFH_CALL_TIMES "times-bin"
+#define GFH_NODE_ID "node-id"
+#define GFH_OVERLAPPED_CALLS "overlapped-calls"
+#define GFH_START_TIME "start-time"
+#define GFH_TIME_CALL "time-call"
+#define GFH_TRACE_CALL "trace-call"
 /**********************************************************************************************************
  * Hardcoded default values for certain configurable parameters
  */
@@ -104,7 +123,6 @@ inline static std::ostream &operator << (std::ostream &out, std::map<F,E> const 
     out << "}";
     return out;
 }
-
 namespace flowc {
 inline static
 std::string to_lower(std::string const &s) {
@@ -163,6 +181,16 @@ static size_t split(std::vector<std::string> &buf, std::string const &str, std::
         e = (b == std::string::npos? b: str.find_first_of(separators, b))) 
         buf.push_back(e == std::string::npos? str.substr(b): str.substr(b, e-b));
     return buf.size();
+}
+static std::string get_metadata_string(std::multimap<grpc::string_ref, grpc::string_ref> const & mm, std::string const &key, std::string const &default_value="") { 
+    auto vp = mm.find(key);
+    if(vp == mm.end()) return default_value;
+    return std::string((vp->second).data(), (vp->second).length());
+}
+static bool get_metadata_bool(std::multimap<grpc::string_ref, grpc::string_ref> const &mm, std::string const &key, bool default_value=false) { 
+    auto vp = mm.find(key);
+    if(vp == mm.end()) return default_value;
+    return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
 }
 #if defined(OSSP_UUID) || defined(NO_UUID)
 #include <uuid.h>
@@ -252,7 +280,22 @@ static std::string log_abridge(google::protobuf::Message const &message, unsigne
 struct call_id {
     long id;
     std::string id_str;
-    call_id(long num, std::string const &str): id(num), id_str(str) {
+    bool time_call, async_calls, trace_call;
+    std::string entry_name;
+
+    call_id(std::string const &entry, long num, struct mg_connection *A_conn): entry_name(entry), id(num) {
+        char const *id = mg_get_header(A_conn, RFH_CALL_ID);
+        if(id == nullptr) id = mg_get_header(A_conn, RFH_ALT_CALL_ID);
+        if(id != nullptr) id_str = id;
+        async_calls = flowc::strtobool(mg_get_header(A_conn, RFH_OVERLAPPED_CALLS), flowc::asynchronous_calls);
+        time_call = flowc::strtobool(mg_get_header(A_conn, RFH_TIME_CALL), time_call);
+        trace_call = flowc::strtobool(mg_get_header(A_conn, RFH_TRACE_CALL), flowc::trace_calls);
+    }
+    call_id(std::string const &entry, long num, std::multimap<grpc::string_ref, grpc::string_ref> const &md): 
+        entry_name(entry), id(num), id_str(flowc::get_metadata_string(md, GFH_CALL_ID)) {
+        trace_call = flowc::get_metadata_bool(md, GFH_TRACE_CALL, flowc::trace_calls);
+        time_call = flowc::get_metadata_bool(md, GFH_TIME_CALL);
+        async_calls = flowc::get_metadata_bool(md, GFH_OVERLAPPED_CALLS, flowc::asynchronous_calls);
     }
     std::ostream &printcc(std::ostream &out, int cc=0) const {
         out << "[" << id;
@@ -537,18 +580,6 @@ class {{NAME_ID}}_service *{{NAME_ID}}_service_ptr = nullptr;
 }I}
 
 namespace flowc {
-template <class C>
-static bool get_metadata_bool(C mm, std::string const &key, bool default_value=false) { 
-    auto vp = mm.find(key);
-    if(vp == mm.end()) return default_value;
-    return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
-}
-template <class C>
-static std::string get_metadata_string(C mm, std::string const &key, std::string const &default_value="") { 
-    auto vp = mm.find(key);
-    if(vp == mm.end()) return default_value;
-    return std::string((vp->second).data(), (vp->second).length());
-}
 #define TIME_INFO_BEGIN(enabled)  std::stringstream Time_info; if(enabled) Time_info << "[";
 #define TIME_INFO_GET(enabled)    ((Time_info << "]"), Time_info.str())
 #define TIME_INFO_END(enabled)
@@ -570,9 +601,9 @@ static void record_time_info(std::ostream &out, int stage, std::string const &me
 
 #define GRPC_ERROR(cid, ccid, text, status, context) FLOG << std::make_tuple(&cid, ccid) << (text) << " grpc error: " << (status).error_code() << " context: " << (context).debug_error_string() << "\n";
 
-#define PRINT_TIME(method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
-    if(Time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
-    FLOGC(Trace_call) << CIF << "time-call: " << method << " stage " << stage << " (" << stage_name \
+#define PRINT_TIME(CIF, method, stage, stage_name, call_elapsed_time, stage_duration, calls) {\
+    if(CIF.time_call) flowc::record_time_info(Time_info, stage, method, stage_name, (call_elapsed_time), (stage_duration), calls);\
+    FLOGC(CIF.trace_call) << CIF << "time-call: " << method << " stage " << stage << " (" << stage_name \
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
     }
 
@@ -696,10 +727,10 @@ public:
 {I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
 }I}
 #ifndef GRPC_RECEIVED
-#define GRPC_RECEIVED(ENTRY_NAME, NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, STATUS, CONTEXT, RESPONSE_PTR)
+#define GRPC_RECEIVED(NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, STATUS, CONTEXT, RESPONSE_PTR)
 #endif
 #ifndef GRPC_SENDING
-#define GRPC_SENDING(ENTRY_NAME, NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, CONTEXT, REQUEST_PTR)
+#define GRPC_SENDING(NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, CONTEXT, REQUEST_PTR)
 #endif
 {I:ENTRY_NAME{
 #ifndef GRPC_LEAVE_{{ENTRY_NAME}}
@@ -756,7 +787,6 @@ public:
         if(flowc::{{CLI_NODE_ID}}_dendpoints.size() == 0) {
             return {{CLI_NODE_ID}}_conp;
         }
-
         std::map<std::string, std::vector<std::string>> addresses = {{CLI_NODE_ID}}_conp->addresses;
         int ver = casd::get_latest_addresses(addresses, {{CLI_NODE_ID}}_nversion,  flowc::{{CLI_NODE_ID}}_dnames);
         if(ver == {{CLI_NODE_ID}}_nversion) 
@@ -770,26 +800,23 @@ public:
         {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
         return {{CLI_NODE_ID}}_conp;
     }
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, flowc::call_id const &CID, int CCid,
-            std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
-        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
-        FLOGC(Trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CID, CCid) << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, flowc::call_id const &CIF, int CCid,
+            std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp) {
+        FLOGC(CIF.trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CIF, CCid) << " {{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
             CTX.AddMetadata("node-id", flowc::global_node_ID);
             CTX.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(CTX)
-        GRPC_SENDING("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
-
+        GRPC_SENDING("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
         CTX.set_deadline(deadline);
         if(ConP->count() == 0) 
             return nullptr;
-        return ConP->stub(ConN, CID, CCid)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
+        return ConP->stub(ConN, CIF, CCid)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
     }
-    ::grpc::Status {{CLI_NODE_ID}}_call(flowc::call_id const &CID, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp, bool Trace_call) {
-        Trace_call = Trace_call || flowc::trace_{{CLI_NODE_ID}};
+    ::grpc::Status {{CLI_NODE_ID}}_call(flowc::call_id const &CIF, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp) {
         ::grpc::ClientContext L_context;
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
@@ -799,21 +826,21 @@ public:
             L_context.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_ID}}(L_context)
-        GRPC_SENDING("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
+        GRPC_SENDING("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status;
         if(ConP->count() == 0) {
             L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to");
         } else {
             int ConN = -1;
-            L_status = ConP->stub(ConN, CID, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
-            ConP->finished(ConN, CID, CCid, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
-            GRPC_RECEIVED("{{ENTRY_NAME}}", "{{CLI_NODE_ID}}", CID, CCid, flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
+            L_status = ConP->stub(ConN, CIF, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
+            ConP->finished(ConN, CIF, CCid, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
+            GRPC_RECEIVED("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
         }
-        FLOGC(Trace_call) << std::make_tuple(&CID, CCid) << "{{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
+        FLOGC(CIF.trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
         if(!L_status.ok()) {
-            GRPC_ERROR(CID, CCid, "{{CLI_NODE_NAME}} ", L_status, L_context);
+            GRPC_ERROR(CIF, CCid, "{{CLI_NODE_NAME}} ", L_status, L_context);
         } else {
-            FLOGC(Trace_call) << std::make_tuple(&CID, CCid) << "{{CLI_NODE_NAME}} reply: " << flowc::log_abridge(*A_outp) << "\n";
+            FLOGC(CIF.trace_call || flowc::trace_{{CLI_NODE_ID}}) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} reply: " << flowc::log_abridge(*A_outp) << "\n";
         }
         return L_status;
     }}I}
@@ -835,7 +862,7 @@ public:
     ::grpc::Status {{ENTRY_NAME}}(::grpc::ServerContext *context, {{ENTRY_INPUT_TYPE}} const *pinput, {{ENTRY_OUTPUT_TYPE}} *poutput) override {
         Active_Calls.fetch_add(1, std::memory_order_seq_cst);
         auto const &client_metadata = context->client_metadata();
-        flowc::call_id call_id(Call_Counter.fetch_add(1, std::memory_order_seq_cst), flowc::get_metadata_string(client_metadata, "call-id"));
+        flowc::call_id call_id("{{ENTRY_NAME}}", Call_Counter.fetch_add(1, std::memory_order_seq_cst), context->client_metadata());
         auto s = {{ENTRY_NAME}}(call_id, context, pinput, poutput);
         Active_Calls.fetch_add(-1, std::memory_order_seq_cst);
         return s;
@@ -1001,9 +1028,7 @@ static int field_found(const char *key, const char *filename, char *path, size_t
 	return MG_FORM_FIELD_STORAGE_GET;
 }
 
-static int get_form_data(struct mg_connection *conn, std::string &data, bool &use_asynchronous_calls, bool &time_call) {
-    use_asynchronous_calls = flowc::strtobool(mg_get_header(conn, "x-flow-overlapped-calls"), use_asynchronous_calls);
-    time_call = flowc::strtobool(mg_get_header(conn, "x-flow-time-call"), time_call);
+static int get_form_data(struct mg_connection *conn, std::string &data) {
     char const *content_type = mg_get_header(conn, "Content-Type");
     /** Default content type is application/json
      */
@@ -1096,7 +1121,7 @@ static bool is_protobuf(char const *content_type) {
 }
 std::atomic<long> call_counter;
 {I:ENTRY_NAME{
-static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_connection *A_conn, void *A_cbdata, bool trace_call) {
+static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
     std::string xtra_headers;
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
@@ -1106,14 +1131,13 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_con
     {{ENTRY_OUTPUT_TYPE}} L_outp; 
     {{ENTRY_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    bool use_asynchronous_calls = flowc::asynchronous_calls, time_call = false;
 
-    if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
+    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
 
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
 
-    FLOG << call_id << "info: overlapped, time, trace: " << use_asynchronous_calls << ", "  << time_call << ", " << trace_call 
+    FLOG << call_id << "info: overlapped, time, trace: " << call_id.async_calls << ", "  << call_id.time_call << ", " << call_id.trace_call 
         << ", reply: " << (return_protobuf? "protobuf": "json") << ", body: " << flowc::log_abridge(L_inp_json) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
@@ -1123,15 +1147,15 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_con
     auto const L_start_time = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds(rest::{{ENTRY_NAME}}_entry_timeout);
     L_context.set_deadline(L_deadline);
-    L_context.AddMetadata("overlapped-calls", use_asynchronous_calls? "1": "0");
-    L_context.AddMetadata("time-call", time_call? "1": "0");
-    if(trace_call)
-        L_context.AddMetadata("trace-call", "1");
+    L_context.AddMetadata(GFH_OVERLAPPED_CALLS, call_id.async_calls? "1": "0");
+    L_context.AddMetadata(GFH_TIME_CALL, call_id.time_call? "1": "0");
+    if(call_id.trace_call)
+        L_context.AddMetadata(GFH_TRACE_CALL, "1");
     if(!call_id.id_str.empty()) 
-        L_context.AddMetadata("call-id", "1");
+        L_context.AddMetadata(GFH_CALL_ID, call_id.id_str);
 
 #if defined(REST_CHECK_{{ENTRY_UPPERID}}_BEFORE) || defined(REST_CHECK_{{ENTRY_UPPERID}}_AFTER)
-    char const *check_header = mg_get_header(A_conn, "x-flow-check");
+    char const *check_header = mg_get_header(A_conn, RFH_CHECK);
 #endif
     
 #ifdef REST_CHECK_{{ENTRY_UPPERID}}_BEFORE
@@ -1148,8 +1172,8 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_con
     ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
         std::string header(mde.first.data(), mde.first.length());
-        if(header == "times-bin") 
-            header = "X-Flow-Call-Times";
+        if(header == GFH_CALL_TIMES) 
+            header = RFH_CALL_TIMES;
         else 
             header = std::string("X-Flow-") + header;
         xtra_headers += header;
@@ -1172,20 +1196,16 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_id const &call_id, struct mg_con
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    char const *id = mg_get_header(A_conn, "x-flow-call-id");
-    if(id == nullptr) id = mg_get_header(A_conn, "x-call-id");
-    if(id == nullptr) id = "";
-    flowc::call_id call_id(call_counter.fetch_add(1, std::memory_order_seq_cst), id);
+    flowc::call_id call_id("{{ENTRY_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
 
-    bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
     FLOG << call_id << "REST-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
-    int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata, trace_call);
+    int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata);
     FLOG << call_id << "REST-return: " << rc << "\n";
     return rc;
 }
 }I}
 {I:CLI_NODE_NAME{
-static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct mg_connection *A_conn, void *A_cbdata, bool trace_call) {
+static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
@@ -1194,8 +1214,7 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct 
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
-    bool use_asynchronous_calls = flowc::asynchronous_calls, time_call = false;
-    if(rest::get_form_data(A_conn, L_inp_json, use_asynchronous_calls, time_call) <= 0) return rest::bad_request_error(A_conn);
+    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
 
     char const *accept_header = mg_get_header(A_conn, "accept");
     bool return_protobuf = rest::is_protobuf(accept_header);
@@ -1220,8 +1239,8 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct 
     std::string xtra_headers;
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
         std::string header(mde.first.data(), mde.first.length());
-        if(header == "times-bin") 
-            header = "X-Flow-Call-Times";
+        if(header == GFH_CALL_TIMES) 
+            header = RFH_CALL_TIMES;
         else 
             header = std::string("X-Flow-") + header;
         xtra_headers += header;
@@ -1232,14 +1251,10 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_id const &call_id, struct 
     return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    char const *id = mg_get_header(A_conn, "x-flow-call-id");
-    if(id == nullptr) id = mg_get_header(A_conn, "x-call-id");
-    if(id == nullptr) id = "";
-    flowc::call_id call_id(call_counter.fetch_add(1, std::memory_order_seq_cst), id);
+    flowc::call_id call_id("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
 
-    bool trace_call = flowc::strtobool(mg_get_header(A_conn, "x-flow-trace-call"), flowc::trace_calls);
     FLOG <<  call_id << "REST-node-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
-    int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata, trace_call);
+    int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata);
     FLOG << call_id << "REST-node-return: " << rc << "\n";
     return rc;
 }

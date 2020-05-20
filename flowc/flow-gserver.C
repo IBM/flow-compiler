@@ -893,26 +893,23 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "GRPC_ENTER_" << entry_name << "(\"" << entry_dot_name << "\", CIF, *CTX, p" << input_name << ")\n";
                 //OUT << "auto CID = CIF.call_id;\n";
                 OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
-                OUT << "bool Trace_call = flowc::get_metadata_bool(Client_metadata, \"trace-call\", flowc::trace_calls);\n";
-                OUT << "bool Time_call = flowc::get_metadata_bool(Client_metadata, \"time-call\");\n";
-                OUT << "bool Async_call = flowc::get_metadata_bool(Client_metadata, \"overlapped-calls\", Async_Flag);\n";
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
-                OUT << "TIME_INFO_BEGIN(Time_call);\n";
+                OUT << "TIME_INFO_BEGIN(CIF.time_call);\n";
                 OUT << "auto ST = std::chrono::steady_clock::now();\n";
                 OUT << "int Total_calls = 0;\n";
 
-                OUT << "FLOGC(Trace_call) << CIF << \"enter " << entry_dot_name << "/\" << (Async_call? \"a\": \"\") << \"synchronous calls \" << flowc::log_abridge(" << input_name << ") << \"\\n\";\n";
+                OUT << "FLOGC(CIF.trace_call) << CIF << \"enter " << entry_dot_name << "/\" << (CIF.async_calls? \"a\": \"\") << \"synchronous calls \" << flowc::log_abridge(" << input_name << ") << \"\\n\";\n";
                 OUT << "\n"; 
                 break;
             case END:
-                OUT << "PRINT_TIME(\"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
-                OUT << "if(Time_call) CTX->AddTrailingMetadata(\"times-bin\", TIME_INFO_GET(Time_call)); \n";
-                OUT << "if(flowc::send_global_ID || Trace_call) { CTX->AddTrailingMetadata(\"node-id\", flowc::global_node_ID); CTX->AddTrailingMetadata(\"start-time\", flowc::global_start_time); CTX->AddTrailingMetadata(\"call-id\", std::to_string(CIF.id)); }\n";
+                OUT << "PRINT_TIME(CIF, \"" << entry_dot_name << "\", 0, \"total\", ST - ST, std::chrono::steady_clock::now() - ST, Total_calls);\n";
+                OUT << "if(CIF.time_call) CTX->AddTrailingMetadata(GFH_CALL_TIMES, TIME_INFO_GET(CIF.time_call)); \n";
+                OUT << "if(flowc::send_global_ID || CIF.trace_call) { CTX->AddTrailingMetadata(GFH_NODE_ID, flowc::global_node_ID); CTX->AddTrailingMetadata(GFH_START_TIME, flowc::global_start_time); CTX->AddTrailingMetadata(GFH_CALL_ID, std::to_string(CIF.id)); }\n";
                 OUT << "GRPC_LEAVE_" << entry_name << "(\"" << entry_dot_name << "\", CIF, L_status, *CTX, &" << output_name << ")\n"; 
-                OUT << "TIME_INFO_END(Time_call);\n";
-                OUT << "FLOGC(Trace_call) << CIF << \"leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
+                OUT << "TIME_INFO_END(CIF.time_call);\n";
+                OUT << "FLOGC(CIF.trace_call) << CIF << \"leave " << entry_dot_name << ": \" << flowc::log_abridge(" << output_name << ") << \"\\n\";\n";
 
                 OUT << "return L_status;\n";
                 --indenter; 
@@ -947,11 +944,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
             case ESTG:
                 if(async_enabled) {
-                    OUT << "if(Async_call && 0 < " << L_STAGE_CALLS << ") {\n";
+                    OUT << "if(CIF.async_calls && 0 < " << L_STAGE_CALLS << ") {\n";
                     ++indenter;
                     OUT << "void *TAG; bool NextOK = false; int " << L_RECV << " = 0;\n";
                     OUT << "//\n";
-                    OUT << "FLOGC(Trace_call) << CIF << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
+                    OUT << "FLOGC(CIF.trace_call) << CIF << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     OUT << "while(" << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
                     ++indenter;
                     OUT << "if(CTX->IsCancelled()) {\n";
@@ -964,7 +961,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "if(NextOK) {\n";
                     ++indenter;
                     OUT << "int X = (int) (long) TAG;\n";
-                    OUT << "FLOGC(Trace_call) << std::make_tuple(&CIF, X) << \"woke up in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
+                    OUT << "FLOGC(CIF.trace_call) << std::make_tuple(&CIF, X) << \"woke up in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     OUT << "auto &LL_Status = *" << L_STATUS << "[X-1];\n";
                     OUT << "auto &LL_Ctx = *" << L_CONTEXT << "[X-1];\n";
                     int nc = 0;
@@ -989,15 +986,15 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "int Sx = Nx + " << LN_BEGIN(nn) << ";\n";
 
                         OUT << "auto &RPCx = " << LN_CARR(nn) << "[Nx];\n";
-                        OUT << "RPCx = " << nn << "_prep(" << LN_CONN(nn) << "[Nx], CIF, Sx+1," << nn << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Sx], " << LN_INPTR(nn)  << "[Nx], Trace_call);\n";
+                        OUT << "RPCx = " << nn << "_prep(" << LN_CONN(nn) << "[Nx], CIF, Sx+1," << nn << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Sx], " << LN_INPTR(nn)  << "[Nx]);\n";
                         OUT << "RPCx->StartCall();\n";
                         OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Nx], " << L_STATUS << "[Sx].get(), (void *) (long) (Sx+1));\n";
                         OUT << "++" << LN_SENT(nn) << ";\n";
                         --indenter;
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
-                            OUT << "GRPC_RECEIVED(\"" << entry_name << "\", \"" << nn << "\", CIF, NRX, flowc::" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
-                        OUT << "FLOGC(Trace_call && LL_Status.ok()) << std::make_tuple(&CIF, X) << \"" << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
+                            OUT << "GRPC_RECEIVED(\"" << nn << "\", CIF, NRX, flowc::" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
+                        OUT << "FLOGC(CIF.trace_call && LL_Status.ok()) << std::make_tuple(&CIF, X) << \"" << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";
                         ++indenter;
@@ -1020,7 +1017,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     --indenter;
                     OUT << "} else {\n";
                     ++indenter;
-                    OUT << "FLOGC(Trace_call) << CIF << \"back waiting for \" << (" << L_STAGE_CALLS << " - " << L_RECV << ") << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
+                    OUT << "FLOGC(CIF.trace_call) << CIF << \"back waiting for \" << (" << L_STAGE_CALLS << " - " << L_RECV << ") << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     --indenter;
                     OUT << "}\n";
                     --indenter;
@@ -1041,7 +1038,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "}\n";
                 }
                 OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
-                OUT << "PRINT_TIME(\"" << entry_dot_name << "\", "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
+                OUT << "PRINT_TIME(CIF, \"" << entry_dot_name << "\", "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
                 OUT << "\n";
                 async_enabled = false;
                 break;
@@ -1145,7 +1142,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     }
                 OUT << ") {\n";
                 ++indenter;
-                OUT << "FLOGC(Trace_call) << CIF << \" condition triggered for node " << cur_node_name << "\\n\";\n";
+                OUT << "FLOGC(CIF.trace_call) << CIF << \"condition triggered for node " << cur_node_name << "\\n\";\n";
                 break;
             case ENOD:
                 // if visited
@@ -1164,7 +1161,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(async_enabled) {
                     OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
                     if(node_has_calls) {
-                        OUT << "if(Async_call) {\n";
+                        OUT << "if(CIF.async_calls) {\n";
                         ++indenter;
                         OUT << "auto " << cur_node_name << "_maxcc = (int)" << cur_node_name << "_ConP->count();\n";
                         // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
@@ -1173,7 +1170,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         ++indenter;
                         OUT << "auto Rx = Ax-" << L_BEGIN  << ";\n";
                         OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
-                        OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CIF, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx], Trace_call);\n";
+                        OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CIF, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx]);\n";
                         OUT << "RPCx->StartCall();\n";
                         OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
                         OUT << "++" << L_SENT << ";\n";
@@ -1291,7 +1288,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
                 if(async_enabled) {
-                    OUT << "if(Async_call) {\n" << indent(); 
+                    OUT << "if(CIF.async_calls) {\n" << indent(); 
 
                     OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << indent() <<
                                 "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n" << unindent();
@@ -1308,7 +1305,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                 OUT << unindent() << "}\n";
-                OUT << "L_status = " << cur_node_name << "_call(CIF, " << L_STAGE_CALLS << ", " << cur_node_name << "_ConP, &" << cur_output_name << ", &" << cur_input_name << ", Trace_call);\n";
+                OUT << "L_status = " << cur_node_name << "_call(CIF, " << L_STAGE_CALLS << ", " << cur_node_name << "_ConP, &" << cur_output_name << ", &" << cur_input_name << ");\n";
                 OUT << "if(!L_status.ok()) return L_status;\n";
 
                 if(async_enabled) 
