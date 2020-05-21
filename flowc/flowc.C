@@ -791,7 +791,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::string od = output_filename(".");
         int output_fd = open(od.c_str(), O_DIRECTORY);
         // Ignore the error
-        if(0 != symlinkat(orchestrator_makefile.c_str(), output_fd, "Makefile"));
+        if(0 != symlinkat(orchestrator_makefile.c_str(), output_fd, "Makefile")) {
+        }
         close(output_fd);
         //std::cerr << strerror(errno);
     }

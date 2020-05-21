@@ -697,10 +697,11 @@ std::string field_accessor(indented_stream &indenter, std::string const &field, 
 }
 static
 std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, accessor_info &acinf) {
-    if(acinf.loop_level() == 0) 
+    if(acinf.loop_level() == 0) {
         DOUT << "get_loop_size called at level !\n";
-    else if(acinf.loop_sizes.back().size() != 0)
+    } else if(acinf.loop_sizes.back().size() != 0) {
         DOUT << "get_loop_size has sizes: " << acinf.loop_sizes.back() << "\n";
+    }
 
     std::vector<std::pair<std::string, std::string>> indices;
     // 159 INDX  RS_cleaner d1: SQuAD_reply 234, 236

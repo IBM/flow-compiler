@@ -11,6 +11,47 @@
 #include <algorithm>
 #include <sys/stat.h>
 
+template <class A, class B> inline static 
+std::ostream &operator << (std::ostream &s, std::map<A, B> const &m);
+template <class A> inline static 
+std::ostream &operator << (std::ostream &s, std::vector<A> const &m);
+template <class A> inline static 
+std::ostream &operator << (std::ostream &s, std::set<A> const &m);
+template <class A, class B> inline static 
+std::ostream &operator << (std::ostream &s, std::pair<A, B> const &p) {
+    return s << p.first << ": "<< p.second;
+}
+template <class A, class B> inline static 
+std::ostream &operator << (std::ostream &s, std::map<A, B> const &m) {
+    s << "{";
+    int c = 0;
+    for(auto const &p: m) {
+        if(++c > 1) s << ", ";
+        s << p;
+    }
+    return s << "}";
+}
+template <class A> inline static 
+std::ostream &operator << (std::ostream &s, std::vector<A> const &m) {
+    s << "[";
+    int c = 0;
+    for(auto const &p: m) {
+        if(++c > 1) s << ", ";
+        s << p;
+    }
+    return s << "]";
+}
+template <class A> inline static 
+std::ostream &operator << (std::ostream &s, std::set<A> const &m) {
+    s << "{";
+    int c = 0;
+    for(auto const &p: m) {
+        if(++c > 1) s << ", ";
+        s << p;
+    }
+    return s << "}";
+}
+
 namespace stru1 {
 class sfmt {
     std::ostringstream os;
@@ -83,7 +124,8 @@ template <> inline indented_stream &indented_stream::operator << (struct uninden
 }
 template <class T> indented_stream &indented_stream::operator << (T t) {
     indent();
-    os  << t; return *this;
+    os << t; 
+    return *this;
 }
 inline static 
 std::string reps(std::string const &rep, unsigned count) {
@@ -267,46 +309,6 @@ std::string html_escape(std::string const &s) {
         default: r+= c; break;
     }
     return r;
-}
-template <class A, class B> inline static 
-std::ostream &operator << (std::ostream &s, std::map<A, B> const &m);
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::vector<A> const &m);
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::set<A> const &m);
-template <class A, class B> inline static 
-std::ostream &operator << (std::ostream &s, std::pair<A, B> const &p) {
-    return s << p.first << ": "<< p.second;
-}
-template <class A, class B> inline static 
-std::ostream &operator << (std::ostream &s, std::map<A, B> const &m) {
-    s << "{";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << "}";
-}
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::vector<A> const &m) {
-    s << "[";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << "]";
-}
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::set<A> const &m) {
-    s << "{";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << "}";
 }
 /**
  * Merge a list of E1 .. En into a string:
