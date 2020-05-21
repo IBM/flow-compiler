@@ -52,6 +52,7 @@ extern "C" {
 #define RFH_CHECK "x-flow-check"
 #define RFH_OVERLAPPED_CALLS "x-flow-overlapped-calls"
 #define RFH_TIME_CALL "x-flow-time-call"
+#define RFH_TIMEOUT "x-flow-timeout"
 #define RFH_TRACE_CALL "x-flow-trace-call"
 /**********************************************************************************************************
  * gRPC headers 
@@ -282,12 +283,16 @@ struct call_info {
     std::string id_str;
     std::string entry_name;
     std::unique_ptr<std::stringstream> tissp;
-    bool time_call, async_calls, trace_call;
+    bool time_call, async_calls, trace_call, return_protobuf;
+    std::chrono::system_clock::time_point start_time;
+    std::chrono::system_clock::time_point deadline;
 
-    call_info(std::string const &entry, long num, struct mg_connection *A_conn): entry_name(entry), id(num) {
-        char const *id = mg_get_header(A_conn, RFH_CALL_ID);
-        if(id == nullptr) id = mg_get_header(A_conn, RFH_ALT_CALL_ID);
-        if(id != nullptr) id_str = id;
+    call_info(std::string const &entry, long num, struct mg_connection *A_conn, long default_timeout): 
+            entry_name(entry), id(num), start_time(std::chrono::system_clock::now()) {
+
+        char const *header = mg_get_header(A_conn, RFH_CALL_ID);
+        if(header == nullptr) header = mg_get_header(A_conn, RFH_ALT_CALL_ID);
+        if(header != nullptr) id_str = header;
         async_calls = flowc::strtobool(mg_get_header(A_conn, RFH_OVERLAPPED_CALLS), flowc::asynchronous_calls);
         time_call = flowc::strtobool(mg_get_header(A_conn, RFH_TIME_CALL), time_call);
         trace_call = flowc::strtobool(mg_get_header(A_conn, RFH_TRACE_CALL), flowc::trace_calls);
@@ -295,9 +300,23 @@ struct call_info {
             tissp.reset(new std::stringstream);
             *tissp << "[";
         }
+        header = mg_get_header(A_conn, "accept");
+        return_protobuf = header != nullptr && (
+            strcasecmp(header, "application/protobuf") == 0 || 
+            strcasecmp(header, "application/x-protobuf") == 0 || 
+            strcasecmp(header, "application/vnd.google.protobuf") == 0);
+
+        long timeout_ms = flowc::strtolong(mg_get_header(A_conn, RFH_TIMEOUT), default_timeout);
+        if(timeout_ms <= 0 || timeout_ms > default_timeout) timeout_ms = default_timeout;
+        deadline = start_time + std::chrono::milliseconds(timeout_ms);
     }
-    call_info(std::string const &entry, long num, std::multimap<grpc::string_ref, grpc::string_ref> const &md): 
-        entry_name(entry), id(num), id_str(flowc::get_metadata_string(md, GFH_CALL_ID)) {
+
+    call_info(std::string const &entry, long num, ::grpc::ServerContext *ctx): 
+            entry_name(entry), id(num), 
+            return_protobuf(true), start_time(std::chrono::system_clock::now()), deadline(ctx->deadline()) {
+
+        auto const &md = ctx->client_metadata();
+        id_str = flowc::get_metadata_string(md, GFH_CALL_ID), 
         trace_call = flowc::get_metadata_bool(md, GFH_TRACE_CALL, flowc::trace_calls);
         time_call = flowc::get_metadata_bool(md, GFH_TIME_CALL);
         async_calls = flowc::get_metadata_bool(md, GFH_OVERLAPPED_CALLS, flowc::asynchronous_calls);
@@ -831,7 +850,7 @@ public:
         GRPC_SENDING("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
-        CTX.set_deadline(deadline);
+        CTX.set_deadline(std::min(deadline, CIF.deadline));
         if(ConP->count() == 0) 
             return nullptr;
         return ConP->stub(ConN, CIF, CCid)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
@@ -840,7 +859,7 @@ public:
         ::grpc::ClientContext L_context;
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
-        L_context.set_deadline(deadline);
+        L_context.set_deadline(std::min(deadline, CIF.deadline));
         if(flowc::send_global_ID) {
             L_context.AddMetadata("node-id", flowc::global_node_ID);
             L_context.AddMetadata("start-time", flowc::global_start_time);
@@ -881,8 +900,7 @@ public:
 {{ENTRY_CODE}}
     ::grpc::Status {{ENTRY_NAME}}(::grpc::ServerContext *context, {{ENTRY_INPUT_TYPE}} const *pinput, {{ENTRY_OUTPUT_TYPE}} *poutput) override {
         Active_Calls.fetch_add(1, std::memory_order_seq_cst);
-        auto const &client_metadata = context->client_metadata();
-        flowc::call_info call_id("{{ENTRY_NAME}}", Call_Counter.fetch_add(1, std::memory_order_seq_cst), context->client_metadata());
+        flowc::call_info call_id("{{ENTRY_NAME}}", Call_Counter.fetch_add(1, std::memory_order_seq_cst), context);
 
         auto s = {{ENTRY_NAME}}(call_id, context, pinput, poutput);
 
@@ -1056,7 +1074,6 @@ static int field_found(const char *key, const char *filename, char *path, size_t
 	}
 	return MG_FORM_FIELD_STORAGE_GET;
 }
-
 static int get_form_data(struct mg_connection *conn, std::string &data) {
     char const *content_type = mg_get_header(conn, "Content-Type");
     /** Default content type is application/json
@@ -1142,15 +1159,10 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
     return not_found(conn, "Resource not found");
 }
     
-static bool is_protobuf(char const *content_type) {
-    return content_type != nullptr && (strcasecmp(content_type, "application/protobuf") == 0 || 
-        strcasecmp(content_type, "application/x-protobuf") == 0 || 
-        strcasecmp(content_type, "application/vnd.google.protobuf") == 0);
-}
 }
 std::atomic<long> call_counter;
 {I:ENTRY_NAME{
-static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_connection *A_conn, void *A_cbdata) {
     std::string xtra_headers;
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
@@ -1163,25 +1175,20 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &call_id, struct mg_c
 
     if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
 
-    char const *accept_header = mg_get_header(A_conn, "accept");
-    bool return_protobuf = rest::is_protobuf(accept_header);
-
-    FLOG << call_id << "info: overlapped, time, trace: " << call_id.async_calls << ", "  << call_id.time_call << ", " << call_id.trace_call 
-        << ", reply: " << (return_protobuf? "protobuf": "json") << ", body: " << flowc::log_abridge(L_inp_json) << "\n";
+    FLOGC(cif.trace_call) << cif << "body: " << flowc::log_abridge(L_inp_json) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
 
     ::grpc::ClientContext L_context;
-    auto const L_start_time = std::chrono::system_clock::now();
-    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds(rest::{{ENTRY_NAME}}_entry_timeout);
-    L_context.set_deadline(L_deadline);
-    L_context.AddMetadata(GFH_OVERLAPPED_CALLS, call_id.async_calls? "1": "0");
-    L_context.AddMetadata(GFH_TIME_CALL, call_id.time_call? "1": "0");
-    if(call_id.trace_call)
+
+    L_context.set_deadline(cif.deadline);
+    L_context.AddMetadata(GFH_OVERLAPPED_CALLS, cif.async_calls? "1": "0");
+    L_context.AddMetadata(GFH_TIME_CALL, cif.time_call? "1": "0");
+    if(cif.trace_call)
         L_context.AddMetadata(GFH_TRACE_CALL, "1");
-    if(!call_id.id_str.empty()) 
-        L_context.AddMetadata(GFH_CALL_ID, call_id.id_str);
+    if(!cif.id_str.empty()) 
+        L_context.AddMetadata(GFH_CALL_ID, cif.id_str);
 
 #if defined(REST_CHECK_{{ENTRY_UPPERID}}_BEFORE) || defined(REST_CHECK_{{ENTRY_UPPERID}}_AFTER)
     char const *check_header = mg_get_header(A_conn, RFH_CHECK);
@@ -1222,19 +1229,20 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &call_id, struct mg_c
     }
 #endif
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status, xtra_headers);
-    return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
+    return cif.return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    flowc::call_info call_id("{{ENTRY_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
+    flowc::call_info cif("{{ENTRY_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, rest::{{ENTRY_NAME}}_entry_timeout);
 
-    FLOG << call_id << "REST-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
-    int rc = REST_{{ENTRY_NAME}}_call(call_id, A_conn, A_cbdata);
-    FLOG << call_id << "REST-return: " << rc << "\n";
+    FLOG << cif << "REST-entry: " << mg_get_request_info(A_conn)->local_uri 
+        << " async, time, trace, response-type: " << cif.async_calls << ", "  << cif.time_call << ", " << cif.trace_call << ", " << (cif.return_protobuf? "protobuf": "json") << "\n";
+    int rc = REST_{{ENTRY_NAME}}_call(cif, A_conn, A_cbdata);
+    FLOG << cif << "REST-return: " << rc << "\n";
     return rc;
 }
 }I}
 {I:CLI_NODE_NAME{
-static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &call_id, struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &cif, struct mg_connection *A_conn, void *A_cbdata) {
     if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
         return rest::not_found(A_conn, "Resource not found");
 
@@ -1245,23 +1253,18 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &call_id, struc
     std::string L_inp_json;
     if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
 
-    char const *accept_header = mg_get_header(A_conn, "accept");
-    bool return_protobuf = rest::is_protobuf(accept_header);
-    FLOG << call_id << "reply: " << (return_protobuf? "protobuf": "json") << ", body: " << flowc::log_abridge(L_inp_json) << "\n";
+    FLOGC(cif.trace_call) << cif << "body: " << flowc::log_abridge(L_inp_json) << "\n";
 
     auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
 
-    auto const L_start_time = std::chrono::system_clock::now();
-    std::chrono::system_clock::time_point const L_deadline = L_start_time + std::chrono::milliseconds(flowc::{{CLI_NODE_ID}}_timeout);
-
     ::grpc::ClientContext L_context;
-    L_context.set_deadline(L_deadline);
+    L_context.set_deadline(cif.deadline);
     SET_METADATA_{{CLI_NODE_ID}}(L_context)
 
     int connection_n = -1;
-    ::grpc::Status L_status = connector->stub(connection_n, call_id, -1)->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
-    connector->finished(connection_n, call_id, -1, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
+    ::grpc::Status L_status = connector->stub(connection_n, cif, -1)->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
+    connector->finished(connection_n, cif, -1, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
 
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
     auto const &metadata = L_context.GetServerTrailingMetadata();
@@ -1277,14 +1280,15 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &call_id, struc
         xtra_headers += std::string(mde.second.data(), mde.second.length());
         xtra_headers += "\r\n";
     }
-    return return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
+    return cif.return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    flowc::call_info call_id("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn);
+    flowc::call_info cif("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, flowc::{{CLI_NODE_ID}}_timeout);
 
-    FLOG <<  call_id << "REST-node-entry: " << mg_get_request_info(A_conn)->local_uri << "\n";
-    int rc = REST_node_{{CLI_NODE_ID}}_call(call_id, A_conn, A_cbdata);
-    FLOG << call_id << "REST-node-return: " << rc << "\n";
+    FLOG << cif << "REST-node-entry: " << mg_get_request_info(A_conn)->local_uri
+        << " trace, response-type: " << cif.trace_call << ", " << (cif.return_protobuf? "protobuf": "json") << "\n";
+    int rc = REST_node_{{CLI_NODE_ID}}_call(cif, A_conn, A_cbdata);
+    FLOG << cif << "REST-node-return: " << rc << "\n";
     return rc;
 }
 }I}
@@ -1292,10 +1296,19 @@ namespace rest {
 int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
     call_counter = 1;
     std::string num_threads_s(std::to_string(num_threads));
+    long request_timeout_ms = 0;
+{I:ENTRY_NAME{    request_timeout_ms = std::max(rest::{{ENTRY_NAME}}_entry_timeout, request_timeout_ms);
+}I}
+    if(!rest_only) {
+{I:CLI_NODE_NAME{        request_timeout_ms = std::max(request_timeout_ms, flowc::{{CLI_NODE_ID}}_timeout);
+}I}
+    }
+    request_timeout_ms += request_timeout_ms / 20;
+    std::string request_timeout_ms_s(std::to_string(request_timeout_ms));
     const char *options[] = {
         "document_root", "/dev/null",
         "listening_ports", rest_port,
-        "request_timeout_ms", "3600000",
+        "request_timeout_ms", request_timeout_ms_s.c_str(),
         "error_log_file", "error.log",
         "extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
         "enable_auth_domain_check", "no",
@@ -1347,6 +1360,7 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
         std::cerr << " " << proto << "://" << host << ":" << ports[n].port;
 	}
     std::cerr << " running " << num_threads << " threads\n";
+    std::cerr << "HTTP requests timeout in " << request_timeout_ms << " ms\n";
     std::cerr << "web app enabled: " << (rest_only? "no": "yes") << "\n";
     return 0;
 }
