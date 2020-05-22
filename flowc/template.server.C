@@ -137,7 +137,8 @@ static std::string get_system_time() {
     struct tm *nowtm = localtime(&tv.tv_sec);
     char tmbuf[64], buf[256];
     strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
-    snprintf(buf, sizeof(buf), "%s.%03ld", tmbuf, tv.tv_usec/1000);
+    static char const *seconds_format = sizeof(tv.tv_sec) == sizeof(long)?  "%s.%03ld": "%s.%03d";  
+    snprintf(buf, sizeof(buf), seconds_format, tmbuf, tv.tv_usec/1000);
     return buf;
 }
 inline static bool stringtobool(std::string const &s, bool default_value=false) {
