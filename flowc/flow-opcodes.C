@@ -53,88 +53,93 @@ char const *op_name(op o) {
     }
     return "?";
 };
-static char const *NOP_fmt[] = {"NOP", nullptr};
 
-static char const *MTHD_fmt[] = {"MTHD", "input name", "output name", "input type", "output type", "method", "node", nullptr};
-static char const *END_fmt[] = {"END", nullptr};
+static std::ostream &propc(std::ostream &out, fop const &fop) {
+    bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
+    switch(fop.code) {
+        case LOOP:
+            out << op_name(fop.code) << "  ";
+            if(fop.d1 != nullptr) 
+                out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":";
+            if(!fop.arg1.empty()) 
+                out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi) << " ";
 
-static char const *BSTG_fmt[] = {"BSTG", "name", "", "", "", "", "number", "node count", "max dim", "node", nullptr};
-static char const *ESTG_fmt[] = {"ESTG", "name", "", "", "", "", "number", nullptr};
+            out << ansi::escape(ANSI_YELLOW, use_ansi) << op_name(INDX);;
+            for(auto i: fop.arg) 
+                out << " &" << i;
+            out << ansi::escape(ANSI_RESET, use_ansi);
+            break;
+        case NSET:
+            if(fop.arg.size()) {
+                out << op_name(fop.code) << "  ";
+                out << ansi::escape(ANSI_YELLOW, use_ansi) << op_name(INDX);
+                for(auto i: fop.arg) 
+                    out << " &" << i;
+                out << ansi::escape(ANSI_RESET, use_ansi);
+            } else {
+                out << op_name(NOP);
+            }
+            break;
+        case INDX:
+            out << ansi::escape(ANSI_YELLOW, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            if(fop.d1 != nullptr) 
+                out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":";
+            if(!fop.arg1.empty() || !fop.arg2.empty())
+            out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi) << " ";
+            if(fop.arg.size()) {
+                out << ansi::escape(ANSI_YELLOW, use_ansi);
+                for(auto i: fop.arg) 
+                    out << " *" << i;
+                out << ansi::escape(ANSI_RESET, use_ansi);
+            }
+            break;
+        case BNOD: 
+            out << ansi::escape(ANSI_CYAN, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            if(fop.arg[0] > 0) 
+                out << ansi::escape(ANSI_YELLOW, use_ansi) << fop.arg[0] << "x"<<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi);
+            out << " <- ";
+            out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d2->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi);
 
-static char const *BNOD_fmt[] = {"BNOD", "output name", "input name", "output type", "input type", "method", "dim", "node", "stage", "foak", "foak-wo", nullptr};
+            out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[1] << "/" << fop.arg[2] << ansi::escape(ANSI_RESET, use_ansi);
+            if(fop.arg[2] != 0) out << " first";
+            if(fop.arg[3] != 0 && fop.arg[4] != 0) out << ", ";
+            if(fop.arg[4] != 0) out << " output";
 
-static char const *NSET_fmt[] = {"NSET", nullptr};
-static char const *IFNC_fmt[] = {"IFNC", "name", "", "", "", "", "node", "t-exp", "f-exp", nullptr};
-static char const *ENOD_fmt[] = {"ENOD", "output name", ""};
-static char const *BPRP_fmt[] = {"BPRP", nullptr};
-static char const *EPRP_fmt[] = {"EPRP", nullptr};
+            break;
+        case IFNC:
+            out << op_name(fop.code) << "  " << fop.arg1 << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[0] << ansi::escape(ANSI_RESET, use_ansi);;
+            if(fop.arg[1])
+                out << ansi::escape(ANSI_YELLOW, use_ansi) << " *" << fop.arg[1] << ansi::escape(ANSI_RESET, use_ansi);
             
-static char const *LOOP_fmt[] = {"LOOP", nullptr};
-static char const *ELP_fmt[] = {"ELP", nullptr};
+            for(unsigned a = 2, e = fop.arg.size(); a < e; ++a)
+                out << ansi::escape(ANSI_YELLOW, use_ansi) << " !" << fop.arg[a] << ansi::escape(ANSI_RESET, use_ansi);
+            break;
+        case BSTG: 
+            out << ansi::escape(ANSI_BOLD, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            out << fop.arg[0] << " (" << fop.arg1 << ") ";
+            for(unsigned a = 3, e = fop.arg.size(); a < e; ++a)
+                out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[a] << ansi::escape(ANSI_RESET, use_ansi);
 
-static char const *ERR_fmt[] = {"ERR", "message", nullptr};
-static char const *CALL_fmt[] = {"CALL", "input", "output", "", "", "method", nullptr};
-static char const *COPY_fmt[] = {"COPY", "to", "from", "to type", "from type", nullptr};
-static char const *FUNC_fmt[] = {"FUNC", nullptr};
-
-static char const *INDX_fmt[] = {"INDX", nullptr};
-/*
-        case SET:   return "SET";
-        case SETT:  return "SETT";
-        case SETL: return "SETL";      
-        case RVA: return "RVA";      
-        case RVC: return "RVC";      
-        case COFI: return "COFI";    
-        case COFS: return "COFS";   
-        case COFB: return "COFB";  
-        case COFF: return "COFF";  
-        case COIF: return "COIF"; 
-        case COIS: return "COIS";
-        case COIB: return "COIB";     
-        case COII: return "COII";     
-        case COSF: return "COSF";    
-        case COSB: return "COSB";    
-        case COSI: return "COSI";    
-        case COEI: return "COEI";   
-        case COEB: return "COEB";   
-        case COEF: return "COEF";   
-        case COES: return "COES";   
-        case COEE: return "COEE";  
-        case CON1: return "CON1";
-        case CON2: return "CON2";
-        */
-
-char const **op_arg_names(op o) {
-    char const **fmt = nullptr;
-    switch(o) {
-        case NOP:   fmt = NOP_fmt;
-        case MTHD:  fmt = MTHD_fmt;
-        case END:   fmt = END_fmt;
-
-        case BSTG:  fmt = BSTG_fmt;
-        case ESTG:  fmt = ESTG_fmt;
-
-        case BNOD:  fmt = BNOD_fmt;
-       
-        case NSET:  fmt = NSET_fmt; 
-        case IFNC:  fmt = IFNC_fmt;
-        case ENOD:  fmt = ENOD_fmt;
-        case BPRP:  fmt = BPRP_fmt;
-        case EPRP:  fmt = EPRP_fmt;
-                    
-        case LOOP:  fmt = LOOP_fmt;
-        case ELP:   fmt = ELP_fmt;
-
-        case ERR:   fmt = ERR_fmt;
-        case CALL:  fmt = CALL_fmt;
-        case COPY:  fmt = COPY_fmt;
-        case FUNC:  fmt = FUNC_fmt;
-        case INDX: fmt = INDX_fmt;
-        default: break;
+            break;
+        default:
+            break;
     }
-    return fmt;
+    return out;
 }
+
 std::ostream &operator<< (std::ostream &out, fop const &fop) {
+    switch(fop.code) {
+        case NSET:
+        case LOOP:
+        case INDX:
+        case BNOD:
+        case IFNC:
+        case BSTG:
+            return propc(out, fop);
+        default:
+            break;
+    }
     bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
 
     if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);

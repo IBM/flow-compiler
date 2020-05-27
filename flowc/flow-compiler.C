@@ -1550,8 +1550,11 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
                 if(fid->is_repeated()) {
                     fop idx(INDX, rv_name, rvd);
-                    //fop idx(INDX, rv_name+rv_fields, rvd);
                     idx.arg.assign(fields.begin(), fields.begin()+i+1);
+                    for(auto k: idx.arg) {
+                        idx.arg2 += "+"; 
+                        idx.arg2 += get_id(k);
+                    }
 
                     // Add this index to the code if it doesn't exist
                     // and store the location in the idxp vector
