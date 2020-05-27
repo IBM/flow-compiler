@@ -1163,10 +1163,8 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
 }
 std::atomic<long> call_counter;
 {I:ENTRY_NAME{
-static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_connection *A_conn, void *A_cbdata) {
+static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_connection *A_conn, std::string const &A_inp_json) {
     std::string xtra_headers;
-    if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0)
-        return rest::not_found(A_conn, "Resource not found");
 
     std::shared_ptr<::grpc::Channel> L_channel(::grpc::CreateChannel(rest::gateway_endpoint, ::grpc::InsecureChannelCredentials()));
     std::unique_ptr<{{ENTRY_SERVICE_NAME}}::Stub> L_client_stub = {{ENTRY_SERVICE_NAME}}::NewStub(L_channel);                    
@@ -1174,11 +1172,9 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_conne
     {{ENTRY_INPUT_TYPE}} L_inp;
     std::string L_inp_json;
 
-    if(rest::get_form_data(A_conn, L_inp_json) <= 0) return rest::bad_request_error(A_conn);
+    FLOGC(cif.trace_call) << cif << "body: " << flowc::log_abridge(A_inp_json) << "\n";
 
-    FLOGC(cif.trace_call) << cif << "body: " << flowc::log_abridge(L_inp_json) << "\n";
-
-    auto L_conv_status = google::protobuf::util::JsonStringToMessage(L_inp_json, &L_inp);
+    auto L_conv_status = google::protobuf::util::JsonStringToMessage(A_inp_json, &L_inp);
     if(!L_conv_status.ok()) return rest::conversion_error(A_conn, L_conv_status);
 
     ::grpc::ClientContext L_context;
@@ -1234,11 +1230,20 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_conne
 }
 static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
     flowc::call_info cif("{{ENTRY_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, rest::{{ENTRY_NAME}}_entry_timeout);
+    std::string input_json;
+    int rc = rest::get_form_data(A_conn, input_json);
 
     FLOG << cif << "REST-entry: " << mg_get_request_info(A_conn)->local_uri 
-        << " async, time, trace, response-type: " << cif.async_calls << ", "  << cif.time_call << ", " << cif.trace_call << ", " << (cif.return_protobuf? "protobuf": "json") << "\n";
-    int rc = REST_{{ENTRY_NAME}}_call(cif, A_conn, A_cbdata);
-    FLOG << cif << "REST-return: " << rc << "\n";
+        << " async, time, trace, request-length, response-type: " << cif.async_calls << ", "  << cif.time_call << ", " << cif.trace_call << ", " << input_json.length() << ", " << (cif.return_protobuf? "protobuf": "json") << "\n";
+
+    if(strcmp(mg_get_request_info(A_conn)->local_uri, (char const *)A_cbdata) != 0) 
+        rc = rest::not_found(A_conn, "Resource not found");
+    else if(rc <= 0) 
+        rc = rest::bad_request_error(A_conn);
+    else 
+        rc = REST_{{ENTRY_NAME}}_call(cif, A_conn, input_json);
+
+    FLOG << cif << "REST-return: " << rc << " \n";
     return rc;
 }
 }I}
@@ -1294,6 +1299,9 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }
 }I}
 namespace rest {
+
+std::string linger_timeout_ms = std::to_string(strtolong(std::getenv("{{CLI_NODE_UPPERID}}_REST_LINGER_TIMEOUT_MS"), 15*60*1000L));
+
 int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
     call_counter = 1;
     std::string num_threads_s(std::to_string(num_threads));
@@ -1310,6 +1318,7 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
         "document_root", "/dev/null",
         "listening_ports", rest_port,
         "request_timeout_ms", request_timeout_ms_s.c_str(),
+        "linger_timeout_ms", rest::linger_timeout_ms.c_str(), 
         "error_log_file", "error.log",
         "extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
         "enable_auth_domain_check", "no",
