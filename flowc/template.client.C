@@ -15,6 +15,7 @@
 #include <ctime>
 #include <ratio>
 #include <chrono>
+#include <forward_list>
 #include <getopt.h>
 #include <grpc++/grpc++.h>
 #include <google/protobuf/util/json_util.h>
@@ -112,37 +113,44 @@ static std::string output_schema_{{METHOD_FULL_ID}} = {{SERVICE_OUTPUT_SCHEMA_JS
  */
 static int file_{{METHOD_FULL_ID}}(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::unique_ptr<{{SERVICE_NAME}}::Stub> const &stub) {
     grpc::CompletionQueue cq;
-
+/*
     std::vector<{{SERVICE_INPUT_TYPE}}> inputs(concurrent_calls);
     std::vector<{{SERVICE_OUTPUT_TYPE}}> outputs(concurrent_calls);
-    std::vector<std::unique_ptr<grpc::ClientContext>> contexts(concurrent_calls);
+    std::vector<grpc::ClientContext> contexts(concurrent_calls);
     std::vector<grpc::Status> statuses(concurrent_calls);
     std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<{{SERVICE_OUTPUT_TYPE}}>>> carrs(concurrent_calls);
     std::vector<bool> busy(concurrent_calls, false);
+*/
+    typedef {{SERVICE_OUTPUT_TYPE}} outm_t;
+    typedef std::unique_ptr<::grpc::ClientAsyncResponseReader<outm_t>> carr_up_t;
+
+    std::forward_list<std::tuple< bool, grpc::ClientContext, grpc::Status, carr_up_t, outm_t, std::string>> queued_calls; 
 
     std::string input_line;
     unsigned line_count = 0;
-    unsigned queued_count = 0;
     bool have_input;
 
-    while((have_input = !!std::getline(ins, input_line)) || queued_count > 0) {
+    while((have_input = !!std::getline(ins, input_line)) || queued_calls.begin() != queued_calls.end()) {
         if(have_input) {
             ++line_count;
             auto b = input_line.find_first_not_of("\t\r\a\b\v\f ");
             if(b == std::string::npos || input_line[b] == '#') {
                 // Empty or comment line in the input. Reflect it as is in the output.
-                std::cout << input_line << "\n";
-                continue;
+                /*
+                queued_calls.emplace_after(queued_calls.end(), std::make_tuple< bool, grpc::ClientContext, grpc::Status, carr_up_t, outm_t, std::string>(
+                        true, grpc::ClientContext(), grpc::Status(), carr_up_t(nullptr), outm_t(), std::string(input_line)));
+                        */
             }
         }
 
         // find the first available slot
+/*
         unsigned x = 0; while(x < concurrent_calls && busy[x]) ++x;
         if(x == concurrent_calls || !have_input) {
-            /*
-            while(cq.Next(&TAG, &NextOK)) {
-            }
-            */
+            
+            //while(cq.Next(&TAG, &NextOK)) {
+            //}
+            
             if(show_headers) {
                 for(auto const &mde: contexts[x]->GetServerInitialMetadata()) {
                     std::string header(mde.first.data(), mde.first.length());
@@ -189,6 +197,7 @@ static int file_{{METHOD_FULL_ID}}(unsigned concurrent_calls, std::string const 
             }
             stub->PrepareAsync{{METHOD_NAME}}(contexts[x].get(), inputs[x], &cq);
         }
+        */
     }
     return 0;
 }

@@ -1300,7 +1300,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }I}
 namespace rest {
 
-std::string linger_timeout_ms = std::to_string(strtolong(std::getenv("{{CLI_NODE_UPPERID}}_REST_LINGER_TIMEOUT_MS"), 15*60*1000L));
+std::string linger_timeout_ms = std::to_string(flowc::strtolong(std::getenv("{{CLI_NODE_UPPERID}}_REST_LINGER_TIMEOUT_MS"), 15*60*1000L));
 
 int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
     call_counter = 1;
