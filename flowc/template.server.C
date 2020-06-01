@@ -322,7 +322,7 @@ struct call_info {
             deadline = start_time + std::chrono::milliseconds(default_timeout);
         } else {
             long timeout_ms = flowc::strtolong(header, 0);
-            if((have_timeout = timeout_ms > 0)) 
+            if((have_deadline = timeout_ms > 0)) 
                 deadline = start_time + std::chrono::milliseconds(timeout_ms);
         }
     }
@@ -1315,7 +1315,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }I}
 namespace rest {
 
-std::string linger_timeout_ms = std::to_string(flowc::strtolong(std::getenv("{{NAME_UPPERID}}_REST_LINGER_TIMEOUT_MS"), 15*60*1000L));
+std::string linger_timeout_ms = std::to_string(flowc::strtolong(std::getenv("{{NAME_UPPERID}}_REST_LINGER_TIMEOUT_MS"), -2));
 
 int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
     call_counter = 1;
