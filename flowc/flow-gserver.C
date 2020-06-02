@@ -946,7 +946,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "void *TAG; bool NextOK = false; int " << L_RECV << " = 0;\n";
                     OUT << "//\n";
                     OUT << "FLOGC(CIF.trace_call) << CIF << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
-                    OUT << "while(" << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
+                    OUT << "while(" << L_RECV << " < " << L_STAGE_CALLS << " && " << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
                     ++indenter;
                     OUT << "if(CTX->IsCancelled()) {\n";
                     ++indenter;
@@ -1018,11 +1018,13 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         --indenter;
                         OUT << "}\n";
                     }
-                    OUT << "else {\n";
-                    ++indenter;
-                    OUT << "assert("<< L_RECV << " == " << L_STAGE_CALLS << ");\n";
-                    --indenter;
-                    OUT << "}\n";
+                    if(nc > 1) {
+                        OUT << "else {\n";
+                        ++indenter;
+                        OUT << "assert("<< L_RECV << " == " << L_STAGE_CALLS << ");\n";
+                        --indenter;
+                        OUT << "}\n";
+                    }
                     OUT << "if(++" << L_RECV << " < " << L_STAGE_CALLS << ") {\n";
                     ++indenter;
                     OUT << "FLOGC(CIF.trace_call) << CIF << \"back waiting for \" << (" << L_STAGE_CALLS << " - " << L_RECV << ") << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
