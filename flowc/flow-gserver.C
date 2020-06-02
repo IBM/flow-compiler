@@ -935,7 +935,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     // Each node has a range of indices BX_xxxx and EX_xxxx 
                     // Additionally the number of calls currently sent (i.e. active, in the queue) is kept in SENT_xxxx
                     OUT << "std::vector<std::unique_ptr<grpc::ClientContext>> " << L_CONTEXT << ";\n";
-                    OUT << "std::vector<std::unique_ptr<grpc::Status>> " << L_STATUS << ";\n";
+                    OUT << "std::vector<grpc::Status> " << L_STATUS << ";\n";
                 }
                 stage_node_ids.clear();
                 break;
@@ -951,16 +951,26 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "if(CTX->IsCancelled()) {\n";
                     ++indenter;
                     OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
-                    OUT << L_QUEUE << ".Shutdown();\n";
+                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
                     OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                     --indenter;
                     OUT << "}\n";
-                    OUT << "if(NextOK) {\n";
+                    OUT << "if(!NextOK) {\n";
                     ++indenter;
+                    OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): Next() not OK\\n\";\n";
+                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
+                    for(auto nnj: stage_node_ids) {
+                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
+                        OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
+                    }
+                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNKNOWN, \"Next() not OK\");\n";
+                    --indenter;
+                    OUT << "}\n";
                     OUT << "int X = (int) (long) TAG;\n";
                     OUT << "FLOGC(CIF.trace_call) << std::make_tuple(&CIF, X) << \"woke up in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
-                    OUT << "auto &LL_Status = *" << L_STATUS << "[X-1];\n";
+                    OUT << "auto &LL_Status = " << L_STATUS << "[X-1];\n";
                     OUT << "auto &LL_Ctx = *" << L_CONTEXT << "[X-1];\n";
+                    OUT << "auto &LL_Ctxup = " << L_CONTEXT << "[X-1];\n";
                     int nc = 0;
                     for(auto nni: stage_node_ids) {
                         std::string nn(to_lower(to_identifier(referenced_nodes.find(nni)->second.xname)));
@@ -985,7 +995,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "auto &RPCx = " << LN_CARR(nn) << "[Nx];\n";
                         OUT << "RPCx = " << nn << "_prep(" << LN_CONN(nn) << "[Nx], CIF, Sx+1," << nn << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Sx], " << LN_INPTR(nn)  << "[Nx]);\n";
                         OUT << "RPCx->StartCall();\n";
-                        OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Nx], " << L_STATUS << "[Sx].get(), (void *) (long) (Sx+1));\n";
+                        OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Nx], &" << L_STATUS << "[Sx], (void *) (long) (Sx+1));\n";
                         OUT << "++" << LN_SENT(nn) << ";\n";
                         --indenter;
                         OUT << "}\n";
@@ -996,8 +1006,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "if(!LL_Status.ok()) {\n";
                         ++indenter;
                         OUT << "GRPC_ERROR(CIF, X, \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") " << nn << "\", LL_Status, LL_Ctx);\n";
-                        OUT << L_QUEUE << ".Shutdown();\n";
-
+                        OUT << "flowc::closeq(" << L_QUEUE << ");\n";
                         for(auto nnj: stage_node_ids) {
                             std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
                             OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
@@ -1005,34 +1014,30 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "return LL_Status;\n";
                         --indenter;
                         OUT << "}\n";
+                        OUT << "// LL_Ctxup.reset(nullptr);\n";
                         --indenter;
                         OUT << "}\n";
                     }
-                    OUT << "if(++" << L_RECV << " >= " << L_STAGE_CALLS << ") {\n";
+                    OUT << "else {\n";
                     ++indenter;
-                    OUT << L_QUEUE << ".Shutdown();\n";
+                    OUT << "assert("<< L_RECV << " == " << L_STAGE_CALLS << ");\n";
                     --indenter;
-                    OUT << "} else {\n";
+                    OUT << "}\n";
+                    OUT << "if(++" << L_RECV << " < " << L_STAGE_CALLS << ") {\n";
                     ++indenter;
                     OUT << "FLOGC(CIF.trace_call) << CIF << \"back waiting for \" << (" << L_STAGE_CALLS << " - " << L_RECV << ") << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     --indenter;
                     OUT << "}\n";
-                    --indenter;
-                    OUT << "} else {\n";
-                    ++indenter;
-                    OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): Next() not OK\\n\";\n";
-                    OUT << L_QUEUE << ".Shutdown();\n";
-                    for(auto nnj: stage_node_ids) {
-                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
-                        OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
-                    }
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline\");\n";
+
+                    //OUT << "} else {\n";
+
                     --indenter;
                     OUT << "}\n";
                     --indenter;
                     OUT << "}\n";
-                    --indenter;
-                    OUT << "}\n";
+                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
+                    OUT << L_CONTEXT << ".clear();\n";
+                    OUT << L_STATUS << ".clear();\n";
                 }
                 OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
                 OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
@@ -1169,7 +1174,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
                         OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CIF, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx]);\n";
                         OUT << "RPCx->StartCall();\n";
-                        OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], " << L_STATUS << "[Ax].get(), (void *) (long) (Ax+1));\n";
+                        OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], &" << L_STATUS << "[Ax], (void *) (long) (Ax+1));\n";
                         OUT << "++" << L_SENT << ";\n";
                         --indenter;
                         OUT << "}\n";
@@ -1290,7 +1295,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << indent() <<
                                 "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n" << unindent();
                     OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
-                    OUT << L_STATUS << ".emplace_back(std::unique_ptr<grpc::Status>(new ::grpc::Status));\n";
+                    OUT << L_STATUS << ".emplace_back(::grpc::Status());\n";
                     OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
                     OUT << L_INPTR << ".emplace_back(&" << cur_input_name << ");\n";
                     OUT << L_CARR << ".emplace_back(nullptr);\n";

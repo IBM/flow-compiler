@@ -366,6 +366,8 @@ struct call_info {
             "}";
     }
 };
+
+
 }
 inline static std::ostream &operator << (std::ostream &out, flowc::call_info const &cid) {
         return cid.printcc(out, 0);
@@ -402,6 +404,15 @@ public:
         return *this;
     }
 };
+
+/* cg helpers
+ */
+
+void closeq(::grpc::CompletionQueue &q) {
+    void *tag; bool ok = false;
+    q.Shutdown();
+    while(q.Next(&tag, &ok));
+}
 }
 
 
