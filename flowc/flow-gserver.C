@@ -993,12 +993,13 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "auto &LL_Ctx = *" << L_CONTEXT << "[X-1];\n";
                     OUT << "auto &LL_Ctxup = " << L_CONTEXT << "[X-1];\n";
                     int nc = 0;
+                    int call_nodes = 0;
+                    for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) ++call_nodes;
                     for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) {
                         std::string nn(to_lower(to_identifier(referenced_nodes.find(nni)->second.xname)));
                         // Find out what node this index belongs to by comparing with the EX_xxxx markers
                         if(nc > 0) OUT << "else ";
-                        else OUT << "";
-                        if(++nc == stage_nodes)
+                        if(++nc == call_nodes)
                             indenter << "{\n";
                         else 
                             indenter << "if(X <= " << LN_END_X(nn) << ") {\n";
@@ -1033,13 +1034,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         --indenter;
                         OUT << "}\n";
                         OUT << "// LL_Ctxup.reset(nullptr);\n";
-                        --indenter;
-                        OUT << "}\n";
-                    }
-                    if(nc > 1) {
-                        OUT << "else {\n";
-                        ++indenter;
-                        OUT << "assert("<< L_RECV << " == " << L_STAGE_CALLS << ");\n";
                         --indenter;
                         OUT << "}\n";
                     }
