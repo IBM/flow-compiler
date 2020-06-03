@@ -82,6 +82,10 @@ extern "C" {
 #ifndef DEFAULT_NODE_TIMEOUT
 #define DEFAULT_NODE_TIMEOUT 3600000
 #endif
+#ifndef REST_CONNECTION_CHECK_INTERVAL
+#define REST_CONNECTION_CHECK_INTERVAL 5000
+#endif
+
 inline static std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
     auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
     char const *unit = "s";
@@ -1225,7 +1229,30 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_conne
         }
     }
 #endif
-    ::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
+    //::grpc::Status L_status = L_client_stub->{{ENTRY_NAME}}(&L_context, L_inp, &L_outp);
+    ::grpc::Status L_status;
+    ::grpc::CompletionQueue q1;
+    char const *tag; bool next_ok = false; 
+    auto carr = L_client_stub->PrepareAsync{{ENTRY_NAME}}(&L_context, L_inp, &q1);
+    carr->StartCall();
+    carr->Finish(&L_outp, &L_status, (void *) "REST-{{ENTRY_NAME}}");
+    for(;;) {
+        auto ns1 = q1.AsyncNext((void **) &tag, &next_ok, std::chrono::system_clock::now() + std::chrono::milliseconds(REST_CONNECTION_CHECK_INTERVAL));
+        if(ns1 == ::grpc::CompletionQueue::NextStatus::GOT_EVENT && next_ok) 
+            break;
+        if(ns1 != ::grpc::CompletionQueue::NextStatus::TIMEOUT) {
+            L_status = ::grpc::Status(::grpc::StatusCode::UNKNOWN, "Invalid internal state");
+            break;
+        }
+        // Check if the connection is still valid
+        bool is_valid = true;
+        if(!is_valid || (cif.have_deadline && std::chrono::system_clock::now() > cif.deadline)) {
+            L_status = ::grpc::Status(::grpc::StatusCode::CANCELLED, "Call exceeded deadline or was cancelled by the client"); 
+            break;
+        }
+    }
+    flowc::closeq(q1);
+
     for(auto const &mde: L_context.GetServerTrailingMetadata()) {
         std::string header(mde.first.data(), mde.first.length());
         if(header == GFH_CALL_TIMES) 
