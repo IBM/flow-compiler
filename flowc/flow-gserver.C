@@ -814,7 +814,7 @@ indented_stream &flow_compiler::gc_bexp(indented_stream &indenter, std::map<std:
                     need_parens = check_bexp_op_priority(op, at(bx.children[0]).type);
                     if(need_parens) indenter << "(";
                     indenter << " " << node_name(at(bx.children[0]).type);
-                    // TODO length operator should return 1 for non repeated field?
+                    // TODO shoud the length operator return 1 for non repeated field?
                     gc_bexp(indenter, nip, acinf, bx.children[1], at(bx.children[0]).type);
                     if(need_parens) indenter <<  ")";
                     break;
@@ -872,7 +872,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     //std::map<std::string, int> rs_dims;
     std::vector<int> stage_node_ids;
     std::map<std::string, std::string> nodes_rv;
-    bool async_enabled = false;
     bool first_node = false;        // whether the current node is the first in an alias set
     bool node_has_calls = false;    // whether this node makes grpc calls
     bool first_with_output = false; // whether this node is the first in an alias set that has output
@@ -917,18 +916,15 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 cur_stage = op.arg[0];
                 stage_nodes = op.arg[1];
                 cur_stage_name = op.arg1;
-                async_enabled = stage_nodes > 1 ||  op.arg[2] > 0;
 
                 OUT << "/*\n";
                 OUT << " * stage: " << cur_stage << "\n";
                 OUT << " * stage nodes: " << stage_nodes << "\n";
                 OUT << " * stage name: " << cur_stage_name << "\n";
-                OUT << " * async enabled: " << async_enabled << "\n";
                 OUT << " */\n";
 
                 OUT << "auto " << L_STAGE_START << " = std::chrono::steady_clock::now();\n";
                 OUT << "int " << L_STAGE_CALLS << " = 0;\n";
-                if(async_enabled) {
                     // The completion queue is shared between all the nodes in a stage
                     OUT << "::grpc::CompletionQueue " << L_QUEUE << ";\n";
                     // All the Status and ClientContext objects for the stage are kept in one vector
@@ -936,34 +932,59 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     // Additionally the number of calls currently sent (i.e. active, in the queue) is kept in SENT_xxxx
                     OUT << "std::vector<std::unique_ptr<grpc::ClientContext>> " << L_CONTEXT << ";\n";
                     OUT << "std::vector<grpc::Status> " << L_STATUS << ";\n";
-                }
                 stage_node_ids.clear();
                 break;
             case ESTG:
-                if(async_enabled) {
+                {
                     OUT << "if(CIF.async_calls && 0 < " << L_STAGE_CALLS << ") {\n";
                     ++indenter;
+                    OUT << "bool abort_stage = false;\n";
+                    OUT << "::grpc::Status abort_status;\n";
+                    for(auto nnj: stage_node_ids) if(method_descriptor(nnj) != nullptr) {
+                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
+
+                            OUT << "auto " << nn << "_maxcc = (int)" << nn << "_ConP->count();\n";
+                            OUT << "if(!abort_stage && " << LN_END_X(nn) <<  " > " << LN_BEGIN(nn) << " && " << nn << "_maxcc == 0) {\n";
+                            ++indenter;
+                            OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << \"No addresses found for " << nn << ": \" << flowc::" << nn << "_fendpoints << \" \" << flowc::"<< nn <<"_dendpoints << \"\\n\");\n";
+                            OUT << "abort_stage = true;\n";
+                            --indenter;
+                            OUT << "}\n";
+                            // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
+                            // We use the (one based) index in the status/context vector as a tag for the call
+                            OUT << "if(!abort_stage) for(int Ax = " << LN_BEGIN(nn) << ", Ex = std::min(" << LN_END_X(nn) << ", " << LN_BEGIN(nn) << " + " << nn << "_maxcc); Ax < Ex; ++Ax) {\n";
+                            ++indenter;
+                            OUT << "auto Rx = Ax-" << LN_BEGIN(nn)  << ";\n";
+                            OUT << "auto &RPCx = " << LN_CARR(nn) << "[Rx];\n";
+                            OUT << "RPCx = " << nn << "_prep(" << LN_CONN(nn) << "[Rx], CIF, Ax+1," << nn << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << LN_INPTR(nn)  << "[Rx]);\n";
+                            OUT << "RPCx->StartCall();\n";
+                            OUT << "RPCx->Finish(" << LN_OUTPTR(nn) << "[Rx], &" << L_STATUS << "[Ax], (void *) (long) (Ax+1));\n";
+                            OUT << "++" << LN_SENT(nn) << ";\n";
+                            --indenter;
+                            OUT << "}\n";
+                    }
                     OUT << "void *TAG; bool NextOK = false; int " << L_RECV << " = 0;\n";
                     OUT << "//\n";
-                    OUT << "FLOGC(CIF.trace_call) << CIF << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
-                    OUT << "while(" << L_RECV << " < " << L_STAGE_CALLS << " && " << L_QUEUE << ".Next(&TAG, &NextOK)) {\n";
+                    OUT << "FLOGC(!abort_stage && CIF.trace_call) << CIF << \"begin waiting for \" << " << L_STAGE_CALLS << " << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
+                    OUT << "while(!abort_stage && " << L_RECV << " < " << L_STAGE_CALLS << ") {\n";
                     ++indenter;
-                    OUT << "if(CTX->IsCancelled()) {\n";
+                    OUT << "auto ns = " << L_QUEUE << ".AsyncNext(&TAG, &NextOK, CIF.deadline);\n";
+                    OUT << "if(ns != ::grpc::CompletionQueue::NextStatus::GOT_EVENT || !NextOK || CTX->IsCancelled()) {\n";
                     ++indenter;
+                    OUT << "abort_stage = true;\n";
+                    OUT << "if(ns == ::grpc::CompletionQueue::NextStatus::TIMEOUT || CTX->IsCancelled()) {\n";
+                    ++indenter;
+                    OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
                     OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
-                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
+                    --indenter;
+                    OUT << "} else {\n";
+                    ++indenter;
+                    OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::UNKNOWN, \"Cannot complete RPC call\");\n";
+                    OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): NextOK: \" << NextOK << \"\\n\";\n";
                     --indenter;
                     OUT << "}\n";
-                    OUT << "if(!NextOK) {\n";
-                    ++indenter;
-                    OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): Next() not OK\\n\";\n";
-                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
-                    for(auto nnj: stage_node_ids) {
-                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
-                        OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
-                    }
-                    OUT << "return ::grpc::Status(::grpc::StatusCode::UNKNOWN, \"Next() not OK\");\n";
+                    OUT << "break;\n";
+
                     --indenter;
                     OUT << "}\n";
                     OUT << "int X = (int) (long) TAG;\n";
@@ -972,7 +993,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "auto &LL_Ctx = *" << L_CONTEXT << "[X-1];\n";
                     OUT << "auto &LL_Ctxup = " << L_CONTEXT << "[X-1];\n";
                     int nc = 0;
-                    for(auto nni: stage_node_ids) {
+                    for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) {
                         std::string nn(to_lower(to_identifier(referenced_nodes.find(nni)->second.xname)));
                         // Find out what node this index belongs to by comparing with the EX_xxxx markers
                         if(nc > 0) OUT << "else ";
@@ -1006,12 +1027,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "if(!LL_Status.ok()) {\n";
                         ++indenter;
                         OUT << "GRPC_ERROR(CIF, X, \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") " << nn << "\", LL_Status, LL_Ctx);\n";
-                        OUT << "flowc::closeq(" << L_QUEUE << ");\n";
-                        for(auto nnj: stage_node_ids) {
-                            std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
-                            OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
-                        }
-                        OUT << "return LL_Status;\n";
+                        OUT << "abort_stage = true;\n";
+                        OUT << "abort_status = LL_Status;\n";
+                        OUT << "break;\n";
                         --indenter;
                         OUT << "}\n";
                         OUT << "// LL_Ctxup.reset(nullptr);\n";
@@ -1035,16 +1053,26 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
                     --indenter;
                     OUT << "}\n";
+                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
+                    OUT << "if(abort_stage) {\n";
+                    ++indenter;
+
+                    for(auto nnj: stage_node_ids) {
+                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
+                        OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
+                    }
+                    OUT << "return abort_status;\n";
                     --indenter;
                     OUT << "}\n";
-                    OUT << "flowc::closeq(" << L_QUEUE << ");\n";
+
                     OUT << L_CONTEXT << ".clear();\n";
                     OUT << L_STATUS << ".clear();\n";
+                    --indenter;
+                    OUT << "}\n";
                 }
                 OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
                 OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
                 OUT << "\n";
-                async_enabled = false;
                 break;
             case BNOD:
                 node_cg_done = false;
@@ -1088,7 +1116,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(node_has_calls) 
                     OUT << "auto " << cur_node_name << "_ConP = " << cur_node_name << "_get_connector();\n";
 
-                if(async_enabled) {
                     // Each node has a vector of response readers, input message poiners and output message pointers
                     if(op.d1 != nullptr) {
                         OUT << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << get_full_name(op.d1) << ">>> " << L_CARR << ";\n";
@@ -1097,7 +1124,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "std::vector<" << get_full_name(op.d1) << " *> " << L_OUTPTR <<  ";\n";
                     }
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
-                }
 
                 break;
             case NSET:
@@ -1154,7 +1180,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT <<  L_VISITED << " = " << cur_node << ";\n";
                 --indenter;
                 OUT << "}\n";
-            case EPRP:
                 //OUT << "// " << op << "\n";
                 while(acinf.loop_level() > 0) {
                     acinf.decr_loop_level();
@@ -1162,28 +1187,43 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "}\n";
                     cur_loop_tmp.pop_back();
                 }
-                if(async_enabled) {
-                    OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
-                    if(node_has_calls) {
-                        OUT << "if(CIF.async_calls) {\n";
-                        ++indenter;
-                        OUT << "auto " << cur_node_name << "_maxcc = (int)" << cur_node_name << "_ConP->count();\n";
-                        // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
-                        // We use the (one based) index in the status/context vector as a tag for the call
-                        OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
-                        ++indenter;
-                        OUT << "auto Rx = Ax-" << L_BEGIN  << ";\n";
-                        OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
-                        OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CIF, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx]);\n";
-                        OUT << "RPCx->StartCall();\n";
-                        OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], &" << L_STATUS << "[Ax], (void *) (long) (Ax+1));\n";
-                        OUT << "++" << L_SENT << ";\n";
-                        --indenter;
-                        OUT << "}\n";
-                        --indenter;
+                OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
+/*
+                if(node_has_calls) {
+                    OUT << "if(CIF.async_calls) {\n";
+                    ++indenter;
+                    OUT << "auto " << cur_node_name << "_maxcc = (int)" << cur_node_name << "_ConP->count();\n";
+                    // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
+                    // We use the (one based) index in the status/context vector as a tag for the call
+                    OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
+                    ++indenter;
+                    OUT << "auto Rx = Ax-" << L_BEGIN  << ";\n";
+                    OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
+                    OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CIF, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx]);\n";
+                    OUT << "RPCx->StartCall();\n";
+                    OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], &" << L_STATUS << "[Ax], (void *) (long) (Ax+1));\n";
+                    OUT << "++" << L_SENT << ";\n";
+                    --indenter;
+                    OUT << "}\n";
+                    --indenter;
 
-                        OUT << "}\n";
-                    }
+                    OUT << "}\n";
+                }
+                */
+                DOUT << "ENOD1: " << acinf << "\n";
+                acinf.add_rs(cur_output_name, node_dim);
+                cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
+                first_node = false;
+                first_with_output = false;
+                DOUT << "ENODP2: " << acinf << "\n";
+                break;
+            case EPRP:
+                //OUT << "// " << op << "\n";
+                while(acinf.loop_level() > 0) {
+                    acinf.decr_loop_level();
+                    --indenter; 
+                    OUT << "}\n";
+                    cur_loop_tmp.pop_back();
                 }
                 DOUT << "EPRP1: " << acinf << "\n";
                 acinf.add_rs(cur_output_name, node_dim);
@@ -1291,20 +1331,18 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case CALL:
                 node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
-                if(async_enabled) {
-                    OUT << "if(CIF.async_calls) {\n" << indent(); 
+                OUT << "if(CIF.async_calls) {\n" << indent(); 
 
-                    OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << indent() <<
-                                "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n" << unindent();
-                    OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
-                    OUT << L_STATUS << ".emplace_back(::grpc::Status());\n";
-                    OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
-                    OUT << L_INPTR << ".emplace_back(&" << cur_input_name << ");\n";
-                    OUT << L_CARR << ".emplace_back(nullptr);\n";
-                    OUT << L_CONN << ".push_back(-1);\n";
+                OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << indent() <<
+                    "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n" << unindent();
+                OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
+                OUT << L_STATUS << ".emplace_back(::grpc::Status());\n";
+                OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
+                OUT << L_INPTR << ".emplace_back(&" << cur_input_name << ");\n";
+                OUT << L_CARR << ".emplace_back(nullptr);\n";
+                OUT << L_CONN << ".push_back(-1);\n";
 
-                    OUT << unindent() << "} else {\n" << indent();
-                }
+                OUT << unindent() << "} else {\n" << indent();
                 OUT << "if(CTX->IsCancelled()) {\n" << indent();
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
@@ -1312,8 +1350,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "L_status = " << cur_node_name << "_call(CIF, " << L_STAGE_CALLS << ", " << cur_node_name << "_ConP, &" << cur_output_name << ", &" << cur_input_name << ");\n";
                 OUT << "if(!L_status.ok()) return L_status;\n";
 
-                if(async_enabled) 
-                    OUT << unindent() << "}\n";
+                OUT << unindent() << "}\n";
                 break;
 
             case ERR:

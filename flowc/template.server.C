@@ -898,7 +898,7 @@ public:
         GRPC_SENDING("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
         ::grpc::Status L_status;
         if(ConP->count() == 0) {
-            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "Failed to connect to");
+            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "No addresses found for {{CLI_NODE_ID}}: " << flowc::{{CLI_NODE_ID}}_fendpoints << " " << flowc::{{CLI_NODE_ID}}_dendpoints << "\n");
         } else {
             int ConN = -1;
             L_status = ConP->stub(ConN, CIF, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
@@ -1314,7 +1314,30 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &cif, struct mg
     SET_METADATA_{{CLI_NODE_ID}}(L_context)
 
     int connection_n = -1;
-    ::grpc::Status L_status = connector->stub(connection_n, cif, -1)->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
+    //::grpc::Status L_status = connector->stub(connection_n, cif, -1)->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
+    ::grpc::Status L_status;
+    ::grpc::CompletionQueue q1;
+    char const *tag; bool next_ok = false; 
+    auto carr = connector->stub(connection_n, cif, -1)->PrepareAsync{{CLI_METHOD_NAME}}(&L_context, L_inp, &q1);
+    carr->StartCall();
+    carr->Finish(&L_outp, &L_status, (void *) "REST-{{ENTRY_NAME}}");
+    for(;;) {
+        auto ns1 = q1.AsyncNext((void **) &tag, &next_ok, std::chrono::system_clock::now() + std::chrono::milliseconds(REST_CONNECTION_CHECK_INTERVAL));
+        if(ns1 == ::grpc::CompletionQueue::NextStatus::GOT_EVENT && next_ok) 
+            break;
+        if(ns1 != ::grpc::CompletionQueue::NextStatus::TIMEOUT) {
+            L_status = ::grpc::Status(::grpc::StatusCode::UNKNOWN, "Invalid internal state");
+            break;
+        }
+        // Check if the connection is still valid
+        bool is_valid = true;
+        if(!is_valid || (cif.have_deadline && std::chrono::system_clock::now() > cif.deadline)) {
+            L_status = ::grpc::Status(::grpc::StatusCode::CANCELLED, "Call exceeded deadline or was cancelled by the client"); 
+            break;
+        }
+    }
+    flowc::closeq(q1);
+
     connector->finished(connection_n, cif, -1, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
 
     if(!L_status.ok()) return rest::grpc_error(A_conn, L_context, L_status);
