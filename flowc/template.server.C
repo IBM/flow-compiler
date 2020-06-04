@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -237,6 +238,74 @@ static std::string server_id() {
 /** Size limit for the  REST request **/
 #define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
 #endif
+
+static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filename, std::string const &env_prefix) {
+    std::ifstream cfgs(filename.c_str());
+    std::string line, line_buffer;
+
+    do {
+        line_buffer.clear();
+        while(std::getline(cfgs, line)) {
+            auto b = line.find_first_not_of("\t\r\a\b\v\f ");
+            if(b == std::string::npos || line[b] == '#') 
+                line = "";
+            if(line.length() > 0 && line.back() == '\\') {
+                line.pop_back();
+                line_buffer += line;
+                continue;
+            }
+            line_buffer += line;
+            if(!line_buffer.empty()) 
+                break;
+        }
+       
+        auto b = line_buffer.find_first_not_of("\t\r\a\b\v\f ");
+        if(b == std::string::npos) 
+            break;
+        line_buffer = line_buffer.substr(b);
+        b = line_buffer.find_first_of("\t\r\a\b\v\f =:");
+        std::string name = line_buffer.substr(0, b);
+        std::string value;
+        if(b != std::string::npos) 
+            value = line_buffer.substr(b+1);
+
+        unsigned vb = 0;
+        for(unsigned ve = value.length(), sepc = 0; vb < ve && sepc <= 1 && strchr("\t\r\a\b\v\f =:", value[vb]) != nullptr; ++vb) 
+            if(value[vb] == ':' || value[vb] == '=') {
+                if(sepc < 1) 
+                    ++sepc;
+                else 
+                    break;
+            }
+        value = value.substr(vb); 
+
+        b = value.find_last_not_of("\t\r\a\b\v\f ");
+        if(b != std::string::npos) 
+            value = value.substr(0, b+1);
+        if(value.length() >= 2 && value.front() == '"' && value.back() == '"') 
+            value = value.substr(1, value.length()-2);
+        cfg.push_back(name);
+        cfg.push_back(value);
+    } while(!line_buffer.empty());
+
+    if(!env_prefix.empty()) {
+        for(auto envp = environ; *envp != nullptr; ++envp) {
+            if(strncasecmp(*envp, env_prefix.c_str(), env_prefix.length()) != 0) 
+                continue;
+            auto vp = *envp + env_prefix.length();
+            if(*vp == '\0' || *vp == '=') 
+                continue;
+            auto vvp = strchr(vp, '=');
+            if(vvp == nullptr) 
+                continue;
+            cfg.push_back(std::string(vp, vvp));
+            std::transform(cfg.back().begin(), cfg.back().end(), cfg.back().begin(), ::tolower);
+            cfg.push_back(vvp+1);
+        }
+    }
+
+    return cfg.size();
+}
 
 enum Nodes_Enum {
     NO_NODE = 0 {I:CLI_NODE_UPPERID{, {{CLI_NODE_UPPERID}}}I}
@@ -1376,9 +1445,9 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }I}
 namespace rest {
 
-std::string linger_timeout_ms = std::to_string(flowc::strtolong(std::getenv("{{NAME_UPPERID}}_REST_LINGER_TIMEOUT_MS"), -2));
-
 int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
+    std::vector<std::string> cfg;
+    flowc::read_cfg(cfg, "{{NAME}}-rest.cfg", "{{NAME_UPPERID}}_REST");
     call_counter = 1;
     std::string num_threads_s(std::to_string(num_threads));
     long request_timeout_ms = 0;
@@ -1390,24 +1459,26 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
     }
     request_timeout_ms += request_timeout_ms / 20;
     std::string request_timeout_ms_s(std::to_string(request_timeout_ms));
-    const char *options[] = {
+    std::vector<const char *> optbuf = {
         "document_root", "/dev/null",
         "listening_ports", rest_port,
         "request_timeout_ms", request_timeout_ms_s.c_str(),
-        "linger_timeout_ms", rest::linger_timeout_ms.c_str(), 
         "error_log_file", "error.log",
         "extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
         "enable_auth_domain_check", "no",
         "max_request_size", "65536", 
-        "num_threads", num_threads_s.c_str(),
-        0
+        "num_threads", num_threads_s.c_str()
     };
+    for(auto const &c: cfg)
+        optbuf.push_back(c.c_str());
+    optbuf.push_back(nullptr);
+
 	struct mg_callbacks callbacks;
 	struct mg_context *ctx;
 
 	memset(&callbacks, 0, sizeof(callbacks));
 	callbacks.log_message = rest::log_message;
-	ctx = mg_start(&callbacks, 0, options);
+	ctx = mg_start(&callbacks, 0, &optbuf[0]);
 
 	if(ctx == nullptr) return 1;
 {I:ENTRY_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", REST_{{ENTRY_NAME}}_handler, (void *) "/{{ENTRY_NAME}}");
@@ -1446,8 +1517,12 @@ int start_civetweb(char const *rest_port, int num_threads, bool rest_only) {
         std::cerr << " " << proto << "://" << host << ":" << ports[n].port;
 	}
     std::cerr << " running " << num_threads << " threads\n";
-    std::cerr << "HTTP sockets timeout in " << request_timeout_ms << " ms, linger for " << rest::linger_timeout_ms << " ms\n";
     std::cerr << "web app enabled: " << (rest_only? "no": "yes") << "\n";
+    std::cerr << "\n";
+    for(unsigned i = 0; i < optbuf.size(); i += 2) {
+        std::cerr << optbuf[i] << "\t\"" << optbuf[i+1]  << "\"\n";
+    }
+    std::cerr << "\n";
     return 0;
 }
 }
@@ -1459,7 +1534,7 @@ int main(int argc, char *argv[]) {
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}}/{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
        }I}
        std::cout << "\n";
-       std::cout << "The maximum number of concurrent calls allowed for each node, or set to 0 to use service discovery:\n";
+       std::cout << "The maximum number of concurrent calls allowed for each node\n";
        {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_MAXCC= for node {{CLI_NODE_NAME}} ("<< flowc::{{CLI_NODE_ID}}_maxcc <<")\n";
        }I}
        std::cout << "\n";
