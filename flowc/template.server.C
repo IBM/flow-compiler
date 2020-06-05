@@ -1567,19 +1567,17 @@ int main(int argc, char *argv[]) {
     if(argc < 2 || argc > 4) {
        std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT [APP-DIRECTORY]] \n\n";
        std::cout << "Endpoints (host:port) for each node:\n";
-       {I:CLI_NODE_NAME{std::cout << "{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}}/{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
+       {I:CLI_NODE_NAME{std::cout << "{{NAME_UPPERID}}_NODE_{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}}/{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
        }I}
        std::cout << "\n";
-       std::cout << "Set {{NAME_UPPERID}}_REST_PORT= to enable the REST gateway service\n";
        std::cout << "\n";
-       std::cout << "\n";
-       std::cout << "Set {{NAME_UPPERID}}_WEBAPP=0 to disable the web-app when the REST service is enabled\n";
-       std::cout << "Set {{NAME_UPPERID}}_TRACE=1 to enable trace mode\n";
-       std::cout << "Set {{NAME_UPPERID}}_ASYNC=0 to disable asynchronous client calls\n";
+       std::cout << "Set {{NAME_UPPERID}}_ENABLE_WEBAPP=0 to disable the web-app when the REST service is enabled\n";
+       std::cout << "Set {{NAME_UPPERID}}_TRACE_CALLS=1 to enable trace mode\n";
+       std::cout << "Set {{NAME_UPPERID}}_ASYNC_CALLS=0 to disable asynchronous client calls\n";
        std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
        std::cout << "Set {{NAME_UPPERID}}_CARES_REFRESH= to the number of seconds between DNS lookups (" << DEFAULT_CARES_REFRESH << ")\n"; 
-       std::cout << "Set {{NAME_UPPERID}}_GRPC_THREADS= to change the number of gRPC threads, leave 0 for no change (" << DEFAULT_GRPC_THREADS << ")\n";
+       std::cout << "Set {{NAME_UPPERID}}_GRPC_NUM_THREADS= to change the number of gRPC threads, leave 0 for no change (" << DEFAULT_GRPC_THREADS << ")\n";
        std::cout << "\n";
        return 1;
     }
