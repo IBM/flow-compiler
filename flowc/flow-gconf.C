@@ -74,7 +74,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
             //append(env_vars[g], nn+".port", port);
 
             if(g.empty()) {
-                append(group_vars[g], "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT");
+                append(group_vars[g], "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(nn)) << "_ENDPOINT");
                 if(ni.external_endpoint.empty()) 
                     append(group_vars[g], "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << pv);
                 else 
@@ -231,9 +231,9 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         int pv = nr.second.port;
         append(local_vars, "NODE_PORT", std::to_string(++base_port));
         if(type(nr.first) == "node") {
-            append(local_vars, "MAIN_EP_ENVIRONMENT_NAME",  sfmt() << to_upper(to_identifier(nn)) << "_ENDPOINT");
+            append(local_vars, "MAIN_EP_ENVIRONMENT_NAME",  sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT");
             if(nr.second.external_endpoint.empty()) {
-                append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << "$" << to_upper(to_identifier(nn)) << "_ENDPOINT_DN:" << pv);
+                append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << "$"  << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT_DN:" << pv);
                 append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", sfmt() << to_lower(nn));
             } else {
                 append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << nr.second.external_endpoint);

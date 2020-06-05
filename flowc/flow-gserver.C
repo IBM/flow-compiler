@@ -946,7 +946,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                             OUT << "auto " << nn << "_maxcc = (int)" << nn << "_ConP->count();\n";
                             OUT << "if(!abort_stage && " << LN_END_X(nn) <<  " > " << LN_BEGIN(nn) << " && " << nn << "_maxcc == 0) {\n";
                             ++indenter;
-                            OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << \"No addresses found for " << nn << ": \" << flowc::" << nn << "_fendpoints << \" \" << flowc::"<< nn <<"_dendpoints << \"\\n\");\n";
+                            OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << \"No addresses found for " << nn << ": \" << flowc::ns_" << nn << ".endpoint  << \"\\n\");\n";
                             OUT << "abort_stage = true;\n";
                             --indenter;
                             OUT << "}\n";
@@ -1182,28 +1182,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     cur_loop_tmp.pop_back();
                 }
                 OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
-/*
-                if(node_has_calls) {
-                    OUT << "if(CIF.async_calls) {\n";
-                    ++indenter;
-                    OUT << "auto " << cur_node_name << "_maxcc = (int)" << cur_node_name << "_ConP->count();\n";
-                    // The calls for each node are from BX_xxxx to EX_xxxx but we only keep xxxx_maxcc active at a time
-                    // We use the (one based) index in the status/context vector as a tag for the call
-                    OUT << "for(int Ax = " << L_BEGIN << ", Ex = std::min(" << L_END_X << ", " << L_BEGIN << " + " << cur_node_name << "_maxcc); Ax < Ex; ++Ax) {\n";
-                    ++indenter;
-                    OUT << "auto Rx = Ax-" << L_BEGIN  << ";\n";
-                    OUT << "auto &RPCx = " << L_CARR << "[Rx];\n";
-                    OUT << "RPCx = " << cur_node_name << "_prep(" << L_CONN << "[Rx], CIF, Ax+1," << cur_node_name << "_ConP, " << L_QUEUE << ", *" << L_CONTEXT << "[Ax], " << L_INPTR  << "[Rx]);\n";
-                    OUT << "RPCx->StartCall();\n";
-                    OUT << "RPCx->Finish(" << L_OUTPTR << "[Rx], &" << L_STATUS << "[Ax], (void *) (long) (Ax+1));\n";
-                    OUT << "++" << L_SENT << ";\n";
-                    --indenter;
-                    OUT << "}\n";
-                    --indenter;
-
-                    OUT << "}\n";
-                }
-                */
                 DOUT << "ENOD1: " << acinf << "\n";
                 acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
@@ -1580,10 +1558,12 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
         append(vars, "CLI_METHOD_NAME", mdp->name());
         append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
+        append(vars, "CLI_NODE_GROUP", rn.second.group);
+        append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
         int cc_value = 0;
         error_count += get_block_value(cc_value, cli_node, "replicas", false, {FTK_INTEGER});
         cc_value = cc_value == 0? default_maxcc: get_integer(cc_value);
-        if(cc_value <= 0) 
+        if(cc_value <= 0)
             pcerr.AddWarning(main_file, at(cli_node), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
         append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
