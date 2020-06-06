@@ -1539,7 +1539,10 @@ int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
     std::cerr << "web app enabled: " << (rest_only? "no": "yes") << "\n";
     std::cerr << "\n";
     for(unsigned i = 0; i < optbuf.size(); i += 2) {
-        std::cerr << optbuf[i] << "\t\"" << optbuf[i+1]  << "\"\n";
+        if(strchr(optbuf[i+1], ' ') == nullptr) 
+            std::cerr << optbuf[i] << ": " << optbuf[i+1] << "\n";
+        else
+            std::cerr << optbuf[i] << ": \"" << optbuf[i+1] << "\"\n";
     }
     std::cerr << "\n";
     return 0;
