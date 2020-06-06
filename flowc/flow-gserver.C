@@ -876,6 +876,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     bool node_has_calls = false;    // whether this node makes grpc calls
     bool first_with_output = false; // whether this node is the first in an alias set that has output
     bool node_cg_done = false;      // done generating code for the node
+    int alternate_nodes = 0;        // count of alternate nodes 
     EnumDescriptor const *ledp, *redp;   // left and right enum descriptor needed for conversion check
     int error_count = 0;
    
@@ -1081,6 +1082,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
                 first_node = op.arg[3] != 0;
                 first_with_output = op.arg[4] != 0;
+                alternate_nodes = op.arg[5];
                 if(first_with_output) 
                     nodes_rv[name(cur_node)] = cur_output_name;
 
@@ -1093,8 +1095,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << " * input name: " << cur_input_name << "\n";
                 OUT << " * output name: " << cur_output_name << "\n";
                 OUT << " * stage: " << cur_stage_name << "\n";
-                OUT << " * is first: " << (first_node? "yes": "no") << "\n";
-                OUT << " * is first with output: " << (first_with_output? "yes": "no") << "\n";
+                if(alternate_nodes) {
+                    OUT << " * is first: " << (first_node? "yes": "no") << "\n";
+                    OUT << " * is first with output: " << (first_with_output? "yes": "no") << "\n";
+                    OUT << " * alternate nodes: " << alternate_nodes << "\n";
+                }
                 OUT << " */\n";
                 // input is not needed for no-call nodes
                 if(op.d2 != nullptr) 
@@ -1166,7 +1171,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     }
                 OUT << ") {\n";
                 ++indenter;
-                OUT << "FLOGC(CIF.trace_call) << CIF << \"condition triggered for node " << cur_node_name << "\\n\";\n";
+                if(alternate_nodes)
+                    OUT << "FLOGC(CIF.trace_call) << CIF << \"condition triggered for node " << cur_node_name << "\\n\";\n";
                 break;
             case ENOD:
                 // if visited

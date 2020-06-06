@@ -1929,6 +1929,8 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             } else {
                 icode[node_idx].arg.push_back(0);
             }
+            // the number of alternate nodes
+            icode[node_idx].arg.push_back(all_nodes(name(node)).size()-1);
 
             // fixup all the nodes without output 
             

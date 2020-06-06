@@ -105,6 +105,7 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
             if(fop.arg[2] != 0) out << " first";
             if(fop.arg[3] != 0 && fop.arg[4] != 0) out << ", ";
             if(fop.arg[4] != 0) out << " output";
+            if(fop.arg[5] != 0) out << " alt " << fop.arg[5];
 
             break;
         case IFNC:
