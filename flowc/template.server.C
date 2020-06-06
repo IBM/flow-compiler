@@ -1053,7 +1053,7 @@ std::map<std::string, char const *> schema_map = {
 }I}
 };
 static int log_message(const struct mg_connection *conn, const char *message) {
-    std::cerr << message << std::flush;
+    FLOG << message << std::flush;
 	return 1;
 }
 static int not_found(struct mg_connection *conn, std::string const &message) {
@@ -1486,8 +1486,12 @@ int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
     for(unsigned i = 0; i < cfg.size(); i += 2) {
         char const *n = cfg[i].c_str();
         if(strncmp(n, "rest_", strlen("rest_")) == 0) {
-            optbuf.push_back(n+strlen("rest_"));
-            optbuf.push_back(cfg[i+1].c_str());
+            if(mg_get_option(nullptr, n+strlen("rest_")) == nullptr) {
+                std::cout << "ignoring invalid rest option: " << cfg[i] << ": " << cfg[i+1] << "\n";
+            } else {
+                optbuf.push_back(n+strlen("rest_"));
+                optbuf.push_back(cfg[i+1].c_str());
+            }
         }
     }
     optbuf.push_back(nullptr);
@@ -1521,7 +1525,7 @@ int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
 	int port_cnt, n;
 	memset(ports, 0, sizeof(ports));
 	port_cnt = mg_get_server_ports(ctx, 32, ports);
-    std::cerr <<  "REST gateway at";
+    std::cout <<  "REST gateway at";
 	for(n = 0; n < port_cnt && n < 32; n++) {
 		const char *proto = ports[n].is_ssl ? "https" : "http";
 		const char *host;
@@ -1533,18 +1537,18 @@ int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
 			// IPv6 
 			host = "[::1]";
         }
-        std::cerr << " " << proto << "://" << host << ":" << ports[n].port;
+        std::cout << " " << proto << "://" << host << ":" << ports[n].port;
 	}
-    std::cerr << "\n";
-    std::cerr << "web app enabled: " << (rest_only? "no": "yes") << "\n";
-    std::cerr << "\n";
-    for(unsigned i = 0; i < optbuf.size(); i += 2) {
+    std::cout << "\n";
+    std::cout << "web app enabled: " << (rest_only? "no": "yes") << "\n";
+    std::cout << "\n";
+    for(unsigned i = 0; i+1 < optbuf.size(); i += 2) {
         if(strchr(optbuf[i+1], ' ') == nullptr) 
-            std::cerr << optbuf[i] << ": " << optbuf[i+1] << "\n";
+            std::cout << optbuf[i] << ": " << optbuf[i+1] << "\n";
         else
-            std::cerr << optbuf[i] << ": \"" << optbuf[i+1] << "\"\n";
+            std::cout << optbuf[i] << ": \"" << optbuf[i+1] << "\"\n";
     }
-    std::cerr << "\n";
+    std::cout << "\n";
     return 0;
 }
 }
@@ -1584,7 +1588,7 @@ int main(int argc, char *argv[]) {
        std::cout << "\n";
        return 1;
     }
-    std::cerr 
+    std::cout 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
         <<  "grpc " << grpc::Version() << "\n"
@@ -1608,10 +1612,10 @@ int main(int argc, char *argv[]) {
         {I:CLI_NODE_ID{
         if(flowc::ns_{{CLI_NODE_ID}}.read_from_cfg(cfg)) {
             dnames.insert(flowc::ns_{{CLI_NODE_ID}}.dnames.begin(), flowc::ns_{{CLI_NODE_ID}}.dnames.end());
-            std::cerr << flowc::ns_{{CLI_NODE_ID}} << "\n";
+            std::cout << flowc::ns_{{CLI_NODE_ID}} << "\n";
         } else {
             ++error_count;
-            std::cerr << "Failed to find endpoint for node [{{CLI_NODE_ID}}]\n";
+            std::cout << "Failed to find endpoint for node [{{CLI_NODE_ID}}]\n";
         }
         }I}
     }
@@ -1630,12 +1634,12 @@ int main(int argc, char *argv[]) {
     int status;
     status = ares_library_init(ARES_LIB_INIT_ALL);
     if(status != ARES_SUCCESS) {
-        std::cerr << "ares_library_init: " << ares_strerror(status) << "\n";
+        std::cout << "ares_library_init: " << ares_strerror(status) << "\n";
         return 1;
     }
     int cares_refresh = (int) flowc::strtolong(flowc::get_cfg(cfg, "cares_refresh"), DEFAULT_CARES_REFRESH);
     // Start c-ares thread
-    std::cerr << "lookup thread: every " << cares_refresh << "s, lookig for " << dnames << "\n";
+    std::cout << "lookup thread: every " << cares_refresh << "s, lookig for " << dnames << "\n";
     std::thread cares_thread([&dnames, cares_refresh] {
          casd::keep_looking(dnames, cares_refresh, 0);
     });
@@ -1648,7 +1652,7 @@ int main(int argc, char *argv[]) {
         grpc::ResourceQuota grq("{{NAME_UPPERID}}");
         grq.SetMaxThreads(grpc_threads);
         builder.SetResourceQuota(grq);
-        std::cerr << "max gRPC threads: " << grpc_threads << "\n";
+        std::cout << "max gRPC threads: " << grpc_threads << "\n";
     }
 
     {{NAME_ID}}_service service;
@@ -1664,13 +1668,13 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
     if(listening_port == 0) {
-        std::cerr << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
+        std::cout << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
         return 1;
     }
-    std::cerr << "node id: " << flowc::global_node_ID << "\n";
-    std::cerr << "start time: " << flowc::global_start_time << "\n";
+    std::cout << "node id: " << flowc::global_node_ID << "\n";
+    std::cout << "start time: " << flowc::global_start_time << "\n";
     rest::gateway_endpoint = flowc::sfmt() << "localhost:" << listening_port;
-    std::cerr << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
+    std::cout << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
 
     // Set up the REST gateway if enabled
     if(argc > 2) {
@@ -1689,17 +1693,17 @@ int main(int argc, char *argv[]) {
             cfg.push_back(std::to_string(DEFAULT_REST_THREADS));
         }
         if(rest::start_civetweb(cfg, !enable_webapp) != 0) {
-            std::cerr << "Failed to start REST gateway service\n";
+            std::cout << "Failed to start REST gateway service\n";
             return 1;
         }
     }
-    std::cerr 
+    std::cout 
         << "call id: " << (flowc::send_global_ID ? "yes": "no") 
         << ", trace: " << (flowc::trace_calls? "yes": "no")
         << ", asynchronous client calls: " << (flowc::asynchronous_calls? "yes": "no") 
         << "\n";
 
-    std::cerr << std::endl;
+    std::cout << std::endl;
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
     server->Wait();
