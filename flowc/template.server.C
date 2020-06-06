@@ -6,6 +6,7 @@
  * 
  */
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -1053,8 +1054,11 @@ std::map<std::string, char const *> schema_map = {
 }I}
 };
 static int log_message(const struct mg_connection *conn, const char *message) {
-    FLOG << message << std::flush;
+    FLOG << message << "\n";
 	return 1;
+}
+static void connection_close(const struct mg_connection *) {
+    //FLOG << "connection closed\n";
 }
 static int not_found(struct mg_connection *conn, std::string const &message) {
     std::string j_message = flowc::sfmt() << "{"
@@ -1463,8 +1467,11 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }
 }I}
 namespace rest {
+struct mg_context *ctx;
+struct mg_callbacks callbacks;
 
-int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
+int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
+    std::vector<const char *> optbuf;
     call_counter = 1;
     long request_timeout_ms = 0;
 {I:ENTRY_NAME{    request_timeout_ms = std::max(flowc::entry_{{ENTRY_NAME}}_timeout, request_timeout_ms);
@@ -1473,21 +1480,30 @@ int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
 {I:CLI_NODE_NAME{        request_timeout_ms = std::max(request_timeout_ms, flowc::ns_{{CLI_NODE_ID}}.timeout);
 }I}
     }
-    request_timeout_ms += request_timeout_ms / 20;
-    std::string request_timeout_ms_s(std::to_string(request_timeout_ms));
-    std::vector<const char *> optbuf = {
-        "document_root", "/dev/null",
-        "request_timeout_ms", request_timeout_ms_s.c_str(),
-        "error_log_file", "error.log",
-        "extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
-        "enable_auth_domain_check", "no",
-        "max_request_size", "65536"
+    if(flowc::get_cfg(cfg, "rest_request_timeout_ms") == nullptr) {
+        cfg.push_back("rest_request_timeout_ms");
+        cfg.push_back(std::to_string(request_timeout_ms + request_timeout_ms / 20));
+    } else {
+        long rto = flowc::strtolong(flowc::get_cfg(cfg, "rest_request_timeout_ms"), 0);
+        if(rto < request_timeout_ms) FLOG << "rest request timeout is set to " << rto << ", less than " << request_timeout_ms << "\n";
+    }
+    std::array<const char *, 10> default_opts = {
+        "rest_document_root", "/dev/null",
+        "rest_error_log_file", "error.log",
+        "rest_extra_mime_types", ".flow=text/plain,.proto=text/plain,.svg=image/svg+xml",
+        "rest_enable_auth_domain_check", "no",
+        "rest_max_request_size", "65536"
     };
+    for(unsigned i = 0; i < default_opts.size(); i += 2) 
+        if(flowc::get_cfg(cfg, default_opts[i]) == nullptr) {
+            cfg.push_back(default_opts[i]);
+            cfg.push_back(default_opts[i+1]);
+        }
     for(unsigned i = 0; i < cfg.size(); i += 2) {
         char const *n = cfg[i].c_str();
         if(strncmp(n, "rest_", strlen("rest_")) == 0) {
             if(mg_get_option(nullptr, n+strlen("rest_")) == nullptr) {
-                std::cout << "ignoring invalid rest option: " << cfg[i] << ": " << cfg[i+1] << "\n";
+                FLOG << "ignoring invalid rest option: " << cfg[i] << ": " << cfg[i+1] << "\n";
             } else {
                 optbuf.push_back(n+strlen("rest_"));
                 optbuf.push_back(cfg[i+1].c_str());
@@ -1495,9 +1511,6 @@ int start_civetweb(std::vector<std::string> const &cfg, bool rest_only) {
         }
     }
     optbuf.push_back(nullptr);
-
-	struct mg_callbacks callbacks;
-	struct mg_context *ctx;
 
 	memset(&callbacks, 0, sizeof(callbacks));
 	callbacks.log_message = rest::log_message;
@@ -1566,7 +1579,7 @@ bool node_cfg::read_from_cfg(std::vector<std::string> const &cfg) {
 
 }
 inline static std::ostream &operator <<(std::ostream &out, flowc::node_cfg const &nc) {
-    out << "node [" << nc.id << "] timeout " << nc.timeout << " " << nc.endpoint;
+    out << "node [" << nc.id << "] timeout " << nc.timeout << " maxcc " << nc.maxcc << " " << nc.endpoint;
     return out;
 }
 
@@ -1591,7 +1604,7 @@ int main(int argc, char *argv[]) {
     std::cout 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
-        <<  "grpc " << grpc::Version() << "\n"
+        <<  "grpc " << grpc::Version() << ", civetweb " << mg_version() << "\n"
 #if defined(__clang__)          
         << "clang++ " << __clang_version__ << "\n"
 #elif defined(__GNUC__) 
@@ -1621,6 +1634,7 @@ int main(int argc, char *argv[]) {
     }
     if(error_count != 0) return 1;
     {I:ENTRY_NAME{flowc::entry_{{ENTRY_NAME}}_timeout = flowc::strtolong(flowc::get_cfg(cfg, "entry_{{ENTRY_NAME}}_timeout"), flowc::entry_{{ENTRY_NAME}}_timeout);
+    std::cout << "rpc [{{ENTRY_NAME}}] timeout " << flowc::entry_{{ENTRY_NAME}}_timeout << "\n";
     }I}
 
     flowc::global_node_ID = flowc::strtostring(flowc::get_cfg(cfg, "node_id"), flowc::server_id());
