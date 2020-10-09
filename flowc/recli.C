@@ -260,7 +260,7 @@ int do_curls(std::vector<std::ostream *> const &ous, std::istream &ins, std::str
                 break;
             }
         }
-        while(active_ccs == connections  || active_ccs > 0 && !have_input) {
+        while(active_ccs == connections || (active_ccs > 0 && !have_input)) {
 
             CURLMcode mc = curl_multi_perform(mhd, &still_running);
             int numfds;
