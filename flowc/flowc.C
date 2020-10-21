@@ -323,7 +323,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(opts.have("print-pseudocode"))
         dump_code(std::cout);
 
-    
+   /* 
+    for(auto const &ne: named_blocks) if(ne.second.first == "entry") {
+        int entry_node = ne.second.second;
+        error_count += gc_local_vars(std::cout,  method_descriptor(entry_node)->full_name(), method_descriptor(entry_node)->name(), entry_node);
+    }
+    */
 
     if(error_count == 0 && package_name.empty())
         package_name = orchestrator_name;

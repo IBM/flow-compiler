@@ -1605,3 +1605,60 @@ int flow_compiler::gc_server(std::ostream &out) {
 
     return error_count;
 }
+int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const {
+    out << "// Locals for [" << entry_dot_name << "] " << entry_name << " at " << blck_entry << "\n";
+    auto const &g = flow_graph.find(blck_entry)->second;
+    std::map<std::string, std::set<int>> gnodes;
+    for(auto const &ss: g)
+        for(int n: ss) if(n != blck_entry) {
+            gnodes[name(n)].insert(n);
+        }
+    out << "// Nodes: " << gnodes  << "\n";
+    for(auto const &gn: gnodes) {
+        out << "// " << gn.first << "@\n";
+        std::set<google::protobuf::Descriptor const *> ids;
+        google::protobuf::Descriptor const *od = nullptr, *id = nullptr;
+        std::map<google::protobuf::Descriptor const *, std::string> declared;
+        for(int n: gn.second) {
+            if(method_descriptor(n) == nullptr)
+                continue;
+            if(od == nullptr) od = message_descriptor(n);
+            if(id == nullptr) id = input_descriptor(n);
+            ids.insert(input_descriptor(n));
+        }
+
+        int dim = -1;
+        for(int n: gn.second) {
+            if(dim != -1 && dim != dimension(n)) 
+                out << "// *** invalid dimension for " << n << ": " << dimension(n) << " instead of " << dim << "\n";
+            if(dim == -1) 
+                dim = dimension(n);
+            
+            if(method_descriptor(n) == nullptr || ids.size() <= 0) 
+                continue;
+
+            auto df = declared.find(input_descriptor(n));
+            if(df == declared.end()) {
+                std::string req_type = input_descriptor(n)->full_name();
+                for(int i = 1; i <= dim; ++i) 
+                    req_type = sfmt() << "std::vector<" << req_type << ">";
+                std::string declared_id = to_lower(to_identifier(referenced_nodes.find(n)->second.xname));
+                out << req_type << " rq_" << declared_id << ";\n";
+                declared[input_descriptor(n)] = declared_id;
+            } else {
+                out << "auto &rq_" << to_lower(to_identifier(referenced_nodes.find(n)->second.xname)) << " = rq_" << df->second << "\n";
+            }
+        }
+        if(od != nullptr) {
+            std::string res_type = od->full_name();
+            for(int i = 1; i <= dim; ++i) 
+                res_type = sfmt() << "std::vector<" << res_type << ">";
+            out << res_type << " rs_" << to_lower(to_identifier(name(*gn.second.begin()))) << ";\n";
+        }
+        std::string vis_type = "int";
+        for(int i = 1; i <= dim; ++i) 
+            vis_type = sfmt() << "std::vector<" << vis_type << ">";
+        out << vis_type << " vi_" << to_lower(to_identifier(name(*gn.second.begin()))) << ";\n";
+    }
+    return 0;
+}

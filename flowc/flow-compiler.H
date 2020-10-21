@@ -280,6 +280,7 @@ public:
     class stru1::indented_stream &gc_bexp(class stru1::indented_stream &out, std::map<std::string, std::string> const &generated_nodes, struct accessor_info const &rs_dims, int bexp, int op) const;
     int gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry);
     int gc_server(std::ostream &out);
+    int gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const;
 
     // Name generators for case sensitive languagages C, Python, etc.
     // [prefix_]label[_stage][_suffix]                when the label is given
