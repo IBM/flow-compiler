@@ -7,7 +7,7 @@
 static
 char const *op_name(op o) { 
     switch(o) {
-        case NOP:   return "NOP";
+        case NOP:   return "NOP ";
         case LOOP:  return "LOOP";
         case MTHD:  return "MTHD";
         case BNOD:  return "BNOD";
@@ -19,19 +19,19 @@ char const *op_name(op o) {
         case CALL:  return "CALL";
         case FUNC:  return "FUNC";
         case COPY:  return "COPY";
-        case ELP:   return "ELP";
-        case END:   return "END";
+        case ELP:   return "ELP ";
+        case END:   return "END ";
         case ENOD:  return "ENOD";
         case ESTG:  return "ESTG";
         case INDX:  return "INDX";
-        case SET:   return "SET";
+        case SET:   return "SET ";
 
         case SETT:  return "SETT";
-        case ERR:   return "ERR";
+        case ERR:   return "ERR ";
 
         case SETL: return "SETL";      
-        case RVA: return "RVA";      
-        case RVC: return "RVC";      
+        case RVA:  return "RVA ";      
+        case RVC:  return "RVC ";      
         case COFI: return "COFI";    
         case COFS: return "COFS";   
         case COFB: return "COFB";  
