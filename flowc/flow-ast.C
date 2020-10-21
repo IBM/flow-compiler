@@ -191,6 +191,9 @@ std::string flow_ast::get_joined_id(int node, int start_pos, std::string const &
     std::transform(n.children.begin()+start_pos, n.children.end(), ids.begin(), [this](int n)->std::string {return get_text(n);});
     return stru1::join(ids, j);
 }
+std::ostream &operator << (std::ostream &out, flow_ast_node const &node) {
+    return out << "[" << node.type << "] " << node.token.text;
+}
 std::ostream &operator << (std::ostream &out, google::protobuf::FieldDescriptor const &d) {
     out << d.full_name();
     return out;
@@ -232,7 +235,11 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         if(method_descriptor.has(node) && method_descriptor(node) != nullptr) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
         if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(input_descriptor.has(node)) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
-        if(field_descriptor.has(node)) sout << " field: " << ANSI_GREEN << *field_descriptor(node) << ANSI_RESET;
+        if(field_descriptor.has(node)) {
+            sout << " field: " << ANSI_GREEN << *field_descriptor(node);
+            if(field_descriptor(node)->is_repeated()) sout << "*";
+            sout << ANSI_RESET;
+        }
         if(enum_descriptor.has(node)) sout << " enum: " << ANSI_RED << *enum_descriptor(node) << ANSI_RESET;
         if(dimension.has(node)) sout << " dim: " << ANSI_CYAN << ANSI_BOLD << dimension(node) << ANSI_RESET;
         sout << " }";

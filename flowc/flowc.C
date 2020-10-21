@@ -323,6 +323,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(opts.have("print-pseudocode"))
         dump_code(std::cout);
 
+    
+
     if(error_count == 0 && package_name.empty())
         package_name = orchestrator_name;
 

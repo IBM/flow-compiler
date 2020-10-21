@@ -46,6 +46,8 @@ struct flow_ast_node {
     flow_token token;
     std::vector<int> children;
 };
+std::ostream &operator << (std::ostream &out, flow_ast_node const &node);
+
 struct flow_ast {
     std::vector<flow_ast_node> store;
     // Preserve comments that have a @id reference
@@ -193,9 +195,22 @@ struct flow_ast {
      */
     template<class ATTR>
     int find_first(int node, ATTR const &attribute, typename ATTR::value_t value) const {
-        return find_first(node, [&attribute, value](int n) {
+        return find_first(node, [&attribute, value](int n) -> bool {
             return attribute.has(n) && value == attribute(n);
         });
+    }
+
+    std::set<int> find_nodes(int node, std::set<int> const &node_types) const {
+        std::set<int> found;
+        auto const &children = at(node).children;
+        if(node_types.find(at(node).type) != node_types.end())
+            found.insert(node);
+
+        for(int n: children) {
+            std::set<int> cf = find_nodes(n, node_types);
+            found.insert(cf.begin(), cf.end());
+        }
+        return found;
     }
 };
 

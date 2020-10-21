@@ -250,6 +250,7 @@ public:
     int compile_id_ref(int node);
     // Second pass fix up for number of indices needed
     int update_dimensions(int node);
+    int update_noderef_dimension(int node);
 
     // Get all the nodes of this name, in eval order
     std::vector<int> all_nodes(std::string const &name) const;

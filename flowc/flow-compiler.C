@@ -517,26 +517,147 @@ int flow_compiler::compile_node_ref(int node) {
     message_descriptor.put(node, dp);
     return 0;
 }
+
+/*
+ * 2nd pass, this should be called after all the message types are set
+ * Resolve dimensions for the node refereced by this label
+ */
+int flow_compiler::update_noderef_dimension(int node) {
+    if(dimension.has(node)) 
+        return 0;
+
+    std::string label = get_text(node);
+
+    if(label == input_label) {
+        dimension.put(node, 0);
+        return 0;
+    } 
+    std::set<int> node_set;
+    for(auto const &nr: referenced_nodes) {
+        if(name(nr.first) == label)
+            node_set.insert(nr.first);
+    }
+
+    int error_count = 0;
+    int nodes_dimension = -3;
+    std::set<int> dims;
+    for(auto n: node_set) {
+        if(!dimension.has(n)) {
+            //std::cerr << "From " << node << " computing dimension for this [" << label << "] " << n << "\n";
+            update_dimensions(n);
+        }
+        if(nodes_dimension < 0)
+            nodes_dimension = dimension(n);
+        if(nodes_dimension != dimension(n)) {
+            pcerr.AddError(main_file, at(n), sfmt() << "dimension computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
+            ++error_count;
+        }
+        dims.insert(dimension(n));
+    }
+    //std::cerr << "Computed dimension for label [" << label << "] " << node << " from " << node_set << ", as: " << nodes_dimension << ", "<< dims<< "\n";
+    if(!dimension.has(node)) 
+        dimension.put(node, nodes_dimension);
+
+    if(nodes_dimension >= 0) {
+        // If a node's dimension could not be computed, update it from the other nodes
+        for(auto n: node_set) if(dimension(n) < 0) 
+            dimension.update(n, nodes_dimension);
+    } else {
+        // If a node set's dimension could not be computed, generate errors
+        for(auto n: node_set) {
+            pcerr.AddError(main_file, at(n), sfmt() << "output size can not be determined for node");
+            ++error_count;
+        }
+    }
+        
+    return error_count; 
+}
 /*
  * 2nd pass, this should be called after all the message types are set
  * Resolve dimensions for each data referencing node
  */
 int flow_compiler::update_dimensions(int node) {
+    if(dimension.has(node))
+        return 0;
     int error_count = 0;
     auto const &children = at(node).children;
+
     switch(at(node).type) {
         case FTK_fldx: {
-                int xc = 0;
+                error_count += update_noderef_dimension(children[0]);
+                int xc = dimension(children[0]);
                 for(int u = 1, e = children.size(); u < e; ++u) 
                     if(field_descriptor(children[u])->is_repeated())
                         ++xc;
                 dimension.put(node, xc);
             }
             break;
+
         default:
-            for(int n: children) 
-                error_count += update_dimensions(n);
+            break;
     }
+
+    for(int n: children) 
+        error_count += update_dimensions(n);
+
+    switch(at(node).type) {
+        case FTK_blck:
+            if(type(node) == "node" || type(node) == "entry") {
+                int fonode = find_first(node, [this](int n) -> bool {
+                    return contains(std::set<int>({FTK_oexp, FTK_rexp}), at(n).type);
+                });
+
+                if(fonode != 0) {
+                    dimension.put(node, dimension(fonode));
+                } else {
+                    dimension.put(node, -2);
+                }
+                int conode = find_first(node, [this](int n) -> bool {
+                    return contains(std::set<int>({FTK_bexp}), at(n).type);
+                });
+                if(conode != 0 && dimension(node) >= 0 && dimension(conode) > dimension(node)) {
+                    pcerr.AddError(main_file, at(node), sfmt() << "condition and node dimension mismatch");
+                    ++error_count;
+                }
+            } 
+            break;
+        case FTK_fldd:
+            dimension.put(node, dimension(children[1])+(field_descriptor(node)->is_repeated()? -1: 0));
+            break;
+        case FTK_fldm: {
+                int xc = 0;
+                for(auto c: children)
+                    xc = std::max(xc, dimension(c));
+                dimension.put(node, xc);
+            }
+            break;
+        case FTK_oexp: 
+            dimension.put(node, dimension(children[1]));
+            break;
+        case FTK_rexp: 
+            dimension.put(node, dimension(children[0]));
+            break;
+        case FTK_bexp:
+            switch(children.size()) {
+                case 1:
+                    dimension.put(node, dimension.has(children[0])? dimension(children[0]): 0);
+                    break;
+                case 2:
+                    dimension.put(node, dimension.has(children[1])? dimension(children[1]): 0);
+                    break;
+                case 3:
+                    dimension.put(node, 
+                            std::max(dimension.has(children[0])? dimension(children[0]): 0, 
+                                dimension.has(children[2])? dimension(children[2]): 0));
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+        default: 
+            break;
+    }
+
     return error_count;
 }
 /*
@@ -1828,6 +1949,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         ++stage;
         int stage_idx = icode.size();
         int stage_dim = 0; 
+        int stage_dim2 = 0;
         // BSTG marks the beginning of an execution stage. 
         // The stage set contains all the nodes to be processed in this stage in the order 
         // they were declared in the source file.
@@ -1868,10 +1990,18 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             node_ip[node] = node_idx;
 
             icode.push_back(fop(BNOD, rs_name, rq_name, output_type, input_type));
+            icode.back().arg.push_back(dimension(node));
+            icode.back().arg.push_back(node);
+            icode.back().arg.push_back(stage);
+
 
             // Should max index depth also look at condition's dimension?
+            
+            // TODO: Switch to the other loop when done
             for(int i = 0, e = find_max_index_depth(get_arg_node(node), node_ip, -1); i != e; ++i)
+            //for(int i = 0, e = dimension(node); i != e; ++i)
                 icode.push_back(fop(NSET));
+            //std::cerr << "Node " << node << " max_index_depth: " << find_max_index_depth(get_arg_node(node), node_ip, -1) << " dim: " << dimension(node) << "\n";
                 
             icode.push_back(fop(IFNC, name(node), node, condition(node))); 
 
@@ -1907,13 +2037,16 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             icode.back().arg.push_back(node);
             icode.push_back(fop(ENOD, rs_name));
             // update the BNOD with the number of indices (the dimension of the result)
-            int dim = 0;
-            for(int p = node_idx+1; p < icode.size() && icode[p].code == NSET; ++p) 
-                dim += icode[p].arg.size() > 0? 1: 0;
-            icode[node_idx].arg.push_back(dim);
-            icode[node_idx].arg.push_back(node);
-            icode[node_idx].arg.push_back(stage);
-            stage_dim = std::max(stage_dim, dim);
+            //int dim = 0;
+            //for(int p = node_idx+1; p < icode.size() && icode[p].code == NSET; ++p) 
+            //    dim += icode[p].arg.size() > 0? 1: 0;
+            //icode[node_idx].arg.push_back(dim);
+            //icode[node_idx].arg.push_back(node);
+            //icode[node_idx].arg.push_back(stage);
+
+            //stage_dim = std::max(stage_dim, dim);
+            //stage_dim2 = std::max(stage_dim2, dimension(node));
+            stage_dim = std::max(stage_dim, dimension(node));
 
             // set the foak arg
             if(!contains(foak, name(node))) {
@@ -1936,7 +2069,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             
             for(auto nip: node_ip) if(nip.first != node && name(nip.first) == name(node)) {
                 //MASSERT(icode[nip.second].arg[0] == dim || icode[nip.second].arg[0] == 0) << "No output node " << nip.first << " has dimension " << icode[nip.second].arg[0] << ", expected 0 or " << dim << "\n";
-                if(icode[nip.second].arg[0] != dim) {
+                if(icode[nip.second].arg[0] != dimension(node)) {
                     pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
                     pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
                     ++error_count;
@@ -1946,6 +2079,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         }
         icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
         icode[stage_idx].arg[2] =  stage_dim;                 // BSTG arg 3: max node dimension 
+        //std::cerr << "STAGE " << stage << " dim: " << stage_dim << " dim2: " << stage_dim2 << "\n";
     }
 
     // Generate code to populate the Response 
@@ -1957,10 +2091,12 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     int rdepth = find_max_index_depth(entry_arg_node, node_ip, -1);
 
     int ldepth = at(entry_arg_node).type == FTK_ID? 0: get_index_depth(emd->output_type());
+    //std::cerr << "ldepth: " << ldepth << " dim: " << dimension(entry_arg_node) << " rdepth: " << rdepth << "\n";
 
     //TRACE << "Preparing for reply set: entry_arg_node: " << entry_arg_node << ", ldepth: " << ldepth << ", rdepth: " << rdepth << "\n";
     if(trace_on) print_ast(std::cerr, entry_arg_node);
 
+    // TODO: this check should be replaced with a check for 0 == dimension(entry_arg_node)
     if(ldepth < rdepth) {
         ++error_count;
         pcerr.AddError(main_file, at(entry_arg_node), sfmt() << "in entry \"" << emd->full_name() << "\" the return expression has a higher dimension \""
@@ -1969,6 +2105,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         find_max_index_depth(get_arg_node(entry_blck_node), node_ip, ldepth);
     }
 
+    // TODO: this is not ncessary anymore
     for(int i = 0; i < rdepth; ++i)
         icode.push_back(fop(NSET));
 
@@ -2032,24 +2169,21 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     // Revisit id references
     error_count += compile_id_ref(root);
     if(error_count > 0) return error_count;
-    // Update dimensions for each data referencing node
-    error_count += update_dimensions(root);
-    if(error_count > 0) return error_count;
 
     for(auto const &ep: named_blocks) if(type(ep.second.second) == "entry") {
         // Build the flow graph for each entry 
         error_count += build_flow_graph(ep.second.second);
     }
 
-
-    icode.clear();
     if(error_count > 0) return error_count;
 
     if(flow_graph.size() == 0) {
         pcerr.AddError(main_file, -1, 0, sfmt() << "no entries defined");
         return 1;
     } 
-
+    icode.clear();
+    
+    std::map<int, std::set<int>> graph_referenced_nodes;
     for(auto const &gv: flow_graph) {
         auto const &e = at(gv.first);
         std::set<int> entry_referenced_nodes;
@@ -2086,13 +2220,21 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         }
         if(verbose && entry_referenced_nodes.size() == 0) 
             pcerr.AddWarning(main_file, e, sfmt() << "entry \""<< method_descriptor(gv.first)->full_name()<< "\" doesn't use any nodes");
-
-        // Mark the entry point 
-        entry_ip[gv.first] = icode.size();
-        error_count += compile_flow_graph(gv.first, gv.second, entry_referenced_nodes);
+        graph_referenced_nodes[gv.first].insert(entry_referenced_nodes.begin(), entry_referenced_nodes.end());
     }
     for(auto ne: named_blocks) if(ne.second.first == "node" && !contains(referenced_nodes, ne.second.second)) 
         pcerr.AddWarning(main_file, at(ne.second.second), sfmt() << "node \"" << ne.first << "\" is not used by any entry");
+
+    // Update dimensions for each data referencing node
+    if(error_count > 0) return error_count;
+    error_count += update_dimensions(root);
+
+    if(error_count > 0) return error_count;
+    for(auto const &gv: flow_graph) {
+        // Mark the entry point 
+        entry_ip[gv.first] = icode.size();
+        error_count += compile_flow_graph(gv.first, gv.second, graph_referenced_nodes[gv.first]);
+    }
 
     return error_count;
 }
