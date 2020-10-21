@@ -2116,9 +2116,14 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     return error_count;
 }
 void flow_compiler::dump_code(std::ostream &out) const {
+    int digits = log10(icode.size())+1;
     int l = 0;
-    for(auto const &s: icode) 
-        std::cerr << ++l << " "  << s << "\n";
+    for(auto const &s: icode) {
+        l += 1;
+        char lbuf[digits+1];
+        snprintf(lbuf, digits+1, "%*d", digits, l);
+        out << lbuf << " "  << s << "\n";
+    }
 }
 int flow_compiler::compile(std::set<std::string> const &targets) {
     int root = ast_root();
