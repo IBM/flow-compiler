@@ -1588,6 +1588,7 @@ int flow_compiler::gc_server(std::ostream &out) {
 
     for(int entry_node: entry_node_set) {
         std::stringstream sbuf;
+        error_count += gc_local_vars(sbuf,  method_descriptor(entry_node)->full_name(), method_descriptor(entry_node)->name(), entry_node);
         error_count += gc_server_method(sbuf,  method_descriptor(entry_node)->full_name(), method_descriptor(entry_node)->name(), entry_node);
         append(local_vars, "ENTRY_CODE", sbuf.str());
     }
@@ -1638,27 +1639,37 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
                 continue;
 
             auto df = declared.find(input_descriptor(n));
+            std::string declared_id = node_name_id(n, "rq");
             if(df == declared.end()) {
-                std::string req_type = input_descriptor(n)->full_name();
-                for(int i = 1; i <= dim; ++i) 
-                    req_type = sfmt() << "std::vector<" << req_type << ">";
-                std::string declared_id = to_lower(to_identifier(referenced_nodes.find(n)->second.xname));
-                out << req_type << " rq_" << declared_id << ";\n";
+                out << "// " << reps("std::vector<", dim) << input_descriptor(n)->full_name() << reps(">", dim) << " " << declared_id << ";\n";
                 declared[input_descriptor(n)] = declared_id;
             } else {
-                out << "auto &rq_" << to_lower(to_identifier(referenced_nodes.find(n)->second.xname)) << " = rq_" << df->second << "\n";
-            }
+                out << "// " << "auto &" << declared_id << " = " << df->second << ";\n";
+            } 
         }
-        if(od != nullptr) {
-            std::string res_type = od->full_name();
-            for(int i = 1; i <= dim; ++i) 
-                res_type = sfmt() << "std::vector<" << res_type << ">";
-            out << res_type << " rs_" << to_lower(to_identifier(name(*gn.second.begin()))) << ";\n";
-        }
-        std::string vis_type = "int";
-        for(int i = 1; i <= dim; ++i) 
-            vis_type = sfmt() << "std::vector<" << vis_type << ">";
-        out << vis_type << " vi_" << to_lower(to_identifier(name(*gn.second.begin()))) << ";\n";
+        if(od != nullptr) 
+            out << "// " << reps("std::vector<", dim) << od->full_name() << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "rs") << ";\n";
+        out << "// " << reps("std::vector<", dim) << "int" << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "vi") << ";\n";
+        out << "// " << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << od->full_name() << "> " << node_type_id(*gn.second.begin(), "ar") << ";\n";
+        out << "// " << "std::vector<" << "int" << "> " << node_type_id(*gn.second.begin(), "cn") << ";\n";
+        out << "// " << "std::vector<" << "void *" << "> " << node_type_id(*gn.second.begin(), "ip") << ";\n";
+        out << "// " << "std::vector<" << od->full_name() << "*> " << node_type_id(*gn.second.begin(), "op") << ";\n";
     }
+    out << "// Stages: \n";
+    int si = 0;
+    for(auto const &ss: g) {
+        ++si;
+        out << "// " << "int cc_" << si << " = 0;\n";
+        out << "// " << "::grpc::CompletionQueue cq_" << si << ";\n";
+        out << "// " << "std::vector<std::unique_ptr<grpc::ClientContext>> cx_" << si << ";\n";
+        out << "// " << "std::vector<grpc::Status> st_" << si << ";\n";
+        std::set<std::string> node_types;
+        for(int n: ss) if(n != blck_entry) 
+            if(node_types.find(name(n)) == node_types.end()) {
+                node_types.insert(name(n));
+                //out << "// " << "int " << 
+            }
+    }
+
     return 0;
 }

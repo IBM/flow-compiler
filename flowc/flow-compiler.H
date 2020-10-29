@@ -281,6 +281,20 @@ public:
     int gc_server(std::ostream &out);
     int gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const;
 
+    // ID that includes the node name
+    std::string node_name_id(int node_n, std::string const &prefix="", std::string const &suffix="") const {
+        std::string id = stru1::to_lower(stru1::to_identifier(referenced_nodes.find(node_n)->second.xname));
+        if(!prefix.empty()) id = prefix + "_" + id;
+        if(!suffix.empty()) id = id + "_" + suffix;
+        return id;
+    }
+    std::string node_type_id(int node_n, std::string const &prefix="", std::string const &suffix="") const {
+        std::string id = stru1::to_lower(stru1::to_identifier(name(node_n)));
+        if(!prefix.empty()) id = prefix + "_" + id;
+        if(!suffix.empty()) id = id + "_" + suffix;
+        return id;
+    }
+
     // Name generators for case sensitive languagages C, Python, etc.
     // [prefix_]label[_stage][_suffix]                when the label is given
     // [prefix_]I_input label[_stage][_suffix]        for the input node
@@ -306,6 +320,7 @@ public:
             return cs_name("RQ", get_node_label(node), suffix);
         return cs_name(prefix, get_node_label(node), suffix);
     }
+
 
     int compile(std::set<std::string> const &targets);
 
