@@ -1844,60 +1844,6 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
         icode.push_back(fop(ELP));
     return error_count;
 }
-/**
- * Return the maximum number of indices that a right value field uses.
- * If max_allowed is not negative, print a note message wherever the depth exceeds max_allowed.
- */
-int flow_compiler::find_max_index_depth(int right_value_node, std::map<int, int> const &node_ip, int max_allowed) {
-    if(right_value_node == 0) return 0;
-    auto const &node = at(right_value_node);
-    int xc = 0;
-    switch(node.type) {
-        case FTK_fldm: {
-            int max = 0;
-            // Return the max index of any field on the right side of the fldd
-            for(int fldd_node: node.children) 
-                max = std::max(max, find_max_index_depth(at(fldd_node).children[1], node_ip, max_allowed));
-            // Avoid printing notes here
-            return max;
-        }
-        case FTK_fldx: {
-            auto const &ids = node.children;
-            xc = find_max_index_depth(ids[0], node_ip, -1);
-            for(int u = 1, e = ids.size(); u < e; ++u) 
-                if(field_descriptor(ids[u])->is_repeated())
-                    ++xc;
-        } break;
-        case FTK_ID: {
-            int node_node = named_blocks.find(get_id(right_value_node))->second.second;
-            auto nip = node_ip.find(node_node);
-            if(nip == node_ip.end()) return 0;
-            int i = nip->second+1, e = icode.size();
-            xc = 0;
-            while(i < e && icode[i].code == NSET) 
-                if(icode[i++].arg.size() > 0) ++xc;
-        } break;
-        case FTK_fldr: {
-            int max = 0;
-            // Return the max index of any field on the right side of the fldd
-            for(int arg_ni = 1, arg_sz = node.children.size(); arg_ni < arg_sz; ++arg_ni) 
-                max = std::max(max, find_max_index_depth(node.children[arg_ni], node_ip, max_allowed));
-            // Avoid printing notes here
-            return max;
-        }
-        case FTK_STRING: case FTK_FLOAT: case FTK_INTEGER:
-            break;
-        case FTK_dtid:
-            // Must be an enum ref
-            break;
-        default: 
-            print_ast(std::cerr, right_value_node);
-            assert(false);
-    }
-    if(max_allowed >= 0 && xc > max_allowed) 
-        pcerr.AddNote(main_file, at(right_value_node), sfmt() << "field \"" << get_dotted_id(right_value_node) << "\" has dimension \"" << xc << "\"");
-    return xc;
-}
 
 int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &fg, std::set<int> const &node_set) {
     int error_count = 0;
@@ -1994,14 +1940,10 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             icode.back().arg.push_back(node);
             icode.back().arg.push_back(stage);
 
-
             // Should max index depth also look at condition's dimension?
             
-            // TODO: Switch to the other loop when done
-            for(int i = 0, e = find_max_index_depth(get_arg_node(node), node_ip, -1); i != e; ++i)
-            //for(int i = 0, e = dimension(node); i != e; ++i)
+            for(int i = 0, e = dimension(node); i != e; ++i)
                 icode.push_back(fop(NSET));
-            //std::cerr << "Node " << node << " max_index_depth: " << find_max_index_depth(get_arg_node(node), node_ip, -1) << " dim: " << dimension(node) << "\n";
                 
             icode.push_back(fop(IFNC, name(node), node, condition(node))); 
 
@@ -2036,16 +1978,6 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             icode.back().arg.push_back(node);
             icode.push_back(fop(ENOD, rs_name));
-            // update the BNOD with the number of indices (the dimension of the result)
-            //int dim = 0;
-            //for(int p = node_idx+1; p < icode.size() && icode[p].code == NSET; ++p) 
-            //    dim += icode[p].arg.size() > 0? 1: 0;
-            //icode[node_idx].arg.push_back(dim);
-            //icode[node_idx].arg.push_back(node);
-            //icode[node_idx].arg.push_back(stage);
-
-            //stage_dim = std::max(stage_dim, dim);
-            //stage_dim2 = std::max(stage_dim2, dimension(node));
             stage_dim = std::max(stage_dim, dimension(node));
 
             // set the foak arg
@@ -2088,26 +2020,15 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     icode.back().m1 = emd;
 
     int entry_arg_node = get_arg_node(entry_blck_node); 
-    int rdepth = find_max_index_depth(entry_arg_node, node_ip, -1);
-
-    int ldepth = at(entry_arg_node).type == FTK_ID? 0: get_index_depth(emd->output_type());
-    //std::cerr << "ldepth: " << ldepth << " dim: " << dimension(entry_arg_node) << " rdepth: " << rdepth << "\n";
-
-    //TRACE << "Preparing for reply set: entry_arg_node: " << entry_arg_node << ", ldepth: " << ldepth << ", rdepth: " << rdepth << "\n";
     if(trace_on) print_ast(std::cerr, entry_arg_node);
 
-    // TODO: this check should be replaced with a check for 0 == dimension(entry_arg_node)
-    if(ldepth < rdepth) {
+    if(0 != dimension(entry_arg_node)) {
+        // TODO: review the message here
         ++error_count;
         pcerr.AddError(main_file, at(entry_arg_node), sfmt() << "in entry \"" << emd->full_name() << "\" the return expression has a higher dimension \""
-                << rdepth << "\" than the output type \"" << emd->output_type()->full_name() << "\": \"" << ldepth << "\"");
-        // Call this again to display notes
-        find_max_index_depth(get_arg_node(entry_blck_node), node_ip, ldepth);
+                << dimension(entry_arg_node) << "\" than expected");
     }
 
-    // TODO: this is not ncessary anymore
-    for(int i = 0; i < rdepth; ++i)
-        icode.push_back(fop(NSET));
 
     error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), entry_arg_node, node_ip);
     icode.push_back(fop(EPRP));
