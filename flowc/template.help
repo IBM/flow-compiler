@@ -147,7 +147,8 @@ OPTIONS
               On "Kubernetes" this port must not conflict with any of the ports used in the main group.
 
        --runtime=RUNTIME -R RUNTIME
-              Generate server image using flowc:version.RUNTIME as a base "Docker" image
+              Generate server image using flowc:version.RUNTIME as a base "Docker" image. See --version for 
+              dislaying the avaailable runtimes.
 
        --server
               Generate code for the "gRPC" aggregator
@@ -164,7 +165,7 @@ OPTIONS
               Very verbose compiler trace
 
        --version 
-              Display the version and exit
+              Display version and build information, list the available runtimes, and exit
 
        --www-files
               Output the generated UI files
