@@ -9,6 +9,7 @@ RUN tar -cf /home/worker/so.tar lib/*
 FROM flow-runtime
 
 USER root
+COPY --from=base /usr/bin/readelf /usr/bin
 WORKDIR /home/worker
 COPY --chown=worker:worker --from=base /home/worker/*.tar /home/worker/
 RUN tar -xvf /home/worker/bin.tar && rm /home/worker/bin.tar && chown -R worker:worker {{NAME}}

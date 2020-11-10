@@ -16,13 +16,13 @@
 
 BUILD_VERSION=0.11.6
 
-## One of the runtimes alpine-3.11, alpine-edge, ubuntu-18.04, or redhat-ubi7. Override 'makefile.local'
+## One of the runtimes alpine-3.11, alpine-3.12, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi7
 
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets 
-.PHONY: alpine-edge ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11
+.PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -148,10 +148,15 @@ flow-base-image-info.json: $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAG
 
 image-info-Darwin:
 	@rm -f flow-base-image-info.json
-	@-docker image inspect $(IMAGE) > /dev/null 2>&1 \
-	&& docker image inspect $(IMAGE) > flow-base-image-info.json && touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json \
+	@docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > flow-base-image-info.json \
+	&& touch -t \$(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json \
 	|| true
 
+
+#
+# # && docker image inspect $(IMAGE) > flow-base-image-info.json && 
+# touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json \
+#
 
 image-info-Linux:
 	@rm -f flow-base-image-info.json
@@ -161,10 +166,10 @@ image-info-Linux:
 
 image-info: image-info-$(HOST_OS)
 
-image: image-info
+image: image-info-$(HOST_OS)
 	@$(MAKE) -s flow-base-image-info.json
 
-alpine-edge:
+alpine-3.12:
 	@$(MAKE) "BASE_IMAGE=$@" image
 
 alpine-3.11:
@@ -179,6 +184,8 @@ ubuntu-20.04:
 redhat-ubi7:
 	@$(MAKE) "BASE_IMAGE=$@" image
 
+redhat-ubi8:
+	@$(MAKE) "BASE_IMAGE=$@" image
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
