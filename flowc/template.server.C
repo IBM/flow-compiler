@@ -1585,6 +1585,17 @@ inline static std::ostream &operator <<(std::ostream &out, flowc::node_cfg const
 }
 
 int main(int argc, char *argv[]) {
+    std::cout 
+        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+        << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
+        <<  "grpc " << grpc::Version() << ", civetweb " << mg_version() << ", c-ares " << ares_version(nullptr) << "\n"
+#if defined(__clang__)          
+        << "clang++ " << __clang_version__ << "\n"
+#elif defined(__GNUC__) 
+        << "g++ " << __VERSION__ << "\n"
+#else
+#endif
+        << std::endl;
     if(argc < 2 || argc > 4) {
        std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT [APP-DIRECTORY]] \n\n";
        std::cout << "Endpoints (host:port) for each node:\n";
@@ -1602,17 +1613,6 @@ int main(int argc, char *argv[]) {
        std::cout << "\n";
        return 1;
     }
-    std::cout 
-        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
-        << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
-        <<  "grpc " << grpc::Version() << ", civetweb " << mg_version() << "\n"
-#if defined(__clang__)          
-        << "clang++ " << __clang_version__ << "\n"
-#elif defined(__GNUC__) 
-        << "g++ " << __VERSION__ << "\n"
-#else
-#endif
-        << std::endl;
     
     std::vector<std::string> cfg;
     flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_");
