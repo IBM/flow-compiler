@@ -10,7 +10,7 @@ RUN rpm --import /etc/yum.repos.d/centos7.gpg
 
 RUN yum -y install vim curl jq bc ssh unzip \
  git make autoconf automake pkgconfig libtool libtool-ltdl gdb \
- openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
+ openssl-devel libxml2-devel libicu-devel uuid-devel \
  gcc-c++ file graphviz devtoolset-7 \
  && yum clean all -y
 
