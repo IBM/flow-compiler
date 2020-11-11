@@ -1,7 +1,7 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.12
-ARG GRPC_VERSION=1.28.1
-ARG CARES_VERSION=1.16.0
+ARG CIVETWEB_VERSION=1.13
+ARG GRPC_VERSION=1.29.1
+ARG CARES_VERSION=1.16.1
 
 user root
 
@@ -12,7 +12,7 @@ RUN echo -e "[centos8-powertools]\nname=centos8-powertools\nbaseurl=http://mirro
     echo -e "[centos8-baseos]\nname=centos8-appstream\nbaseurl=http://mirror.centos.org/centos/8/BaseOS/x86_64/os/\ngpgcheck=1\nenabled=1" >> /etc/yum.repos.d/centos8.repo
 
 RUN yum -y install vim curl jq bc tar unzip binutils \
- git make autoconf automake pkgconfig libtool libtool-ltdl gdb \
+ git make autoconf automake pkgconfig libtool libtool-ltdl gdb cmake \
  openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
  gcc-c++ file graphviz \
  && yum clean all -y
