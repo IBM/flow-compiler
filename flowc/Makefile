@@ -14,10 +14,10 @@
 #BASE_IMAGE?=alpine-edge   
 -include makefile.local
 
-BUILD_VERSION=0.12.0
+BUILD_VERSION=0.12.1
 
 ## One of the runtimes alpine-3.11, alpine-3.12, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
-BASE_IMAGE?=redhat-ubi7
+BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -187,6 +187,11 @@ redhat-ubi7:
 redhat-ubi8:
 	@$(MAKE) "BASE_IMAGE=$@" image
 
+all-images:
+	@$(MAKE) alpine-3.12 && $(MAKE) alpine-3.11 && $(MAKE) ubuntu-18.04 && $(MAKE) ubuntu-20.04 && $(MAKE) redhat-ubi7 && $(MAKE) redhat-ubi8
+
+
+
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
 	wget 'https://www.sqlite.org/src/tarball/sqlite.tar.gz?r=release' -q -O - | $(TAR) --strip-components=2 -xzv sqlite/tool/lemon.c sqlite/tool/lempar.c
@@ -200,4 +205,4 @@ parser: flow-parser.h
 -include $(OBJS:.o=.dep)
 
 targets:
-	@echo "flowc, image, lemon, tar, clean, install"
+	@echo "flowc, image, lemon, tar, clean, install, all-images"
