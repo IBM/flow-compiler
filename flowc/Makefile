@@ -67,10 +67,6 @@ endif
 ## Create a build id out of the git GUID.
 BUILD_ID?=$(GIT_TS) $(GIT_GUID)
 
-#ifeq ($(shell pkg-config --exists grpc++ protobuf && echo yes || echo no), no)
-#$(error gRPC libraries are needed, set GRPC_LIBS and GRPC_INCS in 'makefile.local')
-#endif
-
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
@@ -79,7 +75,6 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 	template.kubernetes.group.yaml template.kubernetes.sh template.kubernetes.yaml \
 	template.server.C template.syntax template.index.html \
     	
-BASE_RUNTIME_TEMPLATE=$(BASE_IMAGE)/template.runtime.Dockerfile 
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
 ifeq ($(DBG), yes) 
