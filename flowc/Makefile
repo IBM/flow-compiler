@@ -21,7 +21,7 @@ BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info image-info-Linux image-info-Darwin install targets 
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux
 .PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8
 
 # Find a suitable tar - needed for building the image
@@ -142,32 +142,35 @@ install: flowc
 flow-base-image-info.json: $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE)  > /dev/null 2>&1
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
+	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > $@
 
-image-info-Darwin:
+####### Create a temprorary file with the docker image timestamp
+image-info-Darwin.ts: 
+	@docker image inspect $(IMAGE) > /dev/null 2>&1 \
+		&& /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S' > image-info-Darwin.ts \
+	|| echo 202011121509.36 > image-info-Darwin.ts
+
+image-info-Darwin: image-info-Darwin.ts
 	@rm -f flow-base-image-info.json
 	@docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > flow-base-image-info.json \
-	&& touch -t \$(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json \
+		&& touch -t `cat image-info-Darwin.ts` flow-base-image-info.json \
 	|| true
+	@rm -f image-info-Darwin.ts
 
-
-#
-# # && docker image inspect $(IMAGE) > flow-base-image-info.json && 
-# touch -t $(shell /bin/date -j -f '%Y%m%d%H%M%S%Z' `docker image inspect --format '{{.Created}}' $(IMAGE) | sed -E 's/([:T-]|[.][0-9]+)//g' | sed 's/Z/GMT/'` +'%Y%m%d%H%M.%S') flow-base-image-info.json \
-#
 
 image-info-Linux:
 	@rm -f flow-base-image-info.json
 	@-docker image inspect $(IMAGE) > /dev/null 2>&1 \
-	&& docker image inspect $(IMAGE) > flow-base-image-info.json && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE)` flow-base-image-info.json \
+		&& docker image inspect $(IMAGE) > flow-base-image-info.json && touch --date=`docker image inspect --format '{{.Created}}' $(IMAGE)` flow-base-image-info.json \
 	|| true
 
 image-info: image-info-$(HOST_OS)
 
 image: image-info-$(HOST_OS)
 	@$(MAKE) -s flow-base-image-info.json
+	@echo Image $(IMAGE)  is up to date
 
 alpine-3.12:
 	@$(MAKE) "BASE_IMAGE=$@" image
