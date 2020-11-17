@@ -1712,7 +1712,7 @@ int main(int argc, char *argv[]) {
        std::cout << "   --server-id         STRING       String to used as an idendifier for this server. If not set a random string will automatically be generated.\n";
        std::cout << "   --send-id           TRUE/FALSE   Set to 0 to disable sending the node id in replies. Enabled by default.\n";
        std::cout << "   --trace-calls       TRUE/FALSE   Enable trace mode\n";
-       std::cout << "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node call.\n";
+       std::cout << "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node calls\n";
        std::cout << "\n";
        std::cout << "REST Options:\n";
        std::cout << "   --rest-num-threads  NUMBER       Number of threads to run in the REST server. Default is " << DEFAULT_REST_THREADS << ".\n";
@@ -1720,9 +1720,9 @@ int main(int argc, char *argv[]) {
        std::cout << "\n";
        std::cout << "Node Options:\n";
 {I:CLI_NODE_UPPERID{    std::cout << "    --node-{{CLI_NODE_ID}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_ID}}\n";
-       std::cout << "    --node-{{CLI_NODE_ID}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.maxcc << "\n";
-       std::cout << "    --node-{{CLI_NODE_ID}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.timeout << "\n";
-       std::cout << "    --node-{{CLI_NODE_ID}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_ID}} {{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
+       std::cout << "    --node-{{CLI_NODE_ID}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.maxcc << ".\n";
+       std::cout << "    --node-{{CLI_NODE_ID}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.timeout << ".\n";
+       std::cout << "    --node-{{CLI_NODE_ID}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_ID}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
 }I}
        std::cout << "\n";
        std::cout << "Entry Options:\n";
