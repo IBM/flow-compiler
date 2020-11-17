@@ -245,73 +245,6 @@ static std::string server_id() {
 #define MAX_REST_REQUEST_SIZE 1024ul*1024ul*100ul
 #endif
 
-static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filename, std::string const &env_prefix) {
-    std::ifstream cfgs(filename.c_str());
-    std::string line, line_buffer;
-
-    do {
-        line_buffer.clear();
-        while(std::getline(cfgs, line)) {
-            auto b = line.find_first_not_of("\t\r\a\b\v\f ");
-            if(b == std::string::npos || line[b] == '#') 
-                line = "";
-            if(line.length() > 0 && line.back() == '\\') {
-                line.pop_back();
-                line_buffer += line;
-                continue;
-            }
-            line_buffer += line;
-            if(!line_buffer.empty()) 
-                break;
-        }
-       
-        auto b = line_buffer.find_first_not_of("\t\r\a\b\v\f ");
-        if(b == std::string::npos) 
-            break;
-        line_buffer = line_buffer.substr(b);
-        b = line_buffer.find_first_of("\t\r\a\b\v\f =:");
-        std::string name = line_buffer.substr(0, b);
-        std::string value;
-        if(b != std::string::npos) 
-            value = line_buffer.substr(b+1);
-
-        unsigned vb = 0;
-        for(unsigned ve = value.length(), sepc = 0; vb < ve && sepc <= 1 && strchr("\t\r\a\b\v\f =:", value[vb]) != nullptr; ++vb) 
-            if(value[vb] == ':' || value[vb] == '=') {
-                if(sepc < 1) 
-                    ++sepc;
-                else 
-                    break;
-            }
-        value = value.substr(vb); 
-
-        b = value.find_last_not_of("\t\r\a\b\v\f ");
-        if(b != std::string::npos) 
-            value = value.substr(0, b+1);
-        if(value.length() >= 2 && value.front() == '"' && value.back() == '"') 
-            value = value.substr(1, value.length()-2);
-        cfg.push_back(name);
-        cfg.push_back(value);
-    } while(!line_buffer.empty());
-
-    if(!env_prefix.empty()) {
-        for(auto envp = environ; *envp != nullptr; ++envp) {
-            if(strncasecmp(*envp, env_prefix.c_str(), env_prefix.length()) != 0) 
-                continue;
-            auto vp = *envp + env_prefix.length();
-            if(*vp == '\0' || *vp == '=') 
-                continue;
-            auto vvp = strchr(vp, '=');
-            if(vvp == nullptr) 
-                continue;
-            cfg.push_back(std::string(vp, vvp));
-            std::transform(cfg.back().begin(), cfg.back().end(), cfg.back().begin(), ::tolower);
-            cfg.push_back(vvp+1);
-        }
-    }
-
-    return cfg.size();
-}
 static char const *get_cfg(std::vector<std::string> const &cfg, std::string const &name) {
     for(auto p = cfg.rbegin(), e = cfg.rend(); p != e; ++p, ++p) {
         auto n = p + 1;
@@ -339,6 +272,7 @@ struct node_cfg {
         }
 
     bool read_from_cfg(std::vector<std::string> const &cfg);
+    bool check_option(std::string const &) const;
 };
 
 {I:CLI_NODE_UPPERID{node_cfg ns_{{CLI_NODE_ID}}("{{CLI_NODE_ID}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT:DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT}}");
@@ -1577,10 +1511,178 @@ bool node_cfg::read_from_cfg(std::vector<std::string> const &cfg) {
     return !endpoint.empty() &&
         casd::parse_endpoint_list(dnames, dendpoints, fendpoints, endpoint);
 }
+bool node_cfg::check_option(std::string const &opt) const {
+    static std::set<std::string> valid_options = { "_trace", "_maxcc", "_timeout", "_endpoint" };
+    for(auto const &suff: valid_options)
+        if(opt == std::string("node_") + id + suff)
+            return true;
+    return false;
+}
+static bool check_node_option(std::string const &opt) {
+    return false 
+{I:CLI_NODE_UPPERID{    || ns_{{CLI_NODE_ID}}.check_option(opt)
+}I}
+    ;    
+}
+static bool check_entry_option(std::string const &opt) {
+    static std::set<std::string> valid_options = { "_timeout" };
+    for(auto const &suff: valid_options) {
+{I:ENTRY_NAME{
+        if(opt == std::string("entry_{{ENTRY_NAME}}") + suff)
+            return true;
+}I}
+    }
+    return false;
+}
+static std::set<std::string> valid_options = {"grpc_listening_port", "webapp_directory", "enable_webapp", "async_calls", "trace_calls", "server_id", "send_id", "cares_refresh", "grpc_num_threads", "trace_connections", "accumulate_addresses"};
+static bool check_option(std::string const &opt, bool print_message=true) {
+    if(opt.substr(0, strlen("rest_")) == "rest_") {
+        if(mg_get_option(nullptr, opt.c_str()+strlen("rest_")) == nullptr) {
+            if(print_message) 
+                std::cerr << "Invalid civetweb option: '" << opt.c_str()+strlen("rest_") << "'\n";
+            return false;
+        }
+    } else if(opt.substr(0, strlen("node_")) == "node_") {
+        if(!flowc::check_node_option(opt)) {
+            if(print_message)
+                std::cerr << "Invalid node option: '" << opt << "'\n";
+            return false;
+        }
+    } else if(opt.substr(0, strlen("entry_")) == "entry_") {
+        if(!flowc::check_entry_option(opt)) {
+            if(print_message)
+                std::cerr << "Invalid entry option: '" << opt << "'\n";
+            return false;
+        }
+    } else if(valid_options.find(opt) == valid_options.end()) {
+        if(print_message)
+            std::cerr << "Invalid option: '" << opt << "'\n";
+        return false;
+    }
+    return true;
+}
+static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filename, std::string const &env_prefix) {
+    std::ifstream cfgs(filename.c_str());
+    std::string line, line_buffer;
 
+    do {
+        line_buffer.clear();
+        while(std::getline(cfgs, line)) {
+            auto b = line.find_first_not_of("\t\r\a\b\v\f ");
+            if(b == std::string::npos || line[b] == '#') 
+                line = "";
+            if(line.length() > 0 && line.back() == '\\') {
+                line.pop_back();
+                line_buffer += line;
+                continue;
+            }
+            line_buffer += line;
+            if(!line_buffer.empty()) 
+                break;
+        }
+       
+        auto b = line_buffer.find_first_not_of("\t\r\a\b\v\f ");
+        if(b == std::string::npos) 
+            break;
+        line_buffer = line_buffer.substr(b);
+        b = line_buffer.find_first_of("\t\r\a\b\v\f =:");
+        std::string name = line_buffer.substr(0, b);
+        std::string value;
+        if(b != std::string::npos) 
+            value = line_buffer.substr(b+1);
+
+        unsigned vb = 0;
+        for(unsigned ve = value.length(), sepc = 0; vb < ve && sepc <= 1 && strchr("\t\r\a\b\v\f =:", value[vb]) != nullptr; ++vb) 
+            if(value[vb] == ':' || value[vb] == '=') {
+                if(sepc < 1) 
+                    ++sepc;
+                else 
+                    break;
+            }
+        value = value.substr(vb); 
+
+        b = value.find_last_not_of("\t\r\a\b\v\f ");
+        if(b != std::string::npos) 
+            value = value.substr(0, b+1);
+        if(value.length() >= 2 && value.front() == '"' && value.back() == '"') 
+            value = value.substr(1, value.length()-2);
+        if(!check_option(name, true))
+            continue;
+        cfg.push_back(name);
+        cfg.push_back(value);
+    } while(!line_buffer.empty());
+
+    if(!env_prefix.empty()) {
+        for(auto envp = environ; *envp != nullptr; ++envp) {
+            if(strncasecmp(*envp, env_prefix.c_str(), env_prefix.length()) != 0) 
+                continue;
+            auto vp = *envp + env_prefix.length();
+            if(*vp == '\0' || *vp == '=') 
+                continue;
+            auto vvp = strchr(vp, '=');
+            if(vvp == nullptr) 
+                continue;
+            std::string opname = std::string(vp, vvp);
+            std::transform(opname.begin(), opname.end(), opname.begin(), ::tolower);
+            if(!check_option(opname, false))
+                continue;
+            cfg.push_back(opname);
+            cfg.push_back(vvp+1);
+        }
+    }
+
+    return cfg.size();
+}
+static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, std::string &grpc_address) {
+    int uac = 0, a = 1;
+    while(a < argc) {
+        if(strcmp(argv[a], "--help") == 0) {
+            return 1;
+        } else if(strncmp(argv[a], "--", 2) == 0) {
+            if(a+1 == argc)  {
+                std::cerr << "Missing value for option: '" << argv[a] << "'\n";
+                return 1;
+            }
+            cfg.push_back(argv[a]+2);
+            for(auto cp = cfg.back().begin(), ce = cfg.back().end(); cp != ce; ++cp)
+                if(*cp == '-') *cp = '_';
+            if(!check_option(cfg.back(), true))
+                return 1;
+
+            cfg.push_back(argv[a+1]);
+            a += 2;
+        } else if(uac < 3) {
+            switch(++uac) {
+                case 1:
+                    grpc_address += argv[a];
+                    cfg.push_back("grpc_listening_port");
+                    break;
+                case 2:
+                    cfg.push_back("rest_listening_ports");
+                    break;
+                case 3:
+                    cfg.push_back("webapp_directory");
+                    break;
+                default:
+                    return 1;
+            }
+            cfg.push_back(argv[a]);
+            ++a; 
+        } else {
+            std::cerr << "Invalid argument: " << argv[a] << "\n";
+            return 1;
+        }
+    }
+    return 0;
+}
 }
 inline static std::ostream &operator <<(std::ostream &out, flowc::node_cfg const &nc) {
     out << "node [" << nc.id << "] timeout " << nc.timeout << " maxcc " << nc.maxcc << " " << nc.endpoint;
+    return out;
+}
+static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const &cfg) {
+    for(size_t c = 0, s = cfg.size(); c < s; c += 2) 
+        out << cfg[c] << "=" << cfg[c+1] << "\n";
     return out;
 }
 
@@ -1596,26 +1698,53 @@ int main(int argc, char *argv[]) {
 #else
 #endif
         << std::endl;
-    if(argc < 2 || argc > 4) {
-       std::cout << "Usage: " << argv[0] << " GRPC-PORT [REST-PORT [APP-DIRECTORY]] \n\n";
-       std::cout << "Endpoints (host:port) for each node:\n";
-       {I:CLI_NODE_NAME{std::cout << "{{NAME_UPPERID}}_NODE_{{CLI_NODE_UPPERID}}_ENDPOINT= for node {{CLI_NODE_NAME}}/{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
-       }I}
+    
+    std::vector<std::string> cfg;
+    std::string server_address("[::]:");
+    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_") < 1 || flowc::parse_args(argc, argv, cfg, server_address)) {
+       std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORT [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n\n";
        std::cout << "\n";
+       std::cout << "Options:\n";
+       std::cout << "   --async-calls       TRUE/FALSE   Set to false to disable asynchronous client calls. Default is enabled.\n";
+       std::cout << "   --cares-refresh     SECONDS      Set the number of seconds between DNS lookup calls. Default is " << DEFAULT_CARES_REFRESH << " seconds.\n";
+       std::cout << "   --enable-webapp     TRUE/FALSE   Set to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n";
+       std::cout << "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to used the default gRPC value.\n";
+       std::cout << "   --server-id         STRING       String to used as an idendifier for this server. If not set a random string will automatically be generated.\n";
+       std::cout << "   --send-id           TRUE/FALSE   Set to 0 to disable sending the node id in replies. Enabled by default.\n";
+       std::cout << "   --trace-calls       TRUE/FALSE   Enable trace mode\n";
+       std::cout << "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node call.\n";
        std::cout << "\n";
-       std::cout << "Set {{NAME_UPPERID}}_ENABLE_WEBAPP=0 to disable the web-app when the REST service is enabled\n";
-       std::cout << "Set {{NAME_UPPERID}}_TRACE_CALLS=1 to enable trace mode\n";
-       std::cout << "Set {{NAME_UPPERID}}_ASYNC_CALLS=0 to disable asynchronous client calls\n";
-       std::cout << "Set {{NAME_UPPERID}}_NODE_ID= to override the server ID\n"; 
-       std::cout << "Set {{NAME_UPPERID}}_SEND_ID=0 to disable sending the server ID\n"; 
-       std::cout << "Set {{NAME_UPPERID}}_CARES_REFRESH= to the number of seconds between DNS lookups (" << DEFAULT_CARES_REFRESH << ")\n"; 
-       std::cout << "Set {{NAME_UPPERID}}_GRPC_NUM_THREADS= to change the number of gRPC threads, leave 0 for no change (" << DEFAULT_GRPC_THREADS << ")\n";
+       std::cout << "REST Options:\n";
+       std::cout << "   --rest-num-threads  NUMBER       Number of threads to run in the REST server. Default is " << DEFAULT_REST_THREADS << ".\n";
+       std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates\n";
+       std::cout << "\n";
+       std::cout << "Node Options:\n";
+{I:CLI_NODE_UPPERID{    std::cout << "    --node-{{CLI_NODE_ID}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_ID}}\n";
+       std::cout << "    --node-{{CLI_NODE_ID}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.maxcc << "\n";
+       std::cout << "    --node-{{CLI_NODE_ID}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.timeout << "\n";
+       std::cout << "    --node-{{CLI_NODE_ID}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_ID}} {{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}\n";
+}I}
+       std::cout << "\n";
+       std::cout << "Entry Options:\n";
+
+{I:ENTRY_NAME{    std::cout << "    --entry-{{ENTRY_NAME}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Defaults is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n";
+}I}
+       std::cout << "\n";
+    ;    
+       std::cout << "All options can be set in the file {{NAME}}.cfg.\n";
+       std::cout << "Additionally options can be set in environment variables prefixed with '{{NAME_UPPERID}}_'.\n";
+       std::cout << "\n";
+       std::cout << "Note *\n";
+       std::cout << "Entrypoints in the form HOST:PORT will be sent directly to the gRPC intreface.\n";
+       std::cout << "Entrypoints in the form @HOST:PORT will be looked up every 30 seconds to produce an IP list used with the gRPC calls.\n";
+       std::cout << "Entrypoints in the form (command) will cause command to be run every 30 seconds to produce the IP list to be used with the gRPC calls.\n";
+
        std::cout << "\n";
        return 1;
     }
-    
-    std::vector<std::string> cfg;
-    flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_");
+    std::cout << "*********** cfg **********\n";
+    print_cfg(std::cout, cfg);
+    std::cout << "*********** *** **********\n\n";
 
     // Use the default grpc health checking service
 	grpc::EnableDefaultHealthCheckService(true);
@@ -1638,7 +1767,7 @@ int main(int argc, char *argv[]) {
     std::cout << "rpc [{{ENTRY_NAME}}] timeout " << flowc::entry_{{ENTRY_NAME}}_timeout << "\n";
     }I}
 
-    flowc::global_node_ID = flowc::strtostring(flowc::get_cfg(cfg, "node_id"), flowc::server_id());
+    flowc::global_node_ID = flowc::strtostring(flowc::get_cfg(cfg, "server_id"), flowc::server_id());
     flowc::asynchronous_calls = flowc::strtobool(flowc::get_cfg(cfg, "async_calls"), flowc::asynchronous_calls);
     flowc::trace_calls = flowc::strtobool(flowc::get_cfg(cfg, "trace_calls"), flowc::trace_calls);
     flowc::trace_connections = flowc::strtobool(flowc::get_cfg(cfg, "trace_connections"), flowc::trace_connections);
@@ -1675,7 +1804,6 @@ int main(int argc, char *argv[]) {
     bool enable_webapp = flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true);
 
     // Listen on the given address without any authentication mechanism.
-    std::string server_address("[::]:"); server_address += argv[1];
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials(), &listening_port);
 
     // Register services
@@ -1686,22 +1814,14 @@ int main(int argc, char *argv[]) {
         std::cout << "failed to start {{NAME}} gRPC service at " << listening_port << "\n";
         return 1;
     }
-    std::cout << "node id: " << flowc::global_node_ID << "\n";
+    std::cout << "server id: " << flowc::global_node_ID << "\n";
     std::cout << "start time: " << flowc::global_start_time << "\n";
     rest::gateway_endpoint = flowc::sfmt() << "localhost:" << listening_port;
     std::cout << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
 
     // Set up the REST gateway if enabled
-    if(argc > 2) {
-        cfg.push_back("rest_listening_ports");
-        cfg.push_back(argv[2]);
-    }
     char const *rest_port = flowc::get_cfg(cfg, "rest_listening_ports");
     if(rest_port != nullptr) {
-        if(argc > 3) {
-            cfg.push_back("webapp_directory");
-            cfg.push_back(argv[2]);
-        }
         rest::app_directory = flowc::strtostring(flowc::get_cfg(cfg, "webapp_directory"), rest::app_directory);
         if(flowc::get_cfg(cfg, "rest_num_threads") == nullptr) {
             cfg.push_back("rest_num_threads"); 
