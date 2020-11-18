@@ -11,7 +11,7 @@
 #INSTALL_PREFIX?=/usr/local/bin
 #
 #   Base image label - Default base image for when --runtime is not used with flowc 
-#BASE_IMAGE?=alpine-edge   
+#BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
 BUILD_VERSION=0.12.1
