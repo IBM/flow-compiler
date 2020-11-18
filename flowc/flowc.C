@@ -46,7 +46,6 @@ std::string output_filename(std::string const &filename) {
         return output_directory+filename;
     return output_directory+"/"+filename;
 }
-
 void FErrorPrinter::AddMessage(std::string const &type, std::string const &color, std::string const &filename, int line, int column, std::string const &message) {
     if(ansi::use_escapes)
         *outs << ANSI_BOLD;
@@ -121,6 +120,11 @@ std::string realpath(std::string const &f) {
     return (r == nullptr) ? "" : r;
 }
 int cp_p(std::string const &source, std::string const &dest) {
+    struct stat a_file_stat, b_file_stat;
+    if(stat(source.c_str(), &a_file_stat) != 0 || S_ISDIR(a_file_stat.st_mode)) 
+        return 1;
+    if(stat(dest.c_str(), &b_file_stat) == 0 && a_file_stat.st_dev == b_file_stat.st_dev && a_file_stat.st_ino == b_file_stat.st_ino)
+        return 0;
     bool ok = true;
     char buf[16384];
     size_t size;
@@ -129,13 +133,19 @@ int cp_p(std::string const &source, std::string const &dest) {
     while((size = read(sd, buf, sizeof(buf))) > 0) 
         ok = write(dd, buf, size) == size && ok;
     close(sd); close(dd);
-    struct stat a_file_stat;
     struct timeval tv[2];
-    stat(source.c_str(), &a_file_stat);
     tv[0].tv_sec = a_file_stat.st_atime; tv[0].tv_usec = 0;
     tv[1].tv_sec = a_file_stat.st_mtime; tv[1].tv_usec = 0;
     utimes(dest.c_str(), &tv[0]);
     return ok? 0: 1;
+}
+int write_file(std::string const &fn, std::string const &source_fn, char const *default_content) {
+    if(!source_fn.empty()) 
+        return cp_p(source_fn, fn);
+    std::ofstream outf(fn.c_str());
+    if(!outf.is_open()) 
+        return 1;
+    return outf.write(default_content, strlen(default_content))? 0: 1;
 }
 
 using namespace varsub;
@@ -295,6 +305,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string client_bin = orchestrator_name + "-client";
     std::string client_source = output_filename(client_bin + ".C");
     std::string orchestrator_makefile = orchestrator_name + ".mak";
+    std::string default_certificate = orchestrator_name + ".pem";
+    std::string grpc_certificate = orchestrator_name + "-grpc.pem";
+    std::string rest_certificate = orchestrator_name + "-rest.pem";
 
     error_count += parse();
     //if(opts.have("print-ast")) 
@@ -416,6 +429,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         add_to_proto_path(output_filename(".")); 
         error_count += genc_protobuf(); 
     }
+
 
     if(error_count == 0 && contains(targets, "grpc-files"))
         error_count += genc_grpc(); 
@@ -781,6 +795,33 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             error_count += genc_client(outf);
         }
     }
+    //std::cerr << "----- before ssl certificates: " << error_count << "\n";
+    if(error_count == 0 && contains(targets, "ssl-certificates")) {
+        std::string o_default_certificate = opts.opt("default-certificate", "");
+        std::string o_grpc_certificate = opts.opt("grpc-certificate", o_default_certificate);
+        std::string o_rest_certificate = opts.opt("rest-certificate", o_default_certificate);
+        extern char const *template_server_pem;
+
+        if(o_grpc_certificate == o_rest_certificate) {
+            if(write_file(output_filename(default_certificate), o_grpc_certificate, template_server_pem)) {
+                ++error_count;
+                pcerr.AddError(output_filename(default_certificate), -1, 0, "failed to write ssl certificate file");
+            }
+            append(global_vars, "GRPC_CERTIFICATE", default_certificate);
+            append(global_vars, "REST_CERTIFICATE", default_certificate);
+        } else {
+            if(write_file(output_filename(grpc_certificate), o_grpc_certificate, template_server_pem)) {
+                ++error_count;
+                pcerr.AddError(output_filename(grpc_certificate), -1, 0, "failed to write grpc ssl certificate file");
+            }
+            if(write_file(output_filename(rest_certificate), o_rest_certificate, template_server_pem)) {
+                ++error_count;
+                pcerr.AddError(output_filename(rest_certificate), -1, 0, "failed to write rest ssl certificate file");
+            }
+            append(global_vars, "GRPC_CERTIFICATE", grpc_certificate);
+            append(global_vars, "REST_CERTIFICATE", rest_certificate);
+        }
+    }
     //std::cerr << "----- before makefile: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "makefile")) {
         std::string fn = output_filename(orchestrator_makefile);
@@ -975,8 +1016,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 extern char const *template_help, *template_syntax;
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
-    {"client",            {"grpc-files", "makefile", "dockerfile" }},
-    {"server",            {"grpc-files", "makefile", "svg-files", "dockerfile", "www-files" }},
+    {"client",            {"grpc-files", "makefile", "dockerfile"}},
+    {"server",            {"grpc-files", "makefile", "svg-files", "dockerfile", "www-files", "ssl-certificates"}},
     {"svg-files",         {"graph-files"}},
     {"grpc-files",        {"protobuf-files"}},
     {"build-client",      {"client"}},
@@ -985,6 +1026,7 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"makefile",          {}},
     {"docker-compose",    {}},
     {"kubernetes",        {}},
+    {"ssl-certificates",  {}},
     {"protobuf-files",    {}},
     {"www-files",         {"docs"}},
     {"graph-files",       {}},

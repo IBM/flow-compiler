@@ -1536,28 +1536,28 @@ static bool check_entry_option(std::string const &opt) {
     return false;
 }
 static std::set<std::string> valid_options = {"grpc_listening_port", "webapp_directory", "enable_webapp", "async_calls", "trace_calls", "server_id", "send_id", "cares_refresh", "grpc_num_threads", "trace_connections", "accumulate_addresses"};
-static bool check_option(std::string const &opt, bool print_message=true) {
+static bool check_option(std::string const &opt, bool print_message, std::string const &location="") {
     if(opt.substr(0, strlen("rest_")) == "rest_") {
         if(mg_get_option(nullptr, opt.c_str()+strlen("rest_")) == nullptr) {
             if(print_message) 
-                std::cerr << "Invalid civetweb option: '" << opt.c_str()+strlen("rest_") << "'\n";
+                std::cerr << location << "Invalid civetweb option: '" << opt.c_str()+strlen("rest_") << "'\n";
             return false;
         }
     } else if(opt.substr(0, strlen("node_")) == "node_") {
         if(!flowc::check_node_option(opt)) {
             if(print_message)
-                std::cerr << "Invalid node option: '" << opt << "'\n";
+                std::cerr << location << "Invalid node option: '" << opt << "'\n";
             return false;
         }
     } else if(opt.substr(0, strlen("entry_")) == "entry_") {
         if(!flowc::check_entry_option(opt)) {
             if(print_message)
-                std::cerr << "Invalid entry option: '" << opt << "'\n";
+                std::cerr << location << "Invalid entry option: '" << opt << "'\n";
             return false;
         }
     } else if(valid_options.find(opt) == valid_options.end()) {
         if(print_message)
-            std::cerr << "Invalid option: '" << opt << "'\n";
+            std::cerr << location << "Invalid option: '" << opt << "'\n";
         return false;
     }
     return true;
@@ -1565,10 +1565,13 @@ static bool check_option(std::string const &opt, bool print_message=true) {
 static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filename, std::string const &env_prefix) {
     std::ifstream cfgs(filename.c_str());
     std::string line, line_buffer;
+    unsigned long line_number = 0, lc = 0;
+    int error_count = 0;
 
     do {
-        line_buffer.clear();
+        line_buffer.clear(); line_number = lc+1;
         while(std::getline(cfgs, line)) {
+            ++lc;
             auto b = line.find_first_not_of("\t\r\a\b\v\f ");
             if(b == std::string::npos || line[b] == '#') 
                 line = "";
@@ -1607,8 +1610,10 @@ static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filen
             value = value.substr(0, b+1);
         if(value.length() >= 2 && value.front() == '"' && value.back() == '"') 
             value = value.substr(1, value.length()-2);
-        if(!check_option(name, true))
+        if(!check_option(name, true)) {
+            ++error_count;
             continue;
+        }
         cfg.push_back(name);
         cfg.push_back(value);
     } while(!line_buffer.empty());
@@ -1625,14 +1630,14 @@ static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filen
                 continue;
             std::string opname = std::string(vp, vvp);
             std::transform(opname.begin(), opname.end(), opname.begin(), ::tolower);
-            if(!check_option(opname, false))
+            if(!check_option(opname, false, sfmt() << filename << "(" << line_number << "): "))
                 continue;
             cfg.push_back(opname);
             cfg.push_back(vvp+1);
         }
     }
 
-    return cfg.size();
+    return error_count;
 }
 // returns: 0 OK, 1 error, 2 show help, 3 show config
 static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, std::string &grpc_address) {
@@ -1709,7 +1714,7 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> cfg;
     std::string server_address("[::]:");
     int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
-    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_") < 1 || (cmd = flowc::parse_args(argc, argv, cfg, server_address)) == 1 || cmd == 2) {
+    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, server_address)) == 1 || cmd == 2) {
         flowc::print_banner(std::cout);
         std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORT [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
         std::cout << "\n";
@@ -1719,6 +1724,7 @@ int main(int argc, char *argv[]) {
         std::cout << "   --cfg                            Display current configuration and exit\n";
         std::cout << "   --enable-webapp     TRUE/FALSE   Set to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n";
         std::cout << "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to used the default gRPC value.\n";
+        std::cout << "   --grpc-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}-grpc.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "   --help                           Show this screen and exit\n";
         std::cout << "   --server-id         STRING       String to used as an idendifier for this server. If not set a random string will automatically be generated.\n";
         std::cout << "   --send-id           TRUE/FALSE   Set to 0 to disable sending the node id in replies. Enabled by default.\n";
@@ -1727,7 +1733,7 @@ int main(int argc, char *argv[]) {
         std::cout << "\n";
         std::cout << "REST Options:\n";
         std::cout << "   --rest-num-threads  NUMBER       Number of threads to run in the REST server. Default is " << DEFAULT_REST_THREADS << ".\n";
-        std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}.pem in the current directory.\n";
+        std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "\n";
         std::cout << "Node Options:\n";
 {I:CLI_NODE_UPPERID{    std::cout << "    --node-{{CLI_NODE_ID}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_ID}}\n";
@@ -1769,18 +1775,44 @@ int main(int argc, char *argv[]) {
     }
     struct stat buffer;   
     std::string ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
-    if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
-        std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
-        ++error_count;
+    if(ssl_certificate.empty()) {
+        if(stat("{{NAME}}-rest.pem", &buffer) == 0) {
+            cfg.push_back("rest_ssl_certificate");
+            cfg.push_back("{{NAME}}-rest.pem");
+        } else if(stat("{{NAME}}.pem", &buffer) == 0) {
+            cfg.push_back("rest_ssl_certificate");
+            cfg.push_back("{{NAME}}.pem");
+        }
     }
-    if(ssl_certificate.empty() && stat("{{NAME}}.pem", &buffer) == 0) {
-        cfg.push_back("rest_ssl_certificate");
-        cfg.push_back("{{NAME}}.pem");
+    ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
+    if(ssl_certificate.empty()) {
+        if(stat("{{NAME}}-grpc.pem", &buffer) == 0) {
+            cfg.push_back("grpc_ssl_certificate");
+            cfg.push_back("{{NAME}}-grpc.pem");
+        } else if(stat("{{NAME}}.pem", &buffer) == 0) {
+            cfg.push_back("grpc_ssl_certificate");
+            cfg.push_back("{{NAME}}.pem");
+        }
     }
-    ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
-    if(ssl_certificate.empty() && flowc::strtostring(flowc::get_cfg(cfg, "rest_listening_ports"), "").find_first_of('s') != std::string::npos) {
-        std::cout << "SSL certificate is needed for https\n";
-        ++error_count;
+    if(flowc::strtostring(flowc::get_cfg(cfg, "rest_listening_ports"), "").find_first_of('s') != std::string::npos) {
+        ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
+        if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
+            std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
+            ++error_count;
+        } else if(ssl_certificate.empty()) {
+            std::cout << "SSL certificate is needed for https\n";
+            ++error_count;
+        }
+    }
+    if(flowc::strtostring(flowc::get_cfg(cfg, "grpc_listening_ports"), "").find_first_of('s') != std::string::npos) {
+        ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
+        if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
+            std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
+            ++error_count;
+        } else if(ssl_certificate.empty()) {
+            std::cout << "SSL certificate is needed for secure grpc\n";
+            ++error_count;
+        }
     }
     if(cmd == 3) {
         std::cout << "# {{NAME}}.cfg\n";

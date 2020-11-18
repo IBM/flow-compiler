@@ -44,6 +44,9 @@ OPTIONS
               Force or disable ANSI coloring regardless of wheter output is to a terminal or not.
               By default coloring is enabled only when output is to a terminal.
 
+       --default-certificate=FILE
+              SSL certificate for the gRPC and REST servers
+
        --default-client-calls=NUMBER
               Number of concurent calls that can be synchronously made to a "gRPC" service. This value is 
               used when replicas are not set for a given node. Set to "0" to use "DNS" to find out the number
@@ -74,6 +77,9 @@ OPTIONS
        --grpc-files, -g
               Generate ".cc" and ".h" files for both "gRPC" services and "Protocol Buffers" messages.
               See --protobuf-files for generating code for messages only.
+
+       --grpc-certificate=FILE
+              SSL certificate for the gRPC server
 
        --graph-files
               Print the flow graph files for each entry in "dot" format. The "dot" utility can be used to render 
@@ -146,6 +152,9 @@ OPTIONS
               Make "REST" available on "PORT". Must not conflict with the aggregator "gRPC" port.
               On "Kubernetes" this port must not conflict with any of the ports used in the main group.
 
+       --rest-certificate=FILE
+              SSL certificate for the REST server
+
        --runtime=RUNTIME -R RUNTIME
               Generate server image using flowc:version.RUNTIME as a base "Docker" image. See --version for 
               dislaying the avaailable runtimes.
@@ -156,6 +165,9 @@ OPTIONS
        --single-pod
               Ignore all group labels and generate a single pod deployment with all the nodes.
               This is a "Kubernetes" specific option.
+
+       --ssl-certificates
+              Write out the built-in certificate file
 
        --svg-files
               Print the flow graph files for each entry in "svg" format. The "dot" utility needs to be available. 

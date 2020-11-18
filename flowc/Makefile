@@ -73,7 +73,7 @@ GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-confi
 TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C template.help \
 	template.docker-compose.sh template.docker-compose.yaml \
 	template.kubernetes.group.yaml template.kubernetes.sh template.kubernetes.yaml \
-	template.server.C template.syntax template.index.html \
+	template.server.C template.syntax template.index.html template.server.pem\
     	
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
@@ -115,7 +115,7 @@ RUNTIME_TEMPLATES=$(wildcard */template.runtime.Dockerfile)
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	echo "#include <string>" > $@
 	echo "#include <map>" >> $@
-	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; done >> $@
+	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; echo "unsigned long const len_$$FILE = " | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE" | wc -c; echo ";";  done >> $@
 	echo "std::map<std::string, char const *> template_runtime_Dockerfile = {" >> $@
 	for RUNTL in $(RUNTIME_TEMPLATES:/template.runtime.Dockerfile=); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
 	echo "};" >> $@
