@@ -6,6 +6,9 @@ RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install
     curl jq bc ssh vim unzip binutils \
     && apt-get clean
 
+RUN ln -s /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 /usr/lib/x86_64-linux-gnu/libcrypto.so
+RUN ln -s /usr/lib/x86_64-linux-gnu/libssl.so.1.1 /usr/lib/x86_64-linux-gnu/libssl.so
+
 RUN locale-gen en_US.UTF-8 && /usr/sbin/update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
