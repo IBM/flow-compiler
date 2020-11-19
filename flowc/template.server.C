@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -627,7 +628,13 @@ static int keep_looking(std::set<std::string> const &dnames,  int interval_s, in
     FLOG << "ip watcher: finished.\n";
     return 0;
 }
-static 
+/**
+ * dnames: set of lookup addresses or plug-in commands
+ * dendpoints: endpoints that generated dnames
+ * fendpoints: fixed enpoints
+ * ins: input string
+ */
+static
 bool parse_endpoint_list(std::set<std::string> &dnames, std::set<std::string> &dendpoints, std::set<std::string> &fendpoints, std::string const &ins) {
     char const *separators = ",;\t\r\a\b\v\f\n ";
     auto begin = ins.find_first_not_of(separators);
@@ -1403,8 +1410,17 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
 }
 }I}
 namespace rest {
-struct mg_context *ctx;
+struct mg_context *ctx = nullptr;
 struct mg_callbacks callbacks;
+
+int stop_civetweb() {
+    if(ctx) {
+        mg_stop(ctx);
+        std::cout << "REST server exited" << std::endl;
+        ctx = nullptr;
+    }
+    return 0;
+}
 
 int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
     std::vector<const char *> optbuf;
@@ -1474,7 +1490,7 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 	int port_cnt, n;
 	memset(ports, 0, sizeof(ports));
 	port_cnt = mg_get_server_ports(ctx, 32, ports);
-    std::cout <<  "REST gateway at";
+    std::cout <<  "REST gateway available at";
 	for(n = 0; n < port_cnt && n < 32; n++) {
 		const char *proto = ports[n].is_ssl ? "https" : "http";
 		const char *host;
@@ -1489,7 +1505,7 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
         std::cout << " " << proto << "://" << host << ":" << ports[n].port;
 	}
     std::cout << "\n";
-    std::cout << "web app enabled: " << (rest_only? "no": "yes") << "\n";
+    std::cout << "webapp enabled: " << (rest_only? "no": "yes") << "\n";
     std::cout << "\n";
     for(unsigned i = 0; i+1 < optbuf.size(); i += 2) {
         if(strchr(optbuf[i+1], ' ') == nullptr) 
@@ -1535,7 +1551,7 @@ static bool check_entry_option(std::string const &opt) {
     }
     return false;
 }
-static std::set<std::string> valid_options = {"grpc_listening_port", "webapp_directory", "enable_webapp", "async_calls", "trace_calls", "server_id", "send_id", "cares_refresh", "grpc_num_threads", "trace_connections", "accumulate_addresses"};
+static std::set<std::string> valid_options = {"grpc_listening_ports", "webapp_directory", "enable_webapp", "async_calls", "trace_calls", "server_id", "send_id", "cares_refresh", "grpc_num_threads", "trace_connections", "accumulate_addresses", "ssl_certificate", "grpc_ssl_certificate"};
 static bool check_option(std::string const &opt, bool print_message, std::string const &location="") {
     if(opt.substr(0, strlen("rest_")) == "rest_") {
         if(mg_get_option(nullptr, opt.c_str()+strlen("rest_")) == nullptr) {
@@ -1640,7 +1656,7 @@ static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filen
     return error_count;
 }
 // returns: 0 OK, 1 error, 2 show help, 3 show config
-static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, std::string &grpc_address) {
+static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg) {
     int uac = 0, a = 1, rc = 0;
     while(a < argc) {
         if(strcmp(argv[a], "--help") == 0) {
@@ -1665,8 +1681,7 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, std
         } else if(uac < 3) {
             switch(++uac) {
                 case 1:
-                    grpc_address += argv[a];
-                    cfg.push_back("grpc_listening_port");
+                    cfg.push_back("grpc_listening_ports");
                     break;
                 case 2:
                     cfg.push_back("rest_listening_ports");
@@ -1686,6 +1701,29 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, std
     }
     return rc;
 }
+static int parse_listening_port_list(std::set<std::string> &list, std::string const &slist) {
+    std::set<std::string> dnames, dendpoints;
+    return casd::parse_endpoint_list(dnames, dendpoints, list, slist)? 0: 1;
+}
+static std::string read_keycert(std::string const &fn, std::string const &substr) {
+    std::string kc, line;
+    std::ifstream pemf(fn.c_str());
+    bool acc = false;
+    while(std::getline(pemf, line)) {
+        if(acc) {
+            kc += line;
+            kc += "\n";
+        }
+        if(line.find(substr) != std::string::npos) {
+            acc = !acc;
+            if(acc) {
+                kc += line;
+                kc += "\n";
+            }
+        }
+    }
+    return kc;
+}
 static void print_banner(std::ostream &out) {
     out 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
@@ -1698,6 +1736,16 @@ static void print_banner(std::ostream &out) {
 #else
 #endif
         << std::endl;
+}
+static std::unique_ptr<grpc::Server> grpc_server;
+static void signal_shutdown_handler(int sig) {
+    std::cerr << "Signal " << sig << " received";
+    if(grpc_server) {
+        std::cout << ", shutting down" << std::endl;
+        grpc_server->Shutdown();
+    } else {
+        std::cout << std::endl;
+    }
 }
 }
 inline static std::ostream &operator <<(std::ostream &out, flowc::node_cfg const &nc) {
@@ -1712,11 +1760,14 @@ static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const
 
 int main(int argc, char *argv[]) {
     std::vector<std::string> cfg;
-    std::string server_address("[::]:");
     int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
-    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, server_address)) == 1 || cmd == 2) {
+    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg)) == 1 || cmd == 2) {
         flowc::print_banner(std::cout);
-        std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORT [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
+        std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
+        std::cout << "\n";
+        std::cout << "  GRPC-LISTENING-PORTS  A space or comma separated list in in the form [(HOSTNAME|IPv6):]PORT[s]\n";
+        std::cout << "  REST-LISTENING-PORTS  A space or comma separated list in in the form [(HOSTNAME|IP):]PORT[s]\n";
+        std::cout << "  WEBAPP-DRIRECTORY     Directory with webapp content\n";
         std::cout << "\n";
         std::cout << "Options:\n";
         std::cout << "   --async-calls       TRUE/FALSE   Set to false to disable asynchronous client calls. Default is enabled.\n";
@@ -1724,10 +1775,11 @@ int main(int argc, char *argv[]) {
         std::cout << "   --cfg                            Display current configuration and exit\n";
         std::cout << "   --enable-webapp     TRUE/FALSE   Set to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n";
         std::cout << "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to used the default gRPC value.\n";
-        std::cout << "   --grpc-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}-grpc.pem and {{NAME}}.pem in the current directory.\n";
+        std::cout << "   --grpc-ssl-certificate  FILE     Full path to a .pem file with the ssl certificate. Default is {{NAME}}-grpc.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "   --help                           Show this screen and exit\n";
         std::cout << "   --server-id         STRING       String to used as an idendifier for this server. If not set a random string will automatically be generated.\n";
         std::cout << "   --send-id           TRUE/FALSE   Set to 0 to disable sending the node id in replies. Enabled by default.\n";
+        std::cout << "   --ssl-certificate   FILE         Full path to a .pem file with the ssl certificates to be used by either gRPC or REST\n";
         std::cout << "   --trace-calls       TRUE/FALSE   Enable trace mode\n";
         std::cout << "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node calls\n";
         std::cout << "\n";
@@ -1776,7 +1828,11 @@ int main(int argc, char *argv[]) {
     struct stat buffer;   
     std::string ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
     if(ssl_certificate.empty()) {
-        if(stat("{{NAME}}-rest.pem", &buffer) == 0) {
+        ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "ssl_certificate"), "");
+        if(!ssl_certificate.empty()) {
+            cfg.push_back("rest_ssl_certificate");
+            cfg.push_back(ssl_certificate);
+        } else if(stat("{{NAME}}-rest.pem", &buffer) == 0) {
             cfg.push_back("rest_ssl_certificate");
             cfg.push_back("{{NAME}}-rest.pem");
         } else if(stat("{{NAME}}.pem", &buffer) == 0) {
@@ -1786,7 +1842,11 @@ int main(int argc, char *argv[]) {
     }
     ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
     if(ssl_certificate.empty()) {
-        if(stat("{{NAME}}-grpc.pem", &buffer) == 0) {
+        ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "ssl_certificate"), "");
+        if(!ssl_certificate.empty()) {
+            cfg.push_back("grpc_ssl_certificate");
+            cfg.push_back(ssl_certificate);
+        } else if(stat("{{NAME}}-grpc.pem", &buffer) == 0) {
             cfg.push_back("grpc_ssl_certificate");
             cfg.push_back("{{NAME}}-grpc.pem");
         } else if(stat("{{NAME}}.pem", &buffer) == 0) {
@@ -1794,7 +1854,18 @@ int main(int argc, char *argv[]) {
             cfg.push_back("{{NAME}}.pem");
         }
     }
-    if(flowc::strtostring(flowc::get_cfg(cfg, "rest_listening_ports"), "").find_first_of('s') != std::string::npos) {
+
+    std::set<std::string> rest_listening, grpc_listening;
+    flowc::parse_listening_port_list(rest_listening, flowc::strtostring(flowc::get_cfg(cfg, "rest_listening_ports"), ""));
+    flowc::parse_listening_port_list(grpc_listening, flowc::strtostring(flowc::get_cfg(cfg, "grpc_listening_ports"), ""));
+    bool rest_need_certificate = false, grpc_need_certificate = false;
+    for(auto const &s: rest_listening) if(!s.empty() && s.back() == 's') {
+        rest_need_certificate = true; break;
+    }
+    for(auto const &s: grpc_listening) if(!s.empty() && s.back() == 's') {
+        grpc_need_certificate = true; break;
+    }
+    if(rest_need_certificate) {
         ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
         if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
             std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
@@ -1804,7 +1875,7 @@ int main(int argc, char *argv[]) {
             ++error_count;
         }
     }
-    if(flowc::strtostring(flowc::get_cfg(cfg, "grpc_listening_ports"), "").find_first_of('s') != std::string::npos) {
+    if(grpc_need_certificate) {
         ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
         if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
             std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
@@ -1821,6 +1892,9 @@ int main(int argc, char *argv[]) {
     }
     if(error_count != 0) return 1;
     flowc::print_banner(std::cout);
+    signal(SIGTERM, flowc::signal_shutdown_handler);
+    signal(SIGINT, flowc::signal_shutdown_handler);
+    signal(SIGHUP, flowc::signal_shutdown_handler);
 
 {I:CLI_NODE_ID{    std::cout << flowc::ns_{{CLI_NODE_ID}} << "\n";
 }I}
@@ -1851,7 +1925,10 @@ int main(int argc, char *argv[]) {
 
     int grpc_threads = (int) flowc::strtolong(flowc::get_cfg(cfg, "grpc_num_threads"), -1);
 
-    int listening_port;
+    int *gateway_port = nullptr;
+    std::vector<std::pair<int, bool>> grpc_server_ports(grpc_listening.size()+1);
+    std::vector<std::string> server_address(grpc_listening.size()+1);
+
     grpc::ServerBuilder builder;
     if(grpc_threads > 0) {
         grpc::ResourceQuota grq("{{NAME_UPPERID}}");
@@ -1859,59 +1936,106 @@ int main(int argc, char *argv[]) {
         builder.SetResourceQuota(grq);
         std::cout << "max gRPC threads: " << grpc_threads << "\n";
     }
+/*
+std::string cacert = flowc::read_keycert("sever.pem", " CERTIFICATE-");
+grpc::SslCredentialsOptions ssl_opts;
+ssl_opts.pem_root_certs=cacert;
 
+auto ssl_creds = grpc::SslCredentials(ssl_opts);
+GreeterClient greeter(grpc::CreateChannel("localhost:50051", ssl_creds));
+*/
     {{NAME_ID}}_service service;
     {{NAME_ID}}_service_ptr = &service;
     bool enable_webapp = flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true);
+    unsigned ap = 0; 
+    for(auto const &a: grpc_listening) {
+        ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
+        std::string p(a.empty()? std::string("0"): a);
+        auto creds = grpc::InsecureServerCredentials();
+        if((grpc_server_ports[ap].second = (p.back() == 's'))) {
+            p.pop_back();
 
-    // Listen on the given address without any authentication mechanism.
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials(), &listening_port);
+            grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp;
+            pkcp.private_key = flowc::read_keycert(ssl_certificate, " RSA PRIVATE KEY-");
+            pkcp.cert_chain = flowc::read_keycert(ssl_certificate, " CERTIFICATE-");
+
+            grpc::SslServerCredentialsOptions ssl_opts;
+            ssl_opts.pem_root_certs = "";
+            ssl_opts.pem_key_cert_pairs.push_back(pkcp);
+            ssl_opts.force_client_auth = false;
+            ssl_opts.client_certificate_request = GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE;
+
+            creds = grpc::SslServerCredentials(ssl_opts);
+        }
+        server_address[ap] = p;
+        if(p.find_first_not_of("0123456789") == std::string::npos) {
+            if(gateway_port == nullptr && !grpc_server_ports[ap].second) 
+                gateway_port = &grpc_server_ports[ap].first;
+            server_address[ap] = ("[::]:") + p;
+        }
+        builder.AddListeningPort(server_address[ap], creds, &grpc_server_ports[ap].first);
+        ++ap;
+    }
+    if(gateway_port == nullptr && rest_listening.size() > 0) {
+        gateway_port = &grpc_server_ports[ap].first;
+        grpc_server_ports[ap].second = false;
+         server_address[ap] = "localhost:0";
+        builder.AddListeningPort(server_address[ap], grpc::InsecureServerCredentials(), &grpc_server_ports[ap].first);
+        ++ap;
+    }
 
     // Register services
     builder.RegisterService(&service);
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+    flowc::grpc_server = builder.BuildAndStart();
 
-    if(listening_port == 0) {
-        std::cout << "failed to start {{NAME}} gRPC service at " << server_address << "\n";
-        casd::stop_looking = true;
-        cares_thread.join();
-        ares_library_cleanup();
-        return 1;
-    }
-    std::cout << "server id: " << flowc::global_node_ID << "\n";
-    std::cout << "start time: " << flowc::global_start_time << "\n";
-    rest::gateway_endpoint = flowc::sfmt() << "localhost:" << listening_port;
-    std::cout << "gRPC service {{NAME}} listening on port: " << listening_port << "\n";
-
-    // Set up the REST gateway if enabled
-    char const *rest_port = flowc::get_cfg(cfg, "rest_listening_ports");
-    if(rest_port != nullptr) {
-        rest::app_directory = flowc::strtostring(flowc::get_cfg(cfg, "webapp_directory"), rest::app_directory);
-        if(flowc::get_cfg(cfg, "rest_num_threads") == nullptr) {
-            cfg.push_back("rest_num_threads"); 
-            cfg.push_back(std::to_string(DEFAULT_REST_THREADS));
-        }
-        if(rest::start_civetweb(cfg, !enable_webapp) != 0) {
-            std::cout << "Failed to start REST gateway service\n";
-            casd::stop_looking = true;
-            cares_thread.join();
-            ares_library_cleanup();
-            return 1;
+    for(unsigned a = 0; a < ap; ++a) {
+        if(grpc_server_ports[a].first == 0) {
+            std::cout << "failed to start {{NAME}} gRPC service at " << server_address[a] << "\n";
+            ++error_count;
+        } else {
+            std::cout << "gRPC service {{NAME}} (" << server_address[a] << ") listening on port " << grpc_server_ports[a].first;
+            if(grpc_server_ports[a].second) std::cout << " (tls enabled)";
+            std::cout << "\n";
         }
     }
-    std::cout 
-        << "call id: " << (flowc::send_global_ID ? "yes": "no") 
-        << ", trace: " << (flowc::trace_calls? "yes": "no")
-        << ", asynchronous client calls: " << (flowc::asynchronous_calls? "yes": "no") 
-        << "\n";
+    if(error_count == 0) {
+        std::cout << "server id: " << flowc::global_node_ID << "\n";
+        std::cout << "start time: " << flowc::global_start_time << "\n";
+        rest::gateway_endpoint = flowc::sfmt() << "localhost:" << *gateway_port;
 
-    std::cout << std::endl;
-    // Wait for the server to shutdown. Note that some other thread must be
-    // responsible for shutting down the server for this call to ever return.
-    server->Wait();
-
+        // Set up the REST gateway if enabled
+        char const *rest_port = flowc::get_cfg(cfg, "rest_listening_ports");
+        if(rest_port != nullptr) {
+            std::cout << "Starting REST gatweay for gRPC at " << rest::gateway_endpoint << "\n";
+            rest::app_directory = flowc::strtostring(flowc::get_cfg(cfg, "webapp_directory"), rest::app_directory);
+            if(flowc::get_cfg(cfg, "rest_num_threads") == nullptr) {
+                cfg.push_back("rest_num_threads"); 
+                cfg.push_back(std::to_string(DEFAULT_REST_THREADS));
+            }
+            if(rest::start_civetweb(cfg, !enable_webapp) != 0) {
+                std::cout << "Failed to start REST gateway service\n";
+                ++error_count;
+            }
+        }
+    }
+    if(error_count == 0) {
+        std::cout 
+            << "call id: " << (flowc::send_global_ID ? "yes": "no") 
+            << ", trace: " << (flowc::trace_calls? "yes": "no")
+            << ", asynchronous client calls: " << (flowc::asynchronous_calls? "yes": "no") 
+            << "\n";
+        std::cout << std::endl;
+        // Wait for the server to shutdown. This can only be stopped from the signal handler.
+        flowc::grpc_server->Wait();
+        std::cout << "gRPC server exited" << std::endl;
+        rest::stop_civetweb();
+    } else {
+        if(flowc::grpc_server)
+            flowc::grpc_server->Shutdown();
+    }
     casd::stop_looking = true;
     cares_thread.join();
     ares_library_cleanup();
-    return 0;
+    flowc::grpc_server = nullptr;
+    return error_count;
 }
