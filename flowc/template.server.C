@@ -264,19 +264,21 @@ struct node_cfg {
     std::set<std::string> dendpoints;
     std::set<std::string> dnames;
     std::string endpoint;
+    std::string cert_filename;
     int maxcc;
     long timeout;
     bool trace;
+    std::shared_ptr<grpc::ChannelCredentials> creds;
 
-    node_cfg(std::string const &a_id, int a_maxcc, long a_timeout, std::string const &a_endpoint):
-        id(a_id), maxcc(a_maxcc), timeout(a_timeout), endpoint(a_endpoint), trace(false) {
+    node_cfg(std::string const &a_id, int a_maxcc, long a_timeout, std::string const &a_endpoint, std::string const &cert_fn):
+        id(a_id), maxcc(a_maxcc), timeout(a_timeout), endpoint(a_endpoint), cert_filename(cert_fn), trace(false), creds(::grpc::InsecureChannelCredentials()) {
         }
 
     bool read_from_cfg(std::vector<std::string> const &cfg);
     bool check_option(std::string const &) const;
 };
 
-{I:CLI_NODE_UPPERID{node_cfg ns_{{CLI_NODE_ID}}("{{CLI_NODE_ID}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT:DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT}}");
+{I:CLI_NODE_UPPERID{node_cfg ns_{{CLI_NODE_ID}}("{{CLI_NODE_ID}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT:DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT}}", "{{CLI_NODE_CERTFN:}}");
 }I}
 
 {I:ENTRY_NAME{long entry_{{ENTRY_NAME}}_timeout = {{ENTRY_TIMEOUT:DEFAULT_ENTRY_TIMEOUT}};
@@ -735,7 +737,7 @@ public:
         int i = 0;
         for(auto const &aep: ns.fendpoints) for(int j = 0; j < maxcc; ++j) {
             FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << aep << "\n";
-            std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ::grpc::InsecureChannelCredentials()));
+            std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(aep, ns.creds));
             stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel), aep, std::string()));
             activity_index.emplace_back(i);
             ++i;
@@ -753,7 +755,7 @@ public:
                 std::string ipep(ipaddr.find_first_of(':') == std::string::npos?
                     sfmt() << ipaddr << aep.substr(pp):
                     sfmt() << "[" << ipaddr << "]" << aep.substr(pp));
-                std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(ipep, ::grpc::InsecureChannelCredentials()));
+                std::shared_ptr<::grpc::Channel> channel(::grpc::CreateChannel(ipep, ns.creds));
                 FLOGC(flowc::trace_connections) << "creating @" << label << " stub " << i << " -> " << aep << " (" << ipaddr << ")\n";
                 stubs.emplace_back(std::make_tuple(0, std::chrono::system_clock::now(), CSERVICE::NewStub(channel), aep, ipaddr));
                 activity_index.emplace_back(i);
@@ -1519,17 +1521,54 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 }
 
 namespace flowc {
+static bool read_keycert(std::string &kc, std::string const &fn, std::string const &substr) {
+    int tc = 0;
+    std::string line;
+    std::ifstream pemf(fn.c_str());
+    bool acc = false;
+    while(std::getline(pemf, line)) {
+        if(acc) {
+            kc += line;
+            kc += "\n";
+        }
+        if(line.find(substr) != std::string::npos) {
+            ++tc;
+            acc = !acc;
+            if(acc) {
+                kc += line;
+                kc += "\n";
+            }
+        }
+    }
+    return tc != 0 && tc % 2 == 0;
+}
 bool node_cfg::read_from_cfg(std::vector<std::string> const &cfg) {
     trace = strtobool(get_cfg(cfg, std::string("node_") + id + "_trace"), trace);
     maxcc = (int) strtolong(get_cfg(cfg, std::string("node_") + id + "_maxcc"), maxcc);
     timeout = strtolong(get_cfg(cfg, std::string("node_") + id + "_timeout"), timeout);
+    char const *cert_fn = get_cfg(cfg, std::string("node_") + id + "_certificate");
+    if(cert_fn != nullptr) cert_filename = cert_fn;
+    bool cert_ok = true;
+    if(!cert_filename.empty()) {
+        grpc::SslCredentialsOptions ssl_opts;
+        if(!read_keycert(ssl_opts.pem_root_certs, cert_filename, " CERTIFICATE-")) {
+            cert_ok = false;
+            std::cerr << "Failed to read certificate chain from " << cert_filename << " for node [" << id << "]\n";
+        } else {
+            creds = grpc::SslCredentials(ssl_opts);
+        }
+    }
+
     char const *ep = get_cfg(cfg, std::string("node_") + id + "_endpoint");
     if(ep != nullptr) endpoint = ep;
-    return !endpoint.empty() &&
+    bool ep_ok = !endpoint.empty() &&
         casd::parse_endpoint_list(dnames, dendpoints, fendpoints, endpoint);
+    if(!ep_ok) 
+        std::cout << "No endpoint found for node [" << id << "]\n";
+    return ep_ok && cert_ok;
 }
 bool node_cfg::check_option(std::string const &opt) const {
-    static std::set<std::string> valid_options = { "_trace", "_maxcc", "_timeout", "_endpoint" };
+    static std::set<std::string> valid_options = { "_trace", "_maxcc", "_timeout", "_endpoint", "_certificate" };
     for(auto const &suff: valid_options)
         if(opt == std::string("node_") + id + suff)
             return true;
@@ -1705,25 +1744,6 @@ static int parse_listening_port_list(std::set<std::string> &list, std::string co
     std::set<std::string> dnames, dendpoints;
     return casd::parse_endpoint_list(dnames, dendpoints, list, slist)? 0: 1;
 }
-static std::string read_keycert(std::string const &fn, std::string const &substr) {
-    std::string kc, line;
-    std::ifstream pemf(fn.c_str());
-    bool acc = false;
-    while(std::getline(pemf, line)) {
-        if(acc) {
-            kc += line;
-            kc += "\n";
-        }
-        if(line.find(substr) != std::string::npos) {
-            acc = !acc;
-            if(acc) {
-                kc += line;
-                kc += "\n";
-            }
-        }
-    }
-    return kc;
-}
 static void print_banner(std::ostream &out) {
     out 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
@@ -1765,8 +1785,10 @@ int main(int argc, char *argv[]) {
         flowc::print_banner(std::cout);
         std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
         std::cout << "\n";
-        std::cout << "  GRPC-LISTENING-PORTS  A space or comma separated list in in the form [(HOSTNAME|IPv6):]PORT[s]\n";
-        std::cout << "  REST-LISTENING-PORTS  A space or comma separated list in in the form [(HOSTNAME|IP):]PORT[s]\n";
+        std::cout << "  GRPC-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IPv6):]PORT[s].\n";
+        std::cout << "                        Append 's' for secure connections. Set port to 0 allocate a random port. IP must be in IPv6 format.\n";
+        std::cout << "  REST-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IP):]PORT[s|r]\n";
+        std::cout << "                        Append 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n";
         std::cout << "  WEBAPP-DRIRECTORY     Directory with webapp content\n";
         std::cout << "\n";
         std::cout << "Options:\n";
@@ -1788,10 +1810,12 @@ int main(int argc, char *argv[]) {
         std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "\n";
         std::cout << "Node Options:\n";
-{I:CLI_NODE_UPPERID{    std::cout << "    --node-{{CLI_NODE_ID}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_ID}}\n";
+{I:CLI_NODE_UPPERID{    
+        std::cout << "    --node-{{CLI_NODE_ID}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_ID}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+        std::cout << "    --node-{{CLI_NODE_ID}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_ID}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
         std::cout << "    --node-{{CLI_NODE_ID}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.maxcc << ".\n";
         std::cout << "    --node-{{CLI_NODE_ID}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.timeout << ".\n";
-        std::cout << "    --node-{{CLI_NODE_ID}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_ID}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+        std::cout << "    --node-{{CLI_NODE_ID}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_ID}}\n";
 }I}
         std::cout << "\n";
         std::cout << "Entry Options:\n";
@@ -1821,7 +1845,6 @@ int main(int argc, char *argv[]) {
             dnames.insert(flowc::ns_{{CLI_NODE_ID}}.dnames.begin(), flowc::ns_{{CLI_NODE_ID}}.dnames.end());
         } else {
             ++error_count;
-            std::cout << "No endpoint found for node [{{CLI_NODE_ID}}]\n";
         }
 }I}
     }
@@ -1936,14 +1959,6 @@ int main(int argc, char *argv[]) {
         builder.SetResourceQuota(grq);
         std::cout << "max gRPC threads: " << grpc_threads << "\n";
     }
-/*
-std::string cacert = flowc::read_keycert("sever.pem", " CERTIFICATE-");
-grpc::SslCredentialsOptions ssl_opts;
-ssl_opts.pem_root_certs=cacert;
-
-auto ssl_creds = grpc::SslCredentials(ssl_opts);
-GreeterClient greeter(grpc::CreateChannel("localhost:50051", ssl_creds));
-*/
     {{NAME_ID}}_service service;
     {{NAME_ID}}_service_ptr = &service;
     bool enable_webapp = flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true);
@@ -1956,8 +1971,14 @@ GreeterClient greeter(grpc::CreateChannel("localhost:50051", ssl_creds));
             p.pop_back();
 
             grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp;
-            pkcp.private_key = flowc::read_keycert(ssl_certificate, " RSA PRIVATE KEY-");
-            pkcp.cert_chain = flowc::read_keycert(ssl_certificate, " CERTIFICATE-");
+            if(!flowc::read_keycert(pkcp.private_key, ssl_certificate, " RSA PRIVATE KEY-")) {
+                std::cout << "Failed to read private key from: " << ssl_certificate << "\n";
+                ++error_count;
+            }
+            if(!flowc::read_keycert(pkcp.cert_chain, ssl_certificate, " CERTIFICATE-")) {
+                std::cout << "Failed to read certificate chain from: " << ssl_certificate << "\n";
+                ++error_count;
+            }
 
             grpc::SslServerCredentialsOptions ssl_opts;
             ssl_opts.pem_root_certs = "";
