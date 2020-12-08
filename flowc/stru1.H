@@ -2,13 +2,15 @@
 #define H_STRU1_H
 
 #include <iosfwd>
-#include <string>
+#include <algorithm>
 #include <cstring>
-#include <vector>
+#include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
-#include <algorithm>
+#include <string>
+#include <vector>
+
 #include <sys/stat.h>
 
 template <class A, class B> inline static 
@@ -166,6 +168,16 @@ std::string lstrip(int &column, std::string const &str, std::string const &strip
     return str.substr(b);
 }
 inline static
+std::string rstrip(int &column, std::string const &str, std::string const &strip_chars) {
+    auto b = str.find_last_not_of(strip_chars);
+    if(b == std::string::npos) {
+        column = int(str.length());
+        return str;
+    }
+    column = int(b);
+    return str.substr(0, b);
+}
+inline static
 int split(std::string *left, std::string *right, std::string const &str, std::string const &sep) {
     auto b = str.find_first_of(sep);
     if(b == std::string::npos) {
@@ -287,6 +299,68 @@ std::string c_escape(std::string const &s) {
         default: r+= c; break;
     }
     return r+"\"";
+}
+inline static 
+std::string json_escape(const std::string &s) {
+    std::ostringstream o;
+    o << '\"';
+    for (auto c = s.cbegin(); c != s.cend(); c++) {
+        switch (*c) {
+        case '"': o << "\\\""; break;
+        case '\\': o << "\\\\"; break;
+        case '\b': o << "\\b"; break;
+        case '\f': o << "\\f"; break;
+        case '\n': o << "\\n"; break;
+        case '\r': o << "\\r"; break;
+        case '\t': o << "\\t"; break;
+        default:
+            if ('\x00' <= *c && *c <= '\x1f') {
+                o << "\\u"
+                  << std::hex << std::setw(4) << std::setfill('0') << (int)*c;
+            } else {
+                o << *c;
+            }
+        }
+    }
+    o << '\"';
+    return o.str();
+}
+inline static
+std::ostream &to_json(std::ostream &out, std::string const *x) { return out << json_escape(*x); }
+inline static
+std::ostream &to_json(std::ostream &out, std::string const &x) { return out << json_escape(x); }
+inline static
+std::ostream &to_json(std::ostream &out, char const *x) { return out << json_escape(x); }
+template <class T> inline static 
+std::ostream &to_json(std::ostream &out, T x) { return out << x; }
+template <class E> 
+std::ostream &to_json(std::ostream &out, std::vector<E> const &v) { 
+    out << "[";
+    if(v.size() > 0) to_json(out, v[0]);
+    for(unsigned i = 1, e = v.size(); i < e; ++i) {
+        out << ","; to_json(out, v[i]);
+    }
+    out << "]";
+    return out;
+}
+template <class V> 
+std::ostream &to_json(std::ostream &out, std::map<std::string, V> const &v) { 
+    out << "{";
+    char const *sep = "";
+    for(auto const &p: v) {
+        out << sep; to_json(out, p.first); out << ":"; to_json(out, p.second); sep = ",";
+    }
+    out << "}";
+    return out;
+}
+inline static 
+std::string sh_escape(std::string const &s) {
+    std::string r("'");
+    for(auto c: s) switch (c) {
+        case '\'': r+= "'\\''"; break;
+        default: r+= c; break;
+    }
+    return r+"'";
 }
 inline static 
 std::string html_escape(std::string const &s) {
