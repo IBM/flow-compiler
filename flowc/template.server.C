@@ -255,7 +255,7 @@ static char const *get_cfg(std::vector<std::string> const &cfg, std::string cons
 }
 
 enum Nodes_Enum {
-    NO_NODE = 0 {I:CLI_NODE_UPPERID{, {{CLI_NODE_UPPERID}}}I}
+    NO_NODE = 0 {I:CLI_NODE_NAME{, {{CLI_NODE_NAME/id/upper}}}I}
 };
 
 struct node_cfg {
@@ -278,10 +278,10 @@ struct node_cfg {
     bool check_option(std::string const &) const;
 };
 
-{I:CLI_NODE_UPPERID{node_cfg ns_{{CLI_NODE_ID}}("{{CLI_NODE_ID}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT:DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT}}", "{{CLI_NODE_CERTFN:}}");
+{I:CLI_NODE_NAME{node_cfg ns_{{CLI_NODE_NAME/lower/id}}("{{CLI_NODE_NAME/lower/id}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT-DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT}}", "{{CLI_NODE_CERTFN-}}");
 }I}
 
-{I:ENTRY_NAME{long entry_{{ENTRY_NAME}}_timeout = {{ENTRY_TIMEOUT:DEFAULT_ENTRY_TIMEOUT}};
+{I:ENTRY_NAME{long entry_{{ENTRY_NAME}}_timeout = {{ENTRY_TIMEOUT-DEFAULT_ENTRY_TIMEOUT}};
 }I}
 
 std::string global_node_ID;
@@ -700,7 +700,7 @@ int get_latest_addresses(std::map<std::string, std::vector<std::string>> &addrs,
 
 }
 
-class {{NAME_ID}}_service *{{NAME_ID}}_service_ptr = nullptr;
+class {{NAME/id}}_service *{{NAME/id}}_service_ptr = nullptr;
 
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
@@ -859,10 +859,10 @@ public:
 // rest_check_{{ENTRY_NAME}}_before(int &http_code, std::string &http_message, std::string &json_body, char const *check_header, ::grpc::ClientContext &context, {{ENTRY_INPUT_TYPE}} *inp, std::string &xtra_headers);  
 // rest_check_{{ENTRY_NAME}}_after(int &http_code, std::string &http_message, std::string &json_body, char const *check_header, ::grpc::ClientContext &context, {{ENTRY_INPUT_TYPE}} *inp, ::grpc::Status const &status,  {{ENTRY_OUTPUT_TYPE}} *outp, std::string &xtra_headers);  
 //
-// to use, define REST_CHECK_{{ENTRY_UPPERID}}_BEFORE and/or REST_CHECK_{{ENTRY_UPPERID}}_AFTER with the name of function
+// to use, define REST_CHECK_{{ENTRY_NAME/id/upper}}_BEFORE and/or REST_CHECK_{{ENTRY_NAME/id/upper}}_AFTER with the name of function
 }I}
 
-class {{NAME_ID}}_service final: public {{CPP_SERVER_BASE}}::Service {
+class {{NAME/id}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
     bool Async_Flag = flowc::asynchronous_calls;
     // Global call counter used to generate an unique id for each call regardless of entry
@@ -882,85 +882,83 @@ public:
 {I:CLI_NODE_NAME{
     /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
      */
-#define SET_METADATA_{{CLI_NODE_ID}}(context) {{CLI_NODE_METADATA}}
+#define SET_METADATA_{{CLI_NODE_NAME/id}}(context) {{CLI_NODE_METADATA}}
 
-    std::mutex {{CLI_NODE_ID}}_conm; // mutex to guard {{CLI_NODE_ID}}_nversion and {CLI_NODE_ID}}_conp
-    int {{CLI_NODE_ID}}_nversion = 0;
-    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_conp;
+    std::mutex {{CLI_NODE_NAME/id}}_conm; // mutex to guard {{CLI_NODE_NAME/id}}_nversion and {{CLI_NODE_NAME/id}}_conp
+    int {{CLI_NODE_NAME/id}}_nversion = 0;
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_NAME/id}}_conp;
 
-    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_ID}}_get_connector() {
-        std::lock_guard<std::mutex> guard({{CLI_NODE_ID}}_conm);
-        if(flowc::ns_{{CLI_NODE_ID}}.dendpoints.size() == 0) {
-            return {{CLI_NODE_ID}}_conp;
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_NAME/id}}_get_connector() {
+        std::lock_guard<std::mutex> guard({{CLI_NODE_NAME/id}}_conm);
+        if(flowc::ns_{{CLI_NODE_NAME/id}}.dendpoints.size() == 0) {
+            return {{CLI_NODE_NAME/id}}_conp;
         }
-        std::map<std::string, std::vector<std::string>> addresses = {{CLI_NODE_ID}}_conp->addresses;
-        int ver = casd::get_latest_addresses(addresses, {{CLI_NODE_ID}}_nversion,  flowc::ns_{{CLI_NODE_ID}}.dnames);
-        if(ver == {{CLI_NODE_ID}}_nversion) 
-            return {{CLI_NODE_ID}}_conp;
-        {{CLI_NODE_ID}}_nversion = ver;
+        std::map<std::string, std::vector<std::string>> addresses = {{CLI_NODE_NAME/id}}_conp->addresses;
+        int ver = casd::get_latest_addresses(addresses, {{CLI_NODE_NAME/id}}_nversion,  flowc::ns_{{CLI_NODE_NAME/id}}.dnames);
+        if(ver == {{CLI_NODE_NAME/id}}_nversion) 
+            return {{CLI_NODE_NAME/id}}_conp;
+        {{CLI_NODE_NAME/id}}_nversion = ver;
 
-        FLOGC(flowc::trace_connections) << "new @{{CLI_NODE_NAME}} connector to " << flowc::ns_{{CLI_NODE_ID}}.fendpoints << " " << flowc::ns_{{CLI_NODE_ID}}.dendpoints << "\n"; 
-        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>({{CLI_NODE_ID}}_conp->active_calls, flowc::ns_{{CLI_NODE_ID}}, addresses);
-        {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
-        return {{CLI_NODE_ID}}_conp;
+        FLOGC(flowc::trace_connections) << "new @{{CLI_NODE_NAME}} connector to " << flowc::ns_{{CLI_NODE_NAME/id}}.fendpoints << " " << flowc::ns_{{CLI_NODE_NAME/id}}.dendpoints << "\n"; 
+        auto {{CLI_NODE_NAME/id}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>({{CLI_NODE_NAME/id}}_conp->active_calls, flowc::ns_{{CLI_NODE_NAME/id}}, addresses);
+        {{CLI_NODE_NAME/id}}_conp.reset({{CLI_NODE_NAME/id}}_cp);
+        return {{CLI_NODE_NAME/id}}_conp;
     }
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_ID}}_prep(int &ConN, flowc::call_info const &CIF, int CCid,
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<{{CLI_OUTPUT_TYPE}}>> {{CLI_NODE_NAME/id}}_prep(int &ConN, flowc::call_info const &CIF, int CCid,
             std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, ::grpc::CompletionQueue &CQ, ::grpc::ClientContext &CTX, {{CLI_INPUT_TYPE}} *A_inp) {
-        FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_ID}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
+        FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_NAME/id}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} prepare " << flowc::log_abridge(*A_inp) << "\n";
         if(flowc::send_global_ID) {
             CTX.AddMetadata("node-id", flowc::global_node_ID);
             CTX.AddMetadata("start-time", flowc::global_start_time);
         }
-        SET_METADATA_{{CLI_NODE_ID}}(CTX)
-        GRPC_SENDING("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
+        SET_METADATA_{{CLI_NODE_NAME/id}}(CTX)
+        GRPC_SENDING("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::{{CLI_NODE_NAME/id/upper}}, CTX, A_inp)
         auto const start_time = std::chrono::system_clock::now();
-        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::ns_{{CLI_NODE_ID}}.timeout);
+        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
         CTX.set_deadline(std::min(deadline, CIF.deadline));
         if(ConP->count() == 0) 
             return nullptr;
         return ConP->stub(ConN, CIF, CCid)->PrepareAsync{{CLI_METHOD_NAME}}(&CTX, *A_inp, &CQ);
     }
-    ::grpc::Status {{CLI_NODE_ID}}_call(flowc::call_info const &CIF, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp) {
+    ::grpc::Status {{CLI_NODE_NAME/id}}_call(flowc::call_info const &CIF, int CCid, std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> ConP, {{CLI_OUTPUT_TYPE}} *A_outp, {{CLI_INPUT_TYPE}} *A_inp) {
         ::grpc::ClientContext L_context;
         auto const start_time = std::chrono::system_clock::now();
-        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::ns_{{CLI_NODE_ID}}.timeout);
+        std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
         L_context.set_deadline(std::min(deadline, CIF.deadline));
         if(flowc::send_global_ID) {
             L_context.AddMetadata("node-id", flowc::global_node_ID);
             L_context.AddMetadata("start-time", flowc::global_start_time);
         }
-        SET_METADATA_{{CLI_NODE_ID}}(L_context)
-        GRPC_SENDING("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, CTX, A_inp)
+        SET_METADATA_{{CLI_NODE_NAME/id}}(L_context)
+        GRPC_SENDING("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::{{CLI_NODE_NAME/id/upper}}, CTX, A_inp)
         ::grpc::Status L_status;
         if(ConP->count() == 0) {
-            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "No addresses found for {{CLI_NODE_ID}}: " << flowc::ns_{{CLI_NODE_ID}}.endpoint << "\n");
+            L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "No addresses found for {{CLI_NODE_NAME/id}}: " << flowc::ns_{{CLI_NODE_NAME/id}}.endpoint << "\n");
         } else {
             int ConN = -1;
             L_status = ConP->stub(ConN, CIF, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
             ConP->finished(ConN, CIF, CCid, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
-            GRPC_RECEIVED("{{CLI_NODE_ID}}", CIF, CCid, flowc::{{CLI_NODE_UPPERID}}, L_status, L_context, A_outp)
+            GRPC_RECEIVED("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::{{CLI_NODE_NAME/id/upper}}, L_status, L_context, A_outp)
         }
-        FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_ID}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
+        FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_NAME/id}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
         if(!L_status.ok()) {
             GRPC_ERROR(CIF, CCid, "{{CLI_NODE_NAME}} ", L_status, L_context);
         } else {
-            FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_ID}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} reply: " << flowc::log_abridge(*A_outp) << "\n";
+            FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_NAME/id}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} reply: " << flowc::log_abridge(*A_outp) << "\n";
         }
         return L_status;
     }}I}
     // Constructor
-    {{NAME_ID}}_service() {
+    {{NAME/id}}_service() {
         Call_Counter = 1;
         Active_Calls = 0;
-        {I:CLI_NODE_ID{
-        {{CLI_NODE_ID}}_nversion = 0;
-        auto {{CLI_NODE_ID}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>(Active_Calls, flowc::ns_{{CLI_NODE_ID}}, std::map<std::string, std::vector<std::string>>());
-        {{CLI_NODE_ID}}_conp.reset({{CLI_NODE_ID}}_cp);
+        {I:CLI_NODE_NAME{
+        {{CLI_NODE_NAME/id}}_nversion = 0;
+        auto {{CLI_NODE_NAME/id}}_cp = new ::flowc::connector<{{CLI_SERVICE_NAME}}>(Active_Calls, flowc::ns_{{CLI_NODE_NAME/id}}, std::map<std::string, std::vector<std::string>>());
+        {{CLI_NODE_NAME/id}}_conp.reset({{CLI_NODE_NAME/id}}_cp);
         }I}
-        {I:ENTRY_CODE{
-}I}
     }
-{I:ENTRY_CODE{
+{I:ENTRY_NAME{
     // {{ENTRY_SERVICE_NAME}}::{{ENTRY_NAME}}(::grpc::ServerContext *, {{ENTRY_INPUT_TYPE}} const *, {{ENTRY_OUTPUT_TYPE}} *);
 {{ENTRY_CODE}}
     ::grpc::Status {{ENTRY_NAME}}(::grpc::ServerContext *context, {{ENTRY_INPUT_TYPE}} const *pinput, {{ENTRY_OUTPUT_TYPE}} *poutput) override {
@@ -991,11 +989,11 @@ std::string docs_directory("./docs");
 std::string www_directory("./www");
 
 std::map<std::string, char const *> schema_map = {
-{I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON_C}} },
-    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON_C}} },
+{I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
+    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
 }I}
-{I:ENTRY_NAME{   { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON_C}} }, 
-    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON_C}} }, 
+{I:ENTRY_NAME{   { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
+    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON/c}} }, 
 }I}
 };
 static int log_message(const struct mg_connection *conn, const char *message) {
@@ -1096,7 +1094,7 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
         }I}
         {I:CLI_NODE_NAME{
           <<   "\"/-node/{{CLI_NODE_NAME}}\": {"
-               "\"timeout\": " << flowc::ns_{{CLI_NODE_ID}}.timeout << ","
+               "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
                "\"input-schema\": " << schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "," 
                "\"output-schema\": " << schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "" 
                "},"
@@ -1251,14 +1249,14 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_conne
     if(!cif.id_str.empty())
         L_context.AddMetadata(GFH_CALL_ID, cif.id_str);
 
-#if defined(REST_CHECK_{{ENTRY_UPPERID}}_BEFORE) || defined(REST_CHECK_{{ENTRY_UPPERID}}_AFTER)
+#if defined(REST_CHECK_{{ENTRY_NAME/id/upper}}_BEFORE) || defined(REST_CHECK_{{ENTRY_NAME/id/upper}}_AFTER)
     char const *check_header = mg_get_header(A_conn, RFH_CHECK);
 #endif
     
-#ifdef REST_CHECK_{{ENTRY_UPPERID}}_BEFORE
+#ifdef REST_CHECK_{{ENTRY_NAME/id/upper}}_BEFORE
     {
         int http_code; std::string http_message, http_body; 
-        if(!REST_CHECK_{{ENTRY_UPPERID}}_BEFORE(http_code, http_message, http_body, check_header, L_context, &L_inp, xtra_headers)) {
+        if(!REST_CHECK_{{ENTRY_NAME/id/upper}}_BEFORE(http_code, http_message, http_body, check_header, L_context, &L_inp, xtra_headers)) {
             if(http_body.empty()) http_body = flowc::sfmt() << "{"
                 << "\"code\": " << http_code << ","
                 << "\"message\": " << flowc::json_string(http_message) << "}";
@@ -1301,10 +1299,10 @@ static int REST_{{ENTRY_NAME}}_call(flowc::call_info const &cif, struct mg_conne
         xtra_headers += std::string(mde.second.data(), mde.second.length());
         xtra_headers += "\r\n";
     }
-#ifdef REST_CHECK_{{ENTRY_UPPERID}}_AFTER
+#ifdef REST_CHECK_{{ENTRY_NAME/id/upper}}_AFTER
     {
         int http_code; std::string http_message, http_body; 
-        if(!REST_CHECK_{{ENTRY_UPPERID}}_AFTER(http_code, http_message, http_body, check_header, L_context, &L_inp, L_status, &L_outp, xtra_headers)) {
+        if(!REST_CHECK_{{ENTRY_NAME/id/upper}}_AFTER(http_code, http_message, http_body, check_header, L_context, &L_inp, L_status, &L_outp, xtra_headers)) {
             if(http_body.empty()) http_body = flowc::sfmt() << "{"
                 << "\"code\": " << http_code << ","
                 << "\"message\": " << flowc::json_string(http_message) << "}";
@@ -1335,8 +1333,8 @@ static int REST_{{ENTRY_NAME}}_handler(struct mg_connection *A_conn, void *A_cbd
 }
 }I}
 {I:CLI_NODE_NAME{
-static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &cif, struct mg_connection *A_conn, std::string const &A_inp_json) {
-    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> connector = {{NAME_ID}}_service_ptr->{{CLI_NODE_ID}}_get_connector();
+static int REST_node_{{CLI_NODE_NAME/id}}_call(flowc::call_info const &cif, struct mg_connection *A_conn, std::string const &A_inp_json) {
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> connector = {{NAME/id}}_service_ptr->{{CLI_NODE_NAME/id}}_get_connector();
 
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
@@ -1348,7 +1346,7 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &cif, struct mg
 
     ::grpc::ClientContext L_context;
     if(cif.have_deadline) L_context.set_deadline(cif.deadline);
-    SET_METADATA_{{CLI_NODE_ID}}(L_context)
+    SET_METADATA_{{CLI_NODE_NAME/id}}(L_context)
 
     int connection_n = -1;
     //::grpc::Status L_status = connector->stub(connection_n, cif, -1)->{{CLI_METHOD_NAME}}(&L_context, L_inp, &L_outp);
@@ -1393,8 +1391,8 @@ static int REST_node_{{CLI_NODE_ID}}_call(flowc::call_info const &cif, struct mg
     }
     return cif.return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
-static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
-    flowc::call_info cif("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, flowc::ns_{{CLI_NODE_ID}}.timeout);
+static int REST_node_{{CLI_NODE_NAME/id}}_handler(struct mg_connection *A_conn, void *A_cbdata) {
+    flowc::call_info cif("node-{{CLI_NODE_NAME}}", call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
     std::string input_json;
     int rc = rest::get_form_data(A_conn, input_json);
 
@@ -1406,7 +1404,7 @@ static int REST_node_{{CLI_NODE_ID}}_handler(struct mg_connection *A_conn, void 
     else if(rc <= 0) 
         rc = rest::bad_request_error(A_conn);
     else 
-        rc = REST_node_{{CLI_NODE_ID}}_call(cif, A_conn, input_json);
+        rc = REST_node_{{CLI_NODE_NAME/id}}_call(cif, A_conn, input_json);
     FLOG << cif << "REST-node-return: " << rc << "\n";
     return rc;
 }
@@ -1431,7 +1429,7 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 {I:ENTRY_NAME{    request_timeout_ms = std::max(flowc::entry_{{ENTRY_NAME}}_timeout, request_timeout_ms);
 }I}
     if(!rest_only) {
-{I:CLI_NODE_NAME{        request_timeout_ms = std::max(request_timeout_ms, flowc::ns_{{CLI_NODE_ID}}.timeout);
+{I:CLI_NODE_NAME{        request_timeout_ms = std::max(request_timeout_ms, flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
 }I}
     }
     if(flowc::get_cfg(cfg, "rest_request_timeout_ms") == nullptr) {
@@ -1480,7 +1478,7 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 	    mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-info", get_info, 0);
-{I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", REST_node_{{CLI_NODE_ID}}_handler, (void *) "/-node/{{CLI_NODE_NAME}}");
+{I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", REST_node_{{CLI_NODE_NAME/id}}_handler, (void *) "/-node/{{CLI_NODE_NAME}}");
 }I}
 	    mg_set_request_handler(ctx, "/-docs", file_handler, (void *) &docs_directory);
 	    mg_set_request_handler(ctx, "/-app", file_handler, (void *) &app_directory);
@@ -1576,7 +1574,7 @@ bool node_cfg::check_option(std::string const &opt) const {
 }
 static bool check_node_option(std::string const &opt) {
     return false 
-{I:CLI_NODE_UPPERID{    || ns_{{CLI_NODE_ID}}.check_option(opt)
+{I:CLI_NODE_NAME{    || ns_{{CLI_NODE_NAME/lower/id}}.check_option(opt)
 }I}
     ;    
 }
@@ -1781,7 +1779,7 @@ static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const
 int main(int argc, char *argv[]) {
     std::vector<std::string> cfg;
     int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
-    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME_UPPERID}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg)) == 1 || cmd == 2) {
+    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg)) == 1 || cmd == 2) {
         flowc::print_banner(std::cout);
         std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
         std::cout << "\n";
@@ -1810,20 +1808,20 @@ int main(int argc, char *argv[]) {
         std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "\n";
         std::cout << "Node Options:\n";
-{I:CLI_NODE_UPPERID{    
-        std::cout << "    --node-{{CLI_NODE_ID}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_ID}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
-        std::cout << "    --node-{{CLI_NODE_ID}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_ID}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
-        std::cout << "    --node-{{CLI_NODE_ID}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.maxcc << ".\n";
-        std::cout << "    --node-{{CLI_NODE_ID}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_ID}}. Default is " << flowc::ns_{{CLI_NODE_ID}}.timeout << ".\n";
-        std::cout << "    --node-{{CLI_NODE_ID}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_ID}}\n";
+{I:CLI_NODE_NAME{    
+        std::cout << "    --node-{{CLI_NODE_NAME/lower/id}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+        std::cout << "    --node-{{CLI_NODE_NAME/lower/id}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
+        std::cout << "    --node-{{CLI_NODE_NAME/lower/id}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_NAME/lower/id}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << ".\n";
+        std::cout << "    --node-{{CLI_NODE_NAME/lower/id}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_NAME/id/lower}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << ".\n";
+        std::cout << "    --node-{{CLI_NODE_NAME/lower/id}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_NAME/id/lower}}\n";
 }I}
         std::cout << "\n";
         std::cout << "Entry Options:\n";
-{I:ENTRY_NAME{    std::cout << "    --entry-{{ENTRY_NAME}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Defaults is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n";
+{I:ENTRY_NAME{    std::cout << "    --entry-{{ENTRY_NAME/option}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Defaults is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n";
 }I}
         std::cout << "\n";
         std::cout << "All options can be set in the file {{NAME}}.cfg.\n";
-        std::cout << "Additionally options can be set in environment variables prefixed with '{{NAME_UPPERID}}_'.\n";
+        std::cout << "Additionally options can be set in environment variables prefixed with '{{NAME/id/upper}}_'.\n";
         std::cout << "\n";
         std::cout << "Note *\n";
         std::cout << "Entrypoints in the form HOST:PORT will be sent directly to the gRPC interface.\n";
@@ -1840,9 +1838,9 @@ int main(int argc, char *argv[]) {
     int error_count = 0;
     std::set<std::string> dnames;
     {   
-{I:CLI_NODE_ID{
-        if(flowc::ns_{{CLI_NODE_ID}}.read_from_cfg(cfg)) {
-            dnames.insert(flowc::ns_{{CLI_NODE_ID}}.dnames.begin(), flowc::ns_{{CLI_NODE_ID}}.dnames.end());
+{I:CLI_NODE_NAME{
+        if(flowc::ns_{{CLI_NODE_NAME/id}}.read_from_cfg(cfg)) {
+            dnames.insert(flowc::ns_{{CLI_NODE_NAME/id}}.dnames.begin(), flowc::ns_{{CLI_NODE_NAME/id}}.dnames.end());
         } else {
             ++error_count;
         }
@@ -1919,7 +1917,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, flowc::signal_shutdown_handler);
     signal(SIGHUP, flowc::signal_shutdown_handler);
 
-{I:CLI_NODE_ID{    std::cout << flowc::ns_{{CLI_NODE_ID}} << "\n";
+{I:CLI_NODE_NAME{    std::cout << flowc::ns_{{CLI_NODE_NAME/id}} << "\n";
 }I}
 {I:ENTRY_NAME{    flowc::entry_{{ENTRY_NAME}}_timeout = flowc::strtolong(flowc::get_cfg(cfg, "entry_{{ENTRY_NAME}}_timeout"), flowc::entry_{{ENTRY_NAME}}_timeout);
     std::cout << "rpc [{{ENTRY_NAME}}] timeout " << flowc::entry_{{ENTRY_NAME}}_timeout << "\n";
@@ -1954,13 +1952,13 @@ int main(int argc, char *argv[]) {
 
     grpc::ServerBuilder builder;
     if(grpc_threads > 0) {
-        grpc::ResourceQuota grq("{{NAME_UPPERID}}");
+        grpc::ResourceQuota grq("{{NAME/id/upper}}");
         grq.SetMaxThreads(grpc_threads);
         builder.SetResourceQuota(grq);
         std::cout << "max gRPC threads: " << grpc_threads << "\n";
     }
-    {{NAME_ID}}_service service;
-    {{NAME_ID}}_service_ptr = &service;
+    {{NAME/id}}_service service;
+    {{NAME/id}}_service_ptr = &service;
     bool enable_webapp = flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true);
     unsigned ap = 0; 
     for(auto const &a: grpc_listening) {

@@ -96,22 +96,22 @@ static bool parse_command_line(int &argc, char **&argv) {
 }
 
 enum rpc_method_id {
-{I:METHOD_FULL_UPPERID{    {{METHOD_FULL_UPPERID}},
+{I:METHOD_FULL_NAME{    {{METHOD_FULL_NAME/id/upper}},
 }I}
     NONE
 };
 static std::map<std::string, rpc_method_id> rpc_methods = {
-{I:METHOD_FULL_UPPERID{    {"{{METHOD_FULL_NAME}}", {{METHOD_FULL_UPPERID}}},
+{I:METHOD_FULL_NAME{    {"{{METHOD_FULL_NAME}}", {{METHOD_FULL_NAME/id/upper}}},
 }I}
 };
-{I:METHOD_FULL_ID{
-static std::string input_schema_{{METHOD_FULL_ID}} = {{SERVICE_INPUT_SCHEMA_JSON_C}};
-static std::string output_schema_{{METHOD_FULL_ID}} = {{SERVICE_OUTPUT_SCHEMA_JSON_C}};
+{I:METHOD_FULL_NAME{
+static std::string input_schema_{{METHOD_FULL_NAME/id}} = {{SERVICE_INPUT_SCHEMA_JSON/c}};
+static std::string output_schema_{{METHOD_FULL_NAME/id}} = {{SERVICE_OUTPUT_SCHEMA_JSON/c}};
 }I}
 
-{I:METHOD_FULL_UPPERID{/****** {{METHOD_FULL_NAME}}
+{I:METHOD_FULL_NAME{/****** {{METHOD_FULL_NAME}}
  */
-static int file_{{METHOD_FULL_ID}}(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::unique_ptr<{{SERVICE_NAME}}::Stub> const &stub) {
+static int file_{{METHOD_FULL_NAME/id}}(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::unique_ptr<{{SERVICE_NAME}}::Stub> const &stub) {
     grpc::CompletionQueue cq;
 /*
     std::vector<{{SERVICE_INPUT_TYPE}}> inputs(concurrent_calls);
@@ -260,8 +260,8 @@ int main(int argc, char *argv[]) {
         return 1;
     if(!show_input.empty()) {
         switch(mid) {
-{I:METHOD_FULL_UPPERID{        case {{METHOD_FULL_UPPERID}}: 
-                std::cout << input_schema_{{METHOD_FULL_ID}};
+{I:METHOD_FULL_NAME{        case {{METHOD_FULL_NAME/id/upper}}: 
+                std::cout << input_schema_{{METHOD_FULL_NAME/id}};
                 break;
 }I}
             case NONE:
@@ -271,8 +271,8 @@ int main(int argc, char *argv[]) {
     }
     if(!show_output.empty()) {
         switch(mid) {
-{I:METHOD_FULL_UPPERID{        case {{METHOD_FULL_UPPERID}}: 
-                std::cout << output_schema_{{METHOD_FULL_ID}};
+{I:METHOD_FULL_NAME{        case {{METHOD_FULL_NAME/id/upper}}: 
+                std::cout << output_schema_{{METHOD_FULL_NAME/id}};
                 break;
 }I}
             case NONE:
@@ -303,10 +303,10 @@ int main(int argc, char *argv[]) {
     }
     int rc = 1;
     switch(mid) {
-{I:METHOD_FULL_UPPERID{        case {{METHOD_FULL_UPPERID}}: {
+{I:METHOD_FULL_NAME{        case {{METHOD_FULL_NAME/id/upper}}: {
             std::cerr << "method: {{METHOD_FULL_NAME}}\n";
             std::unique_ptr<{{SERVICE_NAME}}::Stub> client_stub({{SERVICE_NAME}}::NewStub(channel));
-            rc = file_{{METHOD_FULL_ID}}(concurrent_calls, input_label, *in, client_stub);
+            rc = file_{{METHOD_FULL_NAME/id}}(concurrent_calls, input_label, *in, client_stub);
         } break;
 }I}
         case NONE:

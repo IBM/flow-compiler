@@ -6,7 +6,7 @@
         Generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <meta charset="utf-8">
-    <title>{{NAME_UPPER}} [REST Gateway]</title>
+    <title>{{NAME/upper}} [REST Gateway]</title>
 
     <!-- Mobile Specific Metas
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -58,10 +58,10 @@
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-header-id" class="pr-header">
         <nav class="navbar navbar-expand-sm">
-            <div class="navbar-nav mr-auto"><h3>{{NAME_UPPER}}{A:ACTIVE_NODE_UPPER{ - {{ACTIVE_NODE_UPPER}}}A}</h3></div>  
+            <div class="navbar-nav mr-auto"><h3>{{NAME/upper}}{A:HAVE_ACTIVE_NODE{ - {{MAIN_ENTRY_NAME/upper}}}A}</h3></div>  
             <div class="navbar-expand ml-auto">
                 <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
-{A:ACTIVE_NODE_UPPER{{{HAVE_ACTIVE_NODE}}
+{A:-HAVE_ACTIVE_NODE{
                     <li class="nav-item" id="home-menu">
                         <a id="pr-home-link" class="nav-link" href="/-www/index.html">{{NAME}}</a>
                     </li>
@@ -118,14 +118,14 @@
             <div id="pr-form-submit" class="m-4 pr-stick-on">
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="{{MAIN_ENTRY_NAME}}-submit" 
-                    style="width: 200px; border-radius: 20px;">{{MAIN_ENTRY_LABEL}}</button>
-                    <span class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION_HTML}}</span>
+                    style="width: 200px; border-radius: 20px;">{{MAIN_ENTRY_NAME/decamelize}}</button>
+                    <span class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION/html}}</span>
                 </div>
 {I:ALT_ENTRY_NAME{              
                 <div class="form-group pr-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
-                    style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_LABEL}}</button>
-                    <span class="pr-button-text">{{ALT_ENTRY_DESCRIPTION_HTML}}</span>
+                    style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_NAME/decamelize}}</button>
+                    <span class="pr-button-text">{{ALT_ENTRY_DESCRIPTION/html}}</span>
                 </div>
 }I}
                 <div class="form-group pr-button pr-debug-button pr-stick-right">
