@@ -9,10 +9,9 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
-#include "varsub.H"
+#include "vex.H"
 #include "grpc-helpers.H"
 
-using namespace varsub;
 using namespace stru1;
 
 int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types) {
@@ -110,8 +109,11 @@ int flow_compiler::genc_kube(std::ostream &out) {
         }
         //std::cerr << "*** " << nn << "/" << ni.group << " ****** envvars: \n" << join(env_vars, "\n") << "\n";
 
-        for(auto const &nv: ni.environment)  
-            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << c_escape(render_varsub(nv.second, env_vars)) << "}");
+        for(auto const &nv: ni.environment) {
+            std::ostringstream os;
+            vex::expand(os, nv.second, vex::make_smap(env_vars));
+            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << c_escape(os.str()) << "}");
+        }
         
         append(group_vars[ni.group], "G_NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
 
@@ -201,7 +203,9 @@ int flow_compiler::genc_kube(std::ostream &out) {
     std::cerr << "********* local: \n" << join(group_vars[""], "\n") << "\n";
     std::cerr << "****************************************\n";
 #endif
-    render_varsub(out, template_kubernetes_yaml, global_vars, group_vars[""]);
+    auto global_smap = vex::make_smap(global_vars);
+    auto gg_smap = vex::make_smap(group_vars[""]);
+    vex::expand(out, template_kubernetes_yaml, vex::mapgl(global_smap, gg_smap));
     for(auto const &g: groups) if(!g.empty()) {
 #if 0
     std::cerr << "**************** kube ******************\n";
@@ -210,7 +214,8 @@ int flow_compiler::genc_kube(std::ostream &out) {
     std::cerr << "********* local: \n" << join(group_vars[g], "\n") << "\n";
     std::cerr << "****************************************\n";
 #endif
-        render_varsub(out, template_kubernetes_group_yaml, global_vars, group_vars[g]);
+        auto gg_smap = vex::make_smap(group_vars[g]);
+        vex::expand(out, template_kubernetes_group_yaml, vex::mapgl(global_smap, gg_smap));
     }
 
     return 0;
@@ -269,7 +274,9 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
                 append(local_vars, "GLOBAL_TEMP_VARS", sfmt() << "flow_local_TMP" << tmp_count << "=\"$(cat " << file_ref << ")\"");
                 env.push_back(c_escape(sfmt() << nv.first << "=" << "$flow_local_TMP" << tmp_count));
             } else {
-                env.push_back(c_escape(sfmt() << nv.first << "=" << render_varsub(nv.second, env_vars)));
+                std::ostringstream os;
+                vex::expand(os, nv.second, vex::make_smap(env_vars));
+                env.push_back(c_escape(sfmt() << nv.first << "=" << os.str()));
             }
         }
 
@@ -339,7 +346,9 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
     std::cerr << "****************************************\n";
 #endif
     extern char const *template_docker_compose_yaml;
-    render_varsub(out, template_docker_compose_yaml, global_vars, local_vars);
+    auto local_smap = vex::make_smap(local_vars);
+    auto global_smap = vex::make_smap(global_vars);
+    vex::expand(out, template_docker_compose_yaml, vex::mapgl(global_smap, local_smap));
     return error_count;
 }
 int flow_compiler::genc_composer_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars) {
@@ -354,7 +363,9 @@ int flow_compiler::genc_composer_driver(std::ostream &outs, std::map<std::string
     std::cerr << "****************************************\n";
 #endif
 
-    render_varsub(outs, template_docker_compose_sh, global_vars, local_vars);
+    auto local_smap = vex::make_smap(local_vars);
+    auto global_smap = vex::make_smap(global_vars);
+    vex::expand(outs, template_docker_compose_sh, vex::mapgl(global_smap, local_smap));
     return error_count;
 }
 int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kubernetes_yaml) {
@@ -402,6 +413,8 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
 
     set(local_vars, "KUBERNETES_YAML", kubernetes_yaml);
 
-    render_varsub(outs, template_kubernetes_sh, global_vars, local_vars);
+    auto local_smap = vex::make_smap(local_vars);
+    auto global_smap = vex::make_smap(global_vars);
+    vex::expand(outs, template_kubernetes_sh, vex::mapgl(global_smap, local_smap));
     return error_count;
 }

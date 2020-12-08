@@ -9,10 +9,9 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
-#include "varsub.H"
 #include "grpc-helpers.H"
+#include "vex.H"
 
-using namespace varsub;
 using namespace stru1;
 #define DEBUG_CG 0
 #define OUT indenter
@@ -1446,51 +1445,36 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
-        append(vars, "ENTRY_UPPERID", to_upper(mdp->name()));
-        append(vars, "ENTRY_LABEL", decamelize(mdp->name()));
         append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
         append(vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
         append(vars, "ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
         append(vars, "ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
         append(vars, "ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-        append(vars, "ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
-        append(vars, "ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
         append(vars, "ENTRY_DESCRIPTION", description(entry_node));
-        append(vars, "ENTRY_DESCRIPTION_HTML", html_escape(description(entry_node)));
         if(entry_count == 1) {
             append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "MAIN_ENTRY_NAME", mdp->name());
-            append(vars, "MAIN_ENTRY_UPPERID", to_upper(mdp->name()));
-            append(vars, "MAIN_ENTRY_LABEL", decamelize(mdp->name()));
             append(vars, "MAIN_ENTRY_URL", sfmt() << "/" << mdp->name());
             append(vars, "MAIN_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
             append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
             append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
             append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
             append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-            append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
             append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
-            append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
             append(vars, "MAIN_ENTRY_DESCRIPTION", description(entry_node));
-            append(vars, "MAIN_ENTRY_DESCRIPTION_HTML", html_escape(description(entry_node)));
         } else {
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "ALT_ENTRY_NAME", mdp->name());
-            append(vars, "ALT_ENTRY_UPPERID", to_upper(mdp->name()));
-            append(vars, "ALT_ENTRY_LABEL", decamelize(mdp->name()));
             append(vars, "ALT_ENTRY_URL", sfmt() << "/" << mdp->name());
             append(vars, "ALT_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
             append(vars, "ALT_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
             append(vars, "ALT_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
             append(vars, "ALT_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
             append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-            append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
             append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
-            append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
             append(vars, "ALT_ENTRY_DESCRIPTION", description(entry_node));
-            append(vars, "ALT_ENTRY_DESCRIPTION_HTML", html_escape(description(entry_node)));
         }
     }
     if(entry_count > 1)
@@ -1506,22 +1490,16 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     clear(global_vars, "ALT_ENTRY_NAME");
 
     append(vars, "HAVE_ACTIVE_NODE", "");
-    append(vars, "ACTIVE_NODE_UPPER", to_upper(node_name));
     append(vars, "MAIN_ENTRY_DESCRIPTION", description(cli_node));
-    append(vars, "MAIN_ENTRY_DESCRIPTION_HTML", html_escape(description(cli_node)));
     append(vars, "MAIN_ENTRY_NAME", node_name);
     append(vars, "MAIN_ENTRY_URL", sfmt() << "/-node/" << node_name);
-    append(vars, "MAIN_ENTRY_ID", to_lower(to_identifier(node_name)));
-    append(vars, "MAIN_ENTRY_UPPERID", to_upper(to_identifier(node_name)));
     auto mdp = method_descriptor(cli_node);
     append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
     append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
     std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, true);
     std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node), true, true);
     append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-    append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
     append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
-    append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
     append(vars, "MAIN_ENTRY_METHOD_NAME", mdp->name());
     append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
     return error_count;
@@ -1546,11 +1524,8 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_NODE_METADATA", set_metadata);
         append(vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
         append(vars, "CLI_NODE_DESCRIPTION", description(cli_node));
-        append(vars, "CLI_NODE_DESCRIPTION_HTML", html_escape(description(cli_node)));
         append(vars, "CLI_NODE_NAME", node_name);
         append(vars, "CLI_NODE_URL", sfmt() << "/-node/" << node_name);
-        append(vars, "CLI_NODE_ID", to_lower(to_identifier(node_name)));
-        append(vars, "CLI_NODE_UPPERID", to_upper(to_identifier(node_name)));
         auto mdp = method_descriptor(cli_node);
         append(vars, "CLI_SERVICE_NAME", get_full_name(mdp->service()));
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
@@ -1559,9 +1534,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, false);
         std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node), true, false);
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
-        append(vars, "CLI_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
-        append(vars, "CLI_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
         append(vars, "CLI_METHOD_NAME", mdp->name());
         append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
         append(vars, "CLI_NODE_GROUP", rn.second.group);
@@ -1601,9 +1574,15 @@ int flow_compiler::gc_server(std::ostream &out) {
     std::cerr << join(local_vars, "\n") << "\n";
     std::cerr << "*****************************************************\n";
 #endif
+    std::ofstream jg("server-global.json");
+    stru1::to_json(jg, global_vars);
+    std::ofstream jl("server-local.json");
+    stru1::to_json(jl, local_vars);
     extern char const *template_server_C;
-    render_varsub(out, template_server_C, global_vars, local_vars);
+    auto mgv = vex::make_smap(global_vars);
+    auto mlv = vex::make_smap(local_vars);
 
+    vex::expand(out, template_server_C, vex::mapgl(mgv, mlv));
     return error_count;
 }
 int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const {

@@ -9,10 +9,9 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
-#include "varsub.H"
+#include "vex.H"
 #include "grpc-helpers.H"
 
-using namespace varsub;
 using namespace stru1;
 
 int flow_compiler::find_in_blck(int block_node, std::string const &name, int *pos) const {
@@ -80,22 +79,16 @@ int flow_compiler::genc_client(std::ostream &out) {
         append(local_vars, "METHOD_NAME", mdp->name());
         std::string full_name(get_name(mdp->service()) + "." + mdp->name());
         append(local_vars, "METHOD_FULL_NAME", full_name);
-        append(local_vars, "METHOD_FULL_UPPERID", to_upper(to_identifier(full_name)));
-        append(local_vars, "METHOD_FULL_ID", to_identifier(full_name));
         append(local_vars, "SERVICE_NAME", get_full_name(mdp->service()));
         append(local_vars, "GRPC_SERVICE_NAME", mdp->service()->name());
         append(local_vars, "SERVICE_INPUT_TYPE", get_full_name(mdp->input_type()));
         append(local_vars, "SERVICE_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-        append(local_vars, "SERVICE_INPUT_ID", to_identifier(get_full_name(mdp->input_type())));
-        append(local_vars, "SERVICE_OUTPUT_ID", to_identifier(get_full_name(mdp->output_type())));
 
         std::string output_schema = json_schema(mdp->output_type(), mdp->output_type()->full_name(), "", true, false);
         std::string input_schema = json_schema(mdp->input_type(),  mdp->input_type()->full_name(), "", true, false);
 
         append(local_vars, "SERVICE_OUTPUT_SCHEMA_JSON", output_schema);
-        append(local_vars, "SERVICE_OUTPUT_SCHEMA_JSON_C", c_escape(output_schema));
         append(local_vars, "SERVICE_INPUT_SCHEMA_JSON", input_schema);
-        append(local_vars, "SERVICE_INPUT_SCHEMA_JSON_C", c_escape(input_schema));
     }
     if(methods.size() < 1) {
         pcerr.AddError(main_file, -1, 0, "no service entry or node found, cannot generate client");
@@ -109,6 +102,8 @@ int flow_compiler::genc_client(std::ostream &out) {
     std::cerr << "*****************************************************\n";
 #endif
     extern char const *template_client_C;
-    render_varsub(out, template_client_C, global_vars, local_vars);
+    auto global_smap = vex::make_smap(global_vars);
+    auto local_smap = vex::make_smap(local_vars);
+    vex::expand(out, template_client_C, vex::mapgl(global_smap, local_smap));
     return error_count;
 }

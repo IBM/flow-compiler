@@ -16,7 +16,7 @@
 #include "flow-compiler.H"
 #include "helpo.H"
 #include "stru1.H"
-#include "varsub.H"
+#include "vex.H"
 #include "grpc-helpers.H"
 
 #include <stdio.h>
@@ -148,7 +148,6 @@ int write_file(std::string const &fn, std::string const &source_fn, char const *
     return outf.write(default_content, strlen(default_content))? 0: 1;
 }
 
-using namespace varsub;
 
 char const *get_version();
 char const *get_build_id();
@@ -216,6 +215,7 @@ int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int par
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
     main_name = orchestrator_name;
+    auto global_smap = vex::make_smap(global_vars);
     set(global_vars, "INPUT_FILE", input_filename);
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid
@@ -365,7 +365,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         return ++error_count;
     }
     set(global_vars, "BASE_IMAGE", runtime);
-    set(global_vars, "BASE_IMAGE_UPPERID", to_upper(to_identifier(runtime)));
 
     if(base_port == rest_port) {
         ++error_count;
@@ -831,7 +830,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             pcerr.AddError(orchestrator_makefile, -1, 0, "failed to write make file");
         } else {
             extern char const *template_Makefile;
-            render_varsub(makf, template_Makefile, global_vars);
+            vex::expand(makf, template_Makefile, global_smap);
         }
 
         // Create a link to this makefile if Makefile isn't in the way
@@ -854,9 +853,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         } else {
             extern std::map<std::string, char const *> template_runtime_Dockerfile;
             char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
-            render_varsub(outf, c_template_runtime_Dockerfile, global_vars);
+            vex::expand(outf, c_template_runtime_Dockerfile, global_smap);
             extern char const *template_Dockerfile;
-            render_varsub(outf, template_Dockerfile, global_vars);
+            vex::expand(outf, template_Dockerfile, global_smap);
         }
         std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
         std::ofstream outf2(fn2.c_str());
@@ -865,7 +864,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             pcerr.AddError(fn2, -1, 0, "failed to write slim dockerfile");
         } else {
             extern char const *template_slim_Dockerfile;
-            render_varsub(outf2, template_slim_Dockerfile, global_vars);
+            vex::expand(outf2, template_slim_Dockerfile, global_smap);
         }
     }
     //std::cerr << "----- before build image: " << error_count << "\n";
@@ -894,6 +893,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     //std::cerr << "----- before compose: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "docker-compose")) {
         std::map<std::string, std::vector<std::string>> local_vars;
+        auto local_smap = vex::make_smap(local_vars);
         std::ostringstream buff;
         error_count += genc_composer(buff, local_vars);
         set(local_vars, "DOCKER_COMPOSE_YAML",  buff.str());
@@ -901,7 +901,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(local_vars, "RR_KEYS_SH", rr_keys_sh);
         extern char const *rr_get_sh;
         buff.str("");
-        render_varsub(buff, rr_get_sh, local_vars);
+        vex::expand(buff, rr_get_sh, local_smap);
         set(local_vars, "RR_GET_SH",  buff.str());
 
         std::string outputfn = output_filename(orchestrator_name + "-dcs.sh");
@@ -965,7 +965,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             pcerr.AddError(outputfn, -1, 0, "failed to write index.html");
         } else {
             extern char const *template_index_html;
-            render_varsub(outf, template_index_html, global_vars);
+            vex::expand(outf, template_index_html, global_smap);
         }
         for(auto &rn: referenced_nodes) {
             auto cli_node = rn.first;
@@ -981,8 +981,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 ++error_count;
                 pcerr.AddError(outputfn, -1, 0, sfmt() << "failed to write " << output_filename); 
             } else {
+                auto lsmap = vex::make_smap(local_vars);
                 extern char const *template_index_html;
-                render_varsub(outf, template_index_html, global_vars, local_vars);
+                vex::expand(outf, template_index_html, vex::mapgl(global_smap, lsmap));
             }
         }
     }
