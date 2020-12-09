@@ -168,7 +168,6 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
     set(global_vars, "FLOWC_BUILD", get_build_id());
     set(global_vars, "FLOWC_VERSION", get_version());
     set(global_vars, "BASE_IMAGE", runtime);
-    set(global_vars, "BASE_IMAGE_UPPERID", to_upper(to_identifier(runtime)));
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
 }
 
@@ -291,11 +290,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     set(global_vars, "PROTO_FILES_PATH", path_join(std::getenv("PWD"), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
-    set(global_vars, "NAME_ID", to_lower(to_identifier(orchestrator_name)));
-    set(global_vars, "NAME_OPT", to_option(orchestrator_name));
-    set(global_vars, "NAME_UPPER", to_upper(to_option(orchestrator_name)));
     set(global_vars, "MAIN_DESCRIPTION_JSON", c_escape(main_description));
-    set(global_vars, "NAME_UPPERID", to_upper(to_identifier(orchestrator_name)));
 
     /****************************************************************
      * file names
@@ -534,10 +529,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             std::string group_name = ni.group;
             append(global_vars, "NODE_GROUP", group_name);
             append(group_vars[group_name], "G_NODE_GROUP", group_name);
-            append(group_vars[group_name], "G_NODE_GROUP_UPPER", to_upper(to_underscore(group_name)));
+            //append(group_vars[group_name], "G_NODE_GROUP_UPPER", to_upper(to_underscore(group_name)));
             append(group_vars[group_name], "G_NODE_NAME", nn);
-            append(group_vars[group_name], "G_NODE_OPTION", to_option(nn));
-            append(group_vars[group_name], "G_NODE_SERVICE", sfmt() << to_option(orchestrator_name) << "-" << group_name);
+            //append(group_vars[group_name], "G_NODE_OPTION", to_option(nn));
+            //append(group_vars[group_name], "G_NODE_SERVICE", sfmt() << to_option(orchestrator_name) << "-" << group_name);
 
             pv = ni.port;
             append(global_vars, "IMAGE_PORT", std::to_string(pv));

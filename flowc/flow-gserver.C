@@ -1573,11 +1573,11 @@ int flow_compiler::gc_server(std::ostream &out) {
     std::cerr << "** server * local ***********************************\n";
     std::cerr << join(local_vars, "\n") << "\n";
     std::cerr << "*****************************************************\n";
-#endif
     std::ofstream jg("server-global.json");
     stru1::to_json(jg, global_vars);
     std::ofstream jl("server-local.json");
     stru1::to_json(jl, local_vars);
+#endif
     extern char const *template_server_C;
     auto mgv = vex::make_smap(global_vars);
     auto mlv = vex::make_smap(local_vars);
