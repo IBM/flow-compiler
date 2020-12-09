@@ -4,8 +4,6 @@ services:
   {{NAME}}:
     environment: 
       {{NAME/id/upper}}_REST_PORT: "{{REST_PORT}}"
-      {{NAME/id/upper}}_DEBUG: "1"
-      {{NAME/id/upper}}_ASYNC: "1"
 {E:MAIN_EP_ENVIRONMENT_NAME{      {{MAIN_EP_ENVIRONMENT_NAME}}: "{{MAIN_EP_ENVIRONMENT_VALUE}}"
 }E}
     image: "{{PUSH_REPO-}}{{IMAGE}}"
