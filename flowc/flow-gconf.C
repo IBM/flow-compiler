@@ -158,7 +158,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
         append(group_vars[ni.group], "G_NODE_HAVE_MIN_CPUS", ni.min_cpus > 0? "": "#");
         append(group_vars[ni.group], "G_NODE_HAVE_MAX_GPUS", std::max(ni.max_gpus, ni.min_gpus) > 0? "": "#");
         append(group_vars[ni.group], "G_NODE_HAVE_MIN_GPUS", ni.min_gpus > 0? "": "#");
-        append(group_vars[ni.group], "NODE_UPPERID", to_upper(to_identifier(ni.xname)));
+        append(group_vars[ni.group], "NODE_NAME", ni.xname);
 
         std::vector<int> init_blcks;
         int init_count = 0;
@@ -189,12 +189,10 @@ int flow_compiler::genc_kube(std::ostream &out) {
         for(auto const &vn: group_volumes[g]) {
             auto cp = comments.find(vn);
             if(cp != comments.end()) 
-                append(group_vars[g], "VOLUME_COMMENT", to_line_comment(join(cp->second, " "), "# "));
+                append(group_vars[g], "VOLUME_COMMENT", join(cp->second, " "));
             else 
                 append(group_vars[g], "VOLUME_COMMENT", "");
             append(group_vars[g], "VOLUME_NAME", vn);
-            append(group_vars[g], "VOLUME_UPPERID", to_upper(to_identifier(vn)));
-            append(group_vars[g], "VOLUME_OPTION", to_option(vn));
         }
 #if 0
     std::cerr << "**************** kube ******************\n";
@@ -302,7 +300,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_HAVE_MIN_CPUS", ni.min_cpus > 0? "": "#");
         append(local_vars, "NODE_HAVE_MAX_GPUS", ni.max_gpus > 0? "": "#");
         append(local_vars, "NODE_HAVE_MIN_GPUS", ni.min_gpus > 0? "": "#");
-        append(local_vars, "NODE_UPPERID", to_upper(to_identifier(ni.xname)));
+        append(local_vars, "NODE_NAME", ni.xname);
 
         std::vector<std::string> mts;
         bool have_rw_mounts = false;
@@ -317,25 +315,20 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
 
-    clear(local_vars, "VOLUME_OPTION");
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
 
-        append(local_vars, "VOLUME_OPTION", to_option(vn));
         append(local_vars, "VOLUME_NAME", vn);
-        append(local_vars, "VOLUME_NAME_VAR", to_upper(vn));
-        append(local_vars, "VOLUME_LOCAL", c_escape(mip.second.local));
+        append(local_vars, "VOLUME_LOCAL", mip.second.local);
         append(local_vars, "VOLUME_ARTIFACTORY", mip.second.artifactory);
         append(local_vars, "VOLUME_COS", mip.second.cos);
         append(local_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
 
         auto cp = comments.find(vn);
         if(cp != comments.end()) {
-            append(local_vars, "VOLUME_HELP",  c_escape(join(cp->second, " ")));
-            append(local_vars, "VOLUME_COMMENT", to_line_comment(join(cp->second, " "), "# "));
+            append(local_vars, "VOLUME_COMMENT", join(cp->second, " "));
         } else {
             append(local_vars, "VOLUME_COMMENT", "");
-            append(local_vars, "VOLUME_HELP", "");
         }
     }
 #if 0
@@ -373,29 +366,22 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
     extern char const *template_kubernetes_sh; 
     std::map<std::string, std::vector<std::string>> local_vars;
 
-    clear(local_vars, "VOLUME_OPTION");
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
-        append(local_vars, "VOLUME_OPTION", to_option(vn));
-        append(local_vars, "VOLUME_UPPERID", to_upper(to_identifier(vn)));
-        append(local_vars, "VOLUME_LOCAL", c_escape(mip.second.local));
+        append(local_vars, "VOLUME_LOCAL", mip.second.local);
         append(local_vars, "VOLUME_COS", mip.second.cos);
         append(local_vars, "VOLUME_SECRET", to_option(mip.second.secret));
         append(local_vars, "VOLUME_PVC", to_option(mip.second.pvc));
         auto cp = comments.find(vn);
         if(cp != comments.end()) 
-            append(local_vars, "VOLUME_HELP",  c_escape(join(cp->second, " ")));
+            append(local_vars, "VOLUME_COMMENT", join(cp->second, " "));
         else 
-            append(local_vars, "VOLUME_HELP", "");
+            append(local_vars, "VOLUME_COMMENT", "");
     }
     clear(local_vars, "GROUP");
-    clear(local_vars, "GROUP_UPPER");
-    clear(local_vars, "GROUP_UPPERID");
     clear(local_vars, "GROUP_NODES");
     for(auto const &g: group_vars) if(!g.first.empty()) {
         append(local_vars, "GROUP", g.first);
-        append(local_vars, "GROUP_UPPER", to_upper(g.first));
-        append(local_vars, "GROUP_UPPERID", to_upper(to_underscore(g.first)));
         append(local_vars, "GROUP_NODES", join(all(group_vars[g.first], "G_NODE_NAME"), ", "));
         append(local_vars, "GROUP_SCALE", get(group_vars[g.first], "GROUP_SCALE"));
     } else {

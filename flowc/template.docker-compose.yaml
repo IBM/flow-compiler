@@ -11,7 +11,7 @@ services:
     image: "{{PUSH_REPO-}}{{IMAGE}}"
     ports: ["$grpc_PORT:{{MAIN_PORT}}", "$rest_PORT:{{REST_PORT}}"]
 $enable_custom_app    volumes: 
-$enable_custom_app      - ${{NAME_UPPERID}}_HTDOCS:/home/worker/{{NAME}}/app:ro
+$enable_custom_app      - ${{NAME/id/upper}}_HTDOCS:/home/worker/{{NAME}}/app:ro
     command: ["/home/worker/{{NAME}}/{{NAME}}-server", "{{MAIN_PORT}}"]
 {N:NODE_NAME{
 {{EXTERN_NODE}}  {{NODE_NAME}}:
@@ -24,7 +24,7 @@ $enable_custom_app      - ${{NAME_UPPERID}}_HTDOCS:/home/worker/{{NAME}}/app:ro
 {{EXTERN_NODE}}    {{NODE_MOUNTS:}}
 {{EXTERN_NODE}}$use_SWARM    deploy:
 {{EXTERN_NODE}}$use_SWARM        endpoint_mode: dnsrr
-{{EXTERN_NODE}}$use_SWARM            replicas: $scale_{{NODE_UPPERID}}
+{{EXTERN_NODE}}$use_SWARM            replicas: $scale_{{NODE_NAME/id/upper}}
 {{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}$use_SWARM            resources:
 {{EXTERN_NODE}}{{NODE_HAVE_MIN}}$use_SWARM                reservations:
 {{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}$use_SWARM                    memory: {{NODE_MIN_MEMORY}}
@@ -37,10 +37,10 @@ $enable_custom_app      - ${{NAME_UPPERID}}_HTDOCS:/home/worker/{{NAME}}/app:ro
 volumes:{{HAVE_VOLUMES}}
 }V}
 {W:VOLUME_NAME{
-{{VOLUME_COMMENT:}}
+{{VOLUME_COMMENT/shcom-}}
     {{VOLUME_NAME}}:
         driver_opts:
             type: none
             o: bind
-            device: ${{{VOLUME_NAME_VAR}}}
+            device: ${{{VOLUME_NAME/upper}}}
 }W}

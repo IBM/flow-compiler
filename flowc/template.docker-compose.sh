@@ -8,11 +8,11 @@
 export docker_COMPOSE_PROJECT_NAME={{NAME}}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
-{O:VOLUME_NAME_VAR{export flow_{{VOLUME_NAME_VAR}}={{VOLUME_LOCAL}}
+{O:VOLUME_NAME{export flow_{{VOLUME_NAME/id/upper}}={{VOLUME_LOCAL/sh}}
 }O}
 {O:MAIN_EP_ENVIRONMENT_NAME{export {{MAIN_EP_ENVIRONMENT_NAME}}_DN={{MAIN_DN_ENVIRONMENT_VALUE}}
 }O}
-{N:NODE_NAME{export scale_{{NODE_UPPERID}}={{NODE_SCALE}}
+{N:NODE_NAME{export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}
 }N}
 export use_COMPOSE=
 export use_SWARM="#"
@@ -20,8 +20,8 @@ export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
 export docker_compose_RW_GID=$(id -g)
-export grpc_PORT=${{{NAME_UPPERID}}_GRPC_PORT-{{MAIN_PORT}}}
-export rest_PORT=${{{NAME_UPPERID}}_REST_PORT-{{REST_PORT}}}
+export grpc_PORT=${{{NAME/id/upper}}_GRPC_PORT-{{MAIN_PORT}}}
+export rest_PORT=${{{NAME/id/upper}}_REST_PORT-{{REST_PORT}}}
 rget_EMBEDDED_KEY_TOOL=1
 download_file() {
     {{RR_GET_SH:rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}
@@ -42,9 +42,9 @@ case "$1" in
     --htdocs)
     if [ "${2:0:1}" == "/" ] 
     then
-        export {{NAME_UPPERID}}_HTDOCS="$2"
+        export {{NAME/id/upper}}_HTDOCS="$2"
     else 
-        export {{NAME_UPPERID}}_HTDOCS="$PWD/${2#./}"
+        export {{NAME/id/upper}}_HTDOCS="$PWD/${2#./}"
     fi
     shift
     shift
@@ -79,7 +79,7 @@ case "$1" in
     -S|--swarm)
     export use_COMPOSE="#"
     export use_SWARM=
-{O:MAIN_EP_ENVIRONMENT_NAME{    if [ $scale_{{NODE_UPPERID}} -gt 1 ]
+{O:MAIN_EP_ENVIRONMENT_NAME{    if [ $scale_{{NODE_NAME/id/upper}} -gt 1 ]
     then
         export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="@tasks.${docker_COMPOSE_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
     else
@@ -110,20 +110,20 @@ docker_COMPOSE_YAML=$(cat <<"ENDOFYAML"
 ENDOFYAML
 )
 
-{O:VOLUME_NAME_VAR{export {{VOLUME_NAME_VAR}}="${{{VOLUME_NAME_VAR}}-$flow_{{VOLUME_NAME_VAR}}}"
-if [ "${{{VOLUME_NAME_VAR}}:0:1}" != "/" ]
+{O:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-$flow_{{VOLUME_NAME/id/upper}}}"
+if [ "${{{VOLUME_NAME/id/upper}}:0:1}" != "/" ]
 then
-    export {{VOLUME_NAME_VAR}}="$(pwd)/${{VOLUME_NAME_VAR}}"
+    export {{VOLUME_NAME/id/upper}}="$(pwd)/${{VOLUME_NAME/id/upper}}"
 fi
 }O}
-[ {O:VOLUME_NAME_VAR{-z "${{VOLUME_NAME_VAR}}" -o }O} 1 -eq 0 ]
+[ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}" -o }O} 1 -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
 export enable_custom_app="#"
-if [ ! -z "${{NAME_UPPERID}}_HTDOCS" ]
+if [ ! -z "${{NAME/id/upper}}_HTDOCS" ]
 then
-    if [ ! -d "${{NAME_UPPERID}}_HTDOCS" ]
+    if [ ! -d "${{NAME/id/upper}}_HTDOCS" ]
     then
-        echo "${{NAME_UPPERID}}_HTDOCS: must point to a valid directory"
+        echo "${{NAME/id/upper}}_HTDOCS: must point to a valid directory"
         have_ALL_VOLUME_DIRECTORIES=0
     else
         export enable_custom_app=
@@ -143,7 +143,7 @@ echo "Usage $(basename "$0") <up|run|config> [-p] [-r] [-s] [-S] [--project-name
 echo "   or $(basename "$0") [-S] [--project-name NAME] <down>"
 echo "   or $(basename "$0") [-T] <logs>"
 {V:HAVE_VOLUMES{
-echo "   or $(basename "$0") <provision> {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{--mount-{{VOLUME_NAME/option}} DIRECTORY  }O}"
 }V}
 echo ""
 echo "Commands:"
@@ -175,19 +175,19 @@ echo ""
 echo "    --project-name NAME"
 echo "        Set the Docker Compose project name to NAME (default is $docker_COMPOSE_PROJECT_NAME)"
 echo ""
-echo "    --grpc-port PORT  (or set {{NAME_UPPERID}}_GRPC_PORT)"
+echo "    --grpc-port PORT  (or set {{NAME/id/upper}}_GRPC_PORT)"
 echo "        Override GRPC port (default is $grpc_PORT)"
 echo ""
-echo "    --rest-port PORT  (or set {{NAME_UPPERID}}_REST_PORT)"
+echo "    --rest-port PORT  (or set {{NAME/id/upper}}_REST_PORT)"
 echo "        Override REST API port (default is $rest_PORT)"
 echo ""
-echo "    --htdocs DIRECTORY  (or set {{NAME_UPPERID}}_HTDOCS)"
-echo "        Directory with custom application files (default is \"${{NAME_UPPERID}}_HTDOCS\")"
+echo "    --htdocs DIRECTORY  (or set {{NAME/id/upper}}_HTDOCS)"
+echo "        Directory with custom application files (default is \"${{NAME/id/upper}}_HTDOCS\")"
 echo ""
-{O:VOLUME_OPTION{
-echo   "    --mount-{{VOLUME_OPTION:}} DIRECTORY  (or set {{VOLUME_NAME_VAR}})"
-echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME_VAR}})"
-printf "        "{{VOLUME_HELP}}"\n"
+{O:VOLUME_NAME{
+echo   "    --mount-{{VOLUME_NAME/option-}} DIRECTORY  (or set {{VOLUME_NAME/id/upper}})"
+echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}})"
+printf "        "{{VOLUME_COMMENT/sh}}"\n"
 echo ""
 }O}
 {A:HAVE_ARTIFACTORY{
@@ -200,17 +200,17 @@ exit 1
 fi
 {A:HAVE_ARTIFACTORY{
 {{HAVE_ARTIFACTORY}}
-{O:VOLUME_OPTION{remote_resource_{{VOLUME_NAME_VAR}}="{{VOLUME_ARTIFACTORY}}"   
+{O:VOLUME_NAME{remote_resource_{{VOLUME_NAME/id/upper}}="{{VOLUME_ARTIFACTORY}}"   
 }O}
 }A}
 
 provision() {
 {A:HAVE_ARTIFACTORY{{{HAVE_ARTIFACTORY}}
-{O:VOLUME_OPTION{    [ -z "$remote_resource_{{VOLUME_NAME_VAR}}" ] || \
-        download_file -o "${{VOLUME_NAME_VAR}}" --untar "$remote_resource_{{VOLUME_NAME_VAR}}" || return 1
+{O:VOLUME_NAME{    [ -z "$remote_resource_{{VOLUME_NAME/id/upper}}" ] || \
+        download_file -o "${{VOLUME_NAME/id/upper}}" --untar "$remote_resource_{{VOLUME_NAME/id/upper}}" || return 1
 }O}
 }A}
-{O:VOLUME_NAME_VAR{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME_VAR}}"
+{O:VOLUME_NAME{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME/id/upper}}"
 }O}
     return 0
 }
