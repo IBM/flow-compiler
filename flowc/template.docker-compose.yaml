@@ -20,8 +20,8 @@ $enable_custom_app      - ${{NAME/id/upper}}_HTDOCS:/home/worker/{{NAME}}/app:ro
 {{EXTERN_NODE}}{{HAVE_RW_VOLUMES}}      - $docker_compose_RW_GID
 {{EXTERN_NODE}}$export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]
 {{EXTERN_NODE}}$default_RUNTIME{{SET_NODE_RUNTIME}}    runtime: {{NODE_RUNTIME}}
-{{EXTERN_NODE}}    {{NODE_ENVIRONMENT:}}
-{{EXTERN_NODE}}    {{NODE_MOUNTS:}}
+{{EXTERN_NODE}}    {{NODE_ENVIRONMENT-}}
+{{EXTERN_NODE}}    {{NODE_MOUNTS-}}
 {{EXTERN_NODE}}$use_SWARM    deploy:
 {{EXTERN_NODE}}$use_SWARM        endpoint_mode: dnsrr
 {{EXTERN_NODE}}$use_SWARM            replicas: $scale_{{NODE_NAME/id/upper}}

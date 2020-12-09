@@ -69,20 +69,20 @@ esac
 done
 set -- "${args[@]}"
 
-{A:VOLUME_UPPERID{
-case "$(echo "${{VOLUME_UPPERID}}" | tr '[:upper:]' '[:lower:]')" in
+{A:VOLUME_NAME{
+case "$(echo "${{VOLUME_NAME/id/upper}}" | tr '[:upper:]' '[:lower:]')" in
     s3://*|http://|https://)
-        export {{VOLUME_UPPERID}}_PVC="#"
-        export {{VOLUME_UPPERID}}_COS=
+        export {{VOLUME_NAME/id/upper}}_PVC="#"
+        export {{VOLUME_NAME/id/upper}}_COS=
         ;;
     *)
-        export {{VOLUME_UPPERID}}_PVC=
-        export {{VOLUME_UPPERID}}_COS="#"
+        export {{VOLUME_NAME/id/upper}}_PVC=
+        export {{VOLUME_NAME/id/upper}}_COS="#"
         ;;
 esac
 }A}
 
-case "$(echo "${{NAME_UPPERID}}_HTDOCS" | tr '[:upper:]' '[:lower:]')" in
+case "$(echo "${{NAME/id/upper}}_HTDOCS" | tr '[:upper:]' '[:lower:]')" in
     s3://*|http://|https://)
         export htdocs_PVC="#"
         export htdocs_COS=
@@ -96,27 +96,27 @@ esac
 have_ALL_VOLUME_CLAIMS=1
 
 export enable_htdocs="#"
-if [ ! -z "${{NAME_UPPERID}}_HTDOCS" ]
+if [ ! -z "${{NAME/id/upper}}_HTDOCS" ]
 then
     export enable_htdocs=""
-    if [ -z "$htdocs_COS" -a -z "${{NAME_UPPERID}}_HTDOCS_SECRET_NAME" ]
+    if [ -z "$htdocs_COS" -a -z "${{NAME/id/upper}}_HTDOCS_SECRET_NAME" ]
     then 
         have_ALL_VOLUME_CLAIMS=0
-        echo "Please set the secret name for accessing ${{NAME_UPPERID}}_HTDOCS"
+        echo "Please set the secret name for accessing ${{NAME/id/upper}}_HTDOCS"
     fi
 fi
 
 
-{O:VOLUME_UPPERID{
-if [ -z "${{VOLUME_UPPERID}}" ] 
+{O:VOLUME_NAME{
+if [ -z "${{VOLUME_NAME/id/upper}}" ] 
 then
     have_ALL_VOLUME_CLAIMS=0
-    echo "Please set information for {{VOLUME_OPTION}}"
+    echo "Please set information for {{VOLUME_NAME/option}}"
 else
-    if [ -z "${{VOLUME_UPPERID}}_PVC" -a -z "${{VOLUME_UPPERID}}_SECRET_NAME" ]
+    if [ -z "${{VOLUME_NAME/id/upper}}_PVC" -a -z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" ]
     then
         have_ALL_VOLUME_CLAIMS=0
-        echo "Please set the secret name for accessing ${{VOLUME_UPPERID}}"
+        echo "Please set the secret name for accessing ${{VOLUME_NAME/id/upper}}"
     fi
 fi
 }O}
@@ -137,29 +137,29 @@ echo "   show       Display the status of the deployment"
 echo "   delete     Delete all objects associated with this deployment"
 echo ""
 echo "Options:"
-{O:VOLUME_OPTION{
-    echo   "    --mount-{{VOLUME_OPTION:}} <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{VOLUME_UPPERID}})"
-    echo   "        Default is \"${{VOLUME_UPPERID}}\""
+{O:VOLUME_NAME{
+    echo   "    --mount-{{VOLUME_NAME/option-}} <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{VOLUME_NAME/id/upper}})"
+    echo   "        Default is \"${{VOLUME_NAME/id/upper}}\""
     printf "        "{{VOLUME_HELP}}"\n"
     echo ""
-    echo   "    --secret-{{VOLUME_OPTION:}} <SECRET-NAME>  (or set \${{VOLUME_UPPERID}}_SECRET_NAME)"
+    echo   "    --secret-{{VOLUME_NAME/option-}} <SECRET-NAME>  (or set \${{VOLUME_NAME/id/upper}}_SECRET_NAME)"
     printf "        Secret name for COS access for {{VOLUME_OPTION}}, default is \"${{VOLUME_UPPERID}}_SECRET_NAME\"\n"
     echo ""
 }O}
-    echo   "    --htdocs <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{NAME_UPPERID}}_HTDOCS)"
-    echo   "        Default is \"${{NAME_UPPERID}}_HTDOCS\""
+    echo   "    --htdocs <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{NAME/id/upper}}_HTDOCS)"
+    echo   "        Default is \"${{NAME/id/upper}}_HTDOCS\""
     echo   "        Volume or COS URL for tarball with custom application files"
     echo ""
-    echo   "    --htdocs-secret-name <SECRET-NAME>  (or set \${{NAME_UPPERID}}_HTDOCS_SECRET_NAME)"
-    printf "        Secret name for COS access for the custom application files, default is \"${{NAME_UPPERID}}_HTDOCS_SECRET_NAME\"\n"
+    echo   "    --htdocs-secret-name <SECRET-NAME>  (or set \${{NAME/id/upper}}_HTDOCS_SECRET_NAME)"
+    printf "        Secret name for COS access for the custom application files, default is \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\"\n"
     echo ""
-    echo   "    --{{NAME}}-replicas <NUMBER>  (or set \${{NAME_UPPERID}}_REPLICAS)"
-    echo   "        Number of replicas for the main pod [{{MAIN_GROUP_NODES}}] default is $replicas_{{NAME_UPPERID}}"
+    echo   "    --{{NAME}}-replicas <NUMBER>  (or set \${{NAME/id/upper}}_REPLICAS)"
+    echo   "        Number of replicas for the main pod [{{MAIN_GROUP_NODES}}] default is $replicas_{{NAME/id/upper}}"
     echo ""
 
-{G:GROUP_UPPER{
-    echo   "    --{{GROUP}}-replicas <NUMBER>  (or set \${{NAME_UPPERID}}_{{GROUP_UPPERID}}_REPLICAS)"
-    echo   "        Number or replicas for pod \"{{GROUP}}\" [{{GROUP_NODES}}] default is $replicas_{{NAME_UPPERID}}_{{GROUP_UPPERID}}"
+{G:GROUP{
+    echo   "    --{{GROUP}}-replicas <NUMBER>  (or set \${{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS)"
+    echo   "        Number or replicas for pod \"{{GROUP}}\" [{{GROUP_NODES}}] default is $replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}"
     echo ""
 }G}
 echo "This script uses '$(which $cur_KUBECTL)'. Set \$KUBECTL to override."
