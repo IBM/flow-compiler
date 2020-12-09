@@ -358,7 +358,7 @@ struct macro_parser {
         }
         return s;
     }
-    template <class MAP1> std::pair<bool, std::string> getv(MAP1 const &map, std::string const &names, int index) {
+    template <class MAP1> std::pair<int, std::string> get_value(MAP1 const &map, std::string const &names, int index) {
         std::string::size_type tb = 0;
         while(tb < names.length()) {
             auto te = names.find_first_of('+', tb);
@@ -417,11 +417,13 @@ struct macro_parser {
                     value = stru1::to_underscore(value);
                 } else if(transf == "json") {
                     value = stru1::json_escape(value);
+                } else {
+                    return std::make_pair(2, std::string());
                 }
             }
-            return std::make_pair(true, value);
+            return std::make_pair(0, value);
         }
-        return std::make_pair(false, std::string());
+        return std::make_pair(1, std::string());
     }
     /***
      *  Return the number of substitutions and the number of misses.
@@ -438,11 +440,11 @@ struct macro_parser {
             pos = md.after;
             if(md.label.empty()) {
                 // regular variable reference
-                auto fv = getv(map, md.name, index < 0? 0: index);
-                if(fv.first) { 
+                auto fv = get_value(map, md.name, index < 0? 0: index);
+                if(fv.first == 0) { 
                     out << fv.second;
                     ++found;
-                } else if(md.has_default) {
+                } else if(fv.first == 1 && md.has_default) {
                     ++missed;
                     out << md.default_value;
                 } else {
