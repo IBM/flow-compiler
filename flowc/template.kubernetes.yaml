@@ -6,7 +6,7 @@ metadata:
     app: {{NAME}}
     flow-group: {{NAME}}
 spec:
-  replicas: ${replicas_{{NAME_UPPERID}}}
+  replicas: ${replicas_{{NAME/id/upper}}}
   selector:
     matchLabels:
       app: {{NAME}}
@@ -26,26 +26,26 @@ spec:
       - {{G_INIT_CONTAINER}}
 }I}
 {W:VOLUME_NAME{
-${{{VOLUME_UPPERID}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{VOLUME_UPPERID}}}' -d /etc/cos-access -u -o /to-1"]
-${{{VOLUME_UPPERID}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
-        image:  "{{PUSH_REPO:}}{{IMAGE}}" 
+${{{VOLUME_NAME/id/upper}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{VOLUME_NAME/id/upper}}}' -d /etc/cos-access -u -o /to-1"]
+${{{VOLUME_NAME/id/upper}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
+        image:  "{{PUSH_REPO-}}{{IMAGE}}" 
         securityContext: {privileged: true, runAsUser: 0} 
-        name: volumes-init-{{VOLUME_OPTION}}
+        name: volumes-init-{{VOLUME_NAME/option}}
         volumeMounts:
-${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_PVC}          mountPath: "/from-1"
-${{{VOLUME_UPPERID}}_PVC}          readOnly: true
-${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_ART}          mountPath: "/etc/artifactory"
-${{{VOLUME_UPPERID}}_ART}          readOnly: true
+${{{VOLUME_NAME/id/upper}}_PVC}        - name: {{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_PVC}          mountPath: "/from-1"
+${{{VOLUME_NAME/id/upper}}_PVC}          readOnly: true
+${{{VOLUME_NAME/id/upper}}_ART}        - name: api-key-{{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_ART}          mountPath: "/etc/artifactory"
+${{{VOLUME_NAME/id/upper}}_ART}          readOnly: true
 
-        - name: scratch-{{VOLUME_OPTION}}
+        - name: scratch-{{VOLUME_NAME/option}}
           mountPath: "/to-1"
           readOnly: false
 }W}
-$enable_htdocs$htdocs_ART      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{NAME_UPPERID}}_HTDOCS}' -d /etc/cos-access -u -o /to-1"]
+$enable_htdocs$htdocs_ART      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{NAME/id/upper}}_HTDOCS}' -d /etc/cos-access -u -o /to-1"]
 $enable_htdocs$htdocs_PVC      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
-$enable_htdocs        image:  "{{PUSH_REPO:}}{{IMAGE}}" 
+$enable_htdocs        image:  "{{PUSH_REPO-}}{{IMAGE}}" 
 $enable_htdocs        securityContext: {privileged: true, runAsUser: 0} 
 $enable_htdocs        name: volumes-init-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs        volumeMounts:
@@ -63,7 +63,7 @@ $enable_htdocs          mountPath: "/to-1"
 $enable_htdoes          readOnly: false
       containers:
       - name: {{NAME}}
-        image: "{{PUSH_REPO:}}{{IMAGE}}"
+        image: "{{PUSH_REPO-}}{{IMAGE}}"
         command: ["/home/worker/{{NAME}}/{{NAME}}-server"]
         args: ["{{MAIN_PORT}}"]
         ports:
@@ -72,11 +72,11 @@ $enable_htdoes          readOnly: false
           - name: rest
             containerPort: {{REST_PORT}}
         env:
-          - name: {{NAME_UPPERID}}_REST_PORT
+          - name: {{NAME/id/upper}}_REST_PORT
             value: "{{REST_PORT}}"
-          - name: {{NAME_UPPERID}}_DEBUG
+          - name: {{NAME/id/upper}}_DEBUG
             value: "1"
-          - name: {{NAME_UPPERID}}_ASYNC
+          - name: {{NAME/id/upper}}_ASYNC
             value: "1"
 {K:MAIN_ENVIRONMENT_KEY{
           - name: {{MAIN_ENVIRONMENT_KEY}}
@@ -106,32 +106,32 @@ $enable_htdocs          readOnly: true
 $enable_htdocs      volumes:
 $enable_htdocs$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}    
 $enable_htdocs$htdocs_PVC          persistentVolumeClaim:
-$enable_htdocs$htdocs_PVC            claimName: ${{{NAME_UPPERID}}_HTDOCS}
+$enable_htdocs$htdocs_PVC            claimName: ${{{NAME/id/upper}}_HTDOCS}
 $enable_htdocs$htdocs_COS        - name: cos-access-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs$htdocs_COS          secret:
-$enable_htdocs$htdocs_COS            secretName: ${{{NAME_UPPERID}}_HTDOCS_SECRET_NAME}
+$enable_htdocs$htdocs_COS            secretName: ${{{NAME/id/upper}}_HTDOCS_SECRET_NAME}
 $enable_htdocs$htdocs_ART        - name: api-key-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs$htdocs_ART          secret:
-$enable_htdocs$htdocs_ART            secretName: ${{{NAME_UPPERID}}_HTDOCS_SECRET_NAME}
+$enable_htdocs$htdocs_ART            secretName: ${{{NAME/id/upper}}_HTDOCS_SECRET_NAME}
 $enable_htdocs$htdocs_COS        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs$htdocs_COS          emptyDir: {}
 $enable_htdocs$htdocs_ART        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_htdocs$htdocs_ART          emptyDir: {}
 
 {W:VOLUME_NAME{
-${{{VOLUME_UPPERID}}_PVC}        - name: {{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_PVC}          persistentVolumeClaim:
-${{{VOLUME_UPPERID}}_PVC}            claimName: ${{{VOLUME_UPPERID}}}
-${{{VOLUME_UPPERID}}_COS}        - name: cos-access-{{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_COS}          secret:
-${{{VOLUME_UPPERID}}_COS}            secretName: ${{{VOLUME_UPPERID}}_SECRET_NAME}
-${{{VOLUME_UPPERID}}_ART}        - name: api-key-{{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_ART}          secret:
-${{{VOLUME_UPPERID}}_ART}            secretName: ${{{VOLUME_UPPERID}}_SECRET_NAME}
-${{{VOLUME_UPPERID}}_COS}        - name: scratch-{{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_COS}          emptyDir: {}
-${{{VOLUME_UPPERID}}_ART}        - name: scratch-{{VOLUME_OPTION}}
-${{{VOLUME_UPPERID}}_ART}          emptyDir: {}
+${{{VOLUME_NAME/id/upper}}_PVC}        - name: {{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_PVC}          persistentVolumeClaim:
+${{{VOLUME_NAME/id/upper}}_PVC}            claimName: ${{{VOLUME_NAME/id/upper}}}
+${{{VOLUME_NAME/id/upper}}_COS}        - name: cos-access-{{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_COS}          secret:
+${{{VOLUME_NAME/id/upper}}_COS}            secretName: ${{{VOLUME_NAME/id/upper}}_SECRET_NAME}
+${{{VOLUME_NAME/id/upper}}_ART}        - name: api-key-{{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_ART}          secret:
+${{{VOLUME_NAME/id/upper}}_ART}            secretName: ${{{VOLUME_NAME/id/upper}}_SECRET_NAME}
+${{{VOLUME_NAME/id/upper}}_COS}        - name: scratch-{{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_COS}          emptyDir: {}
+${{{VOLUME_NAME/id/upper}}_ART}        - name: scratch-{{VOLUME_NAME/option}}
+${{{VOLUME_NAME/id/upper}}_ART}          emptyDir: {}
 }W}
 ---
 apiVersion: v1

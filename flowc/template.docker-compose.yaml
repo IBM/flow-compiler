@@ -3,12 +3,12 @@ ${use_SWARM}version: '3.7'
 services:
   {{NAME}}:
     environment: 
-      {{NAME_UPPERID}}_REST_PORT: "{{REST_PORT}}"
-      {{NAME_UPPERID}}_DEBUG: "1"
-      {{NAME_UPPERID}}_ASYNC: "1"
+      {{NAME/id/upper}}_REST_PORT: "{{REST_PORT}}"
+      {{NAME/id/upper}}_DEBUG: "1"
+      {{NAME/id/upper}}_ASYNC: "1"
 {E:MAIN_EP_ENVIRONMENT_NAME{      {{MAIN_EP_ENVIRONMENT_NAME}}: "{{MAIN_EP_ENVIRONMENT_VALUE}}"
 }E}
-    image: "{{PUSH_REPO:}}{{IMAGE}}"
+    image: "{{PUSH_REPO-}}{{IMAGE}}"
     ports: ["$grpc_PORT:{{MAIN_PORT}}", "$rest_PORT:{{REST_PORT}}"]
 $enable_custom_app    volumes: 
 $enable_custom_app      - ${{NAME_UPPERID}}_HTDOCS:/home/worker/{{NAME}}/app:ro

@@ -14,7 +14,7 @@ else
 	CFLAGS+= -O3
 endif
 
-PUSH_REPO?={{PUSH_REPO:}}
+PUSH_REPO?={{PUSH_REPO-}}
 IMAGE?={{IMAGE}}
 IMAGE_NAME?=$(shell echo $(IMAGE) | sed 's/:.*$$//')
 IMAGE_TAG?=$(shell echo $(IMAGE) | sed 's/^.*://')
