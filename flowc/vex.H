@@ -413,6 +413,8 @@ struct macro_parser {
                     value = value.length() <= 2? std::string(): value.substr(1, value.length()-2);
                 } else if(transf == "decamelize") {
                     value = stru1::decamelize(value);
+                } else if(transf == "underscore") {
+                    value = stru1::to_underscore(value);
                 } else if(transf == "json") {
                     value = stru1::json_escape(value);
                 }
