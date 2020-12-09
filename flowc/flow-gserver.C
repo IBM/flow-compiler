@@ -1441,8 +1441,10 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             pcerr.AddError(main_file, -1, 0, "all entries must be methods of the same service");
         }
         sdp = mdp->service();
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node), true, true);
-        std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
+        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node), true, true);
+        std::map<std::string, std::string> defs;
+        error_count += get_nv_block(defs, entry_node, "defaults", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+        std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
         append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
@@ -1496,9 +1498,9 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     auto mdp = method_descriptor(cli_node);
     append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
     append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-    std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, true);
-    std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node), true, true);
+    std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, true);
     append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
+    std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), node_name, description(cli_node), true, true);
     append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
     append(vars, "MAIN_ENTRY_METHOD_NAME", mdp->name());
     append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
@@ -1531,9 +1533,9 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
         append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, false);
-        std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node), true, false);
+        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, false);
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
+        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), node_name, description(cli_node), true, false);
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "CLI_METHOD_NAME", mdp->name());
         append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));

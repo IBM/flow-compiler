@@ -83,11 +83,12 @@ int flow_compiler::genc_client(std::ostream &out) {
         append(local_vars, "GRPC_SERVICE_NAME", mdp->service()->name());
         append(local_vars, "SERVICE_INPUT_TYPE", get_full_name(mdp->input_type()));
         append(local_vars, "SERVICE_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-
-        std::string output_schema = json_schema(mdp->output_type(), mdp->output_type()->full_name(), "", true, false);
-        std::string input_schema = json_schema(mdp->input_type(),  mdp->input_type()->full_name(), "", true, false);
-
+        
+        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), mdp->output_type()->full_name(), "", true, false);
         append(local_vars, "SERVICE_OUTPUT_SCHEMA_JSON", output_schema);
+
+
+        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(),  mdp->input_type()->full_name(), "", true, false);
         append(local_vars, "SERVICE_INPUT_SCHEMA_JSON", input_schema);
     }
     if(methods.size() < 1) {

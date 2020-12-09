@@ -59,9 +59,9 @@
     <div id="pr-header-id" class="pr-header">
         <nav class="navbar navbar-expand-sm">
             <div class="navbar-nav mr-auto"><h3>{{NAME/upper}}{A:HAVE_ACTIVE_NODE{ - {{MAIN_ENTRY_NAME/upper}}}A}</h3></div>  
-            <div class="navbar-expand ml-auto">
+            <div class="navbar-expand ml-auto" id="advanced-menu">
                 <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
-{A:-HAVE_ACTIVE_NODE{
+{A:HAVE_ACTIVE_NODE{
                     <li class="nav-item" id="home-menu">
                         <a id="pr-home-link" class="nav-link" href="/-www/index.html">{{NAME}}</a>
                     </li>
@@ -129,7 +129,8 @@
                 </div>
 }I}
                 <div class="form-group pr-button pr-debug-button pr-stick-right">
-                    <input type="checkbox" id="overlapped-calls" checked><span class="pr-button-text"> Overlapped gRPC Calls</span><br>
+                    <!--input type="checkbox" id="overlapped-calls" checked><span class="pr-button-text"> Overlapped gRPC Calls</span><br-->
+                    <input type="checkbox" id="advanced-view" checked><span class="pr-button-text"> Advanced View</span><br>
                 </div>
             </div>
         </div>
@@ -221,11 +222,30 @@
                 for([key, val] of Object.entries(properties)) 
                     PR.prepareSchema(val);
             }
+            if('type' in schema && schema['type'] === 'array') {
+                PR.prepareSchema(schema['items']);
+            }
+        },
+        advancedFields: [],
+        findAdvancedFields: function(schema, prefix) {
+            if('type' in schema && schema['type'] === 'object') {
+                properties = schema['properties'];
+                for([key, val] of Object.entries(properties)) 
+                    PR.findAdvancedFields(val, prefix + '.' + schema['title']);
+            } else 
+            if('type' in schema && schema['type'] === 'array') {
+                PR.findAdvancedFields(schema['items'], prefix + '.' + schema['title']);
+            } else 
+            if('type' in schema && !('default' in schema)) {
+                PR.advancedFields.push(prefix + '.' + schema['title']);
+            }
         },
         makeForm: function() {
             var rqt_schema = PR.ui_data["request-schema"];
             rqt_schema["format"] = "grid";
             PR.prepareSchema(rqt_schema);
+            for([key, val] of Object.entries(rqt_schema["properties"])) 
+                PR.findAdvancedFields(val, "root");
             PR.form = new JSONEditor($('#pr-form-editor')[0], {
                 "schema" : rqt_schema,
                 "theme" : "bootstrap4",
@@ -344,6 +364,52 @@
          }
     },
         connectButtons: function() {
+            /* submit on <Return> in the main filed if any */
+            /*
+            $('*[data-schemapath="root.question"]').on("keydown", function(event) {
+                var keycode = event.keyCode || event.which;
+                if (keycode == 13) {
+                    $("#answer_extraction-submit").focus(); 
+                    $("#answer_extraction-submit").click();
+                    $(this).focus();
+                }
+            });
+            */
+            $('#advanced-view').change(function() { 
+
+                if(this.checked) {
+                    //$('*[data-schemapath="root.question"]').removeClass("col-md-8");
+                    //$('*[data-schemapath="root.question"]').addClass("col-md-4");
+                    for(const afid of PR.advancedFields)
+                        $('*[data-schemapath="'+afid+'"]').show();
+                    $("#advanced-menus").show();
+                    $("#pr-message-panel").show();
+                    // Show/hide alternate entries
+                    //$("#article_retrieval-submit").parent().show();
+                    /*
+                    $('.pr-JSON-key').show();
+                    if(PR.hideFields.length > 0)
+                        $('.' + PR.hideFields.join(',.')).show();
+                   */
+                 } else {
+                    //$('*[data-schemapath="root.question"]').removeClass("col-md-4");
+                    //$('*[data-schemapath="root.question"]').addClass("col-md-8");
+                    for(const afid of PR.advancedFields)
+                        $('*[data-schemapath="'+afid+'"]').hide();
+                    $("#advanced-menus").hide();
+                    $("#pr-message-panel").hide();
+                    //$("#article_retrieval-submit").parent().hide();
+                    /*
+                    if(PR.alwaysShowKeys.length > 0) {
+                        $('.pr-JSON-key:not(.' + PR.alwaysShowKeys.join(',.')+')').hide();
+                    } else {
+                        $('.pr-JSON-key').hide();
+                    }
+                    if(PR.hideFields.length > 0)
+                        $('.' + PR.hideFields.join(',.')).hide();
+                    */
+                }
+            });
             $('#download-response').on('click', function() {
                 var a = document.createElement("a");
                 var docstr = JSON.stringify(PR.response);
@@ -388,11 +454,13 @@
 							contentType: "application/json",
                             beforeSend: function(request) {
                                 request.setRequestHeader("x-flow-time-call", "true");
+                                /*
                                 if($('#overlapped-calls').is(":checked")) {
                                     request.setRequestHeader("x-flow-overlapped-calls", "1");
                                 } else {
                                     request.setRequestHeader("x-flow-overlapped-calls", "0");
                                 }
+                                */
                                 $("#pr-stage-time").html('');
                                 $("#pr-response").html('');
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
@@ -471,6 +539,8 @@
     PR.makeForm();
     PR.connectButtons();
 
+    /* start in basic mode */
+    $("#advanced-view").prop("checked", false).trigger("change");
     </script>
 </body>
 </html>

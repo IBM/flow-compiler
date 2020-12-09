@@ -169,8 +169,8 @@ std::string const flow_ast::get_value(int node) const {
     assert(type == FTK_STRING || type == FTK_INTEGER || type == FTK_FLOAT);
     switch(type) {
         case FTK_STRING: return at(node).token.text;
-        case FTK_INTEGER: return std::to_string(at(node).token.integer_value);
-        case FTK_FLOAT: return std::to_string(at(node).token.float_value);
+        case FTK_INTEGER: return sfmt() << at(node).token.integer_value;
+        case FTK_FLOAT: return sfmt() << at(node).token.float_value;
         default:
             assert(false);
     }
