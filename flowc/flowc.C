@@ -290,7 +290,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     set(global_vars, "PROTO_FILES_PATH", path_join(std::getenv("PWD"), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
-    set(global_vars, "MAIN_DESCRIPTION_JSON", c_escape(main_description));
 
     /****************************************************************
      * file names
@@ -345,7 +344,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(token_comment.size() > 0 && token_comment[0].first == 1) {
         main_description = token_comment[0].second;
-        set(global_vars, "MAIN_DESCRIPTION_JSON", c_escape(main_description));
+        if(!main_description.empty())
+            set(global_vars, "MAIN_DESCRIPTION", main_description);
     }
 
     /*******************************************************************
