@@ -411,6 +411,8 @@ struct macro_parser {
                     value = value.length() <= 1? std::string(): value.substr(1, value.length()-1);
                 } else if(transf == "chop") {
                     value = value.length() <= 2? std::string(): value.substr(1, value.length()-2);
+                } else if(transf == "camelize") {
+                    value = stru1::camelize(value);
                 } else if(transf == "decamelize") {
                     value = stru1::decamelize(value);
                 } else if(transf == "underscore") {
