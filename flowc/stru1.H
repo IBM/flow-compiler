@@ -265,6 +265,12 @@ std::string to_underscore(std::string const &s) {
     return u;
 }
 inline static
+std::string underscore_to_space(std::string const &s) {
+    std::string u(s);
+    for(auto &c: u) if(c == '_')  c = ' ';
+    return u;
+}
+inline static
 std::string to_identifier(std::string const &s) {
     std::string u(s);
     std::transform(s.begin(), s.end(), u.begin(), ::tolower);
@@ -464,6 +470,7 @@ static inline
  *          foo_bar -> foo bar
  *          fooBar  -> foo Bar
  *          FOOBar  -> FOO Bar
+ *          FOO_BAR -> FOO BAR
  */
 std::string decamelize(std::string const &s) {
     std::ostringstream out;
@@ -483,6 +490,22 @@ std::string decamelize(std::string const &s) {
             out << (prev_c = c);
         }
     }
+    return out.str();
+}
+static inline
+/**
+ * Capitalize and letter preceeded by space.
+ */
+std::string camelize(std::string const &s, bool capitalize_first=false) {
+    std::ostringstream out;
+    bool cap_next = capitalize_first;
+    for(char c: s) 
+        if(isspace(c)) {
+            cap_next = true;
+        } else {
+            out << (cap_next? ::toupper(c): c);
+            cap_next = false;
+        }
     return out.str();
 }
 }
