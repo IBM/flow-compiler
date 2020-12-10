@@ -215,7 +215,7 @@
         },
         prepareSchema: function(schema) {
             if('type' in schema && !('format' in schema) && schema['type'] === 'string') {
-                schema['format']  'textarea';
+                schema['format'] = 'textarea';
             } 
             if('type' in schema && schema['type'] === 'object') {
                 properties = schema['properties'];
