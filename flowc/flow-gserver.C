@@ -1455,6 +1455,18 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "ENTRY_DESCRIPTION", description(entry_node));
+        append(vars, "ENTRY_ORDER", sfmt() << entry_count);
+        std::vector<int> values;
+        std::string hidden_fields;
+        error_count += get_block_value(values, entry_node, "hide", false, {FTK_STRING});
+        for(int n: values) hidden_fields = hidden_fields + (hidden_fields.empty()? "": ", ") + get_string(n);
+        append(vars, "ENTRY_HIDDEN_FIELDS", hidden_fields);
+        values.clear();
+        std::string hidden_labels;
+        error_count += get_block_value(values, entry_node, "hide_label", false, {FTK_STRING});
+        for(int n: values) hidden_labels = hidden_labels + (hidden_labels.empty()? "": ", ") + get_string(n);
+        append(vars, "ENTRY_HIDDEN_LABELS", hidden_labels);
+
         if(entry_count == 1) {
             append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "MAIN_ENTRY_NAME", mdp->name());
@@ -1466,6 +1478,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
             append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "MAIN_ENTRY_DESCRIPTION", description(entry_node));
+            append(vars, "MAIN_ENTRY_HIDDEN_FIELDS", hidden_fields);
+            append(vars, "MAIN_ENTRY_HIDDEN_LABELS", hidden_labels);
         } else {
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "ALT_ENTRY_NAME", mdp->name());
@@ -1477,6 +1491,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
             append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "ALT_ENTRY_DESCRIPTION", description(entry_node));
+            append(vars, "ALT_ENTRY_HIDDEN_FIELDS", hidden_fields);
+            append(vars, "ALT_ENTRY_HIDDEN_LABELS", hidden_labels);
         }
     }
     if(entry_count > 1)
