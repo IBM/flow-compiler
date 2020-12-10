@@ -135,10 +135,10 @@
             </div>
         </div>
     </div>
-    <hr>
     <!-- Messages Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-message-panel" class="pr-view-panel">
+        <hr>
         <div class="m-4">
             <div class="row" id="pr-message"></div>
             <div class="row" id="pr-message-details"></div>
@@ -160,10 +160,10 @@
         </div>
     </div>
         <div id="pr-extra" class="pr-view-panel"></div>
-    <hr>
     <!-- Results Section
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-view" class="pr-view-panel">
+        <hr>
         <div id="pr-response"></div>
     </div>
     <!-- End Document
@@ -175,22 +175,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-json-editor/1.1.0/jquery-json-editor.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@1.3.5/dist/jsoneditor.min.js"></script>
     <script>
-        var ui_data = {
-            "request-schema": {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
-            "methods": [
-                {
-                    "name": "{{MAIN_ENTRY_NAME}}",
-                    "url": "{{MAIN_ENTRY_URL}}",
-                    "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
-                }
+    var ui_data = {
+        "request-schema": {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
+        "methods": [
+            {
+                "name": "{{MAIN_ENTRY_NAME}}",
+                "url": "{{MAIN_ENTRY_URL}}",
+                "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
+            }
 {I:ALT_ENTRY_NAME{               ,{
-                    "name": "{{ALT_ENTRY_NAME}}",
-                    "url": "{{ALT_ENTRY_URL}}",
-                    "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
-                }
+                "name": "{{ALT_ENTRY_NAME}}",
+                "url": "{{ALT_ENTRY_URL}}",
+                "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
+            }
 }I}
-            ]
-        };
+        ]
+    };
     window.PR = {
         ui_data: null,
         init: function(data) {
@@ -215,7 +215,7 @@
         },
         prepareSchema: function(schema) {
             if('type' in schema && !('format' in schema) && schema['type'] === 'string') {
-                schema['format'] = 'textarea';
+                schema['format']  'textarea';
             } 
             if('type' in schema && schema['type'] === 'object') {
                 properties = schema['properties'];
@@ -227,25 +227,29 @@
             }
         },
         advancedFields: [],
+        textFields: [],
         findAdvancedFields: function(schema, prefix) {
             if('type' in schema && schema['type'] === 'object') {
                 properties = schema['properties'];
                 for([key, val] of Object.entries(properties)) 
-                    PR.findAdvancedFields(val, prefix + '.' + schema['title']);
+                    PR.findAdvancedFields(val, prefix + '.' + key);
             } else 
             if('type' in schema && schema['type'] === 'array') {
-                PR.findAdvancedFields(schema['items'], prefix + '.' + schema['title']);
+                PR.findAdvancedFields(schema['items'], prefix);
             } else 
-            if('type' in schema && !('default' in schema)) {
-                PR.advancedFields.push(prefix + '.' + schema['title']);
+            if('type' in schema && 'default' in schema) {
+                PR.advancedFields.push(prefix);
+            } else
+            if('type' in schema && !('default' in schema) && 'format' in schema && schema['format'] === 'textarea') {
+                PR.textFields.push(prefix);
             }
         },
         makeForm: function() {
             var rqt_schema = PR.ui_data["request-schema"];
             rqt_schema["format"] = "grid";
             PR.prepareSchema(rqt_schema);
-            for([key, val] of Object.entries(rqt_schema["properties"])) 
-                PR.findAdvancedFields(val, "root");
+            if("properties" in rqt_schema)
+                PR.findAdvancedFields(rqt_schema, "root");
             PR.form = new JSONEditor($('#pr-form-editor')[0], {
                 "schema" : rqt_schema,
                 "theme" : "bootstrap4",
@@ -263,106 +267,107 @@
             }
             return obj;
         },
-    renderJSON: function(schema, container, label, objectID, jo, replace, keyO) {
-        if(typeof jo === 'boolean') {
-            PR.appendOrReplace(container, '<div class="pr-JSON-boolean" id="'+objectID+'">'+jo+"</div>", replace);
-            if(keyO) keyO.addClass("pr-sticky");
-            $("#"+objectID).addClass(label);
-        } else 
-        if(typeof jo === 'string' || jo instanceof String) {
-            PR.appendOrReplace(container, '<div class="pr-JSON-string" id="'+objectID+'"></div>', replace);
-            $("#"+objectID).attr('data-text', jo);
-            if(keyO && jo.length < 100 && jo.indexOf(' ') < 0) {
-                keyO.addClass("pr-sticky");
-                $("#"+objectID).addClass("pr-sticky");
-                $("#"+objectID).text(jo);
-            } else {
-                $("#"+objectID).addClass("pr-wrappable");
-                $("#"+objectID).html(jo.replace(/(?:\r\n|\r|\n)/g, '<br>')); 
-            }
-            $("#"+objectID).addClass(label);
-         } else 
-         if(typeof jo === 'number' && isFinite(jo)) {
-             PR.appendOrReplace(container, '<div class="pr-JSON-number" id="'+objectID+'">'+jo+"</div>", replace);
-             if(keyO) keyO.addClass("pr-sticky");
-             $("#"+objectID).addClass(label);
-         } else 
-         if(jo && typeof jo === 'object' && jo.constructor === Array) {
-             var lc = 0;
-             PR.appendOrReplace(container, '<div class="pr-JSON-array" id="'+objectID+'"></div>', replace);
-             $("#"+objectID).addClass(label);
-             container = $("#"+objectID);
-             if(schema && 'type' in schema && schema['type'] === 'array' && 'items' in schema) 
-                 schema = schema['items'];
-             else 
-                 schema = null;
-             for(const jao of jo) {
-                 lc = lc + 1;
-                 var localID = objectID + "-" + lc;
-                 PR.renderJSON(schema, container, label + "-", localID, jao, false, null);
-             }
-         } else
-         if(jo && typeof jo === 'object' && jo.constructor === Object) {
-             var lc = 0;
-             PR.appendOrReplace(container, '<div class="pr-JSON-object" id="'+objectID+'"></div>', replace);
-             $("#"+objectID).addClass(label);
-             container = $("#"+objectID);
-             var properties = null;
-             if(schema && 'type' in schema && schema['type'] === 'object') 
-                 properties = schema['properties'];
-
-             if(properties) {
-                 var s = 0;
-                 for(const [key, val] of Object.entries(properties)) 
-                     if('propertyOrder' in val && val.propertyOrder > s) s = val.propertyOrder; 
-                 for([key, val] of Object.entries(properties)) 
-                     if(!('propertyOrder' in val)) {val['propertyOrder'] = s; s += 1;} 
-                 properties = Array.from(Object.keys(properties), x => [x, properties[x]]);
-
-                 properties.sort(function(a, b) {
-                     return a[1].propertyOrder - b[1].propertyOrder;
-                 });
-
-                 for(const [key, prop] of properties) {
+        renderJSON: function(schema, container, label, objectID, jo, replace, keyO) {
+            if(typeof jo === 'boolean') {
+                PR.appendOrReplace(container, '<div class="pr-JSON-boolean" id="'+objectID+'">'+jo+"</div>", replace);
+                if(keyO) keyO.addClass("pr-sticky");
+                $("#"+objectID).addClass(label);
+            } else 
+            if(typeof jo === 'string' || jo instanceof String) {
+                PR.appendOrReplace(container, '<div class="pr-JSON-string" id="'+objectID+'"></div>', replace);
+                $("#"+objectID).attr('data-text', jo);
+                if(keyO && jo.length < 100 && jo.indexOf(' ') < 0) {
+                    keyO.addClass("pr-sticky");
+                    $("#"+objectID).addClass("pr-sticky");
+                    $("#"+objectID).text(jo);
+                } else {
+                    $("#"+objectID).addClass("pr-wrappable");
+                    $("#"+objectID).html(jo.replace(/(?:\r\n|\r|\n)/g, '<br>')); 
+                }
+                $("#"+objectID).addClass(label);
+             } else 
+             if(typeof jo === 'number' && isFinite(jo)) {
+                 PR.appendOrReplace(container, '<div class="pr-JSON-number" id="'+objectID+'">'+jo+"</div>", replace);
+                 if(keyO) keyO.addClass("pr-sticky");
+                 $("#"+objectID).addClass(label);
+             } else 
+             if(jo && typeof jo === 'object' && jo.constructor === Array) {
+                 var lc = 0;
+                 PR.appendOrReplace(container, '<div class="pr-JSON-array" id="'+objectID+'"></div>', replace);
+                 $("#"+objectID).addClass(label);
+                 container = $("#"+objectID);
+                 if(schema && 'type' in schema && schema['type'] === 'array' && 'items' in schema) 
+                     schema = schema['items'];
+                 else 
+                     schema = null;
+                 for(const jao of jo) {
                      lc = lc + 1;
-                     if(key in jo) {
-                         var val = jo[key];
+                     var localID = objectID + "-" + lc;
+                     PR.renderJSON(schema, container, label + "-", localID, jao, false, null);
+                 }
+             } else
+             if(jo && typeof jo === 'object' && jo.constructor === Object) {
+                 var lc = 0;
+                 PR.appendOrReplace(container, '<div class="pr-JSON-object" id="'+objectID+'"></div>', replace);
+                 $("#"+objectID).addClass(label);
+                 container = $("#"+objectID);
+                 var properties = null;
+                 if(schema && 'type' in schema && schema['type'] === 'object') 
+                     properties = schema['properties'];
+
+                 if(properties) {
+                     var s = 0;
+                     for(const [key, val] of Object.entries(properties)) 
+                         if('propertyOrder' in val && val.propertyOrder > s) s = val.propertyOrder; 
+                     for([key, val] of Object.entries(properties)) 
+                         if(!('propertyOrder' in val)) {val['propertyOrder'] = s; s += 1;} 
+                     properties = Array.from(Object.keys(properties), x => [x, properties[x]]);
+
+                     properties.sort(function(a, b) {
+                         return a[1].propertyOrder - b[1].propertyOrder;
+                     });
+
+                     for(const [key, prop] of properties) {
+                         lc = lc + 1;
+                         if(key in jo) {
+                             var val = jo[key];
+                             var localIDk = objectID+'-k'+lc;
+                             var localIDv = objectID+'-v'+lc;
+                             PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
+                             var ko = $("#"+localIDk);
+                             ko.text(key); 
+                             ko.addClass('k' + label + '-' + key);
+                             schema = prop;
+                             if('description' in schema) 
+                                 ko.attr('title', schema['description']);
+                             PR.renderJSON(schema, $("#"+localIDv), label + '-' + key, localIDv, val, true, ko);
+                         }
+                     }
+
+                 } else {
+                     for(const [key, val] of Object.entries(jo)) {
+                         lc = lc + 1;
                          var localIDk = objectID+'-k'+lc;
                          var localIDv = objectID+'-v'+lc;
                          PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
                          var ko = $("#"+localIDk);
                          ko.text(key); 
                          ko.addClass('k' + label + '-' + key);
-                         schema = prop;
-                         if('description' in schema) 
+                         if(properties && key in properties) 
+                             schema = properties[key];
+                         else
+                             schema = null;
+                         if(schema && 'description' in schema) {                         
                              ko.attr('title', schema['description']);
+                         }
                          PR.renderJSON(schema, $("#"+localIDv), label + '-' + key, localIDv, val, true, ko);
                      }
                  }
-
              } else {
-                 for(const [key, val] of Object.entries(jo)) {
-                     lc = lc + 1;
-                     var localIDk = objectID+'-k'+lc;
-                     var localIDv = objectID+'-v'+lc;
-                     PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
-                     var ko = $("#"+localIDk);
-                     ko.text(key); 
-                     ko.addClass('k' + label + '-' + key);
-                     if(properties && key in properties) 
-                         schema = properties[key];
-                     else
-                         schema = null;
-                     if(schema && 'description' in schema) {                         
-                         ko.attr('title', schema['description']);
-                     }
-                     PR.renderJSON(schema, $("#"+localIDv), label + '-' + key, localIDv, val, true, ko);
-                 }
+                 PR.appendOrReplace(container, '<div class="pr-JSON-null" id="'+objectID+'">null</div>', replace);
              }
-         } else {
-             PR.appendOrReplace(container, '<div class="pr-JSON-null" id="'+objectID+'">null</div>', replace);
-         }
-    },
+        },
+
         connectButtons: function() {
             /* submit on <Return> in the main filed if any */
             /*
@@ -376,13 +381,15 @@
             });
             */
             $('#advanced-view').change(function() { 
-
                 if(this.checked) {
-                    //$('*[data-schemapath="root.question"]').removeClass("col-md-8");
-                    //$('*[data-schemapath="root.question"]').addClass("col-md-4");
-                    for(const afid of PR.advancedFields)
+                    for(const tfid of PR.textFields) {
+                        $('*[data-schemapath="'+tfid+'"]').removeClass("col-md-12");
+                    }
+                    for(const afid of PR.advancedFields) {
                         $('*[data-schemapath="'+afid+'"]').show();
-                    $("#advanced-menus").show();
+                    }
+                    
+                    $("#advanced-menu").show();
                     $("#pr-message-panel").show();
                     // Show/hide alternate entries
                     //$("#article_retrieval-submit").parent().show();
@@ -392,11 +399,13 @@
                         $('.' + PR.hideFields.join(',.')).show();
                    */
                  } else {
-                    //$('*[data-schemapath="root.question"]').removeClass("col-md-4");
-                    //$('*[data-schemapath="root.question"]').addClass("col-md-8");
-                    for(const afid of PR.advancedFields)
+                    for(const tfid of PR.textFields) {
+                        $('*[data-schemapath="'+tfid+'"]').addClass("col-md-12");
+                    }
+                    for(const afid of PR.advancedFields) {
                         $('*[data-schemapath="'+afid+'"]').hide();
-                    $("#advanced-menus").hide();
+                    }
+                    $("#advanced-menu").hide();
                     $("#pr-message-panel").hide();
                     //$("#article_retrieval-submit").parent().hide();
                     /*
