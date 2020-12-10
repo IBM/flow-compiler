@@ -179,12 +179,16 @@
             {
                 "name": "{{MAIN_ENTRY_NAME}}",
                 "url": "{{MAIN_ENTRY_URL}}",
-                "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
+                "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}},
+                "hidden-fields": "{{MAIN_ENTRY_HIDDEN_FIELDS}}",
+                "hidden-labels": "{{MAIN_ENTRY_HIDDEN_LABELS}}"
             }
 {I:ALT_ENTRY_NAME{               ,{
                 "name": "{{ALT_ENTRY_NAME}}",
                 "url": "{{ALT_ENTRY_URL}}",
-                "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}}
+                "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}},
+                "hidden-fields": "{{ALT_ENTRY_HIDDEN_FIELDS}}",
+                "hidden-labels": "{{ALT_ENTRY_HIDDEN_LABELS}}"
             }
 }I}
         ]
@@ -227,6 +231,8 @@
         },
         advancedFields: [],
         textFields: [],
+        hiddenFields: [],
+        hiddenLabels: [],
         findAdvancedFields: function(schema, prefix) {
             if('type' in schema && schema['type'] === 'object') {
                 properties = schema['properties'];
@@ -302,7 +308,7 @@
                  for(const jao of jo) {
                      lc = lc + 1;
                      var localID = objectID + "-" + lc;
-                     PR.renderJSON(schema, container, label + "-", localID, jao, false, null);
+                     PR.renderJSON(schema, container, label, localID, jao, false, null);
                  }
              } else
              if(jo && typeof jo === 'object' && jo.constructor === Object) {
@@ -392,11 +398,13 @@
                     $("#pr-message-panel").show();
                     // Show/hide alternate entries
                     $(".advanced-button").show();
-                    /*
-                    $('.pr-JSON-key').show();
-                    if(PR.hideFields.length > 0)
-                        $('.' + PR.hideFields.join(',.')).show();
-                   */
+                    // Show hide field labels and values in the reply
+                    if(PR.hiddenLabels.length > 0) 
+                        $(".km-"+PR.hiddenLabels.join(',.km-')).show();
+                    if(PR.hiddenFields.length > 0) {
+                        $(".km-"+PR.hiddenFields.join(',.km-')).show();
+                        $(".m-"+PR.hiddenFields.join(',.m-')).show();
+                    }
                  } else {
                     for(const tfid of PR.textFields) {
                         $('*[data-schemapath="'+tfid+'"]').addClass("col-md-12");
@@ -407,15 +415,12 @@
                     $("#advanced-menu").hide();
                     $("#pr-message-panel").hide();
                     $(".advanced-button").hide();
-                    /*
-                    if(PR.alwaysShowKeys.length > 0) {
-                        $('.pr-JSON-key:not(.' + PR.alwaysShowKeys.join(',.')+')').hide();
-                    } else {
-                        $('.pr-JSON-key').hide();
+                    if(PR.hiddenLabels.length > 0) 
+                        $(".km-"+PR.hiddenLabels.join(',.km-')).hide();
+                    if(PR.hiddenFields.length > 0) {
+                        $(".km-"+PR.hiddenFields.join(',.km-')).hide();
+                        $(".m-"+PR.hiddenFields.join(',.m-')).hide();
                     }
-                    if(PR.hideFields.length > 0)
-                        $('.' + PR.hideFields.join(',.')).hide();
-                    */
                 }
             });
             $('#download-response').on('click', function() {
@@ -479,8 +484,9 @@
                                 $("#pr-message").html('');
                                 PR.response = reply_obj;
                                 PR.responseSchema = m["response-schema"];
-                                PR.beforeRender();
+                                PR.beforeRender(m["hidden-fields"], m["hidden-labels"]);
                                 PR.renderJSON(PR.responseSchema, $("#pr-response"), "m", "pr-response", reply_obj, true, null);
+                                $("#advanced-view").prop("checked", $("#advanced-view").prop("checked")).trigger("change");
                                 $('#download-request').show();
                                 $('#download-response').show();
                                 try {
@@ -538,7 +544,14 @@
          * PR.request, PR.response and PR.responseSchema are set 
          * for both beforeRender and afterRender
          */
-        beforeRender: function() {
+        fieldNamesToClassNames: function(str) {
+            str = str.replace(/[ ,]+/gi, ',').replace(/^[ ,]+|[ .,]+$/gi, '').replace(/[.]/gi, '-');
+            str = str.replace(/_[A-za-z]/gi, function(c) { return c.substr(1).toUpperCase(); })
+            return str.split(',');
+        },
+        beforeRender: function(hiddenFields, hiddenLabels) {
+            PR.hiddenFields = PR.fieldNamesToClassNames(hiddenFields);
+            PR.hiddenLabels = PR.fieldNamesToClassNames(hiddenLabels);
         },
         afterRender: function() {
         }
