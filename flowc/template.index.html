@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.3.1/litera/bootstrap.css">
     <style>
         div[data-schemaid=root]>h3{ display: none; }
-        div[data-schemaid=root]>p{ font-size: 125%; font-weight: bold; }
+        div[data-schemaid=root]>p{ display: none; font-size: 125%; font-weight: bold; }
         div.pr-button { width: 220px; margin-left: 0px; margin-right: 20px; margin-top: 8px; display: inline-block; vertical-align: top; }
         p.form-text,  
         .pr-button-text {  font-style: italic; font-size: 75%;  white-space: normal; }
@@ -57,8 +57,8 @@
     <!-- Navigation Bar
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-header-id" class="pr-header">
-        <nav class="navbar navbar-expand-sm">
-            <div class="navbar-nav mr-auto"><h3>{{NAME/upper}}{A:HAVE_ACTIVE_NODE{ - {{MAIN_ENTRY_NAME/upper}}}A}</h3></div>  
+        <nav class="navbar navbar-expand-sm navbar-light bg-white">
+            <span class="navbar-brand"><b>{{MAIN_DESCRIPTION/html+NAME/upper/decamelize/html}}</b>{A:HAVE_ACTIVE_NODE{ <span><i>{{MAIN_ENTRY_NAME/upper}}</i></span>}A}</span>
             <div class="navbar-expand ml-auto" id="advanced-menu">
                 <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
 {A:HAVE_ACTIVE_NODE{
@@ -69,38 +69,36 @@
 
 {N:HAVE_CLI{{{HAVE_CLI}}
                     <li class="nav-item dropdown" id="nodes-dropdown">
-                        <a id="pr-nodes-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Nodes<b class="caret"></b></a>
-                        <div id="pr-nodes-menu" class="dropdown-menu dropdown-menu-right">
-                            <h5 class="dropdown-header">Internal Nodes</h5>
+                        <a id="pr-nodes-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Nodes</a>
+                        <div id="pr-nodes-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="pr-nodes-link">
+                            <h6 class="dropdown-header">Internal Nodes</h6>
+                            <div class="dropdown-divider"></div>
 {C:CLI_NODE_NAME{
-                            <a class="dropdown_item doc-selector" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}}</a>
-                            <i>{{CLI_NODE_DESCRIPTION}}</i>
-                            <br>
+                            <a class="dropdown-item" href="/-www/{{CLI_NODE_NAME}}-index.html">{{CLI_NODE_NAME}}</a>
+                            <i>{{CLI_NODE_DESCRIPTION/html}}</i>
 }C}
                         </div>
                     </li>
 }N}
                     <li class="nav-item dropdown" id="graphs-dropdown">
-                        <a id="pr-graphs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Graphs<b class="caret"></b></a>
-                        <div id="pr-graphs-menu" class="dropdown-menu dropdown-menu-right">
-                            <h5 class="dropdown-header">Node Connection Graphs</h5>
+                        <a id="pr-graphs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Graphs</a>
+                        <div id="pr-graphs-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="pr-graphs-link">
+                            <h6 class="dropdown-header">Node Connection Graphs</h6>
+                            <div class="dropdown-divider"></div>
 {I:ENTRY_NAME{
-                            <a class="dropdown_item doc-selector" href="/-docs/{{ENTRY_NAME}}.svg">{{ENTRY_NAME}}</a>
-                            <br>
+                            <a class="dropdown-item" href="/-docs/{{ENTRY_NAME}}.svg">{{ENTRY_NAME}}</a>
 }I}
                         </div>
                     </li>
                     <li class="nav-item dropdown" id="sources-dropdown">
-                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="ui-icon-gear"></i>Sources<b class="caret"></b></a>
-                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right">
-                            <h5 class="dropdown-header">Source Files</h5>
-                            <a class="dropdown_item doc-selector" href="/-docs/{{MAIN_FILE}}">{{MAIN_FILE}}</a>
-                            <i>{{NAME}} flow file</i>
-                            <br>
+                        <a id="pr-docs-link" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Sources</a>
+                        <div id="pr-docs-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="pr-docs-link">
+                            <h6 class="dropdown-header">Source Files</h6>
+                            <a class="dropdown-item" href="/-docs/{{MAIN_FILE}}">{{MAIN_FILE}}</a>
+                            <div class="dropdown-divider"></div>
 {P:PROTO_FILE{
-                            <a class="dropdown_item doc-selector" href="/-docs/{{PROTO_FILE}}">{{PROTO_FILE}}</a> 
+                            <a class="dropdown-item" href="/-docs/{{PROTO_FILE}}">{{PROTO_FILE}}</a> 
                             <i>{{PROTO_FILE_DESCRIPTION}}</i>
-                            <br>
 }P}
                         </div>
                     </li>
@@ -122,7 +120,7 @@
                     <span class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION/html}}</span>
                 </div>
 {I:ALT_ENTRY_NAME{              
-                <div class="form-group pr-button">
+                <div class="form-group pr-button advanced-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="{{ALT_ENTRY_NAME}}-submit" 
                     style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_NAME/decamelize}}</button>
                     <span class="pr-button-text">{{ALT_ENTRY_DESCRIPTION/html}}</span>
@@ -192,6 +190,7 @@
         ]
     };
     window.PR = {
+        main_page: 1 {A:HAVE_ACTIVE_NODE{-1}A},
         ui_data: null,
         init: function(data) {
             PR.ui_data = data;
@@ -214,7 +213,7 @@
             });
         },
         prepareSchema: function(schema) {
-            if('type' in schema && !('format' in schema) && schema['type'] === 'string') {
+            if('type' in schema && !('format' in schema) && schema['type'] === 'string' && !('enum' in schema)) {
                 schema['format'] = 'textarea';
             } 
             if('type' in schema && schema['type'] === 'object') {
@@ -392,7 +391,7 @@
                     $("#advanced-menu").show();
                     $("#pr-message-panel").show();
                     // Show/hide alternate entries
-                    //$("#article_retrieval-submit").parent().show();
+                    $(".advanced-button").show();
                     /*
                     $('.pr-JSON-key').show();
                     if(PR.hideFields.length > 0)
@@ -407,7 +406,7 @@
                     }
                     $("#advanced-menu").hide();
                     $("#pr-message-panel").hide();
-                    //$("#article_retrieval-submit").parent().hide();
+                    $(".advanced-button").hide();
                     /*
                     if(PR.alwaysShowKeys.length > 0) {
                         $('.pr-JSON-key:not(.' + PR.alwaysShowKeys.join(',.')+')').hide();
@@ -548,8 +547,8 @@
     PR.makeForm();
     PR.connectButtons();
 
-    /* start in basic mode */
-    $("#advanced-view").prop("checked", false).trigger("change");
+    /* start in basic mode if on the main page */
+    $("#advanced-view").prop("checked", PR.main_page === 0).trigger("change");
     </script>
 </body>
 </html>
