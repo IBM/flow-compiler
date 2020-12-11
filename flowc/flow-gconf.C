@@ -277,7 +277,6 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
                 env.push_back(c_escape(sfmt() << nv.first << "=" << os.str()));
             }
         }
-
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
         append(local_vars, "SET_NODE_RUNTIME", ni.runtime.empty()? "#": "");
         append(local_vars, "NODE_RUNTIME", ni.runtime.empty()? ni.runtime: c_escape(ni.runtime));

@@ -5,7 +5,7 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
-{A:VOLUME_UPPERID{flow_{{VOLUME_UPPERID}}="${{{VOLUME_UPPERID}}-{{VOLUME_COS}}}"
+{A:VOLUME_NAME{flow_{{VOLUME_UPPERID}}="${{{VOLUME_UPPERID}}-{{VOLUME_COS}}}"
 if [ -z "$flow_{{VOLUME_UPPERID}}" ]
 then
     flow_{{VOLUME_UPPERID}}="{{VOLUME_PVC}}"

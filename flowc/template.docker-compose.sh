@@ -24,7 +24,7 @@ export grpc_PORT=${{{NAME/id/upper}}_GRPC_PORT-{{MAIN_PORT}}}
 export rest_PORT=${{{NAME/id/upper}}_REST_PORT-{{REST_PORT}}}
 rget_EMBEDDED_KEY_TOOL=1
 download_file() {
-    {{RR_GET_SH:rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}
+    {{RR_GET_SH-rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}
 }
 
 export export_PORTS="#"
