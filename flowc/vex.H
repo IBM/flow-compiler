@@ -219,7 +219,7 @@ struct macro_parser {
     static char const *match_id(char const *begin, char const *end) {
         if(begin == nullptr || begin == end || !std::isalpha(*begin)) return nullptr;
         char const *start = begin+1;
-        while(start != end && (std::isalnum(*start) || *start == '_')) ++start;
+        while(start != end && (std::isalnum(*start) || *start == '_') || *start == '.') ++start;
         return start;
     }
     static char const *match_integer(char const *begin, char const *end) {
