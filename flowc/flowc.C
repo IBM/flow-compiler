@@ -955,11 +955,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count == 0 && contains(targets, "www-files")) {
         std::string outputfn = output_filename("www/index.html");
         std::ofstream outf(outputfn.c_str());
-        // TODO
+#if 0        
         outputfn += ".json";
         std::ofstream outj(outputfn.c_str());
         stru1::to_json(outj, global_vars);
-
+#endif
         if(!outf.is_open()) {
             ++error_count;
             pcerr.AddError(outputfn, -1, 0, "failed to write index.html");
@@ -977,10 +977,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
             std::string outputfn = output_filename("www/"+node_name+"-index.html");
             std::ofstream outf(outputfn.c_str());
-            // TODO
-        outputfn += ".json";
-        std::ofstream outj(outputfn.c_str());
-        stru1::to_json(outj, local_vars);
+#if 0
+            outputfn += ".json";
+            std::ofstream outj(outputfn.c_str());
+            stru1::to_json(outj, local_vars);
+#endif            
             if(!outf.is_open()) {
                 ++error_count;
                 pcerr.AddError(outputfn, -1, 0, sfmt() << "failed to write " << output_filename); 
