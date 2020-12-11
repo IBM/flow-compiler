@@ -314,22 +314,6 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
 
-    for(auto const &mip: mounts) {
-        std::string const &vn = mip.second.name;
-
-        append(local_vars, "VOLUME_NAME", vn);
-        append(local_vars, "VOLUME_LOCAL", mip.second.local);
-        append(local_vars, "VOLUME_ARTIFACTORY", mip.second.artifactory);
-        append(local_vars, "VOLUME_COS", mip.second.cos);
-        append(local_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
-
-        auto cp = comments.find(vn);
-        if(cp != comments.end()) {
-            append(local_vars, "VOLUME_COMMENT", join(cp->second, " "));
-        } else {
-            append(local_vars, "VOLUME_COMMENT", "");
-        }
-    }
 #if 0
     std::cerr << "*************** compose ****************\n";
     std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
@@ -347,12 +331,11 @@ int flow_compiler::genc_composer_driver(std::ostream &outs, std::map<std::string
     int error_count = 0;
     extern char const *template_docker_compose_sh; 
 
-#if 0
-    std::cerr << "****************************************\n";
-    std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
-    std::cerr << "********* local: \n" << join(local_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
+#if 1
+    std::ofstream outg("dcs-driver-global.json");
+    stru1::to_json(outg, global_vars);
+    std::ofstream outj("dcs-driver-local.json");
+    stru1::to_json(outj, local_vars);
 #endif
 
     auto local_smap = vex::make_smap(local_vars);
@@ -364,7 +347,7 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
     int error_count = 0;
     extern char const *template_kubernetes_sh; 
     std::map<std::string, std::vector<std::string>> local_vars;
-
+/*
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
         append(local_vars, "VOLUME_LOCAL", mip.second.local);
@@ -377,6 +360,7 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
         else 
             append(local_vars, "VOLUME_COMMENT", "");
     }
+    */
     clear(local_vars, "GROUP");
     clear(local_vars, "GROUP_NODES");
     for(auto const &g: group_vars) if(!g.first.empty()) {
@@ -388,12 +372,11 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
         append(local_vars, "MAIN_SCALE", get(group_vars[g.first], "GROUP_SCALE"));
     }
 
-#if 0
-    std::cerr << "****************************************\n";
-    std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
-    std::cerr << "********* local: \n" << join(local_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
+#if 1
+    std::ofstream outg("k8s-driver-global.json");
+    stru1::to_json(outg, global_vars);
+    std::ofstream outj("k8s-driver-local.json");
+    stru1::to_json(outj, local_vars);
 #endif
 
     set(local_vars, "KUBERNETES_YAML", kubernetes_yaml);

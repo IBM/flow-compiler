@@ -627,16 +627,20 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 ni.mounts.push_back(v);
 
                 int s = 0;
-                error_count += get_block_value(s, v, "cos", false, {FTK_STRING});
+                error_count += get_block_value(s, v, "url", false, {FTK_STRING});
                 if(s > 0) 
                     minf.cos = get_string(s);
 
+                error_count += get_block_value(s, v, "cos", false, {FTK_STRING});
+                if(s > 0) 
+                    if(minf.cos.empty()) minf.cos = get_string(s);
+
                 error_count += get_block_value(s, v, "artifactory", false, {FTK_STRING});
                 if(s > 0) 
-                    minf.artifactory = get_string(s);
+                    if(minf.cos.empty()) minf.cos = get_string(s);
                 error_count += get_block_value(s, v, "remote", false, {FTK_STRING});
                 if(s > 0) 
-                    minf.artifactory = get_string(s);
+                    if(minf.cos.empty()) minf.cos = get_string(s);
 
 
                 error_count += get_block_value(s, v, "secret", false, {FTK_STRING});
@@ -698,26 +702,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += get_nv_block(ni.headers, blck, "headers", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
     }
 
-    bool have_artifactory = false;
     bool have_cos = false;
     for(auto const &m: mounts) {
-        have_artifactory = have_artifactory || !m.second.artifactory.empty();
         have_cos = have_cos || !m.second.cos.empty();
-        if(have_artifactory && have_cos) break;
+        if(have_cos) break;
     }
-    if(have_artifactory)
-        set(global_vars, "HAVE_ARTIFACTORY", "");
-    else
-        clear(global_vars, "HAVE_ARTIFACTORY");
     if(have_cos)
         set(global_vars, "HAVE_COS", "");
     else
         clear(global_vars, "HAVE_COS");
-
-    if(have_cos || have_artifactory)
-        set(global_vars, "HAVE_REMOTE_RESOURCE", "");
-    else
-        clear(global_vars, "HAVE_REMOTE_RESOURCE");
 
     // Make sure the rest volume name doesn't collide with any other volume name
     std::string rest_volume_name = "proto-files";
@@ -814,6 +807,24 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             append(global_vars, "GRPC_CERTIFICATE", grpc_certificate);
             append(global_vars, "REST_CERTIFICATE", rest_certificate);
+        }
+    }
+    // Add volume information
+    for(auto const &mip: mounts) {
+        std::string const &vn = mip.second.name;
+
+        append(global_vars, "VOLUME_NAME", vn);
+        append(global_vars, "VOLUME_LOCAL", mip.second.local);
+        append(global_vars, "VOLUME_COS", mip.second.cos);
+        append(global_vars, "VOLUME_SECRET", to_option(mip.second.secret));
+        append(global_vars, "VOLUME_PVC", to_option(mip.second.pvc));
+        append(global_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
+
+        auto cp = comments.find(vn);
+        if(cp != comments.end()) {
+            append(global_vars, "VOLUME_COMMENT", join(cp->second, " "));
+        } else {
+            append(global_vars, "VOLUME_COMMENT", "");
         }
     }
     //std::cerr << "----- before makefile: " << error_count << "\n";

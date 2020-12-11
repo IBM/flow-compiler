@@ -90,7 +90,6 @@ struct mount_info {
     std::string local;      // Local path
     std::string pvc;        // Private volume claim
     std::string cos;        // Cloud object store URL
-    std::string artifactory;// Artifactory URL
     std::string secret;     // Secret name for COS or Artifactory credentials
     bool read_only;         // Mount read only 
 
