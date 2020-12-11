@@ -88,7 +88,7 @@ $enable_htdocs          mountPath: "/home/worker/pr/htdocs"
 $enable_htdocs          readOnly: true
 
 {N:G_NODE_NAME{
-{{G_EXTERN_NODE}}      - name: {{G_NODE_OPTION}}
+{{G_EXTERN_NODE}}      - name: {{G_NODE_NAME/option}}
 {{G_EXTERN_NODE}}        image: "{{G_NODE_IMAGE}}"
 {{G_EXTERN_NODE}}        {{G_NODE_ENVIRONMENT}}
 {{G_EXTERN_NODE}}        {{G_NODE_MOUNTS}}

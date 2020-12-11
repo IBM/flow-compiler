@@ -22,7 +22,7 @@ $enable_custom_app      - ${{NAME/id/upper}}_HTDOCS:/home/worker/{{NAME}}/app:ro
 {{EXTERN_NODE}}    {{NODE_MOUNTS-}}
 {{EXTERN_NODE}}$use_SWARM    deploy:
 {{EXTERN_NODE}}$use_SWARM        endpoint_mode: dnsrr
-{{EXTERN_NODE}}$use_SWARM            replicas: $scale_{{NODE_NAME/id/upper}}
+{{EXTERN_NODE}}$use_SWARM        replicas: $scale_{{NODE_NAME/id/upper}}
 {{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}$use_SWARM            resources:
 {{EXTERN_NODE}}{{NODE_HAVE_MIN}}$use_SWARM                reservations:
 {{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}$use_SWARM                    memory: {{NODE_MIN_MEMORY}}

@@ -139,7 +139,7 @@ then
 echo "Docker Compose/Swarm configuration generator for {{NAME}}"
 echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $(basename "$0") <up|run|config> [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {R:REST_NODE_NAME{--htdocs DIRECTORY }R}{O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "Usage $(basename "$0") <up|run|config> [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $(basename "$0") [-S] [--project-name NAME] <down>"
 echo "   or $(basename "$0") [-T] <logs>"
 {V:HAVE_VOLUMES{
@@ -190,22 +190,22 @@ echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{V
 printf "        "{{VOLUME_COMMENT/sh}}"\n"
 echo ""
 }O}
-{A:HAVE_ARTIFACTORY{
-{{HAVE_ARTIFACTORY}}
-echo "Note: To access the Artifactory $0 looks for the environment variable API_KEY."
+{A:HAVE_COS{
+{{HAVE_COS}}
+echo "Note: To access the Artifactory or Cloud Ojsect Store $0 looks for the environment variable API_KEY."
 echo "If not found, it looks for a file named .api-key in the current directory and then in the home directory."
 echo ""
 }A}
 exit 1
 fi
-{A:HAVE_ARTIFACTORY{
-{{HAVE_ARTIFACTORY}}
-{O:VOLUME_NAME{remote_resource_{{VOLUME_NAME/id/upper}}="{{VOLUME_ARTIFACTORY}}"   
+{A:HAVE_COS{
+{{HAVE_COS}}
+{O:VOLUME_NAME{remote_resource_{{VOLUME_NAME/id/upper}}="{{VOLUME_COS}}"   
 }O}
 }A}
 
 provision() {
-{A:HAVE_ARTIFACTORY{{{HAVE_ARTIFACTORY}}
+{A:HAVE_COS{{{HAVE_COS}}
 {O:VOLUME_NAME{    [ -z "$remote_resource_{{VOLUME_NAME/id/upper}}" ] || \
         download_file -o "${{VOLUME_NAME/id/upper}}" --untar "$remote_resource_{{VOLUME_NAME/id/upper}}" || return 1
 }O}

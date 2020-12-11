@@ -5,19 +5,19 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
-{A:VOLUME_NAME{flow_{{VOLUME_UPPERID}}="${{{VOLUME_UPPERID}}-{{VOLUME_COS}}}"
-if [ -z "$flow_{{VOLUME_UPPERID}}" ]
+{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_COS}}}"
+if [ -z "$flow_{{VOLUME_NAME/id/upper}}" ]
 then
-    flow_{{VOLUME_UPPERID}}="{{VOLUME_PVC}}"
+    flow_{{VOLUME_NAME/id/upper}}="{{VOLUME_PVC}}"
 fi
-export {{VOLUME_UPPERID}}="$flow_{{VOLUME_UPPERID}}"
-flow_{{VOLUME_UPPERID}}_SECRET_NAME=${{{VOLUME_UPPERID}}_SECRET_NAME-{{VOLUME_SECRET}}}
-export {{VOLUME_UPPERID}}_SECRET_NAME=$flow_{{VOLUME_UPPERID}}_SECRET_NAME
+export {{VOLUME_NAME/id/upper}}="$flow_{{VOLUME_NAME/id/upper}}"
+flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
+export {{VOLUME_NAME/id/upper}}_SECRET_NAME=$flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME
 }A}
 cur_KUBECTL=${KUBECTL-kubectl}
 kube_PROJECT_NAME={{NAME}}
-export replicas_{{NAME_UPPERID}}=${{{NAME_UPPERID}}_REPLICAS-{{MAIN_SCALE}}}
-{G:GROUP_UPPER{export replicas_{{NAME_UPPERID}}_{{GROUP_UPPERID}}=${{{NAME_UPPERID}}_{{GROUP_UPPERID}}_REPLICAS-{{GROUP_SCALE}}}
+export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
+{G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
 kubernetes_YAML=$(cat <<"ENDOFYAML"
 {{KUBERNETES_YAML}}
@@ -27,36 +27,36 @@ args=()
 while [ $# -gt 0 ]
 do
 case "$1" in
-{A:VOLUME_OPTION{
-    --mount-{{VOLUME_OPTION}})
-    export {{VOLUME_UPPERID}}="$2"
+{A:VOLUME_NAME{
+    --mount-{{VOLUME_NAME/option}})
+    export {{VOLUME_NAME/id/upper}}="$2"
     shift
     shift
     ;;
-    --secret-{{VOLUME_OPTION}})
-    export {{VOLUME_UPPERID}}_SECRET_NAME="$2"
+    --secret-{{VOLUME_NAME/option}})
+    export {{VOLUME_NAME/id/upper}}_SECRET_NAME="$2"
     shift
     shift
     ;;
 }A}
     --htdocs)
-    export {{NAME_UPPERID}}_HTDOCS="$2"
+    export {{NAME/id/upper}}_HTDOCS="$2"
     shift
     shift
     ;;
     --htdocs-secret-name)
-    export {{NAME_UPPERID}}_HTDOCS_SECRET_NAME="$2"
+    export {{NAME/id/upper}}_HTDOCS_SECRET_NAME="$2"
     shift
     shift
     ;;
     --{{NAME}}-replicas)
-    export replicas_{{NAME_UPPERID}}="$2"
+    export replicas_{{NAME/id/upper}}="$2"
     shift
     shift
     ;;
-{G:GROUP_UPPER{
+{G:GROUP_NAME{
     --{{GROUP}}-replicas)
-    export replicas_{{NAME_UPPERID}}_{{GROUP_UPPERID}}="$2"
+    export replicas_{{NAME/id/upper}}_{{GROUP_UPPERID}}="$2"
     shift
     shift
     ;;
@@ -111,23 +111,23 @@ fi
 if [ -z "${{VOLUME_NAME/id/upper}}" ] 
 then
     have_ALL_VOLUME_CLAIMS=0
-    echo "Please set information for {{VOLUME_NAME/option}}"
+    echo "Please set information for {{VOLUME_NAME/option}}" 1>&2
 else
     if [ -z "${{VOLUME_NAME/id/upper}}_PVC" -a -z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" ]
     then
         have_ALL_VOLUME_CLAIMS=0
-        echo "Please set the secret name for accessing ${{VOLUME_NAME/id/upper}}"
+        echo "Please set the secret name for accessing ${{VOLUME_NAME/id/upper}}" 1>&2
     fi
 fi
 }O}
 
-if [ $# -eq 0 -o "$1" == "deploy" -a $have_ALL_VOLUME_CLAIMS -eq 0 -o "$1" == "config" -a $have_ALL_VOLUME_CLAIMS -eq 0 -o "$1" != "deploy" -a "$1" != "delete" -a "$1" != "config" -a "$1" != "show" ]
+if [ $# -eq 0 -o "$1" == "deploy" -a $have_ALL_VOLUME_CLAIMS -eq 0 -o "$1" != "deploy" -a "$1" != "delete" -a "$1" != "config" -a "$1" != "show" ]
 then
 echo "Kubernetes configuration generator for {{NAME}}"
 echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
 echo "Usage $(basename "$0") <deploy|config> [OPTIONS]"
-# {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} <VOLUME-CLAIM-NAME> }O} --{{NAME}}-replicas <NUM> {G:GROUP_UPPER{--{{GROUP}}-replicas <NUM> }G}
+# {O:VOLUME_NAME/option{--mount-{{VOLUME_NAME/option}} <VOLUME-CLAIM-NAME> }O} --{{NAME}}-replicas <NUM> {G:GROUP{--{{GROUP}}-replicas <NUM> }G}
 echo "   or $(basename "$0") <show|delete>"
 echo ""
 echo "Commands:"
@@ -143,7 +143,7 @@ echo "Options:"
     printf "        "{{VOLUME_HELP}}"\n"
     echo ""
     echo   "    --secret-{{VOLUME_NAME/option-}} <SECRET-NAME>  (or set \${{VOLUME_NAME/id/upper}}_SECRET_NAME)"
-    printf "        Secret name for COS access for {{VOLUME_OPTION}}, default is \"${{VOLUME_UPPERID}}_SECRET_NAME\"\n"
+    printf "        Secret name for COS access for {{VOLUME_NAME/option}}, default is \"${{VOLUME_NAME/id/upper}}_SECRET_NAME\"\n"
     echo ""
 }O}
     echo   "    --htdocs <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{NAME/id/upper}}_HTDOCS)"
@@ -202,7 +202,6 @@ then
     $cur_KUBECTL delete deploy {{NAME}}-{{MAIN_POD}}
     {G:GROUP{$cur_KUBECTL delete deploy {{NAME}}-{{GROUP}}
 }G}
-    {R:REST_NODE_NAME{$cur_KUBECTL delete configmap {{NAME}}-protos}R}
 ## ignore errors
 exit 0
 fi
