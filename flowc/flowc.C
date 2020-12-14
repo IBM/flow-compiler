@@ -890,25 +890,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
         }
     }
-    //std::cerr << "----- before kubernetes: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "kubernetes")) {
-        std::ostringstream yaml;
-        error_count += genc_kube(yaml);
-
-        //std::cerr << "----- before kubernetes driver: " << error_count << "\n";
-        std::string outputfn = output_filename(orchestrator_name + "-k8s.sh");
-        if(error_count == 0) {
-            std::ofstream outf(outputfn.c_str());
-            if(!outf.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write Kubernetes driver");
-            } else {
-                error_count += genc_kube_driver(outf, yaml.str());
-            }
-        }
-        if(error_count == 0) chmodx(outputfn);
-    }
-    //std::cerr << "----- before compose: " << error_count << "\n";
+    //std::cerr << "----- before driver: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "driver")) {
         std::map<std::string, std::vector<std::string>> local_vars;
         auto local_smap = vex::make_smap(local_vars);
@@ -925,14 +907,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_kube(yaml);
         set(local_vars, "KUBERNETES_YAML", yaml.str());
 
-        std::string outputfn = output_filename(orchestrator_name + "-dcs.sh");
+        std::string outputfn = output_filename(orchestrator_name + "-dd.sh");
         if(error_count == 0) {
             std::ofstream outs(outputfn.c_str());
             if(!outs.is_open()) {
                 ++error_count;
                 pcerr.AddError(outputfn, -1, 0, "failed to write deployment driver");
             } else {
-                error_count += genc_composer_driver(outs, local_vars);
+                error_count += genc_deployment_driver(outs, local_vars);
             }
         }
         if(error_count == 0) chmodx(outputfn);

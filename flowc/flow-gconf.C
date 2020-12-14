@@ -323,11 +323,11 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
     vex::expand(out, template_docker_compose_yaml, vex::mapgl(global_smap, local_smap));
     return error_count;
 }
-int flow_compiler::genc_composer_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars) {
+int flow_compiler::genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars) {
     int error_count = 0;
-    extern char const *template_docker_compose_sh; 
+    extern char const *template_driver_sh; 
 
-#if 1
+#if 0
     std::ofstream outg("dcs-driver-global.json");
     stru1::to_json(outg, global_vars);
     std::ofstream outj("dcs-driver-local.json");
@@ -336,36 +336,6 @@ int flow_compiler::genc_composer_driver(std::ostream &outs, std::map<std::string
 
     auto local_smap = vex::make_smap(local_vars);
     auto global_smap = vex::make_smap(global_vars);
-    vex::expand(outs, template_docker_compose_sh, vex::mapgl(global_smap, local_smap));
-    return error_count;
-}
-int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kubernetes_yaml) {
-    int error_count = 0;
-    extern char const *template_kubernetes_sh; 
-    std::map<std::string, std::vector<std::string>> local_vars;
-
-    clear(local_vars, "GROUP");
-    clear(local_vars, "GROUP_NODES");
-    for(auto const &g: group_vars) if(!g.first.empty()) {
-        append(local_vars, "GROUP", g.first);
-        append(local_vars, "GROUP_NODES", join(all(group_vars[g.first], "G_NODE_NAME"), ", "));
-        append(local_vars, "GROUP_SCALE", get(group_vars[g.first], "GROUP_SCALE"));
-    } else {
-        append(local_vars, "MAIN_GROUP_NODES", join(all(group_vars[g.first], "G_NODE_NAME"), ", "));
-        append(local_vars, "MAIN_SCALE", get(group_vars[g.first], "GROUP_SCALE"));
-    }
-
-#if 1
-    std::ofstream outg("k8s-driver-global.json");
-    stru1::to_json(outg, global_vars);
-    std::ofstream outj("k8s-driver-local.json");
-    stru1::to_json(outj, local_vars);
-#endif
-
-    set(local_vars, "KUBERNETES_YAML", kubernetes_yaml);
-
-    auto local_smap = vex::make_smap(local_vars);
-    auto global_smap = vex::make_smap(global_vars);
-    vex::expand(outs, template_kubernetes_sh, vex::mapgl(global_smap, local_smap));
+    vex::expand(outs, template_driver_sh, vex::mapgl(global_smap, local_smap));
     return error_count;
 }

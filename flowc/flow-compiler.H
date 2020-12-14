@@ -331,8 +331,7 @@ public:
 
     int genc_kube(std::ostream &out);
     int genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
-    int genc_composer_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
-    int genc_kube_driver(std::ostream &outs, std::string const &kubernetes_yaml);
+    int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
 
     // Set code generation variables - all return the number of errors generated
     

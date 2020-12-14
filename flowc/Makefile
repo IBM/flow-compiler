@@ -71,8 +71,7 @@ GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
 TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C template.help \
-	template.docker-compose.sh template.docker-compose.yaml \
-	template.kubernetes.group.yaml template.kubernetes.sh template.kubernetes.yaml \
+	template.driver.sh template.docker-compose.yaml template.kubernetes.group.yaml template.kubernetes.yaml \
 	template.server.C template.syntax template.index.html template.server.pem\
     	
 
