@@ -54,9 +54,9 @@ case "$1" in
     shift
     shift
     ;;
-{G:GROUP_NAME{
+{G:GROUP{
     --{{GROUP}}-replicas)
-    export replicas_{{NAME/id/upper}}_{{GROUP_UPPERID}}="$2"
+    export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}="$2"
     shift
     shift
     ;;

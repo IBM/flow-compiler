@@ -5,17 +5,28 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
-export docker_COMPOSE_PROJECT_NAME={{NAME}}
+export kd_PROJECT_NAME={{NAME}}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
-}O}
-{O:VOLUME_NAME{export flow_{{VOLUME_NAME/id/upper}}={{VOLUME_LOCAL/sh}}
 }O}
 {O:MAIN_EP_ENVIRONMENT_NAME{export {{MAIN_EP_ENVIRONMENT_NAME}}_DN={{MAIN_DN_ENVIRONMENT_VALUE}}
 }O}
 {N:NODE_NAME{export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}
 }N}
+export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
+{G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
+}G}
+{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_COS}}}"
+if [ -z "$flow_{{VOLUME_NAME/id/upper}}" ]
+then
+    flow_{{VOLUME_NAME/id/upper}}="{{VOLUME_PVC}}"
+fi
+export {{VOLUME_NAME/id/upper}}="$flow_{{VOLUME_NAME/id/upper}}"
+flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
+export {{VOLUME_NAME/id/upper}}_SECRET_NAME=$flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME
+}A}
 export use_COMPOSE=
 export use_SWARM="#"
+export use_K8S="#"
 export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
@@ -38,7 +49,24 @@ case "$1" in
     shift
     shift
     ;;
+    --secret-{{VOLUME_NAME/option}})
+    export {{VOLUME_NAME/id/upper}}_SECRET_NAME="$2"
+    shift
+    shift
+    ;;
 }A}
+    --{{NAME}}-replicas)
+    export replicas_{{NAME/id/upper}}="$2"
+    shift
+    shift
+    ;;
+{G:GROUP{
+    --{{GROUP}}-replicas)
+    export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}="$2"
+    shift
+    shift
+    ;;
+}G}
     --htdocs)
     if [ "${2:0:1}" == "/" ] 
     then
@@ -46,6 +74,11 @@ case "$1" in
     else 
         export {{NAME/id/upper}}_HTDOCS="$PWD/${2#./}"
     fi
+    shift
+    shift
+    ;;
+    --htdocs-secret-name)
+    export {{NAME/id/upper}}_HTDOCS_SECRET_NAME="$2"
     shift
     shift
     ;;
@@ -60,7 +93,7 @@ case "$1" in
     shift
     ;;
     -P|--project-name)
-    export docker_COMPOSE_PROJECT_NAME="$2"
+    export kd_PROJECT_NAME="$2"
     shift
     shift
     ;;
@@ -78,14 +111,21 @@ case "$1" in
     ;;
     -S|--swarm)
     export use_COMPOSE="#"
+    export use_K8S="#"
     export use_SWARM=
 {O:MAIN_EP_ENVIRONMENT_NAME{    if [ $scale_{{NODE_NAME/id/upper}} -gt 1 ]
     then
-        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="@tasks.${docker_COMPOSE_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
+        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="@tasks.${kd_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
     else
-        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="tasks.${docker_COMPOSE_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
+        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="tasks.${kd_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
     fi
 }O}
+    shift
+    ;;
+    -k|--kubernetes)
+    export use_COMPOSE="#"
+    export use_SWARM="#"
+    export use_K8S=
     shift
     ;;
     -T|--timestamps)
@@ -105,6 +145,10 @@ then
     echo "envsubst command not found"
 fi
 
+kubernetes_YAML=$(cat <<"ENDOFYAML"
+{{KUBERNETES_YAML}}
+ENDOFYAML
+)
 docker_COMPOSE_YAML=$(cat <<"ENDOFYAML"
 {{DOCKER_COMPOSE_YAML}}
 ENDOFYAML
@@ -118,6 +162,23 @@ fi
 }O}
 [ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}" -o }O} 1 -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
+if [ -z "$use_K8S" ]
+then
+[ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" -o }O} have_ALL_VOLUME_DIRECTORIES -eq 0 ]
+have_ALL_VOLUME_DIRECTORIES=$?
+{A:VOLUME_NAME{
+case "$(echo "${{VOLUME_NAME/id/upper}}" | tr '[:upper:]' '[:lower:]')" in
+    s3://*|http://|https://)
+        export {{VOLUME_NAME/id/upper}}_PVC="#"
+        export {{VOLUME_NAME/id/upper}}_COS=
+        ;;
+    *)
+        export {{VOLUME_NAME/id/upper}}_PVC=
+        export {{VOLUME_NAME/id/upper}}_COS="#"
+        ;;
+esac
+}A}
+fi
 export enable_custom_app="#"
 if [ ! -z "${{NAME/id/upper}}_HTDOCS" ]
 then
@@ -129,18 +190,18 @@ then
         export enable_custom_app=
     fi
 fi
-
 if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  \
     -o "$1" == "config" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" == "run" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" -a "$1" != "run" ]
 then
-echo "Docker Compose/Swarm configuration generator for {{NAME}}"
+echo "Docker Compose/Swarm and Kubernetes configuration generator for {{NAME}}"
 echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $(basename "$0") <up|run|config> [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
+echo "Usage $(basename "$0") <up|run|config> [-k] [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
 echo "   or $(basename "$0") [-S] [--project-name NAME] <down>"
+echo "   or $(basename "$0") -k [--project-name NAME] <delete|deploy|show>"
 echo "   or $(basename "$0") [-T] <logs>"
 {V:HAVE_VOLUMES{
 echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{--mount-{{VOLUME_NAME/option}} DIRECTORY  }O}"
@@ -148,12 +209,12 @@ echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{--mount-{{VOLUME_NAME/op
 echo ""
 echo "Commands:"
 echo "   up         Start the application in the background"
-echo "   run        Run the application in the foreground (not available in swarm mode)"
-echo "   config     Display the configuration file that is sent to Docker"
+echo "   run        Run the application in the foreground (not available in swarm or kubernetes mode)"
+echo "   config     Display the configuration file that is sent to the underlying command"
 echo "   down       Stop the running application"
 echo "   logs       Display logs from all the containers (compose mode only)"
 {V:HAVE_VOLUMES{
-echo "   provision  Download thte external data into local directories so it can be mounted inside the running containers"
+echo "   provision  Download thte external data into local directories so it can be mounted inside the running containers (docker compose only)"
 }V}
 echo ""
 echo "Options:"
@@ -162,6 +223,9 @@ echo "        Export the gRPC ports for all nodes"
 echo ""
 echo "    -r, --default-runtime"
 echo "        Ignore runtime settings and run with the default Docker runtime"
+echo ""
+echo "    -k, --kubernetes"
+echo "        Enable kubernetes mode"
 echo ""
 echo "    -S, --swarm"
 echo "        Enable swarm mode"
@@ -173,7 +237,7 @@ echo "    -T, --timestamps"
 echo "        Show timestamps in logs"
 echo ""
 echo "    --project-name NAME"
-echo "        Set the Docker Compose project name to NAME (default is $docker_COMPOSE_PROJECT_NAME)"
+echo "        Set the Docker Compose project name to NAME (default is $kd_PROJECT_NAME)"
 echo ""
 echo "    --grpc-port PORT  (or set {{NAME/id/upper}}_GRPC_PORT)"
 echo "        Override GRPC port (default is $grpc_PORT)"
@@ -185,11 +249,29 @@ echo "    --htdocs DIRECTORY  (or set {{NAME/id/upper}}_HTDOCS)"
 echo "        Directory with custom application files (default is \"${{NAME/id/upper}}_HTDOCS\")"
 echo ""
 {O:VOLUME_NAME{
-echo   "    --mount-{{VOLUME_NAME/option-}} DIRECTORY  (or set {{VOLUME_NAME/id/upper}})"
-echo   "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}})"
+echo "    --mount-{{VOLUME_NAME/option-}} DIRECTORY  (or set {{VOLUME_NAME/id/upper}})"
+echo "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}})"
 printf "        "{{VOLUME_COMMENT/sh}}"\n"
 echo ""
+echo "    --secret-{{VOLUME_NAME/option-}} <SECRET-NAME>  (or set \${{VOLUME_NAME/id/upper}}_SECRET_NAME)"
+printf "        Secret name for COS access for {{VOLUME_NAME/option}}, default is \"${{VOLUME_NAME/id/upper}}_SECRET_NAME\"\n"
+echo ""
 }O}
+echo "    --htdocs <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{NAME/id/upper}}_HTDOCS)"
+echo "        Default is \"${{NAME/id/upper}}_HTDOCS\""
+echo "        Volume or COS URL for tarball with custom application files"
+echo ""
+echo "    --htdocs-secret-name <SECRET-NAME>  (or set \${{NAME/id/upper}}_HTDOCS_SECRET_NAME)"
+printf "        Secret name for COS access for the custom application files, default is \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\"\n"
+echo ""
+echo "    --{{NAME}}-replicas <NUMBER>  (or set \${{NAME/id/upper}}_REPLICAS)"
+echo "        Number of replicas for the main pod [{{MAIN_GROUP_NODES}}] default is $replicas_{{NAME/id/upper}}"
+echo ""
+{G:GROUP{
+echo "    --{{GROUP}}-replicas <NUMBER>  (or set \${{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS)"
+echo "        Number or replicas for pod \"{{GROUP}}\" [{{GROUP_NODES}}] default is $replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}"
+echo ""
+}G}
 {A:HAVE_COS{
 {{HAVE_COS}}
 echo "Note: To access the Artifactory or Cloud Ojsect Store $0 looks for the environment variable API_KEY."
@@ -221,17 +303,24 @@ case "$1" in
         then
             provision
             exit $?
-        else
-            echo "Not available in swarm mode"
+        else 
+            echo "provision is only available in docker compose  mode"
             exit 1
         fi
         ;;
     config)
         if [ -z "$use_COMPOSE" ]
         then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" config
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" config
             exit $?
-        else
+        fi
+        if [ -z "$use_K8S" ]
+        then
+            echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+            exit $?
+        fi
+        if [ -z "$use_SWARM" ]
+        then
             echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
             exit $?
         fi
@@ -239,31 +328,50 @@ case "$1" in
     down)
         if [ -z "$use_COMPOSE" ]
         then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" down -v
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" down -v
             exit $?
-        else 
-            docker stack delete "$docker_COMPOSE_PROJECT_NAME"
+        fi
+        if [ -z "$use_SWARM" ]
+        then 
+            docker stack delete "$kd_PROJECT_NAME"
+            exit $?
+        fi
+        if [ -z "$use_K8S" ]
+        then 
+            $cur_KUBECTL delete service {{NAME}}
+{S:GROUP{   $cur_KUBECTL delete service {{NAME}}-{{GROUP}}
+}S}
+            $cur_KUBECTL delete deploy {{NAME}}-{{MAIN_POD}}
+{G:GROUP{   $cur_KUBECTL delete deploy {{NAME}}-{{GROUP}}
+}G}
             exit $?
         fi
         ;;
     logs)
         if [ -z "$use_COMPOSE" ]
         then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
             exit $?
         else
-            echo "Not available in swarm mode"
+            echo "logs is only available in docker compose mode"
             exit 1
         fi
         ;;
-    up)
+   deploy|up)
         if [ -z "$use_COMPOSE" ]
         then
             [ $provision_ENABLED -eq 0 ] || provision || exit 1
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up -d
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up -d
             rc=$?
-        else
-            echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$docker_COMPOSE_PROJECT_NAME"
+        fi
+        if [ -z "$use_SWARM" ]
+        then
+            echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
+            rc=$?
+        fi
+        if [ -z "$use_K8S" ]
+        then
+            echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
             rc=$?
         fi
         ;;
@@ -271,11 +379,29 @@ case "$1" in
         if [ -z "$use_COMPOSE" ]
         then
             [ $provision_ENABLED -eq 0 ] || provision || exit 1
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$docker_COMPOSE_PROJECT_NAME" up 
+            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up 
             rc=$?
         else
-            echo "Not available in swarm mode"
+            echo "run is only avaialble in docker compose mode"
             exit 1
+        fi
+        ;;
+    show)
+        if [ -z "$use_K8S" ]
+        then
+            $cur_KUBECTL get po -l "flow-group={{NAME}}" &&\
+            $cur_KUBECTL get service -l "flow-group={{NAME}}"
+            exit $?
+        fi
+        if [ -z "$use_SWARM" ] 
+        then
+            docker stack ls "$kd_PROJECT_NAME"
+            exit $?
+        fi
+        if [ -z "$use_COMPOSE" ] 
+        then
+            docker ps -a | grep "$kd_PROJECT_NAME"
+            exit $?
         fi
         ;;
 esac
@@ -284,9 +410,18 @@ then
     echo "{{NAME}} gRPC service listening on port $grpc_PORT"
     echo "{{NAME}} REST service listening on port $rest_PORT"
 fi
-if [ ! -z "$use_COMPOSE" ] 
+if [ -z "$use_SWARM" ] 
 then
-    docker stack ls "$docker_COMPOSE_PROJECT_NAME"
+    docker stack ls "$kd_PROJECT_NAME"
+fi
+if [ -z "$use_K8S" ] 
+then
+    $cur_KUBECTL get po -l "flow-group={{NAME}}" &&\
+    $cur_KUBECTL get service -l "flow-group={{NAME}}"
+fi
+if [ -z "$use_COMPOSE" ] 
+then
+    docker ps -a | grep "$kd_PROJECT_NAME"
 fi
 exit $rc
 

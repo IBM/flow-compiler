@@ -263,7 +263,6 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
                 append(env_vars, en, to_lower(nf));
             }
         }
-
         std::vector<std::string> env;
         for(auto const &nv: ni.environment) {
             std::string file_ref = check_for_file_ref(nv.second);
@@ -280,7 +279,6 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
         append(local_vars, "SET_NODE_RUNTIME", ni.runtime.empty()? "#": "");
         append(local_vars, "NODE_RUNTIME", ni.runtime.empty()? ni.runtime: c_escape(ni.runtime));
-
         append(local_vars, "NODE_SCALE", std::to_string(ni.scale <= 0? 1: ni.scale));
         append(local_vars, "NODE_MIN_CPUS", std::to_string(ni.min_cpus <= 0? 0: ni.min_cpus));
         append(local_vars, "NODE_MAX_CPUS", std::to_string(ni.max_cpus <= 0? 0: ni.max_cpus));
@@ -313,13 +311,11 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "HAVE_RW_VOLUMES", have_rw_mounts? "": "#");
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
-
 #if 0
-    std::cerr << "*************** compose ****************\n";
-    std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
-    std::cerr << "********* local: \n" << join(local_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
+    std::ofstream outg("driver-global.json");
+    stru1::to_json(outg, global_vars);
+    std::ofstream outj("driver-local.json");
+    stru1::to_json(outj, local_vars);
 #endif
     extern char const *template_docker_compose_yaml;
     auto local_smap = vex::make_smap(local_vars);
@@ -347,20 +343,7 @@ int flow_compiler::genc_kube_driver(std::ostream &outs, std::string const &kuber
     int error_count = 0;
     extern char const *template_kubernetes_sh; 
     std::map<std::string, std::vector<std::string>> local_vars;
-/*
-    for(auto const &mip: mounts) {
-        std::string const &vn = mip.second.name;
-        append(local_vars, "VOLUME_LOCAL", mip.second.local);
-        append(local_vars, "VOLUME_COS", mip.second.cos);
-        append(local_vars, "VOLUME_SECRET", to_option(mip.second.secret));
-        append(local_vars, "VOLUME_PVC", to_option(mip.second.pvc));
-        auto cp = comments.find(vn);
-        if(cp != comments.end()) 
-            append(local_vars, "VOLUME_COMMENT", join(cp->second, " "));
-        else 
-            append(local_vars, "VOLUME_COMMENT", "");
-    }
-    */
+
     clear(local_vars, "GROUP");
     clear(local_vars, "GROUP_NODES");
     for(auto const &g: group_vars) if(!g.first.empty()) {

@@ -18,8 +18,8 @@ DESCRIPTION
               with the "C++" source code, a "makefile" and a "dockerfile" are also generated.
 
        Deployment tool generation
-              Deployment configuration files and tools are generated for "Docker Compose" and for
-              "Kubernetes"
+              Deployment configuration files and tools are generated for "Docker Compose", "Docker Swarm" 
+              and for "Kubernetes"
 OPTIONS
 
        --base-port=PORT, -P PORT
@@ -61,8 +61,8 @@ OPTIONS
               any method exeeds this timeout the method will reply with "DEADLINE_EXCEEDED". This timeout is 
               used when no value was set for a given entry.
 
-       --docker-compose, -d
-              Generate a "Docker Compose" and "Docker Swarm" driver tool for managing the application
+       --driver, -d
+              Generate a deployment script for "Docker Compose", "Docker Swarm" and "Kubernetes"
 
        --dockerfile
               Generate a "dockerfile" for the aggregator image
@@ -113,9 +113,6 @@ OPTIONS
               Specify the directory in which to search for the main file and for imports. May be specified
               multiple times. Directories will be searched in order. If not given, the current working 
               directory is used.
-
-       --kubernetes, -k
-              Generate configuration tool for "Kubernetes" deployment
 
        --makefile, -m
               Generate a "makefile" that can be used to make the client, the server and the docker image

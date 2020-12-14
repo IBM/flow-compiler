@@ -410,7 +410,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * All files are compiled at this ponit so,
      * set as many of values that control code generation as possible
      */
-    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
+    if(contains(targets, "driver")) {
         for(auto const &nc: named_blocks) if(nc.second.first == "container") 
             referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
     }
@@ -475,7 +475,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
 
     // Grab all the image names, image ports and volume names 
-    if(contains(targets, "kubernetes") || contains(targets, "docker-compose")) {
+    if(contains(targets, "driver")) {
         // Make a first pass to collect the declared ports and groups
         for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
             int blck = rn.first;
@@ -539,9 +539,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
 
             // For kubernetes check that ports in the same pod don't clash
-            if(contains(targets, "kubernetes")) for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == group_name) {
+            for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == group_name) {
                 ++error_count;
-                pcerr.AddError(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.first << "\"");
+                pcerr.AddWarning(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.first << "\"");
                 // Only generate one port conflict message
                 break;
             }
@@ -670,13 +670,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             if(!external_node)
                 error_count += get_nv_block(ni.environment, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
         }
-
         // Avoid group name collision
         set(global_vars, "MAIN_POD", "main");
         for(int i = 1; i < 100 && contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
             set(global_vars, "MAIN_POD", sfmt() << "main" << i);
         }
-        
         for(auto const &gv: group_vars) {
             clear(group_vars[gv.first], "G_HAVE_NODES");
             if(group_vars[gv.first]["G_NODE_NAME"].size() > 0) 
@@ -686,7 +684,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
         }
         set(global_vars, "HAVE_NODES", ""); 
-
         if(mounts.size() > 0) 
             set(global_vars, "HAVE_VOLUMES", "");
         else 
@@ -696,12 +693,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         int blck = rn.first;
         auto &ni = rn.second;
 
-
         int old_value = 0;
         ni.headers.clear();
         error_count += get_nv_block(ni.headers, blck, "headers", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
     }
-
     bool have_cos = false;
     for(auto const &m: mounts) {
         have_cos = have_cos || !m.second.cos.empty();
@@ -711,7 +706,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(global_vars, "HAVE_COS", "");
     else
         clear(global_vars, "HAVE_COS");
-
     // Make sure the rest volume name doesn't collide with any other volume name
     std::string rest_volume_name = "proto-files";
     std::set<std::string> volumes;
@@ -896,8 +890,26 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
         }
     }
+    //std::cerr << "----- before kubernetes: " << error_count << "\n";
+    if(error_count == 0 && contains(targets, "kubernetes")) {
+        std::ostringstream yaml;
+        error_count += genc_kube(yaml);
+
+        //std::cerr << "----- before kubernetes driver: " << error_count << "\n";
+        std::string outputfn = output_filename(orchestrator_name + "-k8s.sh");
+        if(error_count == 0) {
+            std::ofstream outf(outputfn.c_str());
+            if(!outf.is_open()) {
+                ++error_count;
+                pcerr.AddError(outputfn, -1, 0, "failed to write Kubernetes driver");
+            } else {
+                error_count += genc_kube_driver(outf, yaml.str());
+            }
+        }
+        if(error_count == 0) chmodx(outputfn);
+    }
     //std::cerr << "----- before compose: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "docker-compose")) {
+    if(error_count == 0 && contains(targets, "driver")) {
         std::map<std::string, std::vector<std::string>> local_vars;
         auto local_smap = vex::make_smap(local_vars);
         std::ostringstream buff;
@@ -909,13 +921,16 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         buff.str("");
         vex::expand(buff, rr_get_sh, local_smap);
         set(local_vars, "RR_GET_SH",  buff.str());
+        std::ostringstream yaml;
+        error_count += genc_kube(yaml);
+        set(local_vars, "KUBERNETES_YAML", yaml.str());
 
         std::string outputfn = output_filename(orchestrator_name + "-dcs.sh");
         if(error_count == 0) {
             std::ofstream outs(outputfn.c_str());
             if(!outs.is_open()) {
                 ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write Docker Compose driver");
+                pcerr.AddError(outputfn, -1, 0, "failed to write deployment driver");
             } else {
                 error_count += genc_composer_driver(outs, local_vars);
             }
@@ -1003,24 +1018,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
         }
     }
-    //std::cerr << "----- before kubernetes: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "kubernetes")) {
-        std::ostringstream yaml;
-        error_count += genc_kube(yaml);
-
-        //std::cerr << "----- before kubernetes driver: " << error_count << "\n";
-        std::string outputfn = output_filename(orchestrator_name + "-k8s.sh");
-        if(error_count == 0) {
-            std::ofstream outf(outputfn.c_str());
-            if(!outf.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write Kubernetes driver");
-            } else {
-                error_count += genc_kube_driver(outf, yaml.str());
-            }
-        }
-        if(error_count == 0) chmodx(outputfn);
-    }
     //std::cerr << "----- before return: " << error_count << "\n";
     if(error_count == 0) {
         //pcerr.AddNote(main_file, -1, 0, sfmt() << "build successful");
@@ -1041,8 +1038,7 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"build-server",      {"server"}},
     {"build-image",       {"server", "client", "dockerfile"}},
     {"makefile",          {}},
-    {"docker-compose",    {}},
-    {"kubernetes",        {}},
+    {"driver",            {}},
     {"ssl-certificates",  {}},
     {"protobuf-files",    {}},
     {"www-files",         {"docs"}},
