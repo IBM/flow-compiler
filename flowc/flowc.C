@@ -183,7 +183,6 @@ int flow_compiler::add_to_proto_path(std::string const &directory) {
     grpccc += "-I"; grpccc += directory; grpccc += " ";
     return 0;
 }
-    
 int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
     int error_count = 0;
     int old_value = 0;
@@ -210,12 +209,12 @@ int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int par
     }
     return error_count;
 }
-
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
     main_name = orchestrator_name;
     auto global_smap = vex::make_smap(global_vars);
     set(global_vars, "INPUT_FILE", input_filename);
+    set(global_vars, "MAIN_SCALE", "1");
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid
      */ 
