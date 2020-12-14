@@ -5,6 +5,7 @@
 # generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
+
 export kd_PROJECT_NAME={{NAME}}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
@@ -37,7 +38,6 @@ rget_EMBEDDED_KEY_TOOL=1
 download_file() {
     {{RR_GET_SH-rget_EMBEDDED_KEY_TOOL=; source "$(dirname "$0")/rr-get.sh"}}
 }
-
 export export_PORTS="#"
 args=()
 while [ $# -gt 0 ]
@@ -164,7 +164,7 @@ fi
 have_ALL_VOLUME_DIRECTORIES=$?
 if [ -z "$use_K8S" ]
 then
-[ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" -o }O} have_ALL_VOLUME_DIRECTORIES -eq 0 ]
+[ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" -o }O} $have_ALL_VOLUME_DIRECTORIES -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
 {A:VOLUME_NAME{
 case "$(echo "${{VOLUME_NAME/id/upper}}" | tr '[:upper:]' '[:lower:]')" in
@@ -192,9 +192,8 @@ then
 fi
 if [ $# -eq 0 -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  \
-    -o "$1" == "config" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" == "run" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
-    -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" -a "$1" != "run" ]
+    -o "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" -a "$1" != "run" -a "$1" != "deploy" -a "$1" != "show" ]
 then
 echo "Docker Compose/Swarm and Kubernetes configuration generator for {{NAME}}"
 echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
@@ -285,7 +284,6 @@ fi
 {O:VOLUME_NAME{remote_resource_{{VOLUME_NAME/id/upper}}="{{VOLUME_COS}}"   
 }O}
 }A}
-
 provision() {
 {A:HAVE_COS{{{HAVE_COS}}
 {O:VOLUME_NAME{    [ -z "$remote_resource_{{VOLUME_NAME/id/upper}}" ] || \
@@ -296,7 +294,6 @@ provision() {
 }O}
     return 0
 }
-
 case "$1" in
     provision)
         if [ -z "$use_COMPOSE" ]
@@ -393,12 +390,12 @@ case "$1" in
             $cur_KUBECTL get service -l "flow-group={{NAME}}"
             exit $?
         fi
-        if [ -z "$use_SWARM" ] 
+        if [ -z "$use_SWARM" ]
         then
             docker stack ls "$kd_PROJECT_NAME"
             exit $?
         fi
-        if [ -z "$use_COMPOSE" ] 
+        if [ -z "$use_COMPOSE" ]
         then
             docker ps -a | grep "$kd_PROJECT_NAME"
             exit $?
@@ -424,4 +421,3 @@ then
     docker ps -a | grep "$kd_PROJECT_NAME"
 fi
 exit $rc
-

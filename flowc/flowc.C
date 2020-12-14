@@ -303,8 +303,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string rest_certificate = orchestrator_name + "-rest.pem";
 
     error_count += parse();
-    //if(opts.have("print-ast")) 
-    //    print_ast(std::cout);
     if(error_count == 0)
         error_count += compile(targets);
 
@@ -328,13 +326,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         print_ast(std::cout);
     if(opts.have("print-pseudocode"))
         dump_code(std::cout);
-
-   /* 
-    for(auto const &ne: named_blocks) if(ne.second.first == "entry") {
-        int entry_node = ne.second.second;
-        error_count += gc_local_vars(std::cout,  method_descriptor(entry_node)->full_name(), method_descriptor(entry_node)->name(), entry_node);
-    }
-    */
 
     if(error_count == 0 && package_name.empty())
         package_name = orchestrator_name;
@@ -423,7 +414,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_protobuf(); 
     }
 
-
     if(error_count == 0 && contains(targets, "grpc-files"))
         error_count += genc_grpc(); 
 
@@ -470,8 +460,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     clear(global_vars, "HAVE_NODES");
     if(referenced_nodes.size() > 0) 
         set(global_vars, "HAVE_NODES", ""); 
-
-
 
     // Grab all the image names, image ports and volume names 
     if(contains(targets, "driver")) {
@@ -753,8 +741,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     error_count += set_entry_vars(global_vars);
     error_count += set_cli_node_vars(global_vars);
 
-    //std::cerr << "********* global: \n"; stru1::to_json(std::cerr, global_vars) << "\n";
-
     // std::cerr << "----- before server: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "server")) {
         std::ofstream outf(server_source.c_str());
@@ -840,7 +826,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         if(0 != symlinkat(orchestrator_makefile.c_str(), output_fd, "Makefile")) {
         }
         close(output_fd);
-        //std::cerr << strerror(errno);
     }
     //std::cerr << "----- before dockerfile: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "dockerfile")) {

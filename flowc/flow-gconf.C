@@ -312,9 +312,9 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
 #if 0
-    std::ofstream outg("driver-global.json");
+    std::ofstream outg("dc-yaml-global.json");
     stru1::to_json(outg, global_vars);
-    std::ofstream outj("driver-local.json");
+    std::ofstream outj("dc-yaml-local.json");
     stru1::to_json(outj, local_vars);
 #endif
     extern char const *template_docker_compose_yaml;
@@ -328,9 +328,9 @@ int flow_compiler::genc_deployment_driver(std::ostream &outs, std::map<std::stri
     extern char const *template_driver_sh; 
 
 #if 0
-    std::ofstream outg("dcs-driver-global.json");
+    std::ofstream outg("driver-global.json");
     stru1::to_json(outg, global_vars);
-    std::ofstream outj("dcs-driver-local.json");
+    std::ofstream outj("driver-local.json");
     stru1::to_json(outj, local_vars);
 #endif
 
