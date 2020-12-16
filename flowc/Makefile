@@ -23,6 +23,7 @@ INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux
 .PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8
+.PHONY: tools
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -187,7 +188,13 @@ redhat-ubi8:
 all-images:
 	@$(MAKE) alpine-3.12 && $(MAKE) alpine-3.11 && $(MAKE) ubuntu-18.04 && $(MAKE) ubuntu-20.04 && $(MAKE) redhat-ubi7 && $(MAKE) redhat-ubi8
 
+recli: recli.C
+	$(CXX) -std=c++11 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
 
+vex: vex.C
+	$(CXX) -std=c++11 -O3 -o vex vex.C
+
+tools: recli vex
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
@@ -202,4 +209,4 @@ parser: flow-parser.h
 -include $(OBJS:.o=.dep)
 
 targets:
-	@echo "flowc, image, lemon, tar, clean, install, all-images"
+	@echo "flowc, image, recli, evex, tools, lemon, tar, clean, install, all-images"
