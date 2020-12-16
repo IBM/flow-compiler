@@ -27,17 +27,44 @@ struct amap {
         return -1;
     }
 };
+/**
+ * Templates to virtualize a vex::map.
+ * vsmap keeps a reference to the original map, vdmap make a deep copy.
+ */
 template <class MAP> 
-struct vmap: public amap {
+struct vsmap: public amap {
     MAP const &m;
-    vmap(MAP const &mm): m(mm) {};
+    vsmap(MAP const &mm): m(mm) {};
     virtual std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
         return m.getv(name, index);
     }
     virtual int gets(std::string const &name) const {
-        return -1;
+        return m.gets(name);
     }
 };
+template <class MAP> 
+struct vdmap: public amap {
+    MAP const m;
+    vdmap(MAP const &mm): m(mm) {};
+    virtual std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
+        return m.getv(name, index);
+    }
+    virtual int gets(std::string const &name) const {
+        return m.gets(name);
+    }
+};
+template <class M> static inline
+vsmap<M> make_vsmap(M const &m) {
+    return vsmap<M>(m);
+}
+template <class M> static inline
+vdmap<M> make_vdmap(M const &m) {
+    return vdmap<M>(m);
+}
+/**
+ * Template to cascade two maps.
+ * MAPL is looked up first and then MAPG.
+ */
 template <class MAPG, class MAPL> 
 struct mapp {
     MAPG const &mg;
@@ -53,12 +80,18 @@ struct mapp {
         return s >= 0? s: mg.gets(name);
     }
 };
+/** 
+ * Function template to cascade maps
+ */
 template <class MAPG, class MAPL>
 struct mapp<MAPG, MAPL> mapgl(MAPG const &mg, MAPL const &ml) {
     return mapp<MAPG, MAPL>(mg, ml);
 }
 /**
- * Variable map based on a std::map interface. Uses find() and end() methods only.
+ * Variable map based on a std::map likeinterface. Uses find() and end() methods only.
+ * find() must take a string type as argument.
+ * The result to find must be a pointer type to a structure that stores the values in a filed called 'second'.
+ * The value field must be an array type withe a size() method.
  */
 template <class M=std::map<std::string, std::vector<std::string>>>
 struct smap {
@@ -80,43 +113,40 @@ struct smap {
         return int(f->second.size());
     }
 };
+template <class M=std::map<std::string, std::vector<std::string>>>
+struct dmap {
+    M const m;
+    dmap(M const &mm): m(mm) {
+    }
+    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
+        auto f = m.find(name);
+        if(f == m.end())
+            return std::make_pair(false, std::string());
+        if(f->second.size() == 0)
+            return std::make_pair(true, std::string());
+        return std::make_pair(true, f->second[f->second.size() > index && index >= 0? index: 0]);
+    }
+    int gets(std::string const &name) const {
+        auto f = m.find(name);
+        if(f == m.end()) 
+            return -1;
+        return int(f->second.size());
+    }
+};
 template <class M>
 struct smap<M> make_smap(M const &m) {
     return smap<M>(m);
 }
-
-/*
-template <class... MAP>
-struct vatmap;
-template <>
-struct vatmap<> {
-    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        return std::make_pair(false, std::string());
-    }
-    int gets(std::string const &name) const {
-        return -1;
-    }
-};
-template <class MAP, class... MMAP>
-struct vatmap<m, mm> {
-std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-    auto f = m.find(name, index);
-    return f.first? f: struct<mm>.find(name, index);
+template <class M>
+struct dmap<M> make_dmap(M const &m) {
+    return dmap<M>(m);
 }
-int gets(std::string const &name) const {
-    int s = m.gets(name);
-    return s >= 0? s: struct<mm>.gets(name);
-
-}
-};
-*/
-
 /**
  * A map consisting of a list of virtual maps
  * Use the std::list interface to populate the map.
  * Lookups are prioritized in list oder.
  */
-class lmap: public std::list<amap *> {
+class lvmap: public std::list<amap *> {
 public:    
     std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
         for(auto const &m: *this) {
