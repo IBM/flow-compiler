@@ -2,7 +2,7 @@
 #include <iostream>
 #include "vex.H"
 
-struct envmap: public vex::amap {
+struct envmap {
     static bool ends_with(std::string const &name, const std::string &suff) {
         return name.length() >= suff.length() && name.substr(name.length()-suff.length(), suff.length()) == suff;
     }
@@ -75,13 +75,14 @@ int main(int argc, char *argv[]) {
         }
         in = &fin;
     }
-    vex::lvmap maps;
-    envmap em;
     std::map<std::string, std::vector<std::string>> m;
-    auto jm = vex::make_vdmap(vex::make_smap(m));
-    maps.push_front(&em);
+    
+    vex::lvmap maps;
+    auto jm = vex::make_vmap(vex::make_smap(m));
     maps.push_front(&jm);
 
-    int rc = vex::expand(std::cout, *in, maps);
+    envmap em;
+
+    int rc = vex::expand(std::cout, *in, vex::make_cmap(jm, em));
     return rc;
 }
