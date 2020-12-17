@@ -108,7 +108,7 @@ flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 clean:
-	rm -f flowc $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
+	rm -f flowc $(TOOLS) $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
 RUNTIME_TEMPLATES=$(wildcard */template.runtime.Dockerfile)
 
@@ -194,7 +194,9 @@ recli: recli.C
 vex: vex.C
 	$(CXX) -std=c++11 -O3 -o vex vex.C
 
-tools: recli vex
+TOOLS=recli vex
+
+tools: $(TOOLS)
 
 #### For information about lemon: http://www.hwaci.com/sw/lemon/
 lemon.c:
