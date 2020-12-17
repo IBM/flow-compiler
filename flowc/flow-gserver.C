@@ -1600,7 +1600,7 @@ int flow_compiler::gc_server(std::ostream &out) {
     auto mgv = vex::make_smap(global_vars);
     auto mlv = vex::make_smap(local_vars);
 
-    vex::expand(out, template_server_C, vex::mapgl(mgv, mlv));
+    vex::expand(out, template_server_C, vex::make_cmap(mlv, mgv));
     return error_count;
 }
 int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const {

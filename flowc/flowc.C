@@ -980,7 +980,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             } else {
                 auto lsmap = vex::make_smap(local_vars);
                 extern char const *template_index_html;
-                vex::expand(outf, template_index_html, vex::mapgl(global_smap, lsmap));
+                vex::expand(outf, template_index_html, vex::make_cmap(lsmap, global_smap));
             }
         }
     }

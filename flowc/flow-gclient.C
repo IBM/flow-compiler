@@ -105,6 +105,6 @@ int flow_compiler::genc_client(std::ostream &out) {
     extern char const *template_client_C;
     auto global_smap = vex::make_smap(global_vars);
     auto local_smap = vex::make_smap(local_vars);
-    vex::expand(out, template_client_C, vex::mapgl(global_smap, local_smap));
+    vex::expand(out, template_client_C, vex::make_cmap(local_smap, global_smap));
     return error_count;
 }
