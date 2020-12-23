@@ -29,6 +29,14 @@
 #include <ftw.h>
 #include <errno.h>
 
+#ifndef DEBUG_GENC
+#define DEBUG_GENC 0
+#endif
+
+#define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
+#define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
+#define OFSTREAM_S(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n";
+#define OFSTREAM_C(ofs, c)  std::ofstream ofs(c); if(DEBUG_GENC) std::cerr << "write " << c << ", " << ofs.is_open() << "\n";
 
 using namespace stru1;
 /** 
@@ -211,8 +219,8 @@ int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int par
 }
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
+    DEBUG_ENTER;
     main_name = orchestrator_name;
-    auto global_smap = vex::make_smap(global_vars);
     set(global_vars, "INPUT_FILE", input_filename);
     set(global_vars, "MAIN_SCALE", "1");
     /****************************************************************
@@ -276,12 +284,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
         }
     }
-
-    if(contains(targets, "www-files")) {
-        std::string www_directory = output_filename("www");
-        mkdir(www_directory.c_str(), 0777);
-    }
-
     if(opts.have("htdocs")) {
         std::string htdocs_path(path_join(std::getenv("PWD"), opts.opt("htdocs")));
         set(global_vars, "HTDOCS_PATH", htdocs_path);
@@ -479,7 +481,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 }
             }
             ni.port = pv;
-
             // opts.have("single-pod") needs to be used when kube stuff is generated
         }
         // Allocate port values for the nodes that have not declared one
@@ -628,7 +629,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 error_count += get_block_value(s, v, "remote", false, {FTK_STRING});
                 if(s > 0) 
                     if(minf.cos.empty()) minf.cos = get_string(s);
-
 
                 error_count += get_block_value(s, v, "secret", false, {FTK_STRING});
                 if(s > 0) 
@@ -806,51 +806,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "VOLUME_COMMENT", "");
         }
     }
-    //std::cerr << "----- before makefile: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "makefile")) {
-        std::string fn = output_filename(orchestrator_makefile);
-        std::ofstream makf(fn.c_str());
-        if(!makf.is_open()) {
-            ++error_count;
-            pcerr.AddError(orchestrator_makefile, -1, 0, "failed to write make file");
-        } else {
-            extern char const *template_Makefile;
-            vex::expand(makf, template_Makefile, global_smap);
-        }
+    if(error_count == 0 && contains(targets, "makefile")) 
+        error_count += genc_makefile(orchestrator_makefile);
 
-        // Create a link to this makefile if Makefile isn't in the way
-        std::string mp = output_filename("Makefile");
-        std::string od = output_filename(".");
-        int output_fd = open(od.c_str(), O_DIRECTORY);
-        // Ignore the error
-        if(0 != symlinkat(orchestrator_makefile.c_str(), output_fd, "Makefile")) {
-        }
-        close(output_fd);
-    }
-    //std::cerr << "----- before dockerfile: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "dockerfile")) {
-        std::string fn = output_filename(orchestrator_name+".Dockerfile");
-        std::ofstream outf(fn.c_str());
-        if(!outf.is_open()) {
-            ++error_count;
-            pcerr.AddError(fn, -1, 0, "failed to write dockerfile");
-        } else {
-            extern std::map<std::string, char const *> template_runtime_Dockerfile;
-            char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
-            vex::expand(outf, c_template_runtime_Dockerfile, global_smap);
-            extern char const *template_Dockerfile;
-            vex::expand(outf, template_Dockerfile, global_smap);
-        }
-        std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
-        std::ofstream outf2(fn2.c_str());
-        if(!outf2.is_open()) {
-            ++error_count;
-            pcerr.AddError(fn2, -1, 0, "failed to write slim dockerfile");
-        } else {
-            extern char const *template_slim_Dockerfile;
-            vex::expand(outf2, template_slim_Dockerfile, global_smap);
-        }
-    }
+    if(error_count == 0 && contains(targets, "dockerfile"))
+        error_count += genc_dockerfile(orchestrator_name);
+    
     //std::cerr << "----- before build image: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
@@ -874,6 +835,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
         }
     }
+    //std::cerr << "----- before driver: " << error_count << "\n";
+    if(error_count == 0 && contains(targets, "python-client")) {
+    }
+           
     //std::cerr << "----- before driver: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "driver")) {
         std::map<std::string, std::vector<std::string>> local_vars;
@@ -944,52 +909,115 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
         }
     }
-    if(error_count == 0 && contains(targets, "www-files")) {
-        std::string outputfn = output_filename("www/index.html");
-        std::ofstream outf(outputfn.c_str());
-#if 0        
-        outputfn += ".json";
-        std::ofstream outj(outputfn.c_str());
-        stru1::to_json(outj, global_vars);
+    if(error_count == 0 && contains(targets, "www-files")) 
+        error_count += genc_www();
+    
+    if(error_count != 0) 
+        pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
+   
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_www() {
+    int error_count = 0;
+    DEBUG_ENTER;
+    // Make sure output directory exists
+    std::string www_directory = output_filename("www");
+    mkdir(www_directory.c_str(), 0777);
+
+    auto global_smap = vex::make_smap(global_vars);
+    std::string outputfn = output_filename("www/index.html");
+    OFSTREAM_S(outf, outputfn);
+#if DEBUG_GENC
+    outputfn += ".json";
+    OFSTREAM_S(outj, outputfn);
+    stru1::to_json(outj, global_vars);
 #endif
+    if(!outf.is_open()) {
+        ++error_count;
+        pcerr.AddError(outputfn, -1, 0, "failed to write index.html");
+    } else {
+        extern char const *template_index_html;
+        vex::expand(outf, template_index_html, vex::make_smap(global_vars));
+    }
+    for(auto &rn: referenced_nodes) {
+        auto cli_node = rn.first;
+        if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
+            continue;
+        decltype(global_vars) local_vars;
+        set_cli_active_node_vars(local_vars, cli_node);
+        std::string const &node_name = rn.second.xname;
+
+        std::string outputfn = output_filename("www/"+node_name+"-index.html");
+        OFSTREAM_S(outf, outputfn);
+#if DEBUG_GENC
+        outputfn += ".json";
+        OFSTREAM_S(outj, outputfn);
+        stru1::to_json(outj, local_vars);
+#endif            
         if(!outf.is_open()) {
             ++error_count;
-            pcerr.AddError(outputfn, -1, 0, "failed to write index.html");
+            pcerr.AddError(outputfn, -1, 0, sfmt() << "failed to write " << output_filename); 
         } else {
+            auto lsmap = vex::make_smap(local_vars);
             extern char const *template_index_html;
-            vex::expand(outf, template_index_html, global_smap);
-        }
-        for(auto &rn: referenced_nodes) {
-            auto cli_node = rn.first;
-            if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
-                continue;
-            decltype(global_vars) local_vars;
-            set_cli_active_node_vars(local_vars, cli_node);
-            std::string const &node_name = rn.second.xname;
-
-            std::string outputfn = output_filename("www/"+node_name+"-index.html");
-            std::ofstream outf(outputfn.c_str());
-#if 0
-            outputfn += ".json";
-            std::ofstream outj(outputfn.c_str());
-            stru1::to_json(outj, local_vars);
-#endif            
-            if(!outf.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, sfmt() << "failed to write " << output_filename); 
-            } else {
-                auto lsmap = vex::make_smap(local_vars);
-                extern char const *template_index_html;
-                vex::expand(outf, template_index_html, vex::make_cmap(lsmap, global_smap));
-            }
+            vex::expand(outf, template_index_html, vex::make_cmap(lsmap, vex::make_smap(global_vars)));
         }
     }
-    //std::cerr << "----- before return: " << error_count << "\n";
-    if(error_count == 0) {
-        //pcerr.AddNote(main_file, -1, 0, sfmt() << "build successful");
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_makefile(std::string const &makefile_name) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    auto global_smap = vex::make_smap(global_vars);
+    std::string fn = output_filename(makefile_name);
+    OFSTREAM_S(makf, fn);
+    if(!makf.is_open()) {
+        ++error_count;
+        pcerr.AddError(makefile_name, -1, 0, "failed to write make file");
     } else {
-        pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
+        extern char const *template_Makefile;
+        vex::expand(makf, template_Makefile, global_smap);
     }
+
+    // Create a link to this makefile if Makefile isn't in the way
+    std::string mp = output_filename("Makefile");
+    std::string od = output_filename(".");
+    int output_fd = open(od.c_str(), O_DIRECTORY);
+    // Ignore the error
+    if(0 != symlinkat(makefile_name.c_str(), output_fd, "Makefile")) {
+    }
+    close(output_fd);
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    auto global_smap = vex::make_smap(global_vars);
+    std::string fn = output_filename(orchestrator_name+".Dockerfilename");
+    OFSTREAM_S(outf, fn);
+    if(!outf.is_open()) {
+        ++error_count;
+        pcerr.AddError(fn, -1, 0, "failed to write dockerfile");
+    } else {
+        extern std::map<std::string, char const *> template_runtime_Dockerfile;
+        char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
+        vex::expand(outf, c_template_runtime_Dockerfile, global_smap);
+        extern char const *template_Dockerfile;
+        vex::expand(outf, template_Dockerfile, global_smap);
+    }
+    std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
+    OFSTREAM_S(outf2, fn2);
+    if(!outf2.is_open()) {
+        ++error_count;
+        pcerr.AddError(fn2, -1, 0, "failed to write slim dockerfile");
+    } else {
+        extern char const *template_slim_Dockerfile;
+        vex::expand(outf2, template_slim_Dockerfile, global_smap);
+    }
+    DEBUG_LEAVE;
     return error_count;
 }
 
@@ -1001,6 +1029,7 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"svg-files",         {"graph-files"}},
     {"grpc-files",        {"protobuf-files"}},
     {"build-client",      {"client"}},
+    {"python-client",     {}},
     {"build-server",      {"server"}},
     {"build-image",       {"server", "client", "dockerfile"}},
     {"makefile",          {}},

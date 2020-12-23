@@ -89,12 +89,11 @@ extern char **environ;
 #ifndef REST_CONNECTION_CHECK_INTERVAL
 #define REST_CONNECTION_CHECK_INTERVAL 5000
 #endif
-
 inline static std::ostream &operator << (std::ostream &out, std::chrono::steady_clock::duration time_diff) {
     auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
     char const *unit = "s";
     if(td < 1.0) { td *= 1000; unit = "ms"; }
-    if(td < 1.0) { td *= 1000; unit = "us"; }
+    if(td < 1.0) { td *= 1000; unit = "µs"; }
     if(td < 1.0) { td *= 1000; unit = "ns"; }
     if(td < 1.0) { td = 0; unit = ""; }
     return out << td << unit;
@@ -272,8 +271,7 @@ struct node_cfg {
 
     node_cfg(std::string const &a_id, int a_maxcc, long a_timeout, std::string const &a_endpoint, std::string const &cert_fn):
         id(a_id), maxcc(a_maxcc), timeout(a_timeout), endpoint(a_endpoint), cert_filename(cert_fn), trace(false), creds(::grpc::InsecureChannelCredentials()) {
-        }
-
+    }
     bool read_from_cfg(std::vector<std::string> const &cfg);
     bool check_option(std::string const &) const;
 };
@@ -363,7 +361,6 @@ struct call_info {
                 deadline = start_time + std::chrono::milliseconds(timeout_ms);
         }
     }
-
     call_info(std::string const &entry, long num, ::grpc::ServerContext *ctx, long default_timeout): 
             entry_name(entry), id(num), 
             return_protobuf(true), have_deadline(true), start_time(std::chrono::system_clock::now()), deadline(ctx->deadline()) {
@@ -403,11 +400,9 @@ struct call_info {
             "}";
     }
 };
-
-
 }
 inline static std::ostream &operator << (std::ostream &out, flowc::call_info const &cid) {
-        return cid.printcc(out, 0);
+    return cid.printcc(out, 0);
 }
 inline static std::ostream &operator << (std::ostream &out, std::tuple<flowc::call_info const *, int> const &ccid) {
     return std::get<0>(ccid)->printcc(out, std::get<1>(ccid));
@@ -421,12 +416,6 @@ struct sfmt {
     template <class T> 
     inline sfmt &operator <<(T const &v);
 };
-/*
-template<>
-sfmt &sfmt::operator <<(call_info const &v) {
-    os << v; return *this;
-}
-*/
 template <class T>
 sfmt &sfmt::operator <<(T const &v) {
     os << v; return *this;
@@ -441,17 +430,14 @@ public:
         return *this;
     }
 };
-
 /* cg helpers
  */
-
 void closeq(::grpc::CompletionQueue &q) {
     void *tag; bool ok = false;
     q.Shutdown();
     while(q.Next(&tag, &ok));
 }
 }
-
 
 #define FLOGC(c) if(c) flowc::flog() <<= flowc::sfmt() << flowc::get_system_time() << " " 
 #define FLOG FLOGC(true)

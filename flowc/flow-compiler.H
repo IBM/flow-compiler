@@ -323,18 +323,29 @@ public:
 
     int compile(std::set<std::string> const &targets);
 
-    int genc_client(std::ostream &out);
-    int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
+    // Parse tree accessors to retrieve the first encoutered value, all values in tree order or a map.
+    // If requires is set an error will be generated if no value is found. An error is also generated if the encoutered values 
+    // do not match any of the accepted types.
     int get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
-
+    int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types);
 
+    // Code generation for:
+    // C++ client
+    int genc_client(std::ostream &out);
+    // Kubernetes deployment yaml (pods and services).
     int genc_kube(std::ostream &out);
+    // Docker Composer and Swarm yaml
     int genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
+    // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
     int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
+    // Webapp interface
+    int genc_www();
+    // Makefile
+    int genc_makefile(std::string const &filename);
+    int genc_dockerfile(std::string const &orchestrator_name);
 
     // Set code generation variables - all return the number of errors generated
-    
     // Entry related info
     int set_entry_vars(decltype(global_vars) &vars);
     int set_cli_node_vars(decltype(global_vars) &vars);
