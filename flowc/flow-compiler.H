@@ -344,6 +344,7 @@ public:
     // Makefile
     int genc_makefile(std::string const &filename);
     int genc_dockerfile(std::string const &orchestrator_name);
+    int genc_python_client(std::string const &client_bin);
 
     // Set code generation variables - all return the number of errors generated
     // Entry related info
@@ -354,5 +355,14 @@ public:
     // Main call sequence
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);
 };
+
+#ifndef DEBUG_GENC
+#define DEBUG_GENC 0
+#endif
+
+#define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
+#define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
+#define OFSTREAM_S(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n";
+#define OFSTREAM_C(ofs, c)  std::ofstream ofs(c); if(DEBUG_GENC) std::cerr << "write " << c << ", " << ofs.is_open() << "\n";
 
 #endif

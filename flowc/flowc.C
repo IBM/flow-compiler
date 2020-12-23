@@ -29,15 +29,6 @@
 #include <ftw.h>
 #include <errno.h>
 
-#ifndef DEBUG_GENC
-#define DEBUG_GENC 0
-#endif
-
-#define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
-#define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
-#define OFSTREAM_S(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n";
-#define OFSTREAM_C(ofs, c)  std::ofstream ofs(c); if(DEBUG_GENC) std::cerr << "write " << c << ", " << ofs.is_open() << "\n";
-
 using namespace stru1;
 /** 
  * Set this to false to turn off ANSI coloring 
@@ -836,8 +827,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before driver: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "python-client")) {
-    }
+    if(error_count == 0 && contains(targets, "python-client")) 
+        error_count += genc_python_client(client_bin);
            
     //std::cerr << "----- before driver: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "driver")) {
@@ -915,6 +906,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count != 0) 
         pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
    
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_python_client(std::string const &client_bin) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    std::string fn = client_bin + ".py";
+    OFSTREAM_S(outf, fn);
     DEBUG_LEAVE;
     return error_count;
 }
