@@ -732,26 +732,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     error_count += set_entry_vars(global_vars);
     error_count += set_cli_node_vars(global_vars);
 
-    // std::cerr << "----- before server: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "server")) {
-        std::ofstream outf(server_source.c_str());
-        if(!outf.is_open()) {
-            ++error_count;
-            pcerr.AddError(server_source, -1, 0, "failed to write server source file");
-        } else {
-            error_count += gc_server(outf);
-        }
-    }
-    // std::cerr << "----- before client: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "client")) {
-        std::ofstream outf(client_source.c_str());
-        if(!outf.is_open()) {
-            ++error_count;
-            pcerr.AddError(client_source, -1, 0, "failed to write client source file");
-        } else {
-            error_count += genc_client(outf);
-        }
-    }
+    if(error_count == 0 && contains(targets, "server")) 
+        error_count += genc_server_source(server_source);
+    
+    if(error_count == 0 && contains(targets, "client")) 
+        error_count += genc_client_source(client_source);
+
     //std::cerr << "----- before ssl certificates: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "ssl-certificates")) {
         std::string o_default_certificate = opts.opt("default-certificate", "");
@@ -826,7 +812,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
         }
     }
-    //std::cerr << "----- before driver: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "python-client")) 
         error_count += genc_python_client(client_bin);
            
@@ -859,47 +844,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    //std::cerr << "----- before graph files: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "graph-files")) {
-        for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
-            // Copy the entry name into a writable string because check_entry might overwrite it
-            std::string check_entry(entry_name);
-            auto mdpe = check_method(check_entry, 0);
-            // Find the node corresponding to this entry
-            int node = 0;
-            for(auto ep: named_blocks) if(ep.second.first == "entry") {
-                node = ep.second.second; 
-                if(mdpe == method_descriptor(node))
-                    break;
-            }
-            // There must always be a node...
-            assert(node != 0);
-            std::string entry(mdpe->name());
-            std::string outputfn = output_filename(std::string("docs/") + entry + ".dot");
-            {
-                std::ofstream outf(outputfn.c_str());
-                if(!outf.is_open()) {
-                    ++error_count;
-                    pcerr.AddError(outputfn, -1, 0, "failed to write DOT file");
-                } else {
-                    print_graph(outf, node);
-                }
-            }
-            if(contains(targets, "svg-files")) {
-                std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
-                std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
-                if(system(dotc.c_str()) != 0)  {
-                    pcerr.AddWarning(outputfn, -1, 0, "failed to gerenate graph svg, is dot available?");
-                    append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(""));
-                } else {
-                    std::ifstream svgf(svg_filename.c_str());
-                    std::stringstream buf;
-                    buf << svgf.rdbuf();
-                    append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(buf.str()));
-                }
-            }
-        }
-    }
+    if(error_count == 0 && contains(targets, "graph-files")) 
+        error_count += genc_graph(contains(targets, "svg-files"));
     if(error_count == 0 && contains(targets, "www-files")) 
         error_count += genc_www();
     
@@ -909,11 +855,68 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     DEBUG_LEAVE;
     return error_count;
 }
+int flow_compiler::genc_client_source(std::string const &client_src) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    OFSTREAM_SE(outf, client_src);
+    error_count += genc_client(outf);
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_server_source(std::string const &server_src) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    OFSTREAM_SE(outf, server_src);
+    error_count += gc_server(outf);
+    DEBUG_LEAVE;
+    return error_count;
+}
 int flow_compiler::genc_python_client(std::string const &client_bin) {
     int error_count = 0;
     DEBUG_ENTER;
     std::string fn = client_bin + ".py";
-    OFSTREAM_S(outf, fn);
+    OFSTREAM_SE(outf, fn);
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_graph(bool gen_svgs) {
+    int error_count = 0;
+    DEBUG_ENTER;
+
+    for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
+        // Copy the entry name into a writable string because check_entry might overwrite it
+        std::string check_entry(entry_name);
+        auto mdpe = check_method(check_entry, 0);
+        // Find the node corresponding to this entry
+        int node = 0;
+        for(auto ep: named_blocks) if(ep.second.first == "entry") {
+            node = ep.second.second; 
+            if(mdpe == method_descriptor(node))
+                break;
+        }
+        // There must always be a node...
+        assert(node != 0);
+        std::string entry(mdpe->name());
+        std::string outputfn = output_filename(std::string("docs/") + entry + ".dot");
+        {
+            OFSTREAM_SE(outf, outputfn);
+            if(error_count == 0)
+                print_graph(outf, node);
+        }
+        if(gen_svgs) {
+            std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
+            std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
+            if(system(dotc.c_str()) != 0)  {
+                pcerr.AddWarning(outputfn, -1, 0, "failed to gerenate graph svg, is dot available?");
+                append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(""));
+            } else {
+                std::ifstream svgf(svg_filename.c_str());
+                std::stringstream buf;
+                buf << svgf.rdbuf();
+                append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(buf.str()));
+            }
+        }
+    }
     DEBUG_LEAVE;
     return error_count;
 }
@@ -926,16 +929,13 @@ int flow_compiler::genc_www() {
 
     auto global_smap = vex::make_smap(global_vars);
     std::string outputfn = output_filename("www/index.html");
-    OFSTREAM_S(outf, outputfn);
+    OFSTREAM_SE(outf, outputfn);
 #if DEBUG_GENC
     outputfn += ".json";
-    OFSTREAM_S(outj, outputfn);
+    OFSTREAM_SE(outj, outputfn);
     stru1::to_json(outj, global_vars);
 #endif
-    if(!outf.is_open()) {
-        ++error_count;
-        pcerr.AddError(outputfn, -1, 0, "failed to write index.html");
-    } else {
+    if(error_count == 0) {
         extern char const *template_index_html;
         vex::expand(outf, template_index_html, vex::make_smap(global_vars));
     }
@@ -948,16 +948,13 @@ int flow_compiler::genc_www() {
         std::string const &node_name = rn.second.xname;
 
         std::string outputfn = output_filename("www/"+node_name+"-index.html");
-        OFSTREAM_S(outf, outputfn);
+        OFSTREAM_SE(outf, outputfn);
 #if DEBUG_GENC
         outputfn += ".json";
-        OFSTREAM_S(outj, outputfn);
+        OFSTREAM_SE(outj, outputfn);
         stru1::to_json(outj, local_vars);
 #endif            
-        if(!outf.is_open()) {
-            ++error_count;
-            pcerr.AddError(outputfn, -1, 0, sfmt() << "failed to write " << output_filename); 
-        } else {
+        if(error_count == 0) {
             auto lsmap = vex::make_smap(local_vars);
             extern char const *template_index_html;
             vex::expand(outf, template_index_html, vex::make_cmap(lsmap, vex::make_smap(global_vars)));
@@ -971,11 +968,8 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
     DEBUG_ENTER;
     auto global_smap = vex::make_smap(global_vars);
     std::string fn = output_filename(makefile_name);
-    OFSTREAM_S(makf, fn);
-    if(!makf.is_open()) {
-        ++error_count;
-        pcerr.AddError(makefile_name, -1, 0, "failed to write make file");
-    } else {
+    OFSTREAM_SE(makf, fn);
+    if(error_count == 0) {
         extern char const *template_Makefile;
         vex::expand(makf, template_Makefile, global_smap);
     }
@@ -996,11 +990,8 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     DEBUG_ENTER;
     auto global_smap = vex::make_smap(global_vars);
     std::string fn = output_filename(orchestrator_name+".Dockerfilename");
-    OFSTREAM_S(outf, fn);
-    if(!outf.is_open()) {
-        ++error_count;
-        pcerr.AddError(fn, -1, 0, "failed to write dockerfile");
-    } else {
+    OFSTREAM_SE(outf, fn);
+    if(error_count == 0) {
         extern std::map<std::string, char const *> template_runtime_Dockerfile;
         char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
         vex::expand(outf, c_template_runtime_Dockerfile, global_smap);
@@ -1008,11 +999,8 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
         vex::expand(outf, template_Dockerfile, global_smap);
     }
     std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
-    OFSTREAM_S(outf2, fn2);
-    if(!outf2.is_open()) {
-        ++error_count;
-        pcerr.AddError(fn2, -1, 0, "failed to write slim dockerfile");
-    } else {
+    OFSTREAM_SE(outf2, fn2);
+    if(error_count == 0) {
         extern char const *template_slim_Dockerfile;
         vex::expand(outf2, template_slim_Dockerfile, global_smap);
     }

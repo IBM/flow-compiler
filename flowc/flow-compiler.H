@@ -341,10 +341,14 @@ public:
     int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
     // Webapp interface
     int genc_www();
+    // DOT and SVG files
+    int genc_graph(bool gen_svgs);
     // Makefile
     int genc_makefile(std::string const &filename);
     int genc_dockerfile(std::string const &orchestrator_name);
     int genc_python_client(std::string const &client_bin);
+    int genc_client_source(std::string const &client_src);
+    int genc_server_source(std::string const &server_src);
 
     // Set code generation variables - all return the number of errors generated
     // Entry related info
@@ -362,7 +366,6 @@ public:
 
 #define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
 #define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
-#define OFSTREAM_S(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n";
-#define OFSTREAM_C(ofs, c)  std::ofstream ofs(c); if(DEBUG_GENC) std::cerr << "write " << c << ", " << ofs.is_open() << "\n";
+#define OFSTREAM_SE(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n"; if(!ofs.is_open()) { ++error_count; pcerr.AddError(s, -1, 0, "cannont write file"); }
 
 #endif
