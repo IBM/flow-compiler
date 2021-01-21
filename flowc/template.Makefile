@@ -8,6 +8,8 @@
 #
 -include makefile.local
 
+HOST_OS:=$(shell uname -s)
+
 ifeq ($(DBG), yes)
 	CFLAGS+= -g -Og
 else
@@ -23,10 +25,10 @@ IMAGE_PROXY?={{NAME}}-image-info.json
 HTDOCS_PATH?={{HTDOCS_PATH-}}
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
-ifeq ($(GRPC_STATIC), yes)
-GRPC_LIBS?=$(shell pkg-config --static --libs grpc++ protobuf)
-else 
-GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf)
+ifeq ($(HOST_OS), Darwin)
+GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -lgrpc++_reflection -ldl
+else
+GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed -ldl
 endif
 
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
