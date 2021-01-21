@@ -228,7 +228,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     else if(n.token.type == FTK_INTEGER) sout << " " << ANSI_GREEN << n.token.integer_value << ANSI_RESET;
     if(has_attributes(node)) {
         sout << " {";
-        if(description.has(node)) sout << ANSI_CYAN << " /* " << description(node) << " */" << ANSI_RESET;
+        if(description.has(node)) sout << ANSI_CYAN << " " << description(node) << "" << ANSI_RESET;
         if(type.has(node)) sout << " type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
         if(condition.has(node)) sout << " condition: " << ANSI_RED << ANSI_BOLD << condition(node) << ANSI_RESET;
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
