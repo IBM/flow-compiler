@@ -320,7 +320,6 @@ public:
         return cs_name(prefix, get_node_label(node), suffix);
     }
 
-
     int compile(std::set<std::string> const &targets);
 
     // Parse tree accessors to retrieve the first encoutered value, all values in tree order or a map.
@@ -358,10 +357,12 @@ public:
 
     // Main call sequence
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);
+
+    static bool debug_enable;
 };
 
 #ifndef DEBUG_GENC
-#define DEBUG_GENC 0
+#define DEBUG_GENC flow_compiler::debug_enable
 #endif
 
 #define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"

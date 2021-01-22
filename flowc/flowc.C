@@ -34,6 +34,7 @@ using namespace stru1;
  * Set this to false to turn off ANSI coloring 
  */
 bool ansi::use_escapes = true;
+bool flow_compiler::debug_enable = false;
 
 static std::string install_directory;
 static std::string output_directory;
@@ -930,11 +931,13 @@ int flow_compiler::genc_www() {
     auto global_smap = vex::make_smap(global_vars);
     std::string outputfn = output_filename("www/index.html");
     OFSTREAM_SE(outf, outputfn);
-#if DEBUG_GENC
-    outputfn += ".json";
-    OFSTREAM_SE(outj, outputfn);
-    stru1::to_json(outj, global_vars);
-#endif
+
+    if(DEBUG_GENC) {
+        outputfn += ".json";
+        OFSTREAM_SE(outj, outputfn);
+        stru1::to_json(outj, global_vars);
+    }
+
     if(error_count == 0) {
         extern char const *template_index_html;
         vex::expand(outf, template_index_html, vex::make_smap(global_vars));
@@ -949,11 +952,11 @@ int flow_compiler::genc_www() {
 
         std::string outputfn = output_filename("www/"+node_name+"-index.html");
         OFSTREAM_SE(outf, outputfn);
-#if DEBUG_GENC
-        outputfn += ".json";
-        OFSTREAM_SE(outj, outputfn);
-        stru1::to_json(outj, local_vars);
-#endif            
+        if(DEBUG_GENC) {
+            outputfn += ".json";
+            OFSTREAM_SE(outj, outputfn);
+            stru1::to_json(outj, local_vars);
+        }
         if(error_count == 0) {
             auto lsmap = vex::make_smap(local_vars);
             extern char const *template_index_html;
@@ -989,7 +992,7 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     int error_count = 0;
     DEBUG_ENTER;
     auto global_smap = vex::make_smap(global_vars);
-    std::string fn = output_filename(orchestrator_name+".Dockerfilename");
+    std::string fn = output_filename(orchestrator_name+".Dockerfile");
     OFSTREAM_SE(outf, fn);
     if(error_count == 0) {
         extern std::map<std::string, char const *> template_runtime_Dockerfile;
@@ -1062,6 +1065,8 @@ int main(int argc, char *argv[]) {
     }
     // Make sure we use appropriate coloring for errors
     ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stderr)) && isatty(fileno(stdout)));
+    // Debug flag
+    flow_compiler::debug_enable = opts.optb("debug", flow_compiler::debug_enable);
 
     std::set<std::string> targets;
     bool use_tempdir = true;
