@@ -16,14 +16,12 @@ export kd_PROJECT_NAME={{NAME}}
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
 {G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
-{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_COS}}}"
-if [ -z "$flow_{{VOLUME_NAME/id/upper}}" ]
-then
-    flow_{{VOLUME_NAME/id/upper}}="{{VOLUME_PVC}}"
-fi
+{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_NAME}}}"
 export {{VOLUME_NAME/id/upper}}="$flow_{{VOLUME_NAME/id/upper}}"
 flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
 export {{VOLUME_NAME/id/upper}}_SECRET_NAME=$flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME
+flow_{{VOLUME_NAME/id/upper}}_URL=${{{VOLUME_NAME/id/upper}}_URL-{{VOLUME_COS}}}
+export {{VOLUME_NAME/id/upper}}_URL=$flow_{{VOLUME_NAME/id/upper}}_URL
 }A}
 export use_COMPOSE=
 export use_SWARM="#"
@@ -43,14 +41,19 @@ args=()
 while [ $# -gt 0 ]
 do
 case "$1" in
-{A:VOLUME_OPTION{
-    --mount-{{VOLUME_OPTION}})
-    export {{VOLUME_NAME_VAR}}="$2"
+{A:VOLUME_NAME{
+    --mount-{{VOLUME_NAME/option}})
+    export {{VOLUME_NAME/id/upper}}="$2"
     shift
     shift
     ;;
     --secret-{{VOLUME_NAME/option}})
     export {{VOLUME_NAME/id/upper}}_SECRET_NAME="$2"
+    shift
+    shift
+    ;;
+    --remote-{{VOLUME_NAME/option}}) 
+    export {{VOLUME_NAME/id/upper}}_URL="$2"   
     shift
     shift
     ;;
@@ -139,6 +142,12 @@ case "$1" in
 esac
 done
 set -- "${args[@]}"
+{O:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-$flow_{{VOLUME_NAME/id/upper}}}"
+if [ "${{{VOLUME_NAME/id/upper}}:0:1}" != "/" ]
+then
+    export {{VOLUME_NAME/id/upper}}="$(pwd)/${{VOLUME_NAME/id/upper}}"
+fi
+}O}
 
 if ! which envsubst > /dev/null 2>&1 
 then
@@ -154,12 +163,6 @@ docker_COMPOSE_YAML=$(cat <<"ENDOFYAML"
 ENDOFYAML
 )
 
-{O:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-$flow_{{VOLUME_NAME/id/upper}}}"
-if [ "${{{VOLUME_NAME/id/upper}}:0:1}" != "/" ]
-then
-    export {{VOLUME_NAME/id/upper}}="$(pwd)/${{VOLUME_NAME/id/upper}}"
-fi
-}O}
 [ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}" -o }O} 1 -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
 if [ -z "$use_K8S" ]
@@ -167,7 +170,7 @@ then
 [ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" -o }O} $have_ALL_VOLUME_DIRECTORIES -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
 {A:VOLUME_NAME{
-case "$(echo "${{VOLUME_NAME/id/upper}}" | tr '[:upper:]' '[:lower:]')" in
+case "$(echo "${{VOLUME_NAME/id/upper}}_URL" | tr '[:upper:]' '[:lower:]')" in
     s3://*|http://|https://)
         export {{VOLUME_NAME/id/upper}}_PVC="#"
         export {{VOLUME_NAME/id/upper}}_COS=
@@ -203,7 +206,7 @@ echo "   or $(basename "$0") [-S] [--project-name NAME] <down>"
 echo "   or $(basename "$0") -k [--project-name NAME] <delete|deploy|show>"
 echo "   or $(basename "$0") [-T] <logs>"
 {V:HAVE_VOLUMES{
-echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{--mount-{{VOLUME_NAME/option}} DIRECTORY  }O}"
+echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}"
 }V}
 echo ""
 echo "Commands:"
@@ -248,46 +251,41 @@ echo "    --htdocs DIRECTORY  (or set {{NAME/id/upper}}_HTDOCS)"
 echo "        Directory with custom application files (default is \"${{NAME/id/upper}}_HTDOCS\")"
 echo ""
 {O:VOLUME_NAME{
-echo "    --mount-{{VOLUME_NAME/option-}} DIRECTORY  (or set {{VOLUME_NAME/id/upper}})"
-echo "        Override path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}})"
+echo "    --mount-{{VOLUME_NAME/option-}} <DIRECTORY>  (or set {{VOLUME_NAME/id/upper}})"
+echo "        Override path to be mounted for {{VOLUME_NAME}} (Docker Compose only) (default is ${{VOLUME_NAME/id/upper}})"
 printf "        "{{VOLUME_COMMENT/sh}}"\n"
 echo ""
-echo "    --secret-{{VOLUME_NAME/option-}} <SECRET-NAME>  (or set \${{VOLUME_NAME/id/upper}}_SECRET_NAME)"
-printf "        Secret name for COS access for {{VOLUME_NAME/option}}, default is \"${{VOLUME_NAME/id/upper}}_SECRET_NAME\"\n"
+echo "    --secret-{{VOLUME_NAME/option-}} <SECRET-NAME>  (or set {{VOLUME_NAME/id/upper}}_SECRET_NAME)"
+printf "        Secret name for COS access for {{VOLUME_NAME}}, default is \"${{VOLUME_NAME/id/upper}}_SECRET_NAME\"\n"
+echo ""
+echo "    --remote-{{VOLUME_NAME/option-}} <URL>  (or set {{VOLUME_NAME/id/upper}}_URL)"
+printf "        URL to the remote resource for {{VOLUME_NAME}}, default is \"${{VOLUME_NAME/id/upper}}_URL\"\n"
 echo ""
 }O}
-echo "    --htdocs <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set \${{NAME/id/upper}}_HTDOCS)"
+echo "    --htdocs <VOLUME-CLAIM-LABEL|CLOUD-OBJECT-STORE-URL>  (or set {{NAME/id/upper}}_HTDOCS)"
 echo "        Default is \"${{NAME/id/upper}}_HTDOCS\""
 echo "        Volume or COS URL for tarball with custom application files"
 echo ""
-echo "    --htdocs-secret-name <SECRET-NAME>  (or set \${{NAME/id/upper}}_HTDOCS_SECRET_NAME)"
+echo "    --htdocs-secret-name <SECRET-NAME>  (or set {{NAME/id/upper}}_HTDOCS_SECRET_NAME)"
 printf "        Secret name for COS access for the custom application files, default is \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\"\n"
 echo ""
-echo "    --{{NAME}}-replicas <NUMBER>  (or set \${{NAME/id/upper}}_REPLICAS)"
+echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"
 echo "        Number of replicas for the main pod [{{MAIN_GROUP_NODES}}] default is $replicas_{{NAME/id/upper}}"
 echo ""
 {G:GROUP{
-echo "    --{{GROUP}}-replicas <NUMBER>  (or set \${{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS)"
+echo "    --{{GROUP}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS)"
 echo "        Number or replicas for pod \"{{GROUP}}\" [{{GROUP_NODES}}] default is $replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}"
 echo ""
 }G}
-{A:HAVE_COS{
-{{HAVE_COS}}
-echo "Note: To access the Artifactory or Cloud Ojsect Store $0 looks for the environment variable API_KEY."
+echo "Note: To access the Artifactory or Cloud Object Store $(basename $0) looks for the environment variable API_KEY."
 echo "If not found, it looks for a file named .api-key in the current directory and then in the home directory."
 echo ""
-}A}
 exit 1
 fi
-{A:HAVE_COS{
-{{HAVE_COS}}
-{O:VOLUME_NAME{remote_resource_{{VOLUME_NAME/id/upper}}="{{VOLUME_COS}}"   
-}O}
-}A}
 provision() {
 {A:HAVE_COS{{{HAVE_COS}}
-{O:VOLUME_NAME{    [ -z "$remote_resource_{{VOLUME_NAME/id/upper}}" ] || \
-        download_file -o "${{VOLUME_NAME/id/upper}}" --untar "$remote_resource_{{VOLUME_NAME/id/upper}}" || return 1
+{O:VOLUME_NAME{    [ -z "${{VOLUME_NAME/id/upper}}_URL" ] || \
+        download_file -o "${{VOLUME_NAME/id/upper}}" --untar "${{VOLUME_NAME/id/upper}}_URL" || return 1
 }O}
 }A}
 {O:VOLUME_NAME{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME/id/upper}}"
