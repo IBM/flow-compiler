@@ -5,7 +5,7 @@ ARG CARES_VERSION=1.16.1
 
 user root
 
-COPY redhat-ubi8/RPM-GPG-KEY-CentOS-Official /etc/pki/rpm-gpg/
+COPY runtimes/redhat-ubi8/RPM-GPG-KEY-CentOS-Official /etc/pki/rpm-gpg/
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-Official
 RUN echo -e "[centos8-powertools]\nname=centos8-powertools\nbaseurl=http://mirror.centos.org/centos-8/8/PowerTools/x86_64/os/\ngpgcheck=1\nenabled=1" > /etc/yum.repos.d/centos8.repo && \
     echo -e "[centos8-appstream]\nname=centos8-appstream\nbaseurl=http://mirror.centos.org/centos-8/8/AppStream/x86_64/os/\ngpgcheck=1\nenabled=1" >> /etc/yum.repos.d/centos8.repo && \

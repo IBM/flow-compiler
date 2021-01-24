@@ -76,6 +76,8 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 	template.server.C template.syntax template.index.html template.server.pem\
     	
 
+TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
+
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
 ifeq ($(DBG), yes) 
 CCFLAGS?=-Og -g
@@ -85,7 +87,7 @@ endif
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) $(TEMPLATE_FILES) rr-keys.sh rr-get.sh flow-parser.y
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y
 
 %.o: %.C
 	${CXX} -std=c++11 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $< 
@@ -110,14 +112,16 @@ flow-parser.c: flow-parser.y
 clean:
 	rm -f flowc $(TOOLS) $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-RUNTIME_TEMPLATES=$(wildcard */template.runtime.Dockerfile)
+RUNTIME_TEMPLATES=$(wildcard runtimes/*/template.runtime.Dockerfile)
+RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
+	echo "$(RUNTIMES)"
 	echo "#include <string>" > $@
 	echo "#include <map>" >> $@
 	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; echo "unsigned long const len_$$FILE = " | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE" | wc -c; echo ";";  done >> $@
 	echo "std::map<std::string, char const *> template_runtime_Dockerfile = {" >> $@
-	for RUNTL in $(RUNTIME_TEMPLATES:/template.runtime.Dockerfile=); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
+	for RUNTL in $(RUNTIMES); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "runtimes/$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
 	echo "};" >> $@
 
 flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[Hy]) $(TEMPLATE_FILES) flow-compiler.C
@@ -134,10 +138,10 @@ install: flowc
 	cp $^ $(INSTALL_PREFIX)
 
 #################### Docker image builder
-flow-base-image-info.json: $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
+flow-base-image-info.json: runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE)  > /dev/null 2>&1
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat $(BASE_IMAGE)/template.runtime.Dockerfile $(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
+	cat runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > $@
 
