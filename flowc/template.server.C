@@ -1685,7 +1685,7 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg) {
         if(strcmp(argv[a], "--help") == 0) {
             rc = 2;
             ++a;
-        }else if(strcmp(argv[a], "--cfg") == 0) {
+        } else if(strcmp(argv[a], "--cfg") == 0) {
             rc = 3;
             ++a;
         } else if(strncmp(argv[a], "--", 2) == 0) {
