@@ -1137,7 +1137,7 @@ static int get_form_data(struct mg_connection *conn, std::string &data) {
 		    read += r;
             if(buffer.size() >= MAX_REST_REQUEST_SIZE) {
 	            char const *local_uri = mg_get_request_info(conn)->local_uri;
-                FLOG << "error: " << local_uri << ": Read execeeded buffer size of " << MAX_REST_REQUEST_SIZE << " bytes\n";
+                FLOG << "error: " << local_uri << ": Read exceeded buffer size of " << MAX_REST_REQUEST_SIZE << " bytes\n";
                 return -1;
             }
             if(read == buffer.size()) 
