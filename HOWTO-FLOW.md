@@ -7,12 +7,12 @@ Flow Compiler offers a solution for quickly building a **gRPC** application by g
 The input to **flowc** consists of:
 
 * The **gRPC** definitions of all the microservices to be glued together
-* The **gRPC** definition of the final application 
+* The **gRPC** definition of the final application, the integrated service
 * The definition of a graph that repesents the relations between the **Protocol Buffer** messages used by all component microservices
 
 **flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated. 
 
-**flowc** can also generate a deployment tool for **Kubernetes** or for **Docker Compose** if the microservices are dockerized.  
+**flowc** can also generate a deployment tool that can be used with **Kubernetes**, **Docker Compose** or **Docker Swarm**, if the application is dockerized.  
 
 More information about **Protocol Buffers** can be found here: [https://developers.google.com/protocol-buffers/](https://developers.google.com/protocol-buffers/), and 
 about **gRPC**, here: [https://grpc.io](https://grpc.io).
@@ -30,7 +30,7 @@ gRPC method associated with the node
 
 ## Defining the Application Interface
 
-The first step of building the applicaton is defining its **gRPC** interface. This is done using the **Protocol Buffers Verson 3** language (see details [here](https://developers.google.com/protocol-buffers/docs/reference/proto3-spec).)
+The first step of building the applicaton is defining its **gRPC** interface. This is done using the **Protocol Buffers Verson 3** language (see details [here](https://developers.google.com/protocol-buffers/docs/reference/proto3-spec).) Note that there are some restrictions in how the accepted gRPC definitions.
 
 As an example we will build a tokenizer application that combines the output from two other services: one that splits a string around white-space and 
 one that identifies if a string is all white space or all punctuation and returns a corresponding label.
@@ -161,6 +161,11 @@ node labeler {
 ```
 
 Note that the request message fields for *splitter* can all be filled with fields from the application input, while the *labeler* field requires the output from *splitter.*
+
+## Restrictions
+
+* Streaming is currently not supported for either the node or the final application methods.
+* Protocol buffer maps are not supported in any of the messages.
 
 ## Compiling
 
