@@ -2,12 +2,7 @@
 
 ## gRPC compiler with C++ plugin
 
-### On macOs with MacPorts or brew:
-```bash
-sudo port install protobuf3-cpp
-sudo port install grpc
-```
-or
+### On macOs with brew:
 ```bash
 brew install grpc
 ```
@@ -16,8 +11,9 @@ brew install grpc
 ```bash
 git clone -b $(curl -L https://grpc.io/release) https://github.com/grpc/grpc
 cd grpc && git submodule update --init 
-make HAS_SYSTEM_PROTOBUF=false && make install 
-cd third_party/protobuf 
+mkdir -p cmake/build && cd cmake/build 
+cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF ../.. 
+make -j$(nproc) 
 make install 
 ```
 ## Lemon (optional)
