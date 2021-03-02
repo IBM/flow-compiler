@@ -27,11 +27,7 @@ make lemon
 echo "LEMON=./lemon" >> makefile.local
 ```
 
-### On macOS with MacPorts or brew:
-```bash
-sudo port install lemon
-```
-or
+### On macOS with brew:
 ```bash
 brew install lemon
 ```
@@ -88,11 +84,3 @@ To build the **docker** orchestrator image use option **--build-image**. This wi
 ```bash
 flowc my-project.flow --build-image
 ```    
-
-
-    
-
-
-
-
-
