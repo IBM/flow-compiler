@@ -41,7 +41,7 @@ OPTIONS
               Generate code for a client that can be used in debugging and testing the application
 
        --color=YES/NO
-              Force or disable ANSI coloring regardless of wheter output is to a terminal or not.
+              Force or disable ANSI coloring regardless of whether output is to a terminal or not.
               By default coloring is enabled only when output is to a terminal.
 
        --debug
