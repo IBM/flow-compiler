@@ -2,6 +2,8 @@
 
 ## gRPC compiler with C++ plugin
 
+For detailed instructions on building and using gRPC see https://grpc.io
+
 ### On macOs with brew:
 ```bash
 brew install grpc
