@@ -1,6 +1,6 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.13
-ARG GRPC_VERSION=1.33.2
+ARG GRPC_VERSION=1.29.1
 ARG CARES_VERSION=1.16.1
 
 user root
@@ -31,16 +31,27 @@ USER root
 
 ## Build and install grpc for C++
 ## Find the version with curl -L https://grpc.io/release
+#RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
+#    mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
+#    && find /tmp/grpc -name lib\*.a | while read A; do cp -n $A /usr/local/lib; done \
+#    && find /tmp/grpc -name \*_plugin | while read A; do cp -n $A /usr/local/bin; done \
+#    && cd /tmp && rm -fr grpc
+
+# version before 1.30
 RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
-    mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
+    make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make install && cd /tmp/grpc/third_party/protobuf && make install  \
     && find /tmp/grpc -name lib\*.a | while read A; do cp -n $A /usr/local/lib; done \
     && find /tmp/grpc -name \*_plugin | while read A; do cp -n $A /usr/local/bin; done \
+    && ldconfig /usr/local/lib \
     && cd /tmp && rm -fr grpc
 
-ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/local/share/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig
-RUN ldconfig /usr/local/lib && ldconfig /usr/local/lib64 && ldconfig /usr/local/share && ldconfig /usr/lib64 && ldconfig /usr/share
-
+RUN curl -L https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz -o c-ares-${CARES_VERSION}.tar.gz
+RUN tar -xzvf c-ares-${CARES_VERSION}.tar.gz && rm -f c-ares-${CARES_VERSION}.tar.gz && \
+    cd c-ares-${CARES_VERSION} && ./configure --enable-shared=no && make && make install && \
+    cd .. && rm -fr c-ares-${CARES_VERSION}
 
 USER worker
+
 ## UUID library 
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/local/share/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig
 ENV FLOWC_UUID=OSSP
