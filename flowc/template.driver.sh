@@ -107,7 +107,7 @@ echo "        Secret name for COS access for the custom application files, if a 
 [ ! -z "${{NAME/id/upper}}_HTDOCS_SECRET_NAME" ] && echo "        Currently set to \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\""
 echo ""
 echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"
-echo "        Number of replicas for the main pod [{{MAIN_GROUP_NODES}}]. The default is $replicas_{{NAME/id/upper}}."
+echo "        Number of replicas for the main pod [{{MAIN_POD}}]. The default is $replicas_{{NAME/id/upper}}."
 echo ""
 {G:GROUP{
 echo "    --{{GROUP}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS)"
