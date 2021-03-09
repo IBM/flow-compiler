@@ -13,7 +13,7 @@ $enable_custom_app      - ${{NAME/id/upper}}_HTDOCS:/home/worker/{{NAME}}/app:ro
     command: ["/home/worker/{{NAME}}/{{NAME}}-server", "{{MAIN_PORT}}"]
 {N:NODE_NAME{
 {{EXTERN_NODE}}  {{NODE_NAME}}:
-{{EXTERN_NODE}}    image: "{{NODE_IMAGE}}"
+{{EXTERN_NODE}}    image: "$image_{{NODE_NAME/id/upper}}"
 {{EXTERN_NODE}}{{HAVE_RW_VOLUMES}}    group_add:
 {{EXTERN_NODE}}{{HAVE_RW_VOLUMES}}      - $docker_compose_RW_GID
 {{EXTERN_NODE}}$export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]

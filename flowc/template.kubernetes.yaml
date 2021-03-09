@@ -89,7 +89,7 @@ $enable_htdocs          readOnly: true
 
 {N:G_NODE_NAME{
 {{G_EXTERN_NODE}}      - name: {{G_NODE_NAME/option}}
-{{G_EXTERN_NODE}}        image: "{{G_NODE_IMAGE}}"
+{{G_EXTERN_NODE}}        image: "$image_{{G_NODE_NAME/id/upper}}"
 {{G_EXTERN_NODE}}        {{G_NODE_ENVIRONMENT}}
 {{G_EXTERN_NODE}}        {{G_NODE_MOUNTS}}
 {{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MAX}}        resources:

@@ -7,6 +7,12 @@
 #
 
 export kd_PROJECT_NAME={{NAME}}
+{N:NODE_NAME{export image_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_IMAGE-{{NODE_IMAGE}}}
+if [ ! -z "${{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG" ]
+then
+    export image_{{NODE_NAME/id/upper}}=${image_{{NODE_NAME/id/upper}}%:*}:${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG}
+fi
+}N}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
 {O:MAIN_EP_ENVIRONMENT_NAME{export {{MAIN_EP_ENVIRONMENT_NAME}}_DN={{MAIN_DN_ENVIRONMENT_VALUE}}
@@ -114,6 +120,10 @@ echo "    --{{GROUP}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_{{GROUP/id/up
 echo "        Number or replicas for pod \"{{GROUP}}\" [{{GROUP_NODES}}]. The default is $replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}."
 echo ""
 }G}
+echo "    --tag, --image  <NODE-NAME=STRING>"
+echo "       Force the image name or tag for node NODE_NAME to STRING. The changes are applied in the order given in the commans line."
+echo "       The valid node names are: {N:NODE_NAME{{{NODE_NAME/option/lower}} }N}."
+echo "" 
 echo "Note: To access the Artifactory or Cloud Object Store $(basename $0) looks for the environment variable API_KEY."
 echo "If not found, it looks for a file named .api-key in the current directory and then in the home directory."
 echo ""
@@ -223,6 +233,36 @@ case "$1" in
     ;;
     -T|--timestamps)
     export docker_compose_TIMESTAMPS="--timestamps"
+    shift
+    ;;
+    --image)
+        case "${2%=*}" in
+{N:NODE_NAME{
+            {{NODE_NAME/option/lower}})
+                export image_{{NODE_NAME/id/upper}}=${2#*=}
+                ;;
+}N}
+            *)
+                echo "Unknown node name: '${2%=*}'"
+                exit 1
+                ;;
+        esac
+    shift
+    shift
+    ;;
+    --tag)
+        case "${2%=*}" in
+{N:NODE_NAME{
+            {{NODE_NAME/option/lower}})
+                export image_{{NODE_NAME/id/upper}}=${image_{{NODE_NAME/id/upper}}%:*}:${2#*=}
+                ;;
+}N}
+            *)
+                echo "Unknown node name: '${2%=*}'"
+                exit 1
+                ;;
+        esac
+    shift
     shift
     ;;
     *)
