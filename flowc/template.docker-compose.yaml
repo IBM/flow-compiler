@@ -3,7 +3,7 @@ ${use_SWARM}version: '3.7'
 services:
   {{NAME}}:
     environment: 
-      {{NAME/id/upper}}_REST_PORT: "{{REST_PORT}}"
+      {{NAME/id/upper}}_REST_LISTENING_PORTS: "{{REST_PORT}}"
 {E:MAIN_EP_ENVIRONMENT_NAME{      {{MAIN_EP_ENVIRONMENT_NAME}}: "{{MAIN_EP_ENVIRONMENT_VALUE}}"
 }E}
     image: "{{PUSH_REPO-}}{{IMAGE}}"
