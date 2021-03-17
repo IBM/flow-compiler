@@ -42,17 +42,16 @@
 #include <google/protobuf/util/json_util.h>
 
 #include <ares.h>
+extern char **environ;
+
 #if !defined(NO_REST) || !(NO_REST)    
 extern "C" {
 #include <civetweb.h>
 }
-#endif
 
-extern char **environ;
 /**********************************************************************************************************
  * REST headers 
  */
-#if !defined(NO_REST) || !(NO_REST)
 #define RFH_ALT_CALL_ID "x-call-id"
 #define RFH_CALL_ID "x-flow-call-id"
 #define RFH_CALL_TIMES "X-Flow-Call-Times"
@@ -1222,8 +1221,6 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
 
 std::atomic<long> call_counter;
 }
-#endif
-#if !defined(NO_REST) || !(NO_REST)    
 namespace rest_api {
 {I:ENTRY_NAME{
 static int C_{{ENTRY_NAME}}(flowc::call_info const &cif, struct mg_connection *A_conn, std::string const &A_inp_json) {
@@ -1410,8 +1407,6 @@ static int N_{{CLI_NODE_NAME/id}}(struct mg_connection *A_conn, void *A_cbdata) 
 }
 }I}
 }
-#endif
-#if !defined(NO_REST) || !(NO_REST)    
 namespace rest {
 struct mg_context *ctx = nullptr;
 struct mg_callbacks callbacks;
