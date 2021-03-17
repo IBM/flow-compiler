@@ -10,7 +10,6 @@ RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install
     libgflags-dev libgtest-dev && apt-get clean
 
 ## Build and install grpc for C++
-## Find the version with curl -L https://grpc.io/release
 
 RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
     make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make install && cd /tmp/grpc/third_party/protobuf && make install && cd /tmp && rm -fr grpc 
