@@ -362,6 +362,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     orchestrator_tag = opts.opt("image-tag", "1");
     orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
     orchestrator_debug_image = opts.optb("debug-image", false);
+    orchestrator_no_rest = !opts.optb("rest-api", true);
+
+    set(global_vars, "DEBUG_IMAGE", orchestrator_debug_image? "yes":"no");
+    set(global_vars, "REST_API", orchestrator_no_rest? "no":"yes");
 
     set(global_vars, "IMAGE_TAG", orchestrator_tag);
 
@@ -793,7 +797,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     //std::cerr << "----- before build image: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
-             << (orchestrator_debug_image? " DBG=yes": "") << " image";
+            << (orchestrator_debug_image? " DBG=yes": "") 
+            << (orchestrator_no_rest? " REST=no": "") 
+            << " image";
         if(system(makec.c_str()) != 0) {
             pcerr.AddError(main_file, -1, 0, "failed to build docker image");
             ++error_count;
@@ -801,7 +807,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     //std::cerr << "----- before build bins: " << error_count << "\n";
     if(error_count == 0 && (contains(targets, "build-server") || contains(targets, "build-client"))) {
-        std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile << (orchestrator_debug_image? " DBG=yes": "") << " ";
+        std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile 
+            << (orchestrator_debug_image? " DBG=yes": "") 
+            << (orchestrator_no_rest? " REST=no": "") 
+            << " ";
         if(contains(targets, "build-server") && contains(targets, "build-client")) 
             makec += "-j2 all";
         else if(contains(targets, "build-server"))
@@ -847,7 +856,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     if(error_count == 0 && contains(targets, "graph-files")) 
         error_count += genc_graph(contains(targets, "svg-files"));
-    if(error_count == 0 && contains(targets, "www-files")) 
+    if(error_count == 0 && contains(targets, "www-files") && !orchestrator_no_rest) 
         error_count += genc_www();
     
     if(error_count != 0) 
@@ -1050,9 +1059,9 @@ int main(int argc, char *argv[]) {
             std::cout << FLOWC_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
             std::cout << "grpc " << grpc::Version() << "\n";
 #if defined(__clang__)          
-            std::cout << "clang++ " << __clang_version__ << "\n";
+            std::cout << "clang++ " << __clang_version__ << " (" << __cplusplus << ")\n";
 #elif defined(__GNUC__) 
-            std::cout << "g++ " << __VERSION__ << "\n";
+            std::cout << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n";
 #else
 #endif
             std::cout << "default runtime: " << get_default_runtime() << "\n";

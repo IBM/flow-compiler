@@ -8,7 +8,11 @@
 #
 -include makefile.local
 
+FLOWC_CXX_STD?=c++17
 HOST_OS:=$(shell uname -s)
+DBG?={{DEBUG_IMAGE}}
+REST?={{REST_API}}
+CFLAGS+= -std=$(FLOWC_CXX_STD)
 
 ifeq ($(DBG), yes)
 	CFLAGS+= -g -Og
@@ -40,7 +44,7 @@ CARES_LIBS?=$(shell pkg-config --libs libcares)
 SERVER_LFLAGS+= $(GRPC_LIBS) $(CARES_LIBS) 
 SERVER_CFLAGS+= $(GRPC_INCS) $(CARES_INCS)
 
-ifeq ($(NO_REST), 1)
+ifeq ($(REST), no)
 SERVER_CFLAGS+= -DNO_REST
 else 	
 SERVER_LFLAGS+= $(CIVETWEB_LIBS)
@@ -106,9 +110,9 @@ docker-info:
 $(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile $(SERVER_XTRA_H) $(SERVER_XTRA_C) {{NAME}}-htdocs.tar.gz
 	@-docker rmi -f $(IMAGE_NAME):$(IMAGE_TAG) 2> /dev/null
 ifeq ($(DBG), yes)
-	docker build --build-arg DEBUG_IMAGE=$(DBG) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f {{NAME}}.Dockerfile .
+	docker build --build-arg DEBUG_IMAGE=$(DBG) --build-arg REST_API=$(REST) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f {{NAME}}.Dockerfile .
 else
-	cat {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile | docker build --build-arg DEBUG_IMAGE=$(DBG) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f - .
+	cat {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile | docker build --build-arg DEBUG_IMAGE=$(DBG) --build-arg REST_API=$(REST) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f - .
 endif
 	docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > $@
 
@@ -129,10 +133,10 @@ image: image-info-$(shell uname -s)
 	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE_NAME):$(IMAGE_TAG) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(DOCKER)
 
 {{NAME}}-server: {{NAME}}-server.C $(PB_GENERATED_CC) $(PB_GENERATED_H) $(SERVER_XTRA_H)
-	${CXX} -std=c++11 $(SERVER_CFLAGS) $(CFLAGS) -o $@  $< $(PB_GENERATED_CC) $(SERVER_XTRA_C) $(SERVER_LFLAGS)
+	${CXX} $(SERVER_CFLAGS) $(CFLAGS) -o $@  $< $(PB_GENERATED_CC) $(SERVER_XTRA_C) $(SERVER_LFLAGS)
 
 {{NAME}}-client: {{NAME}}-client.C $(PB_GENERATED_CC) $(PB_GENERATED_H) 
-	${CXX} -std=c++11 $(GRPC_INCS) $(CFLAGS) -o $@  $<  $(PB_GENERATED_CC) $(GRPC_LIBS)
+	${CXX} $(GRPC_INCS) $(CFLAGS) -o $@  $<  $(PB_GENERATED_CC) $(GRPC_LIBS)
 
 clean:
 	rm -f $(IMAGE_PROXY) {{NAME}}-server {{NAME}}-client 
@@ -152,4 +156,6 @@ endif
 	cp $^ ~/{{NAME}}
 	cp $(wildcard *.pem) ~/{{NAME}}
 	cp $(wildcard docs/*.proto) $(wildcard docs/*.svg) $(wildcard docs/*.flow) ~/{{NAME}}/docs
+ifeq ($(REST), yes)
 	cp $(wildcard www/*.html) $(wildcard www/*.css) $(wildcard www/*.js) ~/{{NAME}}/www
+endif

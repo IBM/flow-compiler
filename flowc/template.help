@@ -47,7 +47,7 @@ OPTIONS
        --debug
               Enable compiler debug
 
-       --debug-image, -D
+       --debug-image=YES/NO, -D YES/NO
               Generate debug image
 
        --default-certificate=FILE
@@ -147,6 +147,9 @@ OPTIONS
 
        --python-client
               Generate "Python" code for a client that can be used in debugging and testing the application
+
+       --rest-api=YES/NO
+              Generate "REST" interface. Enabled by default.
 
        --rest-port=PORT, -r PORT
               Make "REST" available on "PORT". Must not conflict with the aggregator "gRPC" port.

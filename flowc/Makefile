@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
-BUILD_VERSION=0.12.3
+BUILD_VERSION=0.13.0
 
 ## One of the runtimes alpine-3.11, alpine-3.12, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi8
@@ -22,7 +22,7 @@ BASE_IMAGE?=redhat-ubi8
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux
-.PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8
+.PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8 alpine-3.13
 .PHONY: tools
 
 # Find a suitable tar - needed for building the image
@@ -170,6 +170,9 @@ image-info: image-info-$(HOST_OS)
 image: image-info-$(HOST_OS)
 	@$(MAKE) -s flow-base-image-info.json
 	@echo Image $(IMAGE)  is up to date
+
+alpine-3.13:
+	@$(MAKE) "BASE_IMAGE=$@" image
 
 alpine-3.12:
 	@$(MAKE) "BASE_IMAGE=$@" image
