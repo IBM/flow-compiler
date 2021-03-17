@@ -211,10 +211,15 @@ static bool get_metadata_bool(std::multimap<grpc::string_ref, grpc::string_ref> 
     if(vp == mm.end()) return default_value;
     return stringtobool(std::string((vp->second).data(), (vp->second).length()), default_value);
 }
-#if defined(OSSP_UUID) || defined(NO_UUID)
+#if defined(NO_UUID)
+static std::string server_id() {
+    srand(time(nullptr));
+    return std::string("{{NAME}}-R-")+std::to_string(rand());
+}
+#endif
+#if defined(OSSP_UUID)
 #include <uuid.h>
 static std::string server_id() {
-#if defined(OSSP_UUID)    
     uuid_t *puid = nullptr;
     char *sid = nullptr;;
     if(uuid_create(&puid) == UUID_RC_OK) {
@@ -224,7 +229,6 @@ static std::string server_id() {
         uuid_destroy(puid);
         return id;
     }
-#endif
     srand(time(nullptr));
     return std::string("{{NAME}}-R-")+std::to_string(rand());
 }
