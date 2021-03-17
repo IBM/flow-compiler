@@ -5,7 +5,7 @@ ARG CARES_VERSION=1.16.0
 
 user root
 
-COPY runtimes/redhat-ubi7/centos7.gpg redhat-ubi7/centos7.repo /etc/yum.repos.d/
+COPY runtimes/redhat-ubi7/centos7.gpg runtimes/redhat-ubi7/centos7.repo /etc/yum.repos.d/
 RUN rpm --import /etc/yum.repos.d/centos7.gpg
 
 RUN yum -y install vim curl jq bc ssh unzip \
@@ -43,6 +43,7 @@ ENV CIVETWEB_INCS="-I/home/worker/civetweb-${CIVETWEB_VERSION}/include"
 ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl"
 ## UUID library 
 ENV FLOWC_UUID=OSSP
+ENV FLOWC_CXX_STD=c++11
 ## Build c-ares (https://c-ares.haxx.se)
 USER root
 ADD https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz ./
