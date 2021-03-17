@@ -693,16 +693,13 @@ int get_latest_addresses(std::map<std::string, std::vector<std::string>> &addrs,
     }
     return last_version;
 }
-
 }
-
-class {{NAME/id}}_service *{{NAME/id}}_service_ptr = nullptr;
 
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
 }I}
-
+class {{NAME/id}}_service;
 namespace flowc {
-
+class {{NAME/id}}_service *{{NAME/id}}_service_ptr = nullptr;
 
 #define GRPC_ERROR(cid, ccid, text, status, context) FLOG << std::make_tuple(&cid, ccid) << (text) << " grpc error: " << (status).error_code() << " context: " << (context).debug_error_string() << "\n";
 
@@ -1218,7 +1215,6 @@ static int root_handler(struct mg_connection *conn, void *cbdata) {
         return mg_send_http_redirect(conn, "/-www/index.html", 307); 
     return not_found(conn, "Resource not found");
 }
-
 std::atomic<long> call_counter;
 }
 namespace rest_api {
@@ -1331,7 +1327,7 @@ static int A_{{ENTRY_NAME}}(struct mg_connection *A_conn, void *A_cbdata) {
 }I}
 {I:CLI_NODE_NAME{
 static int NC_{{CLI_NODE_NAME/id}}(flowc::call_info const &cif, struct mg_connection *A_conn, std::string const &A_inp_json) {
-    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> connector = {{NAME/id}}_service_ptr->{{CLI_NODE_NAME/id}}_get_connector();
+    std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> connector = flowc::{{NAME/id}}_service_ptr->{{CLI_NODE_NAME/id}}_get_connector();
 
     {{CLI_OUTPUT_TYPE}} L_outp; 
     {{CLI_INPUT_TYPE}} L_inp;
@@ -1419,7 +1415,6 @@ int stop_civetweb() {
     }
     return 0;
 }
-
 int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
     std::vector<const char *> optbuf;
     call_counter = 1;
@@ -1466,7 +1461,8 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 	callbacks.log_message = rest::log_message;
 	ctx = mg_start(&callbacks, 0, &optbuf[0]);
 
-	if(ctx == nullptr) return 1;
+	if(ctx == nullptr) 
+        return 1;
 {I:ENTRY_NAME{    mg_set_request_handler(ctx, "/{{ENTRY_NAME}}", rest_api::A_{{ENTRY_NAME}}, (void *) "/{{ENTRY_NAME}}");
 }I}
 	mg_set_request_handler(ctx, "/", root_handler, 0);
@@ -1516,7 +1512,6 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 }
 }
 #endif
-
 namespace flowc {
 static bool read_keycert(std::string &kc, std::string const &fn, std::string const &substr) {
     int tc = 0;
@@ -1762,12 +1757,12 @@ static void print_banner(std::ostream &out) {
 #endif
         << std::endl;
 }
-static std::unique_ptr<grpc::Server> grpc_server;
+static std::unique_ptr<grpc::Server> grpc_server_ptr;
 static void signal_shutdown_handler(int sig) {
     std::cerr << "Signal " << sig << " received";
-    if(grpc_server) {
+    if(grpc_server_ptr) {
         std::cout << ", shutting down" << std::endl;
-        grpc_server->Shutdown();
+        grpc_server_ptr->Shutdown();
     } else {
         std::cout << std::endl;
     }
@@ -1990,7 +1985,7 @@ int main(int argc, char *argv[]) {
         std::cout << "max gRPC threads: " << grpc_threads << "\n";
     }
     {{NAME/id}}_service service;
-    {{NAME/id}}_service_ptr = &service;
+    flowc::{{NAME/id}}_service_ptr = &service;
     bool enable_webapp = flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true);
     unsigned ap = 0; 
     for(auto const &a: grpc_listening) {
@@ -2037,7 +2032,7 @@ int main(int argc, char *argv[]) {
 
     // Register services
     builder.RegisterService(&service);
-    flowc::grpc_server = builder.BuildAndStart();
+    flowc::grpc_server_ptr = builder.BuildAndStart();
 
     for(unsigned a = 0; a < ap; ++a) {
         if(grpc_server_ports[a].first == 0) {
@@ -2078,18 +2073,18 @@ int main(int argc, char *argv[]) {
             << "\n";
         std::cout << std::endl;
         // Wait for the server to shutdown. This can only be stopped from the signal handler.
-        flowc::grpc_server->Wait();
+        flowc::grpc_server_ptr->Wait();
         std::cout << "gRPC server exited" << std::endl;
 #if !defined(NO_REST) || !(NO_REST)    
         rest::stop_civetweb();
 #endif        
     } else {
-        if(flowc::grpc_server)
-            flowc::grpc_server->Shutdown();
+        if(flowc::grpc_server_ptr)
+            flowc::grpc_server_ptr->Shutdown();
     }
     casd::stop_looking = true;
     cares_thread.join();
     ares_library_cleanup();
-    flowc::grpc_server = nullptr;
+    flowc::grpc_server_ptr = nullptr;
     return error_count;
 }
