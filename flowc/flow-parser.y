@@ -6,7 +6,7 @@
 %left SEMICOLON.
 %left DOT AT.
 %left COMMA.
-%nonassoc EQUALS COLON.
+%nonassoc EQUALS COLON SHLEQ2 SHLEQ3 SHLEQ4 SHLEQ5 SHLEQ6 SHLEQ7 SHLEQ8 SHREQ2 SHREQ3 SHREQ4 SHREQ5 SHREQ6 SHREQ7 SHREQ8 SHLEQ SHREQ.
 %right QUESTION.
 %left OR.
 %left AND.
@@ -16,9 +16,10 @@
 %left NE EQ.
 %left GT LT GE LE.
 %left COMP.
+%left SHR SHL.
 %left PLUS MINUS.
 %left STAR SLASH PERCENT.
-%right BANG.
+%right BANG TILDA.
 %right DOLLAR.
 %right HASH.
 %right UMINUS.
@@ -44,30 +45,34 @@
 
 main(A) ::= flow(B).                                           { A = ast->node(FTK_ACCEPT, B); }
 
-flow(A) ::= stmt(B).                                           { A = ast->node(FTK_flow, B); }              // FTK_flow is a list of FTK_stmt
+flow(A) ::= stmt(B).                                           { A = ast->node(FTK_flow, B); }             // FTK_flow is a list of FTK_stmt
 flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappend(B, C); }
 
-stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->node(FTK_stmt, B, C); }               
-stmt(A) ::= ID(B) dtid(C) OPENPAR bexp(E) CLOSEPAR blck(D).    { A = ast->node(FTK_stmt, B, C, D, E); }
-stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(FTK_stmt, B, C, D); }
-stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                   // Skip over extraneous semicolons
+stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->node(FTK_stmt, B, C); }          // Global settings, include directive, etc.
+stmt(A) ::= ID(B) dtid(C) OPENPAR bexp(E) CLOSEPAR blck(D).    { A = ast->node(FTK_stmt, B, C, D, E); }    // Node definition with condition (ID must be 'node')
+stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(FTK_stmt, B, C, D); }       // Stanza definition (node, entry, etc.)
+stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
-blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                   // Blocks must be enclosed in { }
-blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }            // Empty blocks are allowed
+blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                  // Blocks must be enclosed in { }
+blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }           // Empty blocks are allowed
 
-list(A) ::= elem(B).                                           { A = ast->node(FTK_blck, B); }              // FTK_blck is a list of declarations (elem)
+// list: the content of a block, is a list of elems
+
+list(A) ::= elem(B).                                           { A = ast->node(FTK_blck, B); }             // FTK_blck is a list of declarations (elem)
 list(A) ::= list(B) elem(C).                                   { A = ast->nappend(B, C); }
 
-elem(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_elem, B, C); }           // Name/Map definition        
-elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }           // Name/Labeled Map definition        
-elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }           // Name/Value definition           
-elem(A) ::= ID(B) eqc valx(C) SEMICOLON.                       { A = ast->node(FTK_elem, B, C); }           // Name/Value definition           
-elem(A) ::= ID(B) oexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }           // Output definition (ID must be 'output')
-elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }           // Output definition (ID must be 'return')
-elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                   // Skip over extraneous semicolons
+// elem: any of the definitions allowed in a block
+
+elem(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_elem, B, C); }          // Name/Map definition        
+elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          // Name/Labeled Map definition        
+elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Name/Value definition           
+elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          // Name/Value definition           
+elem(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          // Name/Value definition           
+elem(A) ::= ID(B) oexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'output')
+elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'return')
+elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
 lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); }
-
 
 // valn: any numeric literal
 
@@ -86,37 +91,90 @@ valx(A) ::= valn(B).                                           { A = B; }
 vall(A) ::= valx(B).                                           { A = B; }
 vall(A) ::= dtid(B).                                           { A = B; }
 
+// rexp: return expression
+
 rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_rexp, B); }              
 rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_rexp, B); }              
-oexp(A) ::= dtid(B) OPENPAR CLOSEPAR.                          { A = ast->node(FTK_oexp, B); }              // Method only output definition
-oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_oexp, B, C); }           
-oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_oexp, B, C); }           // Method and field map output definition
 
-fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }              // fldm is a list of field mappings fldd
+// oexp: output expression
+
+oexp(A) ::= dtid(B) OPENPAR CLOSEPAR.                          { A = ast->node(FTK_oexp, B); }             // Method only output definition
+oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_oexp, B, C); }           
+oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_oexp, B, C); }          // Method and field map output definition
+
+fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }             // fldm is a list of field definitions fldd
 fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappend(B, C); }                 
 
-fldd(A) ::= ID(B) eqc OPENPAR fldm(C) CLOSEPAR.                { A = ast->node(FTK_fldd, B, C); }           // The right side is another message definition
-fldd(A) ::= ID(B) eqc fldr(C).                                 { A = ast->node(FTK_fldd, B, C); }           // The right side is a field expression
+// fldd: field definition (assignment)
 
-fldr(A) ::= vall(B).                                           { A = B; }                                   // The right side can be a literal, 
-fldr(A) ::= fldx(B).                                           { A = B; }                                   // a field expression node@[field[.field]] (fldx)
-fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }              // or an internal function call
-fldr(A) ::= TILDA ID(B) OPENPAR flda(C) CLOSEPAR.              { A = ast->nprepend(C, B); }                 
+fldd(A) ::= ID(B) eqsc(D) OPENPAR fldm(C) CLOSEPAR.            { A = ast->node(FTK_fldd, B, C); ast->chinteger(A, ast->at(D).token.integer_value); }  // The right side is another message definition
+fldd(A) ::= ID(B) eqsc(D) fldr(C).                             { A = ast->node(FTK_fldd, B, C); ast->chinteger(A, ast->at(D).token.integer_value); }  // The right side is a field expression
 
-flda(A) ::= fldr(B).                                           { A = ast->node(FTK_fldr, B); }
-flda(A) ::= flda(B) COMMA fldr(C).                             { A = ast->nappend(B, C); }
+// fldr: right value in a field assignemnt
+
+fldr(A) ::= vall(B).                                           { A = B; }                                  // The right side can be a literal, 
+fldr(A) ::= fldx(B).                                           { A = B; }                                  // a field expression
+fldr(A) ::= OPENPAR fldr(B) CLOSEPAR.                          { A = B; }                                 
+fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }             // or an internal function call
+fldr(A) ::= TILDA ID(B) OPENPAR fldra(C) CLOSEPAR.             { A = ast->nprepend(C, B); }                
+fldr(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_fldr, B, C); }
+fldr(A) ::= DOLLAR(B) fldx(C).                                 { A = ast->node(FTK_fldr, B, C); }
+fldr(A) ::= BANG(B) fldr(C).                                   { A = ast->node(FTK_fldr, B, C); }
+fldr(A) ::= fldr(B) PLUS(C) fldr(D).                           { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) MINUS(C) fldr(D).                          { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) SLASH(C) fldr(D).                          { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) STAR(C) fldr(D).                           { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) PERCENT(C) fldr(D).                        { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) COMP(C) fldr(D).                           { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) EQ(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) NE(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) LT(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) GT(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) LE(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) GE(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) AND(C) fldr(D).                            { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) OR(C) fldr(D).                             { A = ast->node(FTK_fldr, C, B, D); }
+fldr(A) ::= fldr(B) QUESTION(C) fldr(D) COLON fldr(E).         { A = ast->node(FTK_fldr, C, B, D, E); }
+
+fldra(A) ::= fldr(B).                                          { A = ast->node(FTK_fldr, B); }
+fldra(A) ::= fldra(B) COMMA fldr(C).                           { A = ast->nappend(B, C); }
+
+// fldx: field expression node@[field[.field]]
 
 fldx(A) ::= fldn(B).                                           { A = B; }
 fldx(A) ::= fldn(B) dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
 
+// fldn: node reference (node@)
+
 fldn(A) ::= ID(B) AT.                                          { A = B; }
+
+// dtid: dotted id id[.id]*
 
 dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B); }
 dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappend(B, C); }
 
+// eqc: assignment operator
 
-eqc ::= EQUALS.
-eqc ::= COLON.
+eqsc(A) ::= EQUALS.                                            { ast->chinteger(A, 0); } 
+eqsc(A) ::= COLON.                                             { ast->chinteger(A, 0); } 
+eqsc(A) ::= SHREQ.                                             { ast->chinteger(A, 1); } 
+eqsc(A) ::= SHREQ2.                                            { ast->chinteger(A, 2); }
+eqsc(A) ::= SHREQ3.                                            { ast->chinteger(A, 3); }
+eqsc(A) ::= SHREQ4.                                            { ast->chinteger(A, 4); }
+eqsc(A) ::= SHREQ5.                                            { ast->chinteger(A, 5); }
+eqsc(A) ::= SHREQ6.                                            { ast->chinteger(A, 6); }
+eqsc(A) ::= SHREQ7.                                            { ast->chinteger(A, 7); }
+eqsc(A) ::= SHREQ8.                                            { ast->chinteger(A, 8); }
+eqsc(A) ::= SHLEQ.                                             { ast->chinteger(A, -1); } 
+eqsc(A) ::= SHLEQ2.                                            { ast->chinteger(A, -2); }
+eqsc(A) ::= SHLEQ3.                                            { ast->chinteger(A, -3); }
+eqsc(A) ::= SHLEQ4.                                            { ast->chinteger(A, -4); }
+eqsc(A) ::= SHLEQ5.                                            { ast->chinteger(A, -5); }
+eqsc(A) ::= SHLEQ6.                                            { ast->chinteger(A, -6); }
+eqsc(A) ::= SHLEQ7.                                            { ast->chinteger(A, -7); }
+eqsc(A) ::= SHLEQ8.                                            { ast->chinteger(A, -8); }
+
+// bexp: binary expression
 
 bexp(A) ::= vall(B).                                           { A = ast->node(FTK_bexp, B); }
 bexp(A) ::= fldx(B).                                           { A = ast->node(FTK_bexp, B); }
@@ -131,3 +189,4 @@ bexp(A) ::= bexp(B) GT(C) bexp(D).                             { A = ast->node(F
 bexp(A) ::= bexp(B) LT(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
 bexp(A) ::= bexp(B) LE(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
 bexp(A) ::= bexp(B) GE(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
+
