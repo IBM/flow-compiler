@@ -1048,6 +1048,7 @@ static int remove_callback(const char *pathname, const struct stat *, int, struc
 } 
 
 int main(int argc, char *argv[]) {
+    signal(SIGABRT, handler);
     signal(SIGSEGV, handler);
     helpo::opts opts;
     if(opts.parse(template_help, argc, argv) != 0 || opts.have("version") || opts.have("help") || argc != 2) {
