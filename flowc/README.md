@@ -63,7 +63,7 @@ To build the default **flowc** image:
 ```bash
 make image
 ```
-To build a specific **flowc** image, chose oneof these targets `alpine-3.12`, `alpine-3.13`, `redhat-ubi7`, `redhat-ubi8`, `ubuntu-18.04` and `ubuntu-20.04`: 
+To build a specific **flowc** image, chose oneof these targets `alpine-3.12`, `alpine-3.13`, `redhat-ubi7`, `redhat-ubi8`, `ubuntu-18.04` or `ubuntu-20.04`: 
 ```bash
 make alpine-3.13
 ```
