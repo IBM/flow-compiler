@@ -114,16 +114,6 @@ struct flow_ast {
         store.back().children.push_back(child_D);
         return r;
     }
-    int chtype(int node, int new_type) {
-        store[node-1].type = new_type;
-        return node;
-    }
-    int negate(int node) {
-        auto &t = store[node-1].token;
-        if(t.type == FTK_INTEGER) t.integer_value = -t.integer_value;
-        if(t.type == FTK_FLOAT) t.float_value = -t.float_value;
-        return node;
-    }
     int nprepend(int node, int child_node) {
         auto &children = store[node-1].children;
         children.insert(children.begin(), child_node);
@@ -147,6 +137,23 @@ struct flow_ast {
     }
     std::string const &get_text(int node) const {
         return at(node).token.text;
+    }
+    /***
+     * override values no type check
+     */
+    int chinteger(int node, int64_t value) {
+        store[node-1].token.integer_value = value;
+        return node;
+    }
+    int chtype(int node, int new_type) {
+        store[node-1].type = new_type;
+        return node;
+    }
+    int negate(int node) {
+        auto &t = store[node-1].token;
+        if(t.type == FTK_INTEGER) t.integer_value = -t.integer_value;
+        if(t.type == FTK_FLOAT) t.float_value = -t.float_value;
+        return node;
     }
     /*** 
      * type checked accessors
