@@ -57,7 +57,27 @@ char const *node_name(int i) {
         case FTK_SLASH: return "/";
         case FTK_PERCENT: return "%";
         case FTK_QUESTION: return "?";
-                        
+        case FTK_TILDA: return "~";
+/*
+        case FTK_SHLEQ: return "=<";
+        case FTK_SHREQ: return "=>";
+        case FTK_SHLEQ2: return "=<<";
+        case FTK_SHREQ2: return "=>>";
+        case FTK_SHLEQ3: return "=<<<";
+        case FTK_SHREQ3: return "=>>>";
+        case FTK_SHLEQ4: return "=<<<<";
+        case FTK_SHREQ4: return "=>>>>";
+        case FTK_SHLEQ5: return "=<5<";
+        case FTK_SHREQ5: return "=>5>";
+        case FTK_SHLEQ5: return "=<6<";
+        case FTK_SHREQ5: return "=>6>";
+        case FTK_SHLEQ5: return "=<7<";
+        case FTK_SHREQ5: return "=>7>";
+        case FTK_SHLEQ5: return "=<8<";
+        case FTK_SHREQ5: return "=>8>";
+*/
+        case FTK_SHL: return "<<";
+        case FTK_SHR: return ">>";
 
         case FTK_NE: return "!=";
         case FTK_LE: return "<=";
@@ -217,6 +237,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     sout << std::string(indent, ' ');
    
     sout << node_name(n.type);
+    if(n.type == FTK_fldd) sout << "|" << ANSI_RED << ANSI_BOLD << n.token.integer_value << ANSI_RESET;
     if(flag.has(node)) sout << "|" << node_name(flag(node));
     sout << "[";
     if(condition.has_value(node)) sout << ANSI_RED << ANSI_BOLD << node << ANSI_RESET;
@@ -240,8 +261,8 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
             if(field_descriptor(node)->is_repeated()) sout << "*";
             sout << ANSI_RESET;
         }
-        if(enum_descriptor.has(node)) sout << " enum: " << ANSI_RED << *enum_descriptor(node) << ANSI_RESET;
-        if(dimension.has(node)) sout << " dim: " << ANSI_CYAN << ANSI_BOLD << dimension(node) << ANSI_RESET;
+        if(enum_descriptor.has(node)) sout << " enum: " << ANSI_MAGENTA << *enum_descriptor(node) << ANSI_RESET;
+        if(dimension.has(node)) sout << " dim: " << ANSI_RED << ANSI_BOLD << dimension(node) << ANSI_RESET;
         sout << " }";
     }
     sout << "\n";
