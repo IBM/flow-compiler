@@ -276,7 +276,8 @@ int flow_compiler::parse() {
                         default: break;
                     }
                     
-                    if(look_ahead) {
+                    while(look_ahead) {
+                        look_ahead = false;
                         keep_parsing = tokenizer.NextWithComments(&prev_trailing, &detached, &next_leading);
                         if(keep_parsing) {
                             get_previous = true;
@@ -287,7 +288,7 @@ int flow_compiler::parse() {
                                     switch(ftok.type) {
                                         case FTK_EQUALS: ftok.type = FTK_EQ; break;
                                         case FTK_BANG: ftok.type = FTK_NE; break;
-                                        case FTK_LT: ftok.type = FTK_LE; break;
+                                        case FTK_LT: ftok.type = FTK_LE; look_ahead = true; break;
                                         case FTK_GT: ftok.type = FTK_GE; break;
                                         default: get_previous = true; break;
                                     }
@@ -298,8 +299,36 @@ int flow_compiler::parse() {
                                 case '|': 
                                     if(ftok.type == FTK_BAR) { ftok.type = FTK_OR; get_previous = false; }
                                     break;
-                                case '>': // TODO this needs another look ahead or a loop
-                                    if(ftok.type == FTK_LE) { ftok.type = FTK_COMP; get_previous = false; }
+                                case '>': 
+                                    get_previous = false;
+                                    switch(ftok.type) {
+                                        case FTK_GT: ftok.type = FTK_SHR; break;
+                                        case FTK_LE: ftok.type = FTK_COMP; break;
+                                        case FTK_EQUALS: ftok.type = FTK_SHREQ; look_ahead = true; break;
+                                        case FTK_SHREQ: ftok.type = FTK_SHREQ2; look_ahead = true; break;
+                                        case FTK_SHREQ2: ftok.type = FTK_SHREQ3; look_ahead = true; break;
+                                        case FTK_SHREQ3: ftok.type = FTK_SHREQ4; look_ahead = true; break;
+                                        case FTK_SHREQ4: ftok.type = FTK_SHREQ5; look_ahead = true; break;
+                                        case FTK_SHREQ5: ftok.type = FTK_SHREQ6; look_ahead = true; break;
+                                        case FTK_SHREQ6: ftok.type = FTK_SHREQ7; look_ahead = true; break;
+                                        case FTK_SHREQ7: ftok.type = FTK_SHREQ8; break;
+                                        default: get_previous = true; break;
+                                    }
+                                    break;
+                                case '<': 
+                                    get_previous = false;
+                                    switch(ftok.type) {
+                                        case FTK_LT: ftok.type = FTK_SHL; break;
+                                        case FTK_EQUALS: ftok.type = FTK_SHLEQ; look_ahead = true; break;
+                                        case FTK_SHLEQ: ftok.type = FTK_SHLEQ2; look_ahead = true; break;
+                                        case FTK_SHLEQ2: ftok.type = FTK_SHLEQ3; look_ahead = true; break;
+                                        case FTK_SHLEQ3: ftok.type = FTK_SHLEQ4; look_ahead = true; break;
+                                        case FTK_SHLEQ4: ftok.type = FTK_SHLEQ5; look_ahead = true; break;
+                                        case FTK_SHLEQ5: ftok.type = FTK_SHLEQ6; look_ahead = true; break;
+                                        case FTK_SHLEQ6: ftok.type = FTK_SHLEQ7; look_ahead = true; break;
+                                        case FTK_SHLEQ7: ftok.type = FTK_SHLEQ8; break;
+                                        default: get_previous = true; break;
+                                    }
                                     break;
                                 default:
                                     break;
