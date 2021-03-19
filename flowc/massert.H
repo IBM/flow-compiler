@@ -11,7 +11,7 @@ struct quit {
     }
     quit &operator <<= (std::string const &msg) {
         out << msg;
-        exit(rc);
+        abort();
     }
 };
 
