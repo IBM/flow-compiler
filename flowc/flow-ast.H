@@ -10,25 +10,22 @@
 #include "flow-parser.h"
 #endif
 #include "ast-attrs.H"
+#include "stru1.H"
 
 // AST node types used
 enum {
     FTK_ACCEPT=5000,
     FTK_SYNTAX_ERROR,
     FTK_flow,
-    FTK_stmt,
     FTK_blck,
     FTK_lblk,
     FTK_elem,
     FTK_bexp,
-    FTK_oexp,
-    FTK_rexp,
     FTK_fldm, 
     FTK_fldd,
     FTK_fldx,
     FTK_fldr,
-    FTK_dtid,
-    FTK_node
+    FTK_dtid
 };
 inline static constexpr 
 bool is_value_type(int type) {
@@ -61,6 +58,7 @@ struct flow_ast {
     ast::attribute<google::protobuf::MethodDescriptor const *> method_descriptor;
     ast::attribute<google::protobuf::Descriptor const *> input_descriptor;
     ast::attribute<google::protobuf::FieldDescriptor const *> field_descriptor;
+    // if this field can be evaluated to an enum, the descriptor of the value
     ast::attribute<google::protobuf::EnumValueDescriptor const *> enum_descriptor;
     // label associated with this node
     ast::attribute<std::string> name;
@@ -70,19 +68,20 @@ struct flow_ast {
     ast::attribute<std::string> description;
     // node value for the condition expression associated with this node
     ast::attribute<int> condition;
-    ast::attribute<int> flag;
+    // if this node can be evaluated to a constant, one of FTK_INETEGR, FTK_STRING, FTK_FLOAT
+    ast::attribute<int> value_type;
     // dimension of the data at this node
     ast::attribute<int> dimension;
 
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
-            name(""), type(""), description(""), condition(0), flag(-1), dimension(0) {
+            name(""), type(""), description(""), condition(0), value_type(0), dimension(0)  {
             }
 
     bool has_attributes(int n) const {
-        return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag, dimension);
+        return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
     }
     void copy_attributes(int from, int to) {
-        copy_attr(from, to, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, flag, dimension);
+        copy_attr(from, to, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
     }
     int mk_node(flow_token const &token) {
         store.push_back(flow_ast_node());
@@ -206,7 +205,6 @@ struct flow_ast {
             return attribute.has(n) && value == attribute(n);
         });
     }
-
     std::set<int> find_nodes(int node, std::set<int> const &node_types) const {
         std::set<int> found;
         auto const &children = at(node).children;
@@ -218,6 +216,20 @@ struct flow_ast {
             found.insert(cf.begin(), cf.end());
         }
         return found;
+    }
+    int stmt_keyw(int in) const {
+        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}};
+        auto ki = keywords.find(get_id(in));
+        int k = ki == keywords.end()? FTK_DEFINE: ki->second;
+        return k;
+    }
+    std::vector<std::pair<int, std::string>> syntax_errors;
+    void expect(int node, std::set<int> const &types, std::string const &errm) {
+        if(!stru1::contains(types, at(node).type)) 
+            syntax_errors.push_back(std::make_pair(node, errm));
+    }
+    void expect(int node, int type, std::string const &errm) {
+        expect(node, std::set<int>({type}), errm);
     }
 };
 

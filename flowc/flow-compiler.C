@@ -395,64 +395,96 @@ int flow_compiler::compile_method(std::string &method, int mthd_node, int max_co
 struct function_info {
     int return_type;
     std::vector<int> arg_type;
-    unsigned required_args;
+    unsigned required_argc;
     bool repeated;
     //std::string label;
 };
 static std::map<std::string, function_info> function_table = {
-    { "span",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, 0}},
-    { "prefix",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
-    { "suffix",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
+    // string substr(string s, int begin, int end)
+    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, 0}},
+    // string pref(string s, int end)
+    { "pref",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
+    // string suff(string s, int begin)
+    { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
+    // int length(string s)
     { "length",   { FTK_INTEGER, { FTK_STRING }, 1, 0 }},
+    // string concat(string s, string t)
     { "concat",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 2, 0 }},
+    // int size(any a)
     { "size",     { FTK_INTEGER, { 0 }, 1, 0 }},
-    { "append",   { 0, { 0 }, 1, 1 }},
+    // string join(repeated string, string sep, string last_sep, string prefix, string suffix)
     { "join",     { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0 }}
 };
 
 int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim) {
     int error_count = 0;
     auto const &fldr = at(fldr_node);
-    assert(fldr.type == FTK_fldr);
-    assert(fldr.children.size() >= 1);
+    assert(fldr.type == FTK_fldr && fldr.children.size() > 0);
 
-    // Lookup the function prototype
-    std::string fname(get_id(fldr.children[0]));
-    auto funp = function_table.find(fname);
-    if(funp == function_table.end()) {
-        ++error_count;
-        pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
-        return error_count;
-    }
-    if(funp->second.required_args + 1 !=  fldr.children.size()) {
-        ++error_count;
-        if(funp->second.required_args == funp->second.arg_type.size())
-            pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_args << " arguments but " << (fldr.children.size() - 1) << " were given");
-        else
-            pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_args << " arguments but " << (fldr.children.size() - 1) << " were given");
-        return error_count;
-    } 
     for(unsigned n = 1, e = fldr.children.size(); n < e; ++n) {
-        switch(at(fldr.children[n]).type) {
-            case FTK_fldx: 
-                break;
-            case FTK_fldr:
-                // Left type here must be from function prototype
-                error_count += compile_fldr(fldr.children[n], nullptr, 0, 0);
-                break;
-            case FTK_INTEGER:
-            case FTK_STRING:
-            case FTK_FLOAT:
-                // Check against the function protoype
-                break;
-            case FTK_dtid:
-                // Check against the function protoype
-                break;
-            case FTK_ID:
+        if(at(fldr.children[n]).type == FTK_fldr)
+            error_count += compile_fldr(fldr.children[n], nullptr, 0, 0);
+    }
+
+    auto const &ff = at(fldr.children[0]);
+    switch(ff.type) {
+        case FTK_ID: {  // function call
+            std::string fname(get_id(fldr.children[0])); 
+            auto funp = function_table.find(fname);
+            // check the function name
+            if(funp == function_table.end()) {
                 ++error_count;
-                pcerr.AddError(main_file, at(fldr.children[n]), sfmt() << "cannot assign to function argument");
-                break;    
-        }
+                pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
+            }
+            // check the number of arguments
+            if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc + 1 != fldr.children.size()) {
+                ++error_count;
+               pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << (fldr.children.size() - 1) << " were given");
+            }
+            if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc + 1 > fldr.children.size() || funp->second.arg_type.size() + 1 < fldr.children.size()) {
+                ++error_count;
+               pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc << " and at most " << funp->second.arg_type.size() << " arguments but " << (fldr.children.size() - 1) << " were given");
+            }
+            value_type.put(fldr_node, funp->second.return_type);
+        } break;
+        case FTK_HASH:
+            assert(fldr.children.size() == 2);
+            value_type.put(fldr_node, FTK_INTEGER);
+            break;
+        case FTK_BANG:
+            assert(fldr.children.size() == 2);
+            value_type.put(fldr_node, FTK_INTEGER);
+            break;
+        case FTK_DOLLAR:
+            assert(fldr.children.size() == 2);
+            value_type.put(fldr_node, FTK_STRING);
+            break;
+        case FTK_PLUS: case FTK_MINUS: case FTK_SLASH: case FTK_STAR: case FTK_PERCENT: 
+            assert(fldr.children.size() == 3);
+            if(value_type.has(fldr.children[1])) 
+                value_type.put(fldr_node, value_type(fldr.children[1]));
+            if(field_descriptor.has(fldr.children[1]))
+                field_descriptor.put(fldr_node, field_descriptor(fldr.children[1]));
+            if(enum_descriptor.has(fldr.children[1]))
+                enum_descriptor.put(fldr_node, enum_descriptor(fldr.children[1]));
+            break;
+        case FTK_COMP:
+        case FTK_EQ: case FTK_NE: case FTK_LE: case FTK_GE: case FTK_LT: case FTK_GT:
+        case FTK_AND: case FTK_OR:
+            assert(fldr.children.size() == 3);
+            value_type.put(fldr_node, FTK_INTEGER);
+            break;
+        case FTK_QUESTION:
+            assert(fldr.children.size() == 4);
+            if(value_type.has(fldr.children[2])) 
+                value_type.put(fldr_node, value_type(fldr.children[2]));
+            if(field_descriptor.has(fldr.children[2]))
+                field_descriptor.put(fldr_node, field_descriptor(fldr.children[2]));
+            if(enum_descriptor.has(fldr.children[2]))
+                enum_descriptor.put(fldr_node, enum_descriptor(fldr.children[2]));
+            break;
+        default: 
+            assert(false);
     }
     return error_count;
 }
@@ -634,7 +666,7 @@ int flow_compiler::update_dimensions(int node) {
         case FTK_blck:
             if(type(node) == "node" || type(node) == "entry") {
                 int fonode = find_first(node, [this](int n) -> bool {
-                    return contains(std::set<int>({FTK_oexp, FTK_rexp}), at(n).type);
+                    return contains(std::set<int>({FTK_OUTPUT, FTK_RETURN}), at(n).type);
                 });
 
                 if(fonode != 0) {
@@ -661,10 +693,10 @@ int flow_compiler::update_dimensions(int node) {
                 dimension.put(node, xc);
             }
             break;
-        case FTK_oexp: 
+        case FTK_OUTPUT: 
             dimension.put(node, dimension(children[1]));
             break;
-        case FTK_rexp: 
+        case FTK_RETURN: 
             dimension.put(node, dimension(children[0]));
             break;
         case FTK_bexp:
@@ -684,10 +716,40 @@ int flow_compiler::update_dimensions(int node) {
                     assert(false);
                     break;
             }
+            break;
+        case FTK_fldr:
+            switch(at(children[0]).type) {
+                case FTK_ID: {  // function call
+                    int dim = 0;
+                    for(unsigned a = 0; a+1 < children.size(); ++a) 
+                        dim = std::max(dim, dimension(children[a+1]));
+                    dimension.put(node, dim);
+                } break;
+                case FTK_HASH:
+                    dimension.put(node, std::max(0, dimension(children[1])-1));
+                    break;
+                case FTK_BANG:
+                    dimension.put(node, std::max(0, dimension(children[1])));
+                    break;
+                case FTK_DOLLAR:
+                    dimension.put(node, 0);
+                    break;
+                case FTK_COMP:
+                case FTK_EQ: case FTK_NE: case FTK_LE: case FTK_GE: case FTK_LT: case FTK_GT:
+                case FTK_AND: case FTK_OR:
+                case FTK_PLUS: case FTK_MINUS: case FTK_SLASH: case FTK_STAR: case FTK_PERCENT: 
+                    dimension.put(node, std::max(dimension(children[2]), dimension(children[1])));
+                    break;
+                case FTK_QUESTION:
+                    dimension.put(node, std::max(dimension(children[2]), dimension(children[3])));
+                    break;
+                default: 
+                    break;
+            }
+            break;
         default: 
             break;
     }
-
     return error_count;
 }
 /*
@@ -746,11 +808,11 @@ int flow_compiler::compile_fldx(int node) {
 int flow_compiler::compile_exp_id(int node) {
     int error_count = 0;
     switch(at(node).type) {
-        case FTK_oexp:
+        case FTK_OUTPUT:
             if(at(node).children.size() == 2 && atc(node, 1).type == FTK_ID)
                 error_count += compile_node_ref(at(node).children[1]);
             break;
-        case FTK_rexp:
+        case FTK_RETURN:
             if(at(node).children.size() == 1 && atc(node, 0).type == FTK_ID)
                 error_count += compile_node_ref(at(node).children[0]);
             break;
@@ -810,10 +872,7 @@ int flow_compiler::compile_id_ref(int node) {
 // If exp_node is a valid pointer, the block is expected to contain one output (oexp) or return (rexp) definition 
 int flow_compiler::compile_block(int blck_node, std::set<std::string> const &output_nvn, int *exp_node) {
     auto const &blck = at(blck_node);
-    if(blck.type != FTK_blck) {
-        pcerr.AddError(main_file, blck.token, "parameter definition block expected");
-        return 1;
-    }
+    assert(blck.type == FTK_blck);
     int error_count = 0;
     int exp_node_count = 0;
     // Node values are uniqe so this will allocate a new block:
@@ -829,7 +888,6 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
         assert(elem.type == FTK_elem && elem.children.size() == 2); 
         std::string elem_id = get_id(elem.children[0]);
 
-        //assert(!compile_id(elem_id, elem.children[0]));
         int value_node = elem.children[1];
         auto value_node_type = at(value_node).type;
         switch(value_node_type) {
@@ -862,8 +920,8 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
                     pcerr.AddError(main_file, at(value_node), sfmt() << "labeled block can't be of type \"" << elem_id << "\"");
                 }
                 break;
-            case FTK_oexp:
-            case FTK_rexp:
+            case FTK_OUTPUT:
+            case FTK_RETURN:
                 // oexp must have 'output' as label and rexp must have 'return'
                 // keep count of how many return/output definitions we have seen so far in exp_node_count
                 if(exp_node_count == 0 && exp_node != nullptr && contains(output_nvn, elem_id)) {
@@ -871,7 +929,7 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
                     type.put(*exp_node, elem_id);
                     // Store, but defer compilation of output/return expression until all the blocks are compiled
                     block.push_back(std::make_pair(elem_id, elem.children[1]));
-                    if(value_node_type == FTK_oexp) {
+                    if(value_node_type == FTK_OUTPUT) {
                         auto const &oexp = at(*exp_node);
                         std::string dotted_id = get_dotted_id(oexp.children[0]);
                        
@@ -963,15 +1021,15 @@ Descriptor const *flow_compiler::check_message(std::string &dotted_id, int error
 }
 int flow_compiler::compile_if_import(int stmt_node) {
     auto const &stmt = at(stmt_node);
-    assert(stmt.type == FTK_stmt && stmt.children.size() >= 2);
-
     // Ignore unless an import statement
-    if(at(stmt.children[0]).token.text != "import") 
+    if(stmt.type != FTK_IMPORT)
         return 0;
 
+    assert(stmt.children.size() == 1);
+
     std::string filename;
-    if(compile_string(filename, stmt.children[1])) {
-        pcerr.AddError(main_file, at(stmt.children[1]), "expected filename string");
+    if(compile_string(filename, stmt.children[0])) {
+        pcerr.AddError(main_file, at(stmt.children[0]), "expected filename string");
         return 1;
     }
     int ec = compile_proto(filename);
@@ -990,165 +1048,162 @@ int flow_compiler::compile_stmt(int stmt_node) {
     int exp_node = 0;
     int error_count = 0;
     auto const &stmt = at(stmt_node);
-    assert(stmt.type == FTK_stmt && stmt.children.size() >= 2);
+    assert(stmt.children.size() > 0);
     std::string statement;
     compile_id(statement, stmt.children[0]); // sytax checked for ID already
 
-    if(statement == "import") {
-        // ignore imports as they have been processed already
+    switch(stmt.type) {
+        case FTK_CONTAINER: case FTK_NODE: 
+            {
+                std::string node_name;
+                if(compile_method(node_name, stmt.children[1], 1)) {
 
-    } else if(statement == "node" || statement == "container") {
-        std::string node_name;
-        if(compile_method(node_name, stmt.children[1], 1)) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), std::string("expected \"")+statement+"\" name");
+                    return 1;
+                }
+                int node_node = stmt.children[2];
 
-            pcerr.AddError(main_file, at(stmt.children[1]), std::string("expected \"")+statement+"\" name");
-            return 1;
-        }
-        int node_node = stmt.children[2];
-        if(stmt.children.size() < 3) {
-            pcerr.AddError(main_file, at(node_node), "parameter definition block expected");
-            return 1;
-        }
-        name.put(node_node, node_name);
-        type.put(node_node, statement);
-        if(description.has(stmt.children[0]))
-            description.update(node_node, description(stmt.children[0]));
+                name.put(node_node, node_name);
+                type.put(node_node, statement);
+                if(description.has(stmt.children[0]))
+                    description.update(node_node, description(stmt.children[0]));
 
-        // Look for the action entry in the node block
-        if(compile_block(node_node, {"output", "return", "error"}, statement == "node"? &exp_node: nullptr)) {
-            //pcerr.AddError(main_file, at(stmt.children[2]), sfmt() << "invalid \"" << statement << "\" parameter definition block");
-            return 1;
-        }
-        if(statement == "node") {
-            if(exp_node != 0) {
-                // move attributes to the node 
+                // Look for the action entry in the node block
+                if(compile_block(node_node, {"output", "return", "error"}, stmt.type == FTK_NODE? &exp_node: nullptr)) {
+                    //pcerr.AddError(main_file, at(stmt.children[2]), sfmt() << "invalid \"" << statement << "\" parameter definition block");
+                    return 1;
+                }
+                if(stmt.type == FTK_NODE) {
+                    if(exp_node != 0) {
+                        // move attributes to the node 
+                        method_descriptor.copy(exp_node, node_node);
+                        input_descriptor.copy(exp_node, node_node);
+                        message_descriptor.copy(exp_node, node_node);
+                        if(stmt.children.size() > 3)
+                            condition.put(node_node, stmt.children[3]);
+                    }
+                }
+                // Check this node against other nodes with the same name
+                for(int visited: set_union(node_set, container_set)) if(name(visited) == node_name) {
+
+                    if(type(visited) != type(node_node)) {
+                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << node_name << "\" with a different type");
+                        pcerr.AddNote(main_file, at(visited), sfmt() << "previously defined here as \"" << type(visited) << "\"");
+                        return 1;
+                    }
+                    if(type(node_node) == "container") {
+                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of container \"" << node_name << "\"");
+                        pcerr.AddNote(main_file, at(visited), "previously defined here");
+                        return 1;
+                    }
+                    // visited and node_node are both of type node
+                    if(!condition.has(visited) && !condition.has(node_node)) {
+                        // Can't have more than one default node
+                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of node \"" << node_name << "\"");
+                        pcerr.AddNote(main_file, at(visited), "previously defined here");
+                        return 1;
+                    }
+                    if(message_descriptor.has(visited) && message_descriptor.has(node_node) &&
+                            message_descriptor(visited) != message_descriptor(node_node)) {
+                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "node \"" << node_name << "\" redefined with a different output type");
+                        pcerr.AddNote(main_file, at(visited), "previously defined here");
+                        return 1;
+                    }
+                } 
+                if(stmt.type == FTK_NODE)
+                    node_set.insert(node_node);
+                else
+                    container_set.insert(node_node);
+
+                // find the first node with this name
+                auto nep = named_blocks_w.find(node_name);
+                if(nep == named_blocks.end()) {
+                    // Quick access to the block node id
+                    named_blocks_w[node_name] = std::make_pair(statement, node_node);
+                } else {
+                    // Keep in the table the node without condition but with an output type
+                    if((!condition.has(node_node) || !method_descriptor.has(nep->second.second)) && method_descriptor.has(node_node))
+                        nep->second.second = node_node;
+                }
+            } break;
+        case FTK_ENTRY: 
+            {
+                std::string method; 
+                if(compile_method(method, stmt.children[1])) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), "expected method name");
+                    return 1;
+                }
+                int node_node = stmt.children[2];
+                type.put(node_node, statement);
+                if(stmt.children.size() != 3 || compile_block(node_node, {"return"}, &exp_node)) {
+                    pcerr.AddError(main_file, at(node_node), "parameter definition block expected");
+                    return 1;
+                }
+                if(exp_node == 0) {
+                    pcerr.AddError(main_file, at(node_node), "entry is missing return definition");
+                    return 1;
+                }
+                // Check if method is defined in any of the protos
+                MethodDescriptor const *mdp = check_method(method, stmt.children[1]);
+                method_descriptor.put(exp_node, mdp);
                 method_descriptor.copy(exp_node, node_node);
                 input_descriptor.copy(exp_node, node_node);
                 message_descriptor.copy(exp_node, node_node);
-                if(stmt.children.size() > 3)
-                    condition.put(node_node, stmt.children[3]);
+                if(description.has(stmt.children[0]))
+                    description.update(node_node, description(stmt.children[0]));
+                if(mdp == nullptr) 
+                    return 1;
+                if(contains(named_blocks, method)) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << method << "\"");
+                    return 1;
+                }
+                // Quick access to the block node id 
+                named_blocks_w[method] = std::make_pair(statement, stmt.children[2]);
+                entry_set.insert(stmt.children[2]);
+                //entries[method] = stmt.children[2];
+                // All entries must have the same input type
+                if(input_dp == nullptr) {
+                    input_dp = mdp->input_type();
+                } else {
+                    if(input_dp != mdp->input_type()) { 
+                        error_count += 1;
+                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "input type must be the same for all entries");
+                    }
+                }
+            } break;
+        case FTK_DEFINE:
+            if(statement == "package") {
+                if(compile_id(package_name, stmt.children[1])) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), "expected package name id");
+                    error_count += 1;
+                }
+            } else if(statement == "repository") {
+                std::string repository;
+                if(compile_string(repository, stmt.children[1])) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), "expected repository path string");
+                    return 1;
+                }
+                default_repository = repository;
+            } else if(statement == "image_pull_secret") {
+                std::string secret;
+                if(compile_string(secret, stmt.children[1])) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), "expected image pull secret name");
+                    return 1;
+                }
+                image_pull_secrets.insert(secret);
+            } else if(statement == "port") {
+                if(at(stmt.children[1]).type != FTK_STRING && at(stmt.children[1]).type != FTK_INTEGER) {
+                    pcerr.AddError(main_file, at(stmt.children[1]), "port value expected");
+                    return 1;
+                }
+                base_port = get_integer(stmt.children[1]);
+            } else {
+                //pcerr.AddError(main_file, stmt.token, sfmt() << "token not expected: \"" << statement << "\"");
+                //error_count += 1;
             }
-        }
-        // Check this node against other nodes with the same name
-        for(int visited: set_union(node_set, container_set)) if(name(visited) == node_name) {
-           
-            if(type(visited) != type(node_node)) {
-                pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << node_name << "\" with a different type");
-                pcerr.AddNote(main_file, at(visited), sfmt() << "previously defined here as \"" << type(visited) << "\"");
-                return 1;
-            }
-            if(type(node_node) == "container") {
-                pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of container \"" << node_name << "\"");
-                pcerr.AddNote(main_file, at(visited), "previously defined here");
-                return 1;
-            }
-            // visited and node_node are both of type node
-            if(!condition.has(visited) && !condition.has(node_node)) {
-                // Can't have more than one default node
-                pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of node \"" << node_name << "\"");
-                pcerr.AddNote(main_file, at(visited), "previously defined here");
-                return 1;
-            }
-            if(message_descriptor.has(visited) && message_descriptor.has(node_node) &&
-               message_descriptor(visited) != message_descriptor(node_node)) {
-                pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "node \"" << node_name << "\" redefined with a different output type");
-                pcerr.AddNote(main_file, at(visited), "previously defined here");
-                return 1;
-            }
-        } 
-        if(statement == "node")
-            node_set.insert(node_node);
-        else if(statement == "container") 
-            container_set.insert(node_node);
-
-        // find the first node with this name
-        auto nep = named_blocks_w.find(node_name);
-        if(nep == named_blocks.end()) {
-            // Quick access to the block node id
-            named_blocks_w[node_name] = std::make_pair(statement, node_node);
-        } else {
-            // Keep in the table the node without condition but with an output type
-            if((!condition.has(node_node) || !method_descriptor.has(nep->second.second)) && method_descriptor.has(node_node))
-                nep->second.second = node_node;
-        }
-    } else if(statement == "entry") {
-
-        std::string method; 
-        if(compile_method(method, stmt.children[1])) {
-            pcerr.AddError(main_file, at(stmt.children[1]), "expected method name");
-            return 1;
-        }
-        int node_node = stmt.children[2];
-        type.put(node_node, statement);
-        if(stmt.children.size() != 3 || compile_block(node_node, {"return"}, &exp_node)) {
-            pcerr.AddError(main_file, at(node_node), "parameter definition block expected");
-            return 1;
-        }
-        if(exp_node == 0) {
-            pcerr.AddError(main_file, at(node_node), "entry is missing return definition");
-            return 1;
-        }
-        // Check if method is defined in any of the protos
-        MethodDescriptor const *mdp = check_method(method, stmt.children[1]);
-        method_descriptor.put(exp_node, mdp);
-        method_descriptor.copy(exp_node, node_node);
-        input_descriptor.copy(exp_node, node_node);
-        message_descriptor.copy(exp_node, node_node);
-        if(description.has(stmt.children[0]))
-            description.update(node_node, description(stmt.children[0]));
-        if(mdp == nullptr) 
-            return 1;
-        if(contains(named_blocks, method)) {
-            pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << method << "\"");
-            return 1;
-        }
-        // Quick access to the block node id 
-        named_blocks_w[method] = std::make_pair(statement, stmt.children[2]);
-        entry_set.insert(stmt.children[2]);
-        //entries[method] = stmt.children[2];
-        // All entries must have the same input type
-        if(input_dp == nullptr) {
-            input_dp = mdp->input_type();
-        } else {
-            if(input_dp != mdp->input_type()) { 
-                error_count += 1;
-                pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "input type must be the same for all entries");
-            }
-        }
-    } else if(statement == "package") {
-        if(compile_id(package_name, stmt.children[1])) {
-            pcerr.AddError(main_file, at(stmt.children[1]), "expected package name id");
-            error_count += 1;
-        }
-    } else if(statement == "rest") {
-        std::string imagename;
-        if(compile_string(imagename, stmt.children[1])) {
-            pcerr.AddError(main_file, at(stmt.children[1]), "expected image name string");
-            return 1;
-        }
-    } else if(statement == "repository") {
-        std::string repository;
-        if(compile_string(repository, stmt.children[1])) {
-            pcerr.AddError(main_file, at(stmt.children[1]), "expected repository path string");
-            return 1;
-        }
-        default_repository = repository;
-    } else if(statement == "image_pull_secret") {
-        std::string secret;
-        if(compile_string(secret, stmt.children[1])) {
-            pcerr.AddError(main_file, at(stmt.children[1]), "expected image pull secret name");
-            return 1;
-        }
-        image_pull_secrets.insert(secret);
-    } else if(statement == "port") {
-        if(at(stmt.children[1]).type != FTK_STRING && at(stmt.children[1]).type != FTK_INTEGER) {
-            pcerr.AddError(main_file, at(stmt.children[1]), "port value expected");
-            return 1;
-        }
-        base_port = get_integer(stmt.children[1]);
-    } else {
-        pcerr.AddError(main_file, stmt.token, sfmt() << "token not expected: \"" << statement << "\"");
-        error_count += 1;
+            break;
+        default: 
+            break;
     }
     
     // If everything went well, visit the exp node
@@ -1233,9 +1288,9 @@ int flow_compiler::get_arg_node(int blck_node) const {
     assert(at(blck_node).type == FTK_blck);
     for(auto elem_node: at(blck_node).children) 
         switch(atc(elem_node, 1).type) {
-            case FTK_oexp:
+            case FTK_OUTPUT:
                 return atc(elem_node, 1).children[1];
-            case FTK_rexp:
+            case FTK_RETURN:
                 return atc(elem_node, 1).children[0];
             default:
                 break;
@@ -1254,7 +1309,7 @@ std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int,
             get_bexp_node_refs(noset, condition(n));
         
     }
-    if(type == 0 || type == FTK_oexp) {
+    if(type == 0 || type == FTK_OUTPUT) {
         int arg_node = get_arg_node(blck_node);
         if(arg_node != 0) switch(at(arg_node).type) {
             case FTK_ID:
@@ -1618,6 +1673,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             }
         } break;
         case FTK_fldr: {
+                           /*
             auto const &children = at(arg_node).children;
             std::string fname(get_id(children[0]));
             auto ftp = function_table.find(fname);
@@ -1640,6 +1696,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             for(unsigned i = 1, e = children.size(); i != e; ++i)
                 icode.back().arg.push_back(children[i]);
             icode.push_back(fop(SETT, lv_name, lvd.dp, arg_node));
+            */
         } break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
@@ -2086,6 +2143,11 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
 
     int error_count = 0;
 
+    for(auto const &synerr: syntax_errors) {
+        pcerr.AddError(main_file, at(synerr.first), synerr.second);
+        ++error_count;
+    }
+
     // The main file parsed correctly, now
     // import all the nedded proto files before anything else.
     for(int n: at(root).children)
@@ -2262,7 +2324,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
             std::string dot_node(c_escape(referenced_nodes.find(nn)->second.xname));
             // Get all incoming edges
             incoming.clear();
-            for(auto i: get_node_refs(incoming, nn, FTK_oexp))
+            for(auto i: get_node_refs(incoming, nn, FTK_OUTPUT))
                 if(i.first == 0) {
                     out << input_label << " -> " << dot_node << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
                 } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
@@ -2283,7 +2345,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
     out << "node [shape=invtriangle];\n";
     out << "{ rank = same; " << ename << "[label=" << c_escape(method_descriptor(entry)->name()) << "]; \"[o]\"; };\n";
     incoming.clear();
-    for(auto i: get_node_refs(incoming, entry, FTK_oexp)) 
+    for(auto i: get_node_refs(incoming, entry, FTK_OUTPUT)) 
         if(i.first == 0) {
             out << input_label << " -> " << ename << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
         } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {

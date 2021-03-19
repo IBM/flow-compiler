@@ -6,9 +6,9 @@
 #include "grpc-helpers.H"
 #include "stru1.H"
 #include "ansi-escapes.H"
+#include "massert.H"
 
 using namespace stru1;
-
 char const *node_name(int i) {
     switch(i) {
         case FTK_ID: return "identifier";
@@ -18,32 +18,30 @@ char const *node_name(int i) {
         case FTK_ACCEPT: return "ACCEPT";
         case FTK_SYNTAX_ERROR: return "ERROR";
         case FTK_flow: return "flow";
-        case FTK_stmt: return "stmt";
         case FTK_blck: return "hash-map";
         case FTK_lblk: return "lblk";
         case FTK_elem: return "elem";
         case FTK_bexp: return "bexp";
-        case FTK_oexp: return "oexp";
-        case FTK_rexp: return "rexp";
         case FTK_fldm: return "fldm";
         case FTK_fldr: return "fldr";
         case FTK_fldd: return "fldd";
         case FTK_fldx: return "fldx";
         case FTK_dtid: return "dtid";
-        case FTK_node: return "node";
+/*                       
         case FTK_SEMICOLON: return ";";
         case FTK_DOT: return ".";
         case FTK_COMMA: return ",";
         case FTK_EQUALS: return "=";
         case FTK_COLON: return ":";
-        case FTK_HASH: return "#";
-        case FTK_AT: return "@";
         case FTK_OPENPAR: return "(";
         case FTK_CLOSEPAR: return ")";
         case FTK_OPENBRA: return "{";
         case FTK_CLOSEBRA: return "}";
         case FTK_OPENSQB: return "[";
         case FTK_CLOSESQB: return "]";
+        case FTK_AT: return "@";
+*/
+        case FTK_HASH: return "#";
         case FTK_CARET: return "^";
         case FTK_LT: return "<";
         case FTK_GT: return ">";
@@ -58,24 +56,6 @@ char const *node_name(int i) {
         case FTK_PERCENT: return "%";
         case FTK_QUESTION: return "?";
         case FTK_TILDA: return "~";
-/*
-        case FTK_SHLEQ: return "=<";
-        case FTK_SHREQ: return "=>";
-        case FTK_SHLEQ2: return "=<<";
-        case FTK_SHREQ2: return "=>>";
-        case FTK_SHLEQ3: return "=<<<";
-        case FTK_SHREQ3: return "=>>>";
-        case FTK_SHLEQ4: return "=<<<<";
-        case FTK_SHREQ4: return "=>>>>";
-        case FTK_SHLEQ5: return "=<5<";
-        case FTK_SHREQ5: return "=>5>";
-        case FTK_SHLEQ5: return "=<6<";
-        case FTK_SHREQ5: return "=>6>";
-        case FTK_SHLEQ5: return "=<7<";
-        case FTK_SHREQ5: return "=>7>";
-        case FTK_SHLEQ5: return "=<8<";
-        case FTK_SHREQ5: return "=>8>";
-*/
         case FTK_SHL: return "<<";
         case FTK_SHR: return ">>";
 
@@ -87,6 +67,24 @@ char const *node_name(int i) {
         case FTK_AND: return "&&";
         
         case FTK_COMP: return "<=>";
+
+        case FTK_NODE: return "{NODE}";
+        case FTK_CONTAINER: return "{CONTAINER}";
+        case FTK_ENTRY: return "{ENTRY}";
+        case FTK_IMPORT: return "{IMPORT}";
+        case FTK_DEFINE: return "{DEFINE}";
+        
+        case FTK_OUTPUT: return "{OUTPUT}";
+        case FTK_RETURN: return "{RETURN}";
+        case FTK_ERROR: return "{ERROR}";
+
+        case FTK_ENDPOINT: return "{ENDPOINT}";
+        case FTK_IMAGE: return "{IMAGE";
+        case FTK_ENVIRONMENT: return "{ENVIRONEMNT}";
+        case FTK_MOUNT: return "{MOUNT}";
+
+        case FTK_INPUT: return "{INPUT}";
+
         default: 
              return "symbol";
     }
@@ -186,21 +184,21 @@ bool flow_ast::can_cast(int node, int grpc_type) const {
 }
 std::string const flow_ast::get_value(int node) const {
     auto type = at(node).type;
-    assert(type == FTK_STRING || type == FTK_INTEGER || type == FTK_FLOAT);
     switch(type) {
         case FTK_STRING: return at(node).token.text;
         case FTK_INTEGER: return sfmt() << at(node).token.integer_value;
         case FTK_FLOAT: return sfmt() << at(node).token.float_value;
         default:
-            assert(false);
+            MASSERT(false) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected value type\n";
     }
+    return "";
 }
 std::string const &flow_ast::get_string(int node) const {
-    assert(at(node).type == FTK_STRING);
+    MASSERT(at(node).type == FTK_STRING) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected type: " << FTK_STRING << "\n";
     return at(node).token.text;
 }
 std::string const &flow_ast::get_id(int node) const {
-    assert(at(node).type == FTK_ID);
+    MASSERT(at(node).type == FTK_ID) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected type: " << FTK_ID << "\n";
     return at(node).token.text;
 }
 std::string flow_ast::get_joined_id(int node, int start_pos, std::string const &j) const {
@@ -235,10 +233,12 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     if(node > store.size() || node < 1) return indent;
     auto const &n = store[node-1];
     sout << std::string(indent, ' ');
-   
+  
+    if(n.type == FTK_fldr || n.type == FTK_bexp) sout << ANSI_CYAN << ANSI_BOLD;
     sout << node_name(n.type);
+    if(n.type == FTK_fldr || n.type == FTK_bexp) sout << ANSI_RESET;
     if(n.type == FTK_fldd) sout << "|" << ANSI_RED << ANSI_BOLD << n.token.integer_value << ANSI_RESET;
-    if(flag.has(node)) sout << "|" << node_name(flag(node));
+    //if(flag.has(node)) sout << "|" << node_name(flag(node));
     sout << "[";
     if(condition.has_value(node)) sout << ANSI_RED << ANSI_BOLD << node << ANSI_RESET;
     else sout << node ;
@@ -250,7 +250,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     if(has_attributes(node)) {
         sout << " {";
         if(description.has(node)) sout << ANSI_CYAN << " " << description(node) << "" << ANSI_RESET;
-        if(type.has(node)) sout << " type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
+        if(type.has(node)) sout << " node type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
         if(condition.has(node)) sout << " condition: " << ANSI_RED << ANSI_BOLD << condition(node) << ANSI_RESET;
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
         if(method_descriptor.has(node) && method_descriptor(node) != nullptr) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
@@ -262,6 +262,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
             sout << ANSI_RESET;
         }
         if(enum_descriptor.has(node)) sout << " enum: " << ANSI_MAGENTA << *enum_descriptor(node) << ANSI_RESET;
+        if(value_type.has(node)) sout << " type: " << ANSI_MAGENTA << node_name(value_type(node)) << ANSI_RESET;
         if(dimension.has(node)) sout << " dim: " << ANSI_RED << ANSI_BOLD << dimension(node) << ANSI_RESET;
         sout << " }";
     }

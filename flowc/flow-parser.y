@@ -2,7 +2,7 @@
 %name flow_parser
 %token_prefix FTK_
 
-%nonassoc ID STRING INTEGER FLOAT SYMBOL INPUT OUTPUT RETURN ENTRY NODE CONTAINER MOUNT.
+%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OUTPUT RETURN ERROR ENDPOINT IMAGE MOUNT ENVIRONMENT INPUT.
 %left SEMICOLON.
 %left DOT AT.
 %left COMMA.
@@ -48,31 +48,48 @@ main(A) ::= flow(B).                                           { A = ast->node(F
 flow(A) ::= stmt(B).                                           { A = ast->node(FTK_flow, B); }             // FTK_flow is a list of FTK_stmt
 flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappend(B, C); }
 
-stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->node(FTK_stmt, B, C); }          // Global settings, include directive, etc.
-stmt(A) ::= ID(B) dtid(C) OPENPAR bexp(E) CLOSEPAR blck(D).    { A = ast->node(FTK_stmt, B, C, D, E); }    // Node definition with condition (ID must be 'node')
-stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(FTK_stmt, B, C, D); }       // Stanza definition (node, entry, etc.)
+stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->stmt_keyw(B) == FTK_IMPORT? ast->node(FTK_IMPORT, C): ast->node(ast->stmt_keyw(B), B, C); 
+                                                                 ast->expect(A, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); } 
+stmt(A) ::= ID(B) dtid(C) OPENPAR bexp(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); ast->expect(A, FTK_NODE, "expected \"node\" keyword"); } 
+stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
+                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); } 
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
 blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                  // Blocks must be enclosed in { }
 blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }           // Empty blocks are allowed
+
+blck2(A) ::= OPENBRA list2(B) CLOSEBRA.                        { A = B; }                                  // Blocks must be enclosed in { }
+blck2(A) ::= OPENBRA(B) CLOSEBRA.                              { A = ast->chtype(B, FTK_blck); }           // Empty blocks are allowed
 
 // list: the content of a block, is a list of elems
 
 list(A) ::= elem(B).                                           { A = ast->node(FTK_blck, B); }             // FTK_blck is a list of declarations (elem)
 list(A) ::= list(B) elem(C).                                   { A = ast->nappend(B, C); }
 
-// elem: any of the definitions allowed in a block
+list2(A) ::= elem2(B).                                         { A = ast->node(FTK_blck, B); }             // FTK_blck is a list of declarations (elem)
+list2(A) ::= list2(B) elem2(C).                                { A = ast->nappend(B, C); }
 
-elem(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_elem, B, C); }          // Name/Map definition        
-elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          // Name/Labeled Map definition        
-elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Name/Value definition           
-elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          // Name/Value definition           
-elem(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          // Name/Value definition           
+// elem: any of the definitions allowed in a primary block
+
+elem(A) ::= ID(B) blck2(C).                                    { A = ast->node(FTK_elem, B, C); }       
+elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          
+elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
+elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
+elem(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) oexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'output')
 elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'return')
 elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
-lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); }
+lblk(A) ::= ID(B) blck2(C).                                    { A = ast->node(FTK_lblk, B, C); }
+
+// elem: any of the definitions allowed in a secondary block
+
+elem2(A) ::= ID(B) blck2(C).                                    { A = ast->node(FTK_elem, B, C); }       
+elem2(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          
+elem2(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
+elem2(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
+elem2(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          
+elem2(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
 // valn: any numeric literal
 
@@ -93,17 +110,16 @@ vall(A) ::= dtid(B).                                           { A = B; }
 
 // rexp: return expression
 
-rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_rexp, B); }              
-rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_rexp, B); }              
+rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_RETURN, B); }              
+rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_RETURN, B); }              
 
 // oexp: output expression
 
-oexp(A) ::= dtid(B) OPENPAR CLOSEPAR.                          { A = ast->node(FTK_oexp, B); }             // Method only output definition
-oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_oexp, B, C); }           
-oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_oexp, B, C); }          // Method and field map output definition
+oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_OUTPUT, B, C); }           
+oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_OUTPUT, B, C); }        // Method and field map output definition
 
 fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }             // fldm is a list of field definitions fldd
-fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappend(B, C); }                 
+fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappend(B, C); }
 
 // fldd: field definition (assignment)
 
@@ -117,8 +133,8 @@ fldr(A) ::= fldx(B).                                           { A = B; }       
 fldr(A) ::= OPENPAR fldr(B) CLOSEPAR.                          { A = B; }                                 
 fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }             // or an internal function call
 fldr(A) ::= TILDA ID(B) OPENPAR fldra(C) CLOSEPAR.             { A = ast->nprepend(C, B); }                
-fldr(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_fldr, B, C); }
-fldr(A) ::= DOLLAR(B) fldx(C).                                 { A = ast->node(FTK_fldr, B, C); }
+fldr(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_fldr, B, C); }          // size of repeated field
+fldr(A) ::= DOLLAR(B) fldx(C).                                 { A = ast->node(FTK_fldr, B, C); }           
 fldr(A) ::= BANG(B) fldr(C).                                   { A = ast->node(FTK_fldr, B, C); }
 fldr(A) ::= fldr(B) PLUS(C) fldr(D).                           { A = ast->node(FTK_fldr, C, B, D); }
 fldr(A) ::= fldr(B) MINUS(C) fldr(D).                          { A = ast->node(FTK_fldr, C, B, D); }
