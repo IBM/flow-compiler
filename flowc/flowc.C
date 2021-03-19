@@ -828,7 +828,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     //std::cerr << "----- before driver: " << error_count << "\n";
     if(error_count == 0 && contains(targets, "driver")) {
         std::map<std::string, std::vector<std::string>> local_vars;
-        auto local_smap = vex::make_smap(local_vars);
         std::ostringstream buff;
         error_count += genc_composer(buff, local_vars);
         set(local_vars, "DOCKER_COMPOSE_YAML",  buff.str());
@@ -836,7 +835,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(local_vars, "RR_KEYS_SH", rr_keys_sh);
         extern char const *rr_get_sh;
         buff.str("");
-        vex::expand(buff, rr_get_sh, local_smap);
+        vex::expand(buff, rr_get_sh, vex::make_smap(local_vars));
         set(local_vars, "RR_GET_SH",  buff.str());
         std::ostringstream yaml;
         error_count += genc_kube(yaml);
