@@ -1643,6 +1643,38 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
     }
     return NOP;
 }
+int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const {
+    int error_count = 0;
+    auto const &node = at(expr_node);
+    switch(node.type) {
+        case FTK_fldr: {
+            switch(at(node.children[0]).type) {
+                case FTK_ID: {  // function call
+                    if(get_id(node.children[0]) == "join")
+                        ++lv_dim;
+                } break;
+                case FTK_HASH:
+                    ++lv_dim;         
+                    break;
+                default: 
+                    break;
+            }
+            for(unsigned a = 1; a < node.children.size(); ++a) 
+                error_count += get_field_refs(refs, node.children[a], lv_dim);
+        } break;
+        case FTK_fldm: {
+            for(int fldd_node: node.children) 
+                error_count += get_field_refs(refs, at(fldd_node).children[1], lv_dim);
+        } break;
+        case FTK_fldx: {
+            refs.insert(std::make_pair(expr_node, dimension(expr_node) - lv_dim));
+        } break;
+        default:
+          break;
+    }
+    return error_count;
+}
+
 /**
  * Generate code to set up the all the fields in the input grpc messsage 
  *
@@ -1654,25 +1686,124 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
  * lvd: descriptor associated with the left value: 
  *      either the input for a node 
  *      or the output for an entry
- * lvfd: descriptor associated with the case number 3 od lv_name
+ * lvfd: descriptor associated with the case number 3 of lv_name
  * arg_node: current node
  * node_ip: node to icode address 
  *
  */
-int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip) {
+int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip, int loop_level) {
     int error_count = 0;
-    if(lvd.is_repeated()) 
+    if(lvd.is_repeated()) {
+        std::set<std::pair<int, int>> refs;
+        get_field_refs(refs, arg_node, 0);
+        //std::cerr << std::string(loop_level*4, ' ') << "POPULATE: " << lv_name << " " << arg_node << "(" << dimension(arg_node) << "), gathered " << refs << "\n";
+        std::set<std::pair<std::string, int>> inds;
+        for(auto p: refs) {
+            std::stringstream ss;
+            auto const &fields = at(p.first).children;
+            int rvn = get_id(fields[0]) == input_label? 0: named_blocks.find(get_id(fields[0]))->second.second;
+            auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name("RS", name(rvn));
+            int ic = dimension(arg_node);
+            if(ic > p.second)
+                continue;
+
+            int xc = dimension(arg_node);
+            std::string fa_name = rv_name;
+            for(auto i = 0, e = dimension(fields[0]); i < e; ++i) {
+                if(--xc <= 0)
+                    break;
+                fa_name +=  ":";
+            }
+            if(xc > 0) for(unsigned i = 1; i < fields.size(); ++i) {
+                fa_name += ".";
+                fa_name += get_id(fields[i]);
+                auto fid = field_descriptor(fields[i]);
+                if(fid->is_repeated()) {
+                    if(--xc <= 0)
+                        break;
+                    fa_name += "*";
+                } else {
+                    fa_name += "+";
+                }
+            }
+
+            for(auto i = 0, e = dimension(fields[0]); i < e; ++i) {
+                if(--ic <= 0)
+                    break;
+                ss << "*";
+            }
+
+            std::string dr_name = std::string(dimension(fields[0]), '*') + rv_name;
+            for(unsigned i = 1; i < fields.size(); ++i) {
+                dr_name += "+"; dr_name += get_id(fields[i]);
+                if(field_descriptor(fields[i])->is_repeated()) dr_name += "*";
+            }
+            
+            ss << rv_name;
+            if(ic > 0) for(unsigned i = 1; i < fields.size(); ++i) {
+                ss << "+" << get_id(fields[i]);
+                auto fid = field_descriptor(fields[i]);
+                if(fid->is_repeated()) {
+                    if(--ic <= 0)
+                        break;
+                    ss << "*";
+                }
+            }
+            //std::cerr << ":" << dimension(arg_node);   
+            auto const rvd = message_descriptor(rvn);
+            auto const rvfd = lrv_descriptor(rvd, field_descriptor(fields.back()));
+            //std::cerr << "(" << rvfd.grpc_type_name() << ")";
+            std::cerr << std::string(loop_level*4, ' ') << "LOOP DIM " << dimension(arg_node) << " " << dr_name << " -> " << ss.str() << " -> " << fa_name << "\n";
+            inds.insert(std::make_pair(fa_name, dimension(fields[0])));
+        }
+        //std::cerr << std::string(loop_level*4, ' ') << "USING sizes of: " << inds << "\n";
         icode.push_back(fop(LOOP, lv_name, lvd.dp));
+        for(auto ind: inds) {
+            icode.push_back(fop(LPC, ind.first, ind.second));
+        }
+        icode.push_back(fop(BLP));
+        ++loop_level;
+    }
 
     assert(arg_node != 0);
     switch(at(arg_node).type) {
         case FTK_fldm: {
             for(int fldd_node: at(arg_node).children) {
                 auto fidp = field_descriptor(fldd_node);
-                error_count += populate_message(lv_name+"+"+name(fldd_node), lrv_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip);
+                error_count += populate_message(lv_name + "+" + name(fldd_node), lrv_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip, loop_level);
             }
         } break;
         case FTK_fldr: {
+                           /*
+            switch(at(children[0]).type) {
+                case FTK_ID: {  // function call
+                    int dim = 0;
+                    for(unsigned a = 0; a+1 < children.size(); ++a) 
+                        dim = std::max(dim, dimension(children[a+1]));
+                    dimension.put(node, dim);
+                } break;
+                case FTK_HASH:
+                    dimension.put(node, std::max(0, dimension(children[1])-1));
+                    break;
+                case FTK_BANG:
+                    dimension.put(node, std::max(0, dimension(children[1])));
+                    break;
+                case FTK_DOLLAR:
+                    dimension.put(node, 0);
+                    break;
+                case FTK_COMP:
+                case FTK_EQ: case FTK_NE: case FTK_LE: case FTK_GE: case FTK_LT: case FTK_GT:
+                case FTK_AND: case FTK_OR:
+                case FTK_PLUS: case FTK_MINUS: case FTK_SLASH: case FTK_STAR: case FTK_PERCENT: 
+                    dimension.put(node, std::max(dimension(children[2]), dimension(children[1])));
+                    break;
+                case FTK_QUESTION:
+                    dimension.put(node, std::max(dimension(children[2]), dimension(children[3])));
+                    break;
+                default: 
+                    break;
+            }
+            */
                            /*
             auto const &children = at(arg_node).children;
             std::string fname(get_id(children[0]));
@@ -1683,7 +1814,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 icode.push_back(fop(SETT, lv_name, lvd.dp, arg_node));
                 std::string tmpvarname = sfmt() << "TmpVar_" << children[i];
                 lrv_descriptor arg_lvd(ftp->second.return_type);
-                populate_message(tmpvarname, arg_lvd, children[i], node_ip);
+                populate_message(tmpvarname, arg_lvd, children[i], node_ip, loop_level);
             }
 
             // Check the return type against the left value type
@@ -1706,15 +1837,25 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             auto const rvd = message_descriptor(rvn);
             unsigned ri = 0;
 
+            std::string fa_name = rv_name+std::string(dimension(fields[0]), ':');
+            for(unsigned i = 1; i < fields.size(); ++i) {
+                fa_name += ".";
+                fa_name += get_id(fields[i]);
+                fa_name += field_descriptor(fields[i])->is_repeated()? "*" : "+";
+            }
+            icode.push_back(fop(RVF, fa_name, dimension(fields[0]), dimension(arg_node)));
+
             if(fields.size() > 1) {
                 auto const rvfd = lrv_descriptor(rvd, field_descriptor(fields.back()));
                 int chk = check_assign(arg_node, lvd, rvfd);
                 error_count += chk? 0:1;
 
+
                 // if left and right are descriptors we copy
                 if(is_message(field_descriptor(fields.back())) && lvd.dp != nullptr) {
                     icode.push_back(fop(COPY, lv_name, rv_name, lvd.dp, rvd));
                 } else {
+
                     ri = icode.size();
                     icode.push_back(fop(RVA, rv_name, rvfd.grpc_type_name(), rvd)); 
                     op coop = get_conv_op(rvfd.type(), lvd.type(), rvfd.grpc_type(), lvd.grpc_type());
@@ -1827,6 +1968,8 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             auto const rvd = message_descriptor(rvn);
             error_count += check_assign(arg_node, lvd.dp, lrv_descriptor(rvd))? 0: 1;
 
+            std::string fa_name = std::string(dimension(arg_node), '*')+cs_name("RS", rvn);
+            icode.push_back(fop(RVF, fa_name, dimension(arg_node), dimension(arg_node)));
             icode.push_back(fop(COPY, lv_name, cs_name("RS", rvn), lvd.dp, rvd));
         } break;
         case FTK_STRING: 
@@ -1927,8 +2070,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             print_ast(std::cerr, arg_node);
             assert(false);
     }
-    if(lvd.is_repeated()) 
+    if(lvd.is_repeated()) {
         icode.push_back(fop(ELP));
+    }
     return error_count;
 }
 
@@ -2049,7 +2193,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             if(output_type != nullptr) {
                 // Populate the request 
-                error_count += populate_message(rq_name, lrv_descriptor(input_type), get_arg_node(node), node_ip);
+                error_count += populate_message(rq_name, lrv_descriptor(input_type), get_arg_node(node), node_ip, 0);
 
                 if(md != nullptr) 
                     icode.push_back(fop(CALL, rq_name, rs_name, md));
@@ -2117,7 +2261,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     }
 
 
-    error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), entry_arg_node, node_ip);
+    error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), entry_arg_node, node_ip, 0);
     icode.push_back(fop(EPRP));
     icode.push_back(fop(END));
 

@@ -736,6 +736,101 @@ std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, st
     DOUT << "get_loop_size: " << current_loop_size <<  "\n";
     return current_loop_size;
 }
+static 
+std::string cpp_var(std::string const &name, int node_dim, accessor_type at, std::string const &index_prefix = "I") {
+    std::string var = std::string(node_dim, 'v');
+    int ic = 0, fc = 0;
+    for(char c: name) switch(c) {
+        case ':':
+            var += sfmt() << "[" << index_prefix << ++ic << "]";
+            break;
+        case '+':
+            var += "()";
+            break;
+        case '*':
+            var += sfmt() << "(" << index_prefix << ++ic << ")";
+            break;
+        case '.':
+            ++fc;
+            var += c;
+            break;
+        default:
+            var += c;
+    }
+    switch(at) {
+        case SIZE:
+            if(fc == 0)
+                var += ".size()";
+            else
+                var += "_size()";
+            break;
+        case RIGHT_VALUE:
+            break;
+        default:
+            break;
+    }
+    return var;
+}
+
+static 
+std::string cpp_var2(std::string const &name, int node_dim, accessor_type at, std::string const &index_prefix = "I") {
+    auto pp = name.find_first_of('+');
+    std::string vname, fields;
+    if(pp == std::string::npos) {
+        vname = name;
+    } else {
+        vname = name.substr(0, pp);
+        fields = name.substr(pp+1);
+    }
+    std::string pref(node_dim, 'v'), suff;
+    int ic = 0;
+    for(pp = 0; pp < vname.length() && vname[pp] == '*'; ++pp) {
+        suff += sfmt() << "[" << index_prefix << ++ic << "]";
+    }
+    pref += vname.substr(pp);
+    pref += suff; suff = "";
+    if(fields.empty()) {
+        switch(at) {
+            case RIGHT_VALUE:
+                break;
+            case SIZE:
+                pref += ".size()";
+            break;
+            default:
+            break;
+        }
+    } else {
+        std::string field;
+        while(!fields.empty()) {
+            pp = fields.find_first_of('+');
+            if(pp == std::string::npos) {
+                field = fields;
+                fields.clear();
+            } else {
+                field = fields.substr(0, pp);
+                fields = fields.substr(pp+1);
+            }
+            pref += '.';
+            if(field[field.length()-1] == '*') {
+                pref += sfmt() << base_name(field.substr(0, field.length()-1)) << "(" << index_prefix << ++ic << ")";
+            } else {
+                pref += base_name(field); 
+                if(!fields.empty()) pref += "()";
+            }
+        }
+        switch(at) {
+            case SIZE:
+                pref += "_size()";
+            break;
+            case RIGHT_VALUE:
+                pref += "()";
+            break;
+            default:
+            break;
+        }
+    }
+    return pref;
+}
 
 static std::string node_variable_name(std::string const &label, std::string const &node_name) {
     return sfmt() << label << "_" << node_name;
@@ -861,6 +956,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::pair<std::string, std::string> convert_code; 
     // Temporary field reference stack
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
+    std::vector<int> loop_c;
     std::string rvl, lvl;   // Left and right value expressions
     // 
     int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0;
@@ -878,6 +974,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     int alternate_nodes = 0;        // count of alternate nodes 
     EnumDescriptor const *ledp, *redp;   // left and right enum descriptor needed for conversion check
     int error_count = 0;
+
+    std::string loop_chk, loop_end;
    
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
@@ -1128,6 +1226,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(op.arg.size() != 0) { // ignore empty index 
                     acinf.incr_loop_level();
                     cur_loop_tmp.push_back("");
+                    loop_c.push_back(0);
                 
                     DOUT << "NSET1: " << acinf << ", index_set: " << op.arg << "\n";
                     std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
@@ -1185,6 +1284,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     --indenter; 
                     OUT << "}\n";
                     cur_loop_tmp.pop_back();
+                    loop_c.pop_back();
                 }
                 OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
                 DOUT << "ENOD1: " << acinf << "\n";
@@ -1219,6 +1319,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
                     DOUT << "LOOP2: " << acinf << ", index_set: " << op.arg << "\n";
                     OUT << "for(int " << acinf.loop_iter_name() << " = 0, " << acinf.loop_end_name() << " = " << current_loop_size << "; " << acinf.loop_iter_name() << " != " << acinf.loop_end_name() << "; ++" << acinf.loop_iter_name() << ") {\n" << indent();
+                loop_chk = current_loop_size;
                 }
                 if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
                     OUT << "auto &Tmp" << acinf.loop_level() << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()-1) << ");\n"; 
@@ -1226,8 +1327,28 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
+                loop_c.push_back(0);
+                loop_end = "";
+                break;
+            case LPC:
+                if(loop_c.back()++ == 0) 
+                    OUT << "// unsigned LS" << loop_c.size() << " = " << cpp_var(op.arg1, op.arg[0], SIZE) << ";\n";
+                else
+                    OUT << "// LS" << loop_c.size() << " = std::min(LS" << loop_c.size() << ", " << cpp_var(op.arg1, op.arg[0], SIZE) << ");\n";
+                if(loop_end.empty())
+                    loop_end = cpp_var(op.arg1, op.arg[0], SIZE);
+                else 
+                    loop_end = sfmt() << "std::min(" << loop_end << ", " << cpp_var(op.arg1, op.arg[0], SIZE) << ")";
+                break;
+            case BLP:
+                if(loop_chk != loop_end) {
+                    OUT << " // LOOPSY: " << loop_chk << " != " << loop_end << "\n";
+                    std::cerr << " // LOOPSY: " << loop_chk << " != " << loop_end << "\n";
+                }
+                OUT << "// for(unsigned I" << loop_c.size() << " = 0; I" << loop_c.size() << " < LS" << loop_c.size() << "; ++I" << loop_c.size() << ") {\n";
                 break;
             case ELP:
+                loop_c.pop_back();
                 cur_loop_tmp.pop_back();
                 acinf.decr_loop_level();
                 OUT << unindent() << "}\n";
@@ -1236,49 +1357,13 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "// function call\n";
                 break;
                 /*
-            case SETI: {
-                std::string value;
-                if(convert_integer(value, fd_accessor(op.arg1, op.d1), get_value(op.arg[0]), nullptr, get_integer(op.arg[0]))) {
-                    OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << value << ");\n";
-                } else {
-                    ++error_count;
-                    pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this filed to integer value \"" << get_value(op.arg[0]) << "\"");
-                }
-            } break;
-            case SETE: {
-                std::string value;
-                if(convert_enum(value, fd_accessor(op.arg1, op.d1), get_full_name(enum_descriptor(op.arg[0])), enum_descriptor(op.arg[0])->type(), enum_descriptor(op.arg[0]))) {
-                    OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << value << ");\n";
-                } else {
-                    ++error_count;
-                    pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this field to enum value \"" << get_dotted_id(op.arg[0]) << "\"");
-                }
-            } break;
-            case SETS: {
-                std::string value;
-                if(convert_string(value, fd_accessor(op.arg1, op.d1), c_escape(get_value(op.arg[0])), nullptr, get_value(op.arg[0]))) {
-                    OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << value << ");\n";
-                } else {
-                    ++error_count;
-                    pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this field to string value \"" << get_dotted_id(op.arg[0]) << "\"");
-                }
-            } break;
-            case SETF: {
-                std::string value;
-                if(convert_float(value, fd_accessor(op.arg1, op.d1), get_value(op.arg[0]), nullptr)) {
-                    OUT << cur_loop_tmp.back() << ::field_accessor(op.arg1, op.d1, rs_dims, LEFT_VALUE, loop_level) << value << ");\n";
-                } else {
-                    ++error_count;
-                    pcerr.AddError(main_file, at(op.arg[0]), sfmt() << "cannot set this field to floating point value \"" << get_value(op.arg[0]) << "\"");
-                }
-            } break;
-            */
             case SET: 
                 DOUT << "SET1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
                 convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
                 OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()) 
                     << convert_code.first << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << convert_code.second << ");\n";
                 break;
+                */
             case COPY:
                 DOUT << "COPY1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
                 OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_STEM, acinf.loop_level()) 
@@ -1296,8 +1381,17 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 else rvl = op.arg1;
                 break;
 
+            case RVF: 
+                OUT << "// " << cpp_var(op.arg1, op.arg[0], RIGHT_VALUE) << "\n";
+                rvl =  cpp_var(op.arg1, op.arg[0], RIGHT_VALUE);
+                break;
+
             case RVA: 
                 DOUT << "RVA1: " << op.arg1 << " rs_dims; " << acinf << "\n";
+                if(::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) != rvl) {
+                    OUT << "// OOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) << "\n";
+                    std::cerr << "// OOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) << "\n";
+                }
                 rvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
                 break;
 
