@@ -20,17 +20,20 @@ char const *op_name(op o) {
         case FUNC:  return "FUNC";
         case COPY:  return "COPY";
         case ELP:   return "ELP ";
+        case BLP:   return "BLP ";
+        case LPC:   return "LPC ";
         case END:   return "END ";
         case ENOD:  return "ENOD";
         case ESTG:  return "ESTG";
         case INDX:  return "INDX";
-        case SET:   return "SET ";
+        //case SET:   return "SET ";
 
         case SETT:  return "SETT";
         case ERR:   return "ERR ";
 
         case SETL: return "SETL";      
         case RVA:  return "RVA ";      
+        case RVF:  return "RVF ";      
         case RVC:  return "RVC ";      
         case COFI: return "COFI";    
         case COFS: return "COFS";   

@@ -49,8 +49,10 @@ enum op {
     ENOD,           // node end
     BPRP,           // result preparation begin
     EPRP,           // result preparation end
-    LOOP,           // begin loop
-    ELP,            // end loop                         
+    LOOP,           // loop
+    LPC,            // loop counter size
+    BLP,            // begin loop body
+    ELP,            // end loop body                       
     /**
      * All set fileds have:
      *      arg1    left value string representation as message-type[[+]field-name]*
@@ -60,6 +62,7 @@ enum op {
 
     SETL,           // Set field 
     RVA,            // Right value field accessor
+    RVF,            // Right value field
     RVC,            // Right value constant
 
     CON1,           // Conversion NOP 1
@@ -86,7 +89,7 @@ enum op {
 
     CON2,           // Conversion NOP 2
 
-    SET,            // set field from another field of same type
+    //SET,            // set field from another field of same type
 
     SETT,           // set field from temporary variable of same type
 
