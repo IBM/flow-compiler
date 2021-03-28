@@ -736,29 +736,50 @@ std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, st
     DOUT << "get_loop_size: " << current_loop_size <<  "\n";
     return current_loop_size;
 }
+std::string const cpp_index_prefix = "I";
 static 
-std::string cpp_var(std::string const &name, int node_dim, accessor_type at, std::string const &index_prefix = "I") {
+std::string cpp_var( std::vector<std::set<std::string>> const &loop_c, std::string const &name, int node_dim, accessor_type at, std::string *stem = nullptr) {
+    if(name.length() <= 1) return name;
     std::string var = std::string(node_dim, 'v');
+    std::string fname;
     int ic = 0, fc = 0;
+    unsigned fi = 0;
     for(char c: name) switch(c) {
         case ':':
-            var += sfmt() << "[" << index_prefix << ++ic << "]";
+            var += sfmt() << fname << "[" << cpp_index_prefix << ++ic << "]";
+            fname = "";
             break;
         case '+':
-            var += "()";
+            var += sfmt() << base_name(fname) << "()";
+            fname = "";
             break;
         case '*':
-            var += sfmt() << "(" << index_prefix << ++ic << ")";
+            ++ic;
+            var += base_name(fname);
+            fi = 0;
+            for(unsigned l = loop_c.size(); l != 0; --l) {
+                for(std::string stem: loop_c[l-1])
+                    if(stem == var) {
+                        fi = l; break;
+                    }
+                if(fi) break;
+                //std::cerr << "LOOKING UP " << var << " IN " << loop_c[l-1] << "\n";
+            }
+            var += sfmt()  << "(" << cpp_index_prefix << (fi? fi: ic) << ")";
+            fname = "";
             break;
         case '.':
             ++fc;
-            var += c;
+            var += sfmt() << fname << c;
+            fname = "";
             break;
         default:
-            var += c;
+            fname += c;
     }
+    if(!fname.empty()) var += fc == 0? fname: base_name(fname);
     switch(at) {
         case SIZE:
+            if(stem != nullptr) *stem = var;
             if(fc == 0)
                 var += ".size()";
             else
@@ -771,67 +792,6 @@ std::string cpp_var(std::string const &name, int node_dim, accessor_type at, std
     }
     return var;
 }
-
-static 
-std::string cpp_var2(std::string const &name, int node_dim, accessor_type at, std::string const &index_prefix = "I") {
-    auto pp = name.find_first_of('+');
-    std::string vname, fields;
-    if(pp == std::string::npos) {
-        vname = name;
-    } else {
-        vname = name.substr(0, pp);
-        fields = name.substr(pp+1);
-    }
-    std::string pref(node_dim, 'v'), suff;
-    int ic = 0;
-    for(pp = 0; pp < vname.length() && vname[pp] == '*'; ++pp) {
-        suff += sfmt() << "[" << index_prefix << ++ic << "]";
-    }
-    pref += vname.substr(pp);
-    pref += suff; suff = "";
-    if(fields.empty()) {
-        switch(at) {
-            case RIGHT_VALUE:
-                break;
-            case SIZE:
-                pref += ".size()";
-            break;
-            default:
-            break;
-        }
-    } else {
-        std::string field;
-        while(!fields.empty()) {
-            pp = fields.find_first_of('+');
-            if(pp == std::string::npos) {
-                field = fields;
-                fields.clear();
-            } else {
-                field = fields.substr(0, pp);
-                fields = fields.substr(pp+1);
-            }
-            pref += '.';
-            if(field[field.length()-1] == '*') {
-                pref += sfmt() << base_name(field.substr(0, field.length()-1)) << "(" << index_prefix << ++ic << ")";
-            } else {
-                pref += base_name(field); 
-                if(!fields.empty()) pref += "()";
-            }
-        }
-        switch(at) {
-            case SIZE:
-                pref += "_size()";
-            break;
-            case RIGHT_VALUE:
-                pref += "()";
-            break;
-            default:
-            break;
-        }
-    }
-    return pref;
-}
-
 static std::string node_variable_name(std::string const &label, std::string const &node_name) {
     return sfmt() << label << "_" << node_name;
 }
@@ -871,77 +831,6 @@ static std::string stage_variable_name(std::string const &label, int stage_num) 
 
 #define L_VISITED       NODE_VN2("Visited", name(cur_node))
 
-static std::map<int, int> bexp_op_priority = {
-    { FTK_OR, 0 },
-    { FTK_AND, 1 },
-    { FTK_NE, 2 }, { FTK_EQ, 2 }, 
-    { FTK_GT, 3 }, { FTK_LT, 3 }, { FTK_GE, 3 }, { FTK_LE, 3 }, 
-    { FTK_BANG, 4},
-    { FTK_HASH, 5}
-    
-};
-/*
- * return true if op2 has higher priority than op1
- */
-bool check_bexp_op_priority(int op1, int op2) {
-    return bexp_op_priority.find(op1)->second > bexp_op_priority.find(op2)->second;
-}
-/****
- * Generate boolean expression
- * out: output stream
- * nip: current symbol-table (node name to result variable name) used to access fields
- * rs_dims: current symbol table (node name to dimensionality of result) used to access fields
- * bexp: expression ast node
- * op: previous opearator in the expression, used to determine operator priority
- */
-indented_stream &flow_compiler::gc_bexp(indented_stream &indenter, std::map<std::string, std::string> const &nip, accessor_info const &acinf, int bexp, int op) const{ 
-    std::pair<std::string, std::string> convert_code;
-    auto const &bx = at(bexp);
-    bool need_parens = false;
-    switch(bx.type) {
-        case FTK_bexp:
-            switch(bx.children.size()) {
-                case 1:
-                    gc_bexp(indenter, nip, acinf, bx.children[0], op);
-                    break;
-                case 2:
-                    need_parens = check_bexp_op_priority(op, at(bx.children[0]).type);
-                    if(need_parens) indenter << "(";
-                    indenter << " " << node_name(at(bx.children[0]).type);
-                    // TODO shoud the length operator return 1 for non repeated field?
-                    gc_bexp(indenter, nip, acinf, bx.children[1], at(bx.children[0]).type);
-                    if(need_parens) indenter <<  ")";
-                    break;
-                case 3:
-                    need_parens = check_bexp_op_priority(op, at(bx.children[1]).type);
-                    if(need_parens) indenter << "(";
-                    gc_bexp(indenter, nip, acinf, bx.children[0], at(bx.children[1]).type);
-                    indenter <<  " " << node_name(at(bx.children[1]).type) << " ";
-                    gc_bexp(indenter, nip, acinf, bx.children[2], at(bx.children[1]).type);
-                    if(need_parens) indenter << ")";
-                    break;
-            }
-            break;
-        case FTK_fldx:
-            indenter << ::field_accessor(indenter, nip.find(get_id(bx.children[0]))->second + "+" + get_joined_id(bexp, 1, "+"), message_descriptor(bx.children[0]), acinf, RIGHT_VALUE);
-            break;
-        case FTK_INTEGER:
-            indenter << get_value(bexp);
-            break;
-        case FTK_FLOAT:
-            indenter <<  get_value(bexp);
-            break;
-        case FTK_STRING:
-            indenter <<  c_escape(get_string(bexp));
-            break;
-        case FTK_dtid:
-            // std::cerr << get_full_name(enum_descriptor(bexp)) << "\n";
-            indenter <<  get_full_name(enum_descriptor(bexp));
-            //out << enum_descriptor(bexp)->number();
-            break;
-    }
-    return indenter;
-}
 // Generate C++ code for a given Entry Method
 int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) {
     indented_stream indenter(os, 1);
@@ -956,8 +845,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::pair<std::string, std::string> convert_code; 
     // Temporary field reference stack
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
-    std::vector<int> loop_c;
+    std::vector<std::set<std::string>> loop_c;
     std::string rvl, lvl;   // Left and right value expressions
+    std::vector<std::pair<std::string, int>> tvl; // Values stack
     // 
     int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
@@ -1222,11 +1112,29 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
 
                 break;
+            case BNL: { // node level loop begin
+                OUT << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
+                std::cerr << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
+                std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
+                OUT << "unsigned " << loop_size_varname << " = " << loop_end << ";\n";
+
+                OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< loop_size_varname << ");\n";
+                if(first_with_output) 
+                    OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< loop_size_varname << ");\n";
+                if(first_node) 
+                    OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< loop_size_varname << (node_dim-loop_c.size()==0? ", 0": "") << ");\n";
+                OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0; " << cpp_index_prefix << loop_c.size() << " < NS_" << cur_node_name << "_"  << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
+
+                OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_input_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_input_name << "[" << cpp_index_prefix << loop_c.size() <<  "];\n";
+                OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_output_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_output_name << "[" << cpp_index_prefix << loop_c.size() << "];\n";
+                OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << L_VISITED << " = " <<  std::string(node_dim-loop_c.size()+1, 'v') << L_VISITED << "[" << cpp_index_prefix << loop_c.size() << "];\n";
+
+            } break;
+/*
             case NSET:
                 if(op.arg.size() != 0) { // ignore empty index 
                     acinf.incr_loop_level();
                     cur_loop_tmp.push_back("");
-                    loop_c.push_back(0);
                 
                     DOUT << "NSET1: " << acinf << ", index_set: " << op.arg << "\n";
                     std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
@@ -1253,21 +1161,15 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     }
                 }
                 break;
+                */
             case IFNC:
-                DOUT << "NDIF1: " << acinf << "\n";
-                OUT << "if(" << L_VISITED << " == 0";
-                if(op.arg[1] != 0) {
-                    OUT << " && (";
-                    gc_bexp(indenter, nodes_rv, acinf, op.arg[1], FTK_AND);
-                    OUT << ")";
+                if(op.arg[1] == 0) {
+                    OUT << "if(!" << L_VISITED << ") {" << "\n";
+                } else {
+                    assert(tvl.size() > 0);
+                    OUT << "if(!" << L_VISITED << " && " << (tvl.back().second > 5? "(": "") << tvl.back().first << (tvl.back().second > 5? ")": "") << ") {" << "\n";
+                    tvl.pop_back();
                 }
-                for(unsigned u = 2, ac = op.arg.size(); u < ac; ++u) 
-                    if(op.arg[u] != 0) {
-                        OUT << " && !(";
-                        gc_bexp(indenter, nodes_rv, acinf, op.arg[u], FTK_AND);
-                        OUT << ")";
-                    }
-                OUT << ") {\n";
                 ++indenter;
                 if(alternate_nodes)
                     OUT << "FLOGC(CIF.trace_call) << CIF << \"condition triggered for node " << cur_node_name << "\\n\";\n";
@@ -1278,14 +1180,15 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT <<  L_VISITED << " = " << cur_node << ";\n";
                 --indenter;
                 OUT << "}\n";
-                //OUT << "// " << op << "\n";
                 while(acinf.loop_level() > 0) {
                     acinf.decr_loop_level();
                     --indenter; 
                     OUT << "}\n";
                     cur_loop_tmp.pop_back();
-                    loop_c.pop_back();
                 }
+                for(int i = 0; i < op.arg[0]; ++i) 
+                    loop_c.pop_back();
+
                 OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
                 DOUT << "ENOD1: " << acinf << "\n";
                 acinf.add_rs(cur_output_name, node_dim);
@@ -1314,38 +1217,33 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
             case LOOP:
                 acinf.incr_loop_level();
-                {
-                    DOUT << "LOOP1: " << acinf << ", index_set: " << op.arg << "\n";
-                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
-                    DOUT << "LOOP2: " << acinf << ", index_set: " << op.arg << "\n";
-                    OUT << "for(int " << acinf.loop_iter_name() << " = 0, " << acinf.loop_end_name() << " = " << current_loop_size << "; " << acinf.loop_iter_name() << " != " << acinf.loop_end_name() << "; ++" << acinf.loop_iter_name() << ") {\n" << indent();
-                loop_chk = current_loop_size;
-                }
+                loop_c.push_back(std::set<std::string>());
+                loop_end = "";
+                break;
+            case NLP: { // node level loop 
+                 acinf.incr_loop_level();
+                 cur_loop_tmp.push_back("");
+                loop_c.push_back(std::set<std::string>());
+                loop_end = "";
+            } break;
+            case LPC: {
+                std::string stem; 
+                if(loop_end.empty())
+                    loop_end = cpp_var(loop_c, op.arg1, op.arg[0], SIZE, &stem);
+                else 
+                    loop_end = sfmt() << "std::min(" << loop_end << ", " << cpp_var(loop_c, op.arg1, op.arg[0], SIZE, &stem) << ")";
+                loop_c.back().insert(stem);
+            } break;
+            case BLP:
+                OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
+                std::cerr << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
+                OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
                 if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
-                    OUT << "auto &Tmp" << acinf.loop_level() << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()-1) << ");\n"; 
-                    cur_loop_tmp.push_back(sfmt() << "Tmp" << acinf.loop_level());
+                    OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()-1) << ");\n"; 
+                    cur_loop_tmp.push_back(sfmt() << "T" << loop_c.size());
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
-                loop_c.push_back(0);
-                loop_end = "";
-                break;
-            case LPC:
-                if(loop_c.back()++ == 0) 
-                    OUT << "// unsigned LS" << loop_c.size() << " = " << cpp_var(op.arg1, op.arg[0], SIZE) << ";\n";
-                else
-                    OUT << "// LS" << loop_c.size() << " = std::min(LS" << loop_c.size() << ", " << cpp_var(op.arg1, op.arg[0], SIZE) << ");\n";
-                if(loop_end.empty())
-                    loop_end = cpp_var(op.arg1, op.arg[0], SIZE);
-                else 
-                    loop_end = sfmt() << "std::min(" << loop_end << ", " << cpp_var(op.arg1, op.arg[0], SIZE) << ")";
-                break;
-            case BLP:
-                if(loop_chk != loop_end) {
-                    OUT << " // LOOPSY: " << loop_chk << " != " << loop_end << "\n";
-                    std::cerr << " // LOOPSY: " << loop_chk << " != " << loop_end << "\n";
-                }
-                OUT << "// for(unsigned I" << loop_c.size() << " = 0; I" << loop_c.size() << " < LS" << loop_c.size() << "; ++I" << loop_c.size() << ") {\n";
                 break;
             case ELP:
                 loop_c.pop_back();
@@ -1354,50 +1252,91 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << unindent() << "}\n";
                 break;
             case FUNC:
-                OUT << "// function call\n";
+                assert(tvl.size() >= op.arg[0]);
+                rvl = sfmt() << op.arg1 << "(";
+                for(int i = tvl.size() - op.arg[0]; i < tvl.size(); ++i) {
+                    rvl += tvl[i].first; 
+                    if(i + 1 != tvl.size()) rvl += ", ";
+                }
+                rvl += ")";
+                for(int i = 0; i < op.arg[0]; ++i)
+                    tvl.pop_back();
+                tvl.push_back(std::make_pair(rvl, 0));
                 break;
-                /*
-            case SET: 
-                DOUT << "SET1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
-                convert_value(ledp, convert_code, fd_accessor(op.arg1, op.d1), grpc_type_to_ftk(fd_accessor(op.arg2, op.d2)->type()), false);
-                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()) 
-                    << convert_code.first << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << convert_code.second << ");\n";
+            case IOP:
+                assert(tvl.size() >= op.arg[0]);
+                switch(op.arg[0]) {
+                    case 1:
+                        if(op.arg[1] < tvl.back().second)
+                            rvl = sfmt() << op.arg1 << "(" << tvl.back().first << ")";
+                        else
+                            rvl = sfmt() << op.arg1 << tvl.back().first;
+                        tvl.pop_back();
+                        tvl.push_back(std::make_pair(rvl, op.arg[1]));
+                        break;
+                    case 2:
+                        if(op.arg[1] < tvl[tvl.size()-2].second)
+                            rvl = sfmt() << "(" << tvl[tvl.size()-2].first << ")";
+                        else
+                            rvl = tvl[tvl.size()-2].first;
+
+                        rvl += sfmt() << " " << op.arg1 << " ";
+
+                        if(op.arg[1] < tvl[tvl.size()-1].second)
+                            rvl += sfmt() << "(" << tvl[tvl.size()-1].first << ")";
+                        else
+                            rvl += tvl[tvl.size()-1].first;
+
+                        tvl.pop_back(); tvl.pop_back();
+                        tvl.push_back(std::make_pair(rvl, op.arg[1]));
+                        break;
+                    case 3:
+                        rvl = sfmt() << "((" << tvl[tvl.size()-3] << ")? " << tvl[tvl.size()-1] << ": " << tvl[tvl.size()-1] << ")";
+                        tvl.pop_back(); tvl.pop_back(); tvl.pop_back();
+                        tvl.push_back(std::make_pair(rvl, op.arg[1]));
+                        break;
+                }
                 break;
-                */
-            case COPY:
-                DOUT << "COPY1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
+            case COPY: 
                 OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_STEM, acinf.loop_level()) 
-                        << "CopyFrom(" << ::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) << ");\n";
+                        << "CopyFrom(" << tvl.back().first 
+                        //::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) 
+                        << ");\n";
+                tvl.pop_back();
                 break;
-            case SETL:
-                DOUT << "SETL1: " << op.arg1 << " <- " << op.arg2 << " rs_dims; " << acinf << "\n";
+
+            case SETF:
                 lvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level());
-                OUT << cur_loop_tmp.back() << lvl << "" << rvl << ");\n";
+                OUT << cur_loop_tmp.back() << lvl << "" << tvl.back().first << ");\n";
+                tvl.pop_back();
                 break;
 
             case RVC: 
                 if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
                 else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  c_escape(op.arg1); 
                 else rvl = op.arg1;
+                tvl.push_back(std::make_pair(rvl, 0));
                 break;
 
             case RVF: 
-                OUT << "// " << cpp_var(op.arg1, op.arg[0], RIGHT_VALUE) << "\n";
-                rvl =  cpp_var(op.arg1, op.arg[0], RIGHT_VALUE);
+                rvl = cpp_var(loop_c, op.arg1, op.arg[0], RIGHT_VALUE);
+                tvl.push_back(std::make_pair(rvl, 0));
+                //OUT << "auto GJ" << i << " = " << rvl << ";\n";
                 break;
 
-            case RVA: 
-                DOUT << "RVA1: " << op.arg1 << " rs_dims; " << acinf << "\n";
+                /*
+            case RVA:
                 if(::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) != rvl) {
-                    OUT << "// OOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) << "\n";
-                    std::cerr << "// OOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) << "\n";
+                    OUT << "// ROOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
+                    if(loop_c.size()) OUT << " " << loop_c;
+                    OUT << "\n"; 
+                    std::cerr << "// ROOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
+                    if(loop_c.size()) std::cerr << " " << loop_c;
+                    std::cerr << "\n";
                 }
                 rvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
                 break;
-
-            case SETT:
-                OUT << "// set this field from temp var\n";
-                break;
+                */
 
             case CALL:
                 node_has_calls = true;
@@ -1437,58 +1376,77 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(!op.arg2.empty())
                     OUT << "// " << op.arg2 << "\n";
                 break;
-            case INDX:
-                break;
 
             case COFB: 
             case COIB: 
-                rvl = sfmt() << "!!(" << rvl << ")";
+                assert(tvl.size() > 0);
+                rvl = sfmt() << "!!(" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COEB:
-                rvl = sfmt() << "int(" << rvl << ") != 0";
+                rvl = sfmt() << "!!int(" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COSB: 
-                rvl = sfmt() << "stringtobool(" << rvl << ")";
+                rvl = sfmt() << "stringtobool(" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COII: 
                 if(op.arg.size() == 1 || (op.arg.size() > 1 && 
                         strcmp(grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])),
                                grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[1]))) != 0))
-                        rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << rvl << ")";
+                        rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" <<  tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
-            case COEI: 
-            case COIF: 
             case COFF: 
+            case COIF: 
+                if(op.arg.size() < 1)
+                    rvl = sfmt() <<  "(double) (" << tvl.back().first << ")";
+                else
+                    rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
+                break;
+            case COEI: 
             case COFI:
-                rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << rvl << ")";
+                if(op.arg.size() < 1)
+                    rvl = sfmt() <<  "(int64_t) (" << tvl.back().first << ")";
+                else
+                    rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COIS: 
             case COFS: 
-                rvl = sfmt() << "std::to_string(" << rvl << ")";
+                rvl = sfmt() << "std::to_string(" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COEE: 
-                rvl = sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << rvl << "))";
+                rvl = sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << tvl.back().first << "))";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COEF: 
-                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (int) (" << rvl << ")";
+                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (int) (" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COSF: 
-                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") std::atof(" << rvl << ".c_str())";
+                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") std::atof(" << tvl.back().first << ".c_str())";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COSI: 
-                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") atol(" << rvl << ".c_str())";
+                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") atol(" << tvl.back().first << ".c_str())";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
 
             case COES: 
-                rvl = sfmt() << get_full_name(op.er) << "_Name(" << rvl << ")";
+                rvl = sfmt() << get_full_name(op.er) << "_Name(" << tvl.back().first << ")";
+                tvl.back() = std::make_pair(rvl, 0);
                 break;
         }
     }

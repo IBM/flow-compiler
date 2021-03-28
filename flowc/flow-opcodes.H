@@ -40,7 +40,6 @@ enum op {
      *      arg[]   dimension, node, stages, foak, foak-with-output
      */
     BNOD,           // node begin
-    NSET,           // node setup
     /**    
      *      arg1    node name
      *      arg[]   node, condition-node, neg condition-node...
@@ -50,7 +49,9 @@ enum op {
     BPRP,           // result preparation begin
     EPRP,           // result preparation end
     LOOP,           // loop
-    LPC,            // loop counter size
+    LPC,            // loop size
+    NLP,            // node loop 
+    BNL,            // node begin
     BLP,            // begin loop body
     ELP,            // end loop body                       
     /**
@@ -60,8 +61,7 @@ enum op {
      *      arg[0]  right value node-id
      */
 
-    SETL,           // Set field 
-    RVA,            // Right value field accessor
+    SETF,           // Set field 
     RVF,            // Right value field
     RVC,            // Right value constant
 
@@ -89,10 +89,6 @@ enum op {
 
     CON2,           // Conversion NOP 2
 
-    //SET,            // set field from another field of same type
-
-    SETT,           // set field from temporary variable of same type
-
     /** 
      *      arg1    left value string representation as message-type[[+]field-name]*
      *      arg2    right value string representation as message-type[[+]field-name]*
@@ -110,13 +106,12 @@ enum op {
      *      arg1    error message
      */
     ERR,            // generate a grpc error
-    FUNC,           // call internal function
     /**
-     *      arg1    right value name
-     *      d1      right value descriptor
-     *      arg     ast-node-ids for all fields up to the last repeated field
+     * arg1 function name or operand
+     * arg[0] number of arguments to use
      */
-    INDX            // index data
+    FUNC,           // operand call internal function
+    IOP,            // infix operator
 };
 struct fop {
     op code;

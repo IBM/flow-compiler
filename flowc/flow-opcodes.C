@@ -11,28 +11,26 @@ char const *op_name(op o) {
         case LOOP:  return "LOOP";
         case MTHD:  return "MTHD";
         case BNOD:  return "BNOD";
-        case NSET:  return "NSET";
         case IFNC:  return "IFNC";
         case BPRP:  return "BPRP";
         case EPRP:  return "EPRP";
         case BSTG:  return "BSTG";
         case CALL:  return "CALL";
-        case FUNC:  return "FUNC";
         case COPY:  return "COPY";
         case ELP:   return "ELP ";
         case BLP:   return "BLP ";
+        case NLP:   return "NLP ";
+        case BNL:   return "BNL ";
         case LPC:   return "LPC ";
         case END:   return "END ";
         case ENOD:  return "ENOD";
         case ESTG:  return "ESTG";
-        case INDX:  return "INDX";
-        //case SET:   return "SET ";
 
-        case SETT:  return "SETT";
         case ERR:   return "ERR ";
 
-        case SETL: return "SETL";      
-        case RVA:  return "RVA ";      
+        case SETF: return "SETF";      
+        case IOP:  return "IOP";
+        case FUNC: return "FUNC";
         case RVF:  return "RVF ";      
         case RVC:  return "RVC ";      
         case COFI: return "COFI";    
@@ -60,42 +58,6 @@ char const *op_name(op o) {
 static std::ostream &propc(std::ostream &out, fop const &fop) {
     bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
     switch(fop.code) {
-        case LOOP:
-            out << op_name(fop.code) << "  ";
-            if(fop.d1 != nullptr) 
-                out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":";
-            if(!fop.arg1.empty()) 
-                out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi) << " ";
-
-            out << ansi::escape(ANSI_YELLOW, use_ansi) << op_name(INDX);;
-            for(auto i: fop.arg) 
-                out << " &" << i;
-            out << ansi::escape(ANSI_RESET, use_ansi);
-            break;
-        case NSET:
-            if(fop.arg.size()) {
-                out << op_name(fop.code) << "  ";
-                out << ansi::escape(ANSI_YELLOW, use_ansi) << op_name(INDX);
-                for(auto i: fop.arg) 
-                    out << " &" << i;
-                out << ansi::escape(ANSI_RESET, use_ansi);
-            } else {
-                out << op_name(NOP);
-            }
-            break;
-        case INDX:
-            out << ansi::escape(ANSI_YELLOW, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
-            if(fop.d1 != nullptr) 
-                out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":";
-            if(!fop.arg1.empty() || !fop.arg2.empty())
-            out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi) << " ";
-            if(fop.arg.size()) {
-                out << ansi::escape(ANSI_YELLOW, use_ansi);
-                for(auto i: fop.arg) 
-                    out << " *" << i;
-                out << ansi::escape(ANSI_RESET, use_ansi);
-            }
-            break;
         case BNOD: 
             out << ansi::escape(ANSI_CYAN, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
             if(fop.arg[0] > 0) 
@@ -134,9 +96,7 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
 
 std::ostream &operator<< (std::ostream &out, fop const &fop) {
     switch(fop.code) {
-        case NSET:
         case LOOP:
-        case INDX:
         case BNOD:
         case IFNC:
         case BSTG:
@@ -147,10 +107,9 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
 
     if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);
-    else if(fop.code == INDX) out << ansi::escape(ANSI_YELLOW, use_ansi);
 
     out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP || fop.code == INDX) out << ansi::escape(ANSI_RESET, use_ansi);
+    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
 
     bool escape_string1 = fop.code == RVC && fop.arg.size() > 1 && fop.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     bool escape_string2 = fop.code == RVC && fop.arg.size() > 2 && fop.arg[2] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
@@ -170,8 +129,6 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     if(fop.m1 != nullptr) 
         out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
     bool first = true;
-    if((fop.code == LOOP || fop.code == NSET) && fop.arg.size() > 0) 
-        out << ansi::escape(ANSI_YELLOW, use_ansi) << "INDX @" << ansi::escape(ANSI_RESET, use_ansi);
     if(fop.code > CON1 && fop.code < CON2) {
         if(fop.arg.size() > 0) 
             out << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ansi::escape(ANSI_RESET, use_ansi) << " ";

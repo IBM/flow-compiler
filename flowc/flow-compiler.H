@@ -268,6 +268,8 @@ public:
     // Type check if the the assignment left = right
     int check_assign(int error_node, struct lrv_descriptor const &left, struct lrv_descriptor const &right);
 
+    std::string fldx_mname(int fldx_node, int context_dim) const;
+    int encode_expression(int fldr_node, int expected_type);
     int populate_message(std::string const &lv_name, struct lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip, int loop_level);
 
     int get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const;
@@ -278,8 +280,6 @@ public:
     void print_graph(std::ostream &out, int entry=-1);
     int get_blck_timeout(int blck, int default_timeout);
 
-    // Code generation for orchestrator server
-    class stru1::indented_stream &gc_bexp(class stru1::indented_stream &out, std::map<std::string, std::string> const &generated_nodes, struct accessor_info const &rs_dims, int bexp, int op) const;
     int gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry);
     int gc_server(std::ostream &out);
     int gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const;
