@@ -6,7 +6,7 @@
 %left SEMICOLON.
 %left DOT AT.
 %left COMMA.
-%nonassoc EQUALS COLON SHLEQ2 SHLEQ3 SHLEQ4 SHLEQ5 SHLEQ6 SHLEQ7 SHLEQ8 SHREQ2 SHREQ3 SHREQ4 SHREQ5 SHREQ6 SHREQ7 SHREQ8 SHLEQ SHREQ.
+%nonassoc EQUALS COLON.
 %right QUESTION.
 %left OR.
 %left AND.
@@ -50,7 +50,7 @@ flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappen
 
 stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->stmt_keyw(B) == FTK_IMPORT? ast->node(FTK_IMPORT, C): ast->node(ast->stmt_keyw(B), B, C); 
                                                                  ast->expect(A, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); } 
-stmt(A) ::= ID(B) dtid(C) OPENPAR bexp(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); ast->expect(A, FTK_NODE, "expected \"node\" keyword"); } 
+stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); ast->expect(A, FTK_NODE, "expected \"node\" keyword"); } 
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
                                                                  ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); } 
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
@@ -169,40 +169,8 @@ fldn(A) ::= ID(B) AT.                                          { A = B; }
 dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B); }
 dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappend(B, C); }
 
-// eqc: assignment operator
+// eqsc: assignment operator
 
 eqsc(A) ::= EQUALS.                                            { ast->chinteger(A, 0); } 
 eqsc(A) ::= COLON.                                             { ast->chinteger(A, 0); } 
-eqsc(A) ::= SHREQ.                                             { ast->chinteger(A, 1); } 
-eqsc(A) ::= SHREQ2.                                            { ast->chinteger(A, 2); }
-eqsc(A) ::= SHREQ3.                                            { ast->chinteger(A, 3); }
-eqsc(A) ::= SHREQ4.                                            { ast->chinteger(A, 4); }
-eqsc(A) ::= SHREQ5.                                            { ast->chinteger(A, 5); }
-eqsc(A) ::= SHREQ6.                                            { ast->chinteger(A, 6); }
-eqsc(A) ::= SHREQ7.                                            { ast->chinteger(A, 7); }
-eqsc(A) ::= SHREQ8.                                            { ast->chinteger(A, 8); }
-eqsc(A) ::= SHLEQ.                                             { ast->chinteger(A, -1); } 
-eqsc(A) ::= SHLEQ2.                                            { ast->chinteger(A, -2); }
-eqsc(A) ::= SHLEQ3.                                            { ast->chinteger(A, -3); }
-eqsc(A) ::= SHLEQ4.                                            { ast->chinteger(A, -4); }
-eqsc(A) ::= SHLEQ5.                                            { ast->chinteger(A, -5); }
-eqsc(A) ::= SHLEQ6.                                            { ast->chinteger(A, -6); }
-eqsc(A) ::= SHLEQ7.                                            { ast->chinteger(A, -7); }
-eqsc(A) ::= SHLEQ8.                                            { ast->chinteger(A, -8); }
-
-// bexp: binary expression
-
-bexp(A) ::= vall(B).                                           { A = ast->node(FTK_bexp, B); }
-bexp(A) ::= fldx(B).                                           { A = ast->node(FTK_bexp, B); }
-bexp(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_bexp, B, C); }
-bexp(A) ::= OPENPAR bexp(B) CLOSEPAR.                          { A = B; }
-bexp(A) ::= BANG(B) bexp(C).                                   { A = ast->node(FTK_bexp, B, C); }
-bexp(A) ::= bexp(B) OR(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) AND(C) bexp(D).                            { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) EQ(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) NE(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) GT(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) LT(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) LE(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
-bexp(A) ::= bexp(B) GE(C) bexp(D).                             { A = ast->node(FTK_bexp, B, C, D); }
 
