@@ -272,13 +272,13 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     return indent; 
 }
 
-bool check_bexp_op_priority(int op1, int op2);
-
-void flow_ast::to_text_r(std::ostream &out, int bexp, int op) const {
+void flow_ast::to_text_r(std::ostream &out, int expr, int op) const {
+    out << "C" << expr;
+        /*
     auto const &bx = at(bexp);
     bool need_parens = false;
     switch(bx.type) {
-        case FTK_bexp:
+        case FTK_fldr:
             switch(bx.children.size()) {
                 case 1:
                     to_text_r(out, bx.children[0], op);
@@ -319,6 +319,7 @@ void flow_ast::to_text_r(std::ostream &out, int bexp, int op) const {
             out << get_dotted_id(bexp);
             break;
     }
+    */
 }
 std::string flow_ast::to_text(int node) const {
     std::ostringstream out;
