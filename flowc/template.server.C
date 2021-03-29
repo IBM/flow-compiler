@@ -49,6 +49,21 @@ extern "C" {
 #include <civetweb.h>
 }
 
+namespace flowrt {
+static inline std::string substr(std::string const &s, int begin, int end) {
+    return s.substr(begin, std::max(end-begin, 0));
+}
+static inline std::string pref(std::string const &s, int end) {
+    return s.substr(0, std::max(end, 0));
+}
+static inline std::string suff(std::string const &s, int begin) {
+    return s.substr(std::max(begin, 0));
+}
+static inline int suff(std::string const &s) {
+    return s.length();
+}
+}
+
 /**********************************************************************************************************
  * REST headers 
  */
