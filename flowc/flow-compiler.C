@@ -1871,7 +1871,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
         for(auto ind: inds) {
             icode.push_back(fop(LPC, ind.first, ind.second));
         }
-        icode.push_back(fop(BLP, lv_name, lvd.dp));
+        icode.push_back(fop(BLP, lv_name, lvd.is_message()? 1: 0));
         ++loop_level;
     }
 
@@ -1880,12 +1880,17 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
         case FTK_fldm: {
             for(int fldd_node: at(arg_node).children) {
                 auto fidp = field_descriptor(fldd_node);
-                error_count += populate_message(lv_name + "+" + name(fldd_node), lrv_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip, loop_level);
+                std::string lname = lv_name;
+                if(!lname.empty()) lname += ".";
+                lname += name(fldd_node);
+                if(fidp != nullptr && fidp->is_repeated()) lname += "*";
+                else lname += "+";
+                error_count += populate_message(lname, lrv_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip, loop_level);
             }
         } break;
         case FTK_fldr: 
             error_count += encode_expression(arg_node, 0);                    
-            icode.push_back(fop(SETF, lv_name, lvd.grpc_type_name(), lvd.dp));
+            icode.push_back(fop(SETF, lv_name));
         break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
@@ -1907,10 +1912,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 int chk = check_assign(arg_node, lvd, rvfd);
                 error_count += chk? 0:1;
 
-
                 // if left and right are descriptors we copy
                 if(is_message(field_descriptor(fields.back())) && lvd.dp != nullptr) {
-                    icode.push_back(fop(COPY, lv_name, lvd.dp));
+                    icode.push_back(fop(COPY, lv_name));
                 } else {
                     //ri = icode.size();
                     //icode.push_back(fop(RVA, rv_name, rvfd.grpc_type_name(), rvd)); 
@@ -1935,11 +1939,11 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                         if(lvd.type() == FTK_dtid) icode.back().el = lvd.enum_descriptor();
                         if(rvfd.type() == FTK_dtid) icode.back().er = rvfd.enum_descriptor();
                     }
-                    icode.push_back(fop(SETF, lv_name, lvd.grpc_type_name(), lvd.dp));
+                    icode.push_back(fop(SETF, lv_name));
                 }
             } else {
                 error_count += check_assign(arg_node, lvd, lrv_descriptor(rvd)) == 2? 0: 1;
-                icode.push_back(fop(COPY, lv_name, lvd.dp));
+                icode.push_back(fop(COPY, lv_name));
             }
         } break;
         case FTK_ID: {
@@ -1950,7 +1954,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
             std::string fa_name = std::string(dimension(arg_node), '*')+cs_name("RS", rvn);
             icode.push_back(fop(RVF, fa_name, dimension(arg_node), dimension(arg_node)));
-            icode.push_back(fop(COPY, lv_name, lvd.dp));
+            icode.push_back(fop(COPY, lv_name));
             assert(false);
         } break;
         case FTK_STRING: 
@@ -2043,7 +2047,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     }
                 break;
             }
-            icode.push_back(fop(SETF, lv_name, lvd.grpc_type_name(), lvd.dp));
+            icode.push_back(fop(SETF, lv_name));
         break;
 
         default:
@@ -2201,7 +2205,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                     icode.push_back(fop(CALL, rq_name, rs_name, md));
                 } else {
                     icode.push_back(fop(RVF, rq_name, dimension(node)));
-                    icode.push_back(fop(COPY, rs_name, output_type));
+                    icode.push_back(fop(COPY, rs_name));
                 }
 
             } else {

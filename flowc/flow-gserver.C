@@ -461,7 +461,7 @@ bool convert_value(EnumDescriptor const *&ledp, std::pair<std::string, std::stri
     return true;
 }
 enum accessor_type {
-    LEFT_VALUE, RIGHT_VALUE, LEFT_STEM, RIGHT_STEM, SIZE
+    LEFT_VALUE, RIGHT_VALUE, SIZE
 };
 
 std::ostream &operator <<(std::ostream &out, accessor_type at) {
@@ -470,10 +470,6 @@ std::ostream &operator <<(std::ostream &out, accessor_type at) {
             return out << "LEFT-VALUE";
         case RIGHT_VALUE:
             return out << "RIGHT-VALUE";
-        case LEFT_STEM:
-            return out << "LEFT-STEM";
-        case RIGHT_STEM:
-            return out << "RIGHT-STEM";
         case SIZE:
             return out << "SIZE";
     }
@@ -601,180 +597,64 @@ inline static
 std::ostream &operator<<(std::ostream &out, accessor_info const &ai) {
     return out << "<" << ai.rs_dims << ", " << ai.loop_sizes << ">";
 }
-
-static 
-std::string field_accessor(indented_stream &indenter, std::string const &field, Descriptor const *d, accessor_info const &acinf, accessor_type kind, int cur_level=-1) {
-    cur_level = acinf.loop_level();
-    OUTD << " /*field_accessor(" << field << ", " << acinf << ", " << kind << ", " << cur_level << ")*/\n";
-    std::stringstream buf;
-    std::string base, fields;
-    // The first field is the local variable name
-    if(split(&base, &fields, field, "+") == 1) {
-        buf << base;
-        if(kind == LEFT_STEM) buf << ".";
-        return buf.str();
-    }
-
-    bool left = kind == LEFT_VALUE || kind == LEFT_STEM;
-    bool right = kind == RIGHT_VALUE || kind == RIGHT_STEM || kind == SIZE;
-
-    int level = right && acinf.rs_dims.find(base) != acinf.rs_dims.end()? acinf.rs_dims.find(base)->second: 0;
-
-    if(right) {
-        buf << reps("v", level) << base;
-        for(int i = 0; i < level; ++i)
-            buf << "[" << acinf.loop_iter_name(i+1) << "]";
-    } else {
-        buf << base;
-    }
-    buf << ".";
-
-    while(split(&base, &fields, fields, "+") == 2) {
-        FieldDescriptor const *fd = d->FindFieldByName(base);
-        base = base_name(base);
-
-        d = fd->message_type();
-
-        if(fd->is_repeated()) {
-            // find level in loop sizes
-            std::string stem = field.substr(0, field.length() - fields.length() - 1);
-            for(int l = level, le = acinf.loop_level(); l < le; ++l) 
-                if(contains(acinf.loop_sizes[l], stem)) {
-                    level = l; break;
-                }
-
-            ++level;
-
-            if(right) {
-                buf << base << "(" << acinf.loop_iter_name(level) << ")."; ///*A level " << level << ", stem: "<< stem << " */.";
-            } else if(left) {
-                buf.str("");
-                buf << ".";
-            }
-        } else {
-            if(d != nullptr && left) buf << "mutable_" << base << "()->";
-            else buf << base << "().";
-        }
-        if(cur_level > 0 && level == cur_level && left) {
-            cur_level = -1; 
-            buf.str("");
-            buf << ".";
-        }
-    }
-
-    FieldDescriptor const *fd = d->FindFieldByName(base);
-    base = base_name(base);
-    switch(kind) {
-        case LEFT_VALUE:
-            if(fd->is_repeated()) 
-                buf << "add_" << base << "(";
-            else 
-                buf << "set_" << base << "(";
-            break;
-        case RIGHT_VALUE:
-            if(fd->is_repeated()) 
-                buf << base << "("<< acinf.loop_iter_name(++level) << ")";
-            else 
-                buf << base << "()";
-            break;
-        case SIZE:
-            buf << base << "_size()";
-            break;
-        case LEFT_STEM: 
-            if(cur_level > 0 && level <= cur_level) {
-                // No access needed: temp var
-                buf.str(".");
-            } else {
-                buf << "mutable_" << base << "()->";
-            }
-            break; 
-        case RIGHT_STEM:
-            buf << base;
-            break;
-    }
-    return buf.str();
-}
-static
-std::string get_loop_size(indented_stream &indenter, flow_compiler const *fc, std::vector<fop> const &icode, std::vector<int> const &index_set, accessor_info &acinf) {
-    if(acinf.loop_level() == 0) {
-        DOUT << "get_loop_size called at level !\n";
-    } else if(acinf.loop_sizes.back().size() != 0) {
-        DOUT << "get_loop_size has sizes: " << acinf.loop_sizes.back() << "\n";
-    }
-
-    std::vector<std::pair<std::string, std::string>> indices;
-    // 159 INDX  RS_cleaner d1: SQuAD_reply 234, 236
-    if(index_set.size() == 0) {
-        return "1";
-    } else for(int ixi: index_set) {
-        fop const &ix = icode[ixi-1];
-        std::vector<std::string> names(&ix.arg1, &ix.arg1+1);
-        for(int i = 1; i < ix.arg.size(); ++i) names.push_back(fc->get_id(ix.arg[i]));  
-        std::string index_size(field_accessor(indenter, join(names, "+"), ix.d1, acinf, SIZE, acinf.loop_level())); 
-        indices.push_back(std::make_pair(join(names, "+"), index_size));
-        //std::cerr << " . .  " << indices.back() << "\n";
-    }
-
-    auto &current_set = acinf.loop_sizes.back();
-    std::sort(indices.begin(), indices.end());
-    DOUT << "indices: " << indices << "\n";
-
-    // Eliminate all indices that are prefixes of other indices
-    for(auto fp = indices.begin(), sp = fp+1, ep = indices.end(); sp != ep; ++fp, ++sp) 
-        if(stru1::starts_with(sp->first, fp->first+"+")) fp->first.clear();
-
-    DOUT << "trimmed indices: " << indices << "\n";
-    
-    std::string current_loop_size;
-    for(auto ni: indices) if(!ni.first.empty()) {
-        if(current_loop_size.empty())
-            current_loop_size = ni.second;
-        else 
-            current_loop_size = std::string("std::min(")+current_loop_size + ", " + ni.second + ")";
-        current_set.insert(ni.first);
-    }
-    DOUT << "get_loop_size: " << current_loop_size <<  "\n";
-    return current_loop_size;
-}
 std::string const cpp_index_prefix = "I";
+static std::string cpp_left_stem(std::string const &name) {
+    if(name.find_first_of('.') == std::string::npos) 
+        return name+".";
+    return ".";
+}
 static 
-std::string cpp_var( std::vector<std::set<std::string>> const &loop_c, std::string const &name, int node_dim, accessor_type at, std::string *stem = nullptr) {
+std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::string const &name, int node_dim, accessor_type at, std::string *stem = nullptr) {
     if(name.length() <= 1) return name;
     std::string var = std::string(node_dim, 'v');
     std::string fname;
     int ic = 0, fc = 0;
-    unsigned fi = 0;
-    for(char c: name) switch(c) {
+    unsigned fi = 0, lx = 0;  
+    for(auto cp = name.begin(), ce = name.end(); cp != ce; ++cp) switch(*cp) {
         case ':':
             var += sfmt() << fname << "[" << cpp_index_prefix << ++ic << "]";
             fname = "";
             break;
         case '+':
-            var += sfmt() << base_name(fname) << "()";
+            if(at == LEFT_VALUE && cp+1 != ce)
+                var += sfmt() << "mutable_" << base_name(fname) << "()-";
+            else if(at == LEFT_VALUE && cp+1 == ce)
+                var += sfmt() << "set_" << base_name(fname) << "(";
+            else
+                var += sfmt() << base_name(fname) << "()";
             fname = "";
             break;
         case '*':
             ++ic;
-            var += base_name(fname);
-            fi = 0;
-            for(unsigned l = loop_c.size(); l != 0; --l) {
-                for(std::string stem: loop_c[l-1])
-                    if(stem == var) {
-                        fi = l; break;
-                    }
-                if(fi) break;
-                //std::cerr << "LOOKING UP " << var << " IN " << loop_c[l-1] << "\n";
+            if(at == LEFT_VALUE && cp+1 == ce) {
+                var += sfmt() << "add_" << base_name(fname) << "(";
+                
+            } else {
+                var += base_name(fname);
+                fi = 0;
+                for(unsigned l = loop_c.size(); l != 0; --l) {
+                    for(std::string stem: loop_c[l-1])
+                        if(stem == var) {
+                            fi = l; break;
+                        }
+                    if(fi) break;
+                }
+                var += sfmt() << "(" << cpp_index_prefix << (fi? fi: ic) << ")";
+                lx = var.length();
             }
-            var += sfmt()  << "(" << cpp_index_prefix << (fi? fi: ic) << ")";
             fname = "";
             break;
         case '.':
             ++fc;
-            var += sfmt() << fname << c;
+            var += fname;
+            if(var.back() == '-')
+                var += ">";
+            else 
+                var += ".";
             fname = "";
             break;
         default:
-            fname += c;
+            fname += *cp;
     }
     if(!fname.empty()) var += fc == 0? fname: base_name(fname);
     switch(at) {
@@ -783,9 +663,12 @@ std::string cpp_var( std::vector<std::set<std::string>> const &loop_c, std::stri
             if(fc == 0)
                 var += ".size()";
             else
-                var += "_size()";
+                var = sfmt() << "(unsigned long)" << var << "_size()";
             break;
         case RIGHT_VALUE:
+            break;
+        case LEFT_VALUE:
+            var = var.substr(lx);
             break;
         default:
             break;
@@ -1204,8 +1087,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case BLP:
                 //OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
-                if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
-                    OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()-1) << ");\n"; 
+                if(op.arg[0]) {
+                    OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
                     cur_loop_tmp.push_back(sfmt() << "T" << loop_c.size());
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
@@ -1264,16 +1147,12 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 }
                 break;
             case COPY: 
-                OUT << cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_STEM, acinf.loop_level()) 
-                        << "CopyFrom(" << tvl.back().first 
-                        //::field_accessor(indenter, op.arg2, op.d2, acinf, RIGHT_VALUE) 
-                        << ");\n";
+                OUT << cur_loop_tmp.back() << cpp_left_stem(op.arg1) << "CopyFrom(" << tvl.back().first << ");\n";
                 tvl.pop_back();
                 break;
 
             case SETF:
-                lvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level());
-                OUT << cur_loop_tmp.back() << lvl << "" << tvl.back().first << ");\n";
+                OUT << cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << "" << tvl.back().first << ");\n";
                 tvl.pop_back();
                 break;
 
@@ -1289,20 +1168,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 tvl.push_back(std::make_pair(rvl, 0));
                 //OUT << "auto GJ" << i << " = " << rvl << ";\n";
                 break;
-
-                /*
-            case RVA:
-                if(::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE) != rvl) {
-                    OUT << "// ROOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
-                    if(loop_c.size()) OUT << " " << loop_c;
-                    OUT << "\n"; 
-                    std::cerr << "// ROOPSY: " << rvl << " != " << ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
-                    if(loop_c.size()) std::cerr << " " << loop_c;
-                    std::cerr << "\n";
-                }
-                rvl = ::field_accessor(indenter, op.arg1, op.d1, acinf, RIGHT_VALUE);
-                break;
-                */
 
             case CALL:
                 node_has_calls = true;
