@@ -21,7 +21,6 @@ char const *node_name(int i) {
         case FTK_blck: return "hash-map";
         case FTK_lblk: return "lblk";
         case FTK_elem: return "elem";
-        case FTK_bexp: return "bexp";
         case FTK_fldm: return "fldm";
         case FTK_fldr: return "fldr";
         case FTK_fldd: return "fldd";
@@ -79,9 +78,10 @@ char const *node_name(int i) {
         case FTK_ERROR: return "{ERROR}";
 
         case FTK_ENDPOINT: return "{ENDPOINT}";
-        case FTK_IMAGE: return "{IMAGE";
+        case FTK_IMAGE: return "{IMAGE}";
         case FTK_ENVIRONMENT: return "{ENVIRONEMNT}";
         case FTK_MOUNT: return "{MOUNT}";
+        case FTK_HEADERS: return "{HEADERS}";
 
         case FTK_INPUT: return "{INPUT}";
 
@@ -234,9 +234,9 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     auto const &n = store[node-1];
     sout << std::string(indent, ' ');
   
-    if(n.type == FTK_fldr || n.type == FTK_bexp) sout << ANSI_CYAN << ANSI_BOLD;
+    if(n.type == FTK_fldr) sout << ANSI_CYAN << ANSI_BOLD;
     sout << node_name(n.type);
-    if(n.type == FTK_fldr || n.type == FTK_bexp) sout << ANSI_RESET;
+    if(n.type == FTK_fldr) sout << ANSI_RESET;
     if(n.type == FTK_fldd) sout << "|" << ANSI_RED << ANSI_BOLD << n.token.integer_value << ANSI_RESET;
     //if(flag.has(node)) sout << "|" << node_name(flag(node));
     sout << "[";

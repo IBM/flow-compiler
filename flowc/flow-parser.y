@@ -2,7 +2,7 @@
 %name flow_parser
 %token_prefix FTK_
 
-%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OUTPUT RETURN ERROR ENDPOINT IMAGE MOUNT ENVIRONMENT INPUT.
+%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OUTPUT RETURN ERROR ENDPOINT IMAGE MOUNT ENVIRONMENT INPUT HEADERS.
 %left SEMICOLON.
 %left DOT AT.
 %left COMMA.
@@ -111,11 +111,11 @@ vall(A) ::= dtid(B).                                           { A = B; }
 // rexp: return expression
 
 rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_RETURN, B); }              
-rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_RETURN, B); }              
+rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_RETURN, ast->node(FTK_fldx, B)); }              
 
 // oexp: output expression
 
-oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_OUTPUT, B, C); }           
+oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_OUTPUT, B, ast->node(FTK_fldx, C)); }           
 oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_OUTPUT, B, C); }        // Method and field map output definition
 
 fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }             // fldm is a list of field definitions fldd

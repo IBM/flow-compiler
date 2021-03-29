@@ -1113,8 +1113,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
                 break;
             case BNL: { // node level loop begin
-                OUT << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
-                std::cerr << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
+                //OUT << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
                 std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
                 OUT << "unsigned " << loop_size_varname << " = " << loop_end << ";\n";
 
@@ -1130,38 +1129,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << L_VISITED << " = " <<  std::string(node_dim-loop_c.size()+1, 'v') << L_VISITED << "[" << cpp_index_prefix << loop_c.size() << "];\n";
 
             } break;
-/*
-            case NSET:
-                if(op.arg.size() != 0) { // ignore empty index 
-                    acinf.incr_loop_level();
-                    cur_loop_tmp.push_back("");
-                
-                    DOUT << "NSET1: " << acinf << ", index_set: " << op.arg << "\n";
-                    std::string current_loop_size = get_loop_size(indenter, this, icode, op.arg, acinf); 
-                    DOUT << "NSET2: " << acinf << ", index_set: " << op.arg << "\n";
-                    if(node_dim > 0) {
-                        std::string size_varname(sfmt() << "Size_" << cur_node_name << "_" << cur_stage << "_" << acinf.loop_level());
-                        OUT << "auto " << size_varname << " = "  <<  current_loop_size << ";\n";
-                        current_loop_size = size_varname;
-                        OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< current_loop_size << ");\n";
-                        if(first_with_output) {
-                            OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< current_loop_size << ");\n";
-                        }
-                        if(first_node) {
-                            OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< current_loop_size << (node_dim-acinf.loop_level()==0? ", 0": "") << ");\n";
-                        }
-                    }
-                    OUT << "for(int " << acinf.loop_iter_name() << " = 0, " << acinf.loop_end_name() << " = " << current_loop_size << "; " << acinf.loop_iter_name() << " != " << acinf.loop_end_name() << "; ++" << acinf.loop_iter_name() << ") {\n" << indent();
-                    if(node_dim > 0) {
-                        std::string rep_pref = reps("v", node_dim-acinf.loop_level());
-                        std::string rep_pref_next = reps("v", node_dim-acinf.loop_level()+1);
-                        OUT << "auto &" << rep_pref << cur_input_name << " = " << rep_pref_next << cur_input_name << "[" << acinf.loop_iter_name() << "];\n";
-                        OUT << "auto &" << rep_pref << cur_output_name << " = " << rep_pref_next << cur_output_name << "[" << acinf.loop_iter_name() << "];\n";
-                        OUT << "auto &" << rep_pref << L_VISITED << " = " << rep_pref_next << L_VISITED << "[" << acinf.loop_iter_name() << "];\n";
-                    }
-                }
-                break;
-                */
             case IFNC:
                 if(op.arg[1] == 0) {
                     OUT << "if(!" << L_VISITED << ") {" << "\n";
@@ -1235,8 +1202,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 loop_c.back().insert(stem);
             } break;
             case BLP:
-                OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
-                std::cerr << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
+                //OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
                 if(fd_accessor(op.arg1, op.d1)->message_type() != nullptr) {
                     OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << ::field_accessor(indenter, op.arg1, op.d1, acinf, LEFT_VALUE, acinf.loop_level()-1) << ");\n"; 

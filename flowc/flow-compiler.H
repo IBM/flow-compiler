@@ -259,10 +259,14 @@ public:
     void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node);
     // Get all the node nodes referenced in this conditional expression
     void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node);
-    // Get the node referenced by either FTK_oexp, FTK_bexp or both (0) for this blck_node
+    // Get the node referenced by either condition (1), body (2) or both (0) for this blck_node
     std::map<int, std::set<std::string>> &get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type=0);
-    // Search a blk node for a rexp or oexp entry and return the arg node
-    int get_arg_node(int blck_node) const;
+    std::map<int, std::set<std::string>> &get_node_condition_refs(std::map<int, std::set<std::string>> &noset, int blck_node) {
+        return get_node_refs(noset, blck_node, 1);
+    }
+    std::map<int, std::set<std::string>> &get_node_body_refs(std::map<int, std::set<std::string>> &noset, int blck_node) {
+        return get_node_refs(noset, blck_node, 2);
+    }
     int build_flow_graph(int entry_blk_node);
 
     // Type check if the the assignment left = right
