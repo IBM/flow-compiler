@@ -998,7 +998,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case BNL: { // node level loop begin
                 //OUT << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
                 std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
-                OUT << "unsigned " << loop_size_varname << " = " << loop_end << ";\n";
+                OUT << "auto " << loop_size_varname << " = " << loop_end << ";\n";
 
                 OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< loop_size_varname << ");\n";
                 if(first_with_output) 
@@ -1048,7 +1048,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 DOUT << "ENODP2: " << acinf << "\n";
                 break;
             case EPRP:
-                //OUT << "// " << op << "\n";
                 while(acinf.loop_level() > 0) {
                     acinf.decr_loop_level();
                     --indenter; 
@@ -1088,8 +1087,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 //OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
                 if(op.arg[0]) {
-                    OUT << "auto &Tmp" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
-                    cur_loop_tmp.push_back(sfmt() << "Tmp" << loop_c.size());
+                    OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
+                    cur_loop_tmp.push_back(sfmt() << "T" << loop_c.size());
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
