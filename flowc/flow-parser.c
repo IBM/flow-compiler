@@ -250,71 +250,71 @@ typedef union {
 *********** Begin parsing tables **********************************************/
 #define YY_ACTTAB_COUNT (643)
 static const YYACTIONTYPE yy_action[] = {
- /*     0 */   279,   89,   52,  231,   46,   74,   26,   32,   80,  246,
- /*    10 */   269,   40,   70,  268,   72,  275,   99,  280,   84,   47,
- /*    20 */    98,   97,   91,   90,  268,    3,    4,    5,    6,   80,
- /*    30 */   247,   41,   11,   12,    9,   10,    7,    8,   13,   24,
- /*    40 */   266,   20,   17,   15,   16,   14,   81,   76,  228,  229,
- /*    50 */   268,   22,    4,    5,    6,  285,   24,   47,   11,   12,
+ /*     0 */   279,   89,   51,  231,   45,   73,   26,   32,   79,  246,
+ /*    10 */   269,   39,   69,  268,   71,  275,   99,  280,   84,   46,
+ /*    20 */    98,   97,   91,   90,  268,    3,    4,    5,    6,   79,
+ /*    30 */   247,   40,   11,   12,    9,   10,    7,    8,   13,   24,
+ /*    40 */   266,   20,   17,   15,   16,   14,   80,   75,  228,  229,
+ /*    50 */   268,   22,    4,    5,    6,  284,   24,   46,   11,   12,
  /*    60 */     9,   10,    7,    8,   13,  265,   25,   20,   17,   15,
- /*    70 */    16,   14,  182,  183,   77,   69,  275,  268,  200,    4,
+ /*    70 */    16,   14,  182,  183,   76,   68,  275,  268,  200,    4,
  /*    80 */     5,    6,   15,   16,   14,   11,   12,    9,   10,    7,
- /*    90 */     8,   13,  162,  102,   20,   17,   15,   16,   14,   48,
- /*   100 */    20,   17,   15,   16,   14,   50,    4,    5,    6,  161,
- /*   110 */    39,   38,   11,   12,    9,   10,    7,    8,   13,  160,
- /*   120 */   238,   20,   17,   15,   16,   14,    6,  284,  193,   47,
- /*   130 */    11,   12,    9,   10,    7,    8,   13,   73,  275,   20,
- /*   140 */    17,   15,   16,   14,   83,  186,  182,  183,   11,   12,
+ /*    90 */     8,   13,  162,  102,   20,   17,   15,   16,   14,  238,
+ /*   100 */    20,   17,   15,   16,   14,   49,    4,    5,    6,  161,
+ /*   110 */    38,   37,   11,   12,    9,   10,    7,    8,   13,  160,
+ /*   120 */   226,   20,   17,   15,   16,   14,    6,   25,   72,  275,
+ /*   130 */    11,   12,    9,   10,    7,    8,   13,  228,  229,   20,
+ /*   140 */    17,   15,   16,   14,   82,  186,  182,  183,   11,   12,
  /*   150 */     9,   10,    7,    8,   13,  100,   88,   20,   17,   15,
- /*   160 */    16,   14,   42,  186,  182,  183,    9,   10,    7,    8,
- /*   170 */    13,  228,  229,   20,   17,   15,   16,   14,   93,   95,
- /*   180 */    25,  268,  268,   88,   39,   38,   23,  226,   33,   18,
- /*   190 */    87,   35,   36,   19,   21,  201,   83,  186,  182,  183,
- /*   200 */    85,   45,   39,   38,   75,  233,   26,   18,   87,   35,
- /*   210 */    36,   44,   21,   34,   83,  186,  182,  183,   82,   70,
- /*   220 */   228,  229,  202,  248,  276,  101,   43,  249,   78,   91,
- /*   230 */    90,  268,  256,  159,   48,  269,   39,   38,  268,  237,
- /*   240 */    27,   18,   87,   35,   36,   33,   21,  158,   49,  186,
- /*   250 */   182,  183,  174,   48,   39,   38,  171,  170,  169,   18,
- /*   260 */    87,   35,   36,  196,    1,  255,   79,  192,  279,   89,
- /*   270 */    55,   31,   30,   49,  186,  182,  183,  225,  269,  228,
- /*   280 */   229,  268,  190,  191,  225,  280,   71,   47,   39,   38,
- /*   290 */    88,    2,   86,  227,  173,  172,   29,   28,   37,  252,
- /*   300 */    27,   92,  279,   89,   57,  186,  182,  183,  251,   94,
- /*   310 */   232,  232,  269,   39,   38,  268,  279,   89,   51,  280,
- /*   320 */   250,   47,   96,   37,  232,   27,  269,  249,  248,  268,
- /*   330 */   279,   89,   58,  280,  155,   47,  232,  232,  232,  232,
- /*   340 */   269,  232,  232,  268,   39,   38,  232,  280,  232,   47,
- /*   350 */   279,   89,   59,  232,  232,  232,  232,  232,  232,  232,
- /*   360 */   269,  232,  232,  268,  279,   89,   62,  280,  232,   47,
+ /*   160 */    16,   14,   41,  186,  182,  183,    9,   10,    7,    8,
+ /*   170 */    13,  233,   26,   20,   17,   15,   16,   14,   93,   95,
+ /*   180 */   159,  268,  268,   88,   38,   37,   23,   43,   33,   18,
+ /*   190 */    87,   83,   35,   47,   21,  201,   82,  186,  182,  183,
+ /*   200 */    85,   44,   38,   37,   74,   19,  276,   18,   87,   83,
+ /*   210 */    35,  256,   21,   34,   82,  186,  182,  183,   81,   69,
+ /*   220 */   228,  229,  193,  248,  158,  101,   42,  249,   77,   91,
+ /*   230 */    90,  268,   27,   33,  202,  269,   38,   37,  268,  237,
+ /*   240 */   174,   18,   87,   83,   35,  171,   21,  170,   48,  186,
+ /*   250 */   182,  183,  169,   47,   38,   37,  255,   78,  192,   18,
+ /*   260 */    87,   83,   35,  191,    1,  204,   47,  225,  279,   89,
+ /*   270 */    54,   31,   30,   48,  186,  182,  183,  225,  269,  228,
+ /*   280 */   229,  268,  196,   88,    2,  280,   70,   46,   38,   37,
+ /*   290 */    86,  173,  227,  172,  252,  190,   29,   28,   36,   92,
+ /*   300 */    27,  251,  279,   89,   56,  186,  182,  183,   94,  232,
+ /*   310 */   232,  232,  269,   38,   37,  268,  279,   89,   50,  280,
+ /*   320 */   250,   46,   96,   36,  232,   27,  269,  249,  248,  268,
+ /*   330 */   279,   89,   57,  280,  155,   46,  232,  232,  232,  232,
+ /*   340 */   269,  232,  232,  268,   38,   37,  232,  280,  232,   46,
+ /*   350 */   279,   89,   58,  232,  232,  232,  232,  232,  232,  232,
+ /*   360 */   269,  232,  232,  268,  279,   89,   61,  280,  232,   46,
  /*   370 */   232,  232,  232,  232,  269,  232,  232,  268,  279,   89,
- /*   380 */    63,  280,  232,   47,  232,  232,  232,  232,  269,  232,
- /*   390 */   232,  268,  279,   89,   64,  280,  232,   47,  232,  232,
+ /*   380 */    62,  280,  232,   46,  232,  232,  232,  232,  269,  232,
+ /*   390 */   232,  268,  279,   89,   63,  280,  232,   46,  232,  232,
  /*   400 */   232,  232,  269,  232,  232,  268,  232,  232,  232,  280,
- /*   410 */   232,   47,  279,   89,   65,  232,  232,  232,  232,  232,
- /*   420 */   232,  232,  269,  232,  232,  268,  279,   89,   60,  280,
- /*   430 */   232,   47,  232,  232,  232,  232,  269,  232,  232,  268,
- /*   440 */   279,   89,   61,  280,  232,   47,  232,  232,  232,  232,
- /*   450 */   269,  232,  232,  268,  279,   89,   66,  280,  232,   47,
+ /*   410 */   232,   46,  279,   89,   64,  232,  232,  232,  232,  232,
+ /*   420 */   232,  232,  269,  232,  232,  268,  279,   89,   59,  280,
+ /*   430 */   232,   46,  232,  232,  232,  232,  269,  232,  232,  268,
+ /*   440 */   279,   89,   60,  280,  232,   46,  232,  232,  232,  232,
+ /*   450 */   269,  232,  232,  268,  279,   89,   65,  280,  232,   46,
  /*   460 */   232,  232,  232,  232,  269,  232,  232,  268,  232,  232,
- /*   470 */   232,  280,  232,   47,  279,   89,  291,  232,  232,  232,
+ /*   470 */   232,  280,  232,   46,  279,   89,  291,  232,  232,  232,
  /*   480 */   232,  232,  232,  232,  269,  232,  232,  268,  279,   89,
- /*   490 */   290,  280,  232,   47,  232,  232,  232,  232,  269,  232,
- /*   500 */   232,  268,  279,   89,  289,  280,  232,   47,  232,  232,
- /*   510 */   232,  232,  269,  232,  232,  268,  279,   89,   68,  280,
- /*   520 */   232,   47,  232,  232,  232,  232,  269,  232,  232,  268,
- /*   530 */   232,  232,  232,  280,  232,   47,  279,   89,  286,  232,
+ /*   490 */   290,  280,  232,   46,  232,  232,  232,  232,  269,  232,
+ /*   500 */   232,  268,  279,   89,  289,  280,  232,   46,  232,  232,
+ /*   510 */   232,  232,  269,  232,  232,  268,  279,   89,   67,  280,
+ /*   520 */   232,   46,  232,  232,  232,  232,  269,  232,  232,  268,
+ /*   530 */   232,  232,  232,  280,  232,   46,  279,   89,  286,  232,
  /*   540 */   232,  232,  232,  232,  232,  232,  269,  232,  232,  268,
- /*   550 */   279,   89,   56,  280,  232,   47,  232,  232,  232,  232,
- /*   560 */   269,  232,  232,  268,  279,   89,   67,  280,  232,   47,
+ /*   550 */   279,   89,   55,  280,  232,   46,  232,  232,  232,  232,
+ /*   560 */   269,  232,  232,  268,  279,   89,   66,  280,  232,   46,
  /*   570 */   232,  232,  232,  232,  269,  232,  232,  268,  279,   89,
- /*   580 */    52,  280,  232,   47,  232,  232,  232,  232,  269,  232,
- /*   590 */   232,  268,  232,  232,  232,  280,  232,   47,  279,   89,
- /*   600 */    54,  226,  186,  182,  183,  232,  232,  232,  269,  232,
- /*   610 */   232,  268,  279,   89,   53,  280,  232,   47,  232,  232,
+ /*   580 */    51,  280,  232,   46,  232,  232,  232,  232,  269,  232,
+ /*   590 */   232,  268,  232,  232,  232,  280,  232,   46,  279,   89,
+ /*   600 */    53,  226,  186,  182,  183,  232,  232,  232,  269,  232,
+ /*   610 */   232,  268,  279,   89,   52,  280,  232,   46,  232,  232,
  /*   620 */   232,  232,  269,  232,  232,  268,  232,  232,  232,  280,
- /*   630 */    13,   47,  232,   20,   17,   15,   16,   14,  232,  232,
- /*   640 */   232,   39,   38,
+ /*   630 */    13,   46,  232,   20,   17,   15,   16,   14,  232,  232,
+ /*   640 */   232,   38,   37,
 };
 static const YYCODETYPE yy_lookahead[] = {
  /*     0 */    60,   61,   62,   57,   58,   59,    1,   66,   67,   68,
@@ -326,28 +326,28 @@ static const YYCODETYPE yy_lookahead[] = {
  /*    60 */    34,   35,   36,   37,   38,   73,    1,   41,   42,   43,
  /*    70 */    44,   45,    3,    4,   70,   74,   75,   73,   52,   26,
  /*    80 */    27,   28,   43,   44,   45,   32,   33,   34,   35,   36,
- /*    90 */    37,   38,   54,   59,   41,   42,   43,   44,   45,   23,
+ /*    90 */    37,   38,   54,   59,   41,   42,   43,   44,   45,   63,
  /*   100 */    41,   42,   43,   44,   45,   52,   26,   27,   28,   54,
  /*   110 */    41,   42,   32,   33,   34,   35,   36,   37,   38,   54,
- /*   120 */    63,   41,   42,   43,   44,   45,   28,   77,   52,   79,
- /*   130 */    32,   33,   34,   35,   36,   37,   38,   74,   75,   41,
+ /*   120 */     1,   41,   42,   43,   44,   45,   28,    1,   74,   75,
+ /*   130 */    32,   33,   34,   35,   36,   37,   38,   24,   25,   41,
  /*   140 */    42,   43,   44,   45,    1,    2,    3,    4,   32,   33,
  /*   150 */    34,   35,   36,   37,   38,   67,   21,   41,   42,   43,
  /*   160 */    44,   45,    1,    2,    3,    4,   34,   35,   36,   37,
- /*   170 */    38,   24,   25,   41,   42,   43,   44,   45,   70,   70,
- /*   180 */     1,   73,   73,   21,   41,   42,   51,    1,   53,   46,
+ /*   170 */    38,    0,    1,   41,   42,   43,   44,   45,   70,   70,
+ /*   180 */    54,   73,   73,   21,   41,   42,   51,    1,   53,   46,
  /*   190 */    47,   48,   49,   23,   51,   52,    1,    2,    3,    4,
- /*   200 */    61,   64,   41,   42,   67,    0,    1,   46,   47,   48,
- /*   210 */    49,    1,   51,   51,    1,    2,    3,    4,   22,   61,
- /*   220 */    24,   25,   52,   65,   75,   60,   61,   69,   70,   71,
- /*   230 */    72,   73,   65,   54,   23,   70,   41,   42,   73,   63,
- /*   240 */    53,   46,   47,   48,   49,   53,   51,   20,    1,    2,
- /*   250 */     3,    4,   20,   23,   41,   42,   20,   20,   20,   46,
- /*   260 */    47,   48,   49,   52,   51,   20,   20,   52,   60,   61,
+ /*   200 */    61,   64,   41,   42,   67,   23,   75,   46,   47,   48,
+ /*   210 */    49,   65,   51,   51,    1,    2,    3,    4,   22,   61,
+ /*   220 */    24,   25,   52,   65,   20,   60,   61,   69,   70,   71,
+ /*   230 */    72,   73,   53,   53,   52,   70,   41,   42,   73,   63,
+ /*   240 */    20,   46,   47,   48,   49,   20,   51,   20,    1,    2,
+ /*   250 */     3,    4,   20,   23,   41,   42,   20,   20,   52,   46,
+ /*   260 */    47,   48,   49,   52,   51,    1,   23,   22,   60,   61,
  /*   270 */    62,   24,   25,    1,    2,    3,    4,   22,   70,   24,
- /*   280 */    25,   73,   52,   52,   22,   77,   78,   79,   41,   42,
- /*   290 */    21,   51,    1,    1,   20,   20,   24,   25,   51,   20,
- /*   300 */    53,   20,   60,   61,   62,    2,    3,    4,   20,   20,
+ /*   280 */    25,   73,   52,   21,   51,   77,   78,   79,   41,   42,
+ /*   290 */     1,   20,    1,   20,   20,   52,   24,   25,   51,   20,
+ /*   300 */    53,   20,   60,   61,   62,    2,    3,    4,   20,   80,
  /*   310 */    80,   80,   70,   41,   42,   73,   60,   61,   62,   77,
  /*   320 */    20,   79,   20,   51,   80,   53,   70,   20,   20,   73,
  /*   330 */    60,   61,   62,   77,   20,   79,   80,   80,   80,   80,
@@ -395,36 +395,35 @@ static const unsigned short int yy_shift_ofst[] = {
  /*     0 */     5,  161,  143,  195,  195,  195,  195,  195,  195,  195,
  /*    10 */   195,  195,  195,  195,  195,  195,  195,  195,  195,  195,
  /*    20 */   195,  195,  213,  195,  247,  272,  600,   38,  303,  303,
- /*    30 */   303,  303,   55,   65,   10,   17,   17,   30,   69,   69,
- /*    40 */    24,  196,  255,  135,  147,  179,  205,  186,  210,  187,
- /*    50 */   192,    0,   26,   53,   80,   80,   80,   80,   98,  116,
- /*    60 */   132,  132,  592,  592,  592,  592,   59,   39,   39,   76,
- /*    70 */   162,  170,  211,  230,  227,  232,  236,  237,  238,  245,
- /*    80 */   246,  215,  231,  262,  262,  269,  240,  291,  292,  269,
- /*    90 */   274,  275,  279,  281,  288,  289,  300,  302,  307,  308,
- /*   100 */   232,  314,  227,
+ /*    30 */   303,  303,   55,   65,   10,   17,   30,   69,   69,   24,
+ /*    40 */   196,  255,  135,  113,  126,  171,  119,  186,  179,  180,
+ /*    50 */     0,   26,   53,   80,   80,   80,   80,   98,  116,  132,
+ /*    60 */   132,  592,  592,  592,  592,   59,   39,   39,  170,  162,
+ /*    70 */   182,  230,  243,  204,  220,  225,  227,  232,  236,  237,
+ /*    80 */   206,  211,  245,  264,  245,  262,  233,  289,  291,  262,
+ /*    90 */   271,  273,  274,  279,  281,  288,  300,  302,  307,  308,
+ /*   100 */   220,  314,  204,
 };
-#define YY_REDUCE_COUNT (50)
+#define YY_REDUCE_COUNT (49)
 #define YY_REDUCE_MIN   (-60)
 #define YY_REDUCE_MAX   (552)
 static const short yy_reduce_ofst[] = {
  /*     0 */   -54,  -60,  208,  242,  256,  270,  290,  304,  318,  332,
  /*    10 */   352,  366,  380,  394,  414,  428,  442,  456,  476,  490,
  /*    20 */   504,  518,  538,  552,  -49,  158,  165,  -59,  -23,    4,
- /*    30 */   108,  109,  -38,  137,    1,  -22,   50,   63,  -33,   -8,
- /*    40 */   -25,  -25,  -25,   57,  -25,   88,   34,  139,  149,  167,
- /*    50 */   176,
+ /*    30 */   108,  109,  -38,  137,    1,  -22,   54,  -33,   -8,  -25,
+ /*    40 */   -25,  -25,   36,  -25,   88,   34,  139,  131,  146,  176,
 };
 static const YYACTIONTYPE yy_default[] = {
  /*     0 */   230,  230,  230,  230,  230,  230,  230,  230,  230,  230,
  /*    10 */   230,  230,  230,  230,  230,  230,  230,  230,  230,  230,
  /*    20 */   230,  230,  230,  230,  230,  230,  230,  230,  230,  230,
  /*    30 */   230,  230,  230,  230,  230,  230,  230,  230,  230,  230,
- /*    40 */   230,  230,  307,  270,  230,  230,  230,  304,  230,  307,
- /*    50 */   230,  230,  230,  230,  278,  302,  303,  301,  300,  299,
- /*    60 */   294,  293,  298,  297,  296,  295,  292,  287,  288,  230,
- /*    70 */   230,  230,  230,  230,  234,  244,  230,  230,  230,  262,
- /*    80 */   230,  230,  230,  307,  230,  305,  230,  230,  230,  270,
+ /*    40 */   230,  307,  270,  230,  230,  230,  304,  230,  307,  230,
+ /*    50 */   230,  230,  230,  278,  302,  303,  301,  300,  299,  294,
+ /*    60 */   293,  298,  297,  296,  295,  292,  287,  288,  230,  230,
+ /*    70 */   230,  230,  230,  234,  244,  230,  230,  230,  262,  230,
+ /*    80 */   230,  230,  307,  230,  230,  305,  230,  230,  230,  270,
  /*    90 */   230,  230,  261,  230,  260,  230,  259,  230,  258,  257,
  /*   100 */   245,  230,  235,
 };
@@ -673,7 +672,7 @@ static const char *const yyRuleName[] = {
  /*  49 */ "fldr ::= TILDA ID OPENPAR CLOSEPAR",
  /*  50 */ "fldr ::= TILDA ID OPENPAR fldra CLOSEPAR",
  /*  51 */ "fldr ::= HASH fldx",
- /*  52 */ "fldr ::= DOLLAR fldx",
+ /*  52 */ "fldr ::= DOLLAR ID",
  /*  53 */ "fldr ::= BANG fldr",
  /*  54 */ "fldr ::= fldr PLUS fldr",
  /*  55 */ "fldr ::= fldr MINUS fldr",
@@ -1162,7 +1161,7 @@ static const YYCODETYPE yyRuleInfoLhs[] = {
     62,  /* (49) fldr ::= TILDA ID OPENPAR CLOSEPAR */
     62,  /* (50) fldr ::= TILDA ID OPENPAR fldra CLOSEPAR */
     62,  /* (51) fldr ::= HASH fldx */
-    62,  /* (52) fldr ::= DOLLAR fldx */
+    62,  /* (52) fldr ::= DOLLAR ID */
     62,  /* (53) fldr ::= BANG fldr */
     62,  /* (54) fldr ::= fldr PLUS fldr */
     62,  /* (55) fldr ::= fldr MINUS fldr */
@@ -1245,7 +1244,7 @@ static const signed char yyRuleInfoNRhs[] = {
    -4,  /* (49) fldr ::= TILDA ID OPENPAR CLOSEPAR */
    -5,  /* (50) fldr ::= TILDA ID OPENPAR fldra CLOSEPAR */
    -2,  /* (51) fldr ::= HASH fldx */
-   -2,  /* (52) fldr ::= DOLLAR fldx */
+   -2,  /* (52) fldr ::= DOLLAR ID */
    -2,  /* (53) fldr ::= BANG fldr */
    -3,  /* (54) fldr ::= fldr PLUS fldr */
    -3,  /* (55) fldr ::= fldr MINUS fldr */
@@ -1364,13 +1363,13 @@ static YYACTIONTYPE yy_reduce(
       case 0: /* main ::= flow */
 #line 46 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_ACCEPT, yymsp[0].minor.yy0); }
-#line 1367 "flow-parser.c"
+#line 1366 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 1: /* flow ::= stmt */
 #line 48 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_flow, yymsp[0].minor.yy0); }
-#line 1373 "flow-parser.c"
+#line 1372 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 2: /* flow ::= flow stmt */
@@ -1378,27 +1377,27 @@ static YYACTIONTYPE yy_reduce(
       case 14: /* list2 ::= list2 elem2 */ yytestcase(yyruleno==14);
 #line 49 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
-#line 1381 "flow-parser.c"
+#line 1380 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 3: /* stmt ::= ID vall SEMICOLON */
 #line 51 "flow-parser.y"
 { yylhsminor.yy0 = ast->stmt_keyw(yymsp[-2].minor.yy0) == FTK_IMPORT? ast->node(FTK_IMPORT, yymsp[-1].minor.yy0): ast->node(ast->stmt_keyw(yymsp[-2].minor.yy0), yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); 
                                                                  ast->expect(yylhsminor.yy0, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); }
-#line 1388 "flow-parser.c"
+#line 1387 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 4: /* stmt ::= ID dtid OPENPAR fldr CLOSEPAR blck */
 #line 53 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(ast->stmt_keyw(yymsp[-5].minor.yy0), yymsp[-5].minor.yy0, yymsp[-4].minor.yy0, yymsp[0].minor.yy0, yymsp[-2].minor.yy0); ast->expect(yylhsminor.yy0, FTK_NODE, "expected \"node\" keyword"); }
-#line 1394 "flow-parser.c"
+#line 1393 "flow-parser.c"
   yymsp[-5].minor.yy0 = yylhsminor.yy0;
         break;
       case 5: /* stmt ::= ID dtid blck */
 #line 54 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(ast->stmt_keyw(yymsp[-2].minor.yy0), yymsp[-2].minor.yy0, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); 
                                                                  ast->expect(yylhsminor.yy0, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); }
-#line 1401 "flow-parser.c"
+#line 1400 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 6: /* stmt ::= stmt SEMICOLON */
@@ -1407,7 +1406,7 @@ static YYACTIONTYPE yy_reduce(
       case 73: /* fldn ::= ID AT */ yytestcase(yyruleno==73);
 #line 56 "flow-parser.y"
 { yylhsminor.yy0 = yymsp[-1].minor.yy0; }
-#line 1410 "flow-parser.c"
+#line 1409 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 7: /* blck ::= OPENBRA list CLOSEBRA */
@@ -1415,20 +1414,20 @@ static YYACTIONTYPE yy_reduce(
       case 48: /* fldr ::= OPENPAR fldr CLOSEPAR */ yytestcase(yyruleno==48);
 #line 58 "flow-parser.y"
 { yymsp[-2].minor.yy0 = yymsp[-1].minor.yy0; }
-#line 1418 "flow-parser.c"
+#line 1417 "flow-parser.c"
         break;
       case 8: /* blck ::= OPENBRA CLOSEBRA */
       case 10: /* blck2 ::= OPENBRA CLOSEBRA */ yytestcase(yyruleno==10);
 #line 59 "flow-parser.y"
 { yylhsminor.yy0 = ast->chtype(yymsp[-1].minor.yy0, FTK_blck); }
-#line 1424 "flow-parser.c"
+#line 1423 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 11: /* list ::= elem */
       case 13: /* list2 ::= elem2 */ yytestcase(yyruleno==13);
 #line 66 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_blck, yymsp[0].minor.yy0); }
-#line 1431 "flow-parser.c"
+#line 1430 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 15: /* elem ::= ID blck2 */
@@ -1437,7 +1436,7 @@ static YYACTIONTYPE yy_reduce(
       case 25: /* elem2 ::= ID lblk */ yytestcase(yyruleno==25);
 #line 74 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_elem, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
-#line 1440 "flow-parser.c"
+#line 1439 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 17: /* elem ::= ID valx SEMICOLON */
@@ -1446,7 +1445,7 @@ static YYACTIONTYPE yy_reduce(
       case 26: /* elem2 ::= ID valx SEMICOLON */ yytestcase(yyruleno==26);
 #line 76 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_elem, yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); }
-#line 1449 "flow-parser.c"
+#line 1448 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 18: /* elem ::= ID EQUALS valx SEMICOLON */
@@ -1455,13 +1454,13 @@ static YYACTIONTYPE yy_reduce(
       case 28: /* elem2 ::= ID COLON valx SEMICOLON */ yytestcase(yyruleno==28);
 #line 77 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_elem, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 1458 "flow-parser.c"
+#line 1457 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 23: /* lblk ::= ID blck2 */
 #line 83 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_lblk, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
-#line 1464 "flow-parser.c"
+#line 1463 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 30: /* valn ::= INTEGER */
@@ -1469,51 +1468,56 @@ static YYACTIONTYPE yy_reduce(
       case 34: /* valx ::= STRING */ yytestcase(yyruleno==34);
       case 35: /* valx ::= valn */ yytestcase(yyruleno==35);
       case 36: /* vall ::= valx */ yytestcase(yyruleno==36);
-      case 37: /* vall ::= dtid */ yytestcase(yyruleno==37);
       case 46: /* fldr ::= vall */ yytestcase(yyruleno==46);
       case 47: /* fldr ::= fldx */ yytestcase(yyruleno==47);
       case 71: /* fldx ::= fldn */ yytestcase(yyruleno==71);
 #line 96 "flow-parser.y"
 { yylhsminor.yy0 = yymsp[0].minor.yy0; }
-#line 1478 "flow-parser.c"
+#line 1476 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 32: /* valn ::= PLUS valn */
 #line 98 "flow-parser.y"
 { yymsp[-1].minor.yy0 = yymsp[0].minor.yy0; }
-#line 1484 "flow-parser.c"
+#line 1482 "flow-parser.c"
         break;
       case 33: /* valn ::= MINUS valn */
 #line 99 "flow-parser.y"
 { yymsp[-1].minor.yy0 = ast->negate(yymsp[0].minor.yy0); }
-#line 1489 "flow-parser.c"
+#line 1487 "flow-parser.c"
+        break;
+      case 37: /* vall ::= dtid */
+#line 109 "flow-parser.y"
+{ yylhsminor.yy0 = ast->chtype(yymsp[0].minor.yy0, FTK_enum); }
+#line 1492 "flow-parser.c"
+  yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 38: /* rexp ::= OPENPAR fldm CLOSEPAR */
 #line 113 "flow-parser.y"
 { yymsp[-2].minor.yy0 = ast->node(FTK_RETURN, yymsp[-1].minor.yy0); }
-#line 1494 "flow-parser.c"
+#line 1498 "flow-parser.c"
         break;
       case 39: /* rexp ::= OPENPAR ID AT CLOSEPAR */
 #line 114 "flow-parser.y"
 { yymsp[-3].minor.yy0 = ast->node(FTK_RETURN, ast->node(FTK_fldx, yymsp[-2].minor.yy0)); }
-#line 1499 "flow-parser.c"
+#line 1503 "flow-parser.c"
         break;
       case 40: /* oexp ::= dtid OPENPAR ID AT CLOSEPAR */
 #line 118 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_OUTPUT, yymsp[-4].minor.yy0, ast->node(FTK_fldx, yymsp[-2].minor.yy0)); }
-#line 1504 "flow-parser.c"
+#line 1508 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       case 41: /* oexp ::= dtid OPENPAR fldm CLOSEPAR */
 #line 119 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_OUTPUT, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 1510 "flow-parser.c"
+#line 1514 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 42: /* fldm ::= fldd */
 #line 121 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldm, yymsp[0].minor.yy0); }
-#line 1516 "flow-parser.c"
+#line 1520 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 43: /* fldm ::= fldm COMMA fldd */
@@ -1521,37 +1525,37 @@ static YYACTIONTYPE yy_reduce(
       case 75: /* dtid ::= dtid DOT ID */ yytestcase(yyruleno==75);
 #line 122 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 1524 "flow-parser.c"
+#line 1528 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 44: /* fldd ::= ID eqsc OPENPAR fldm CLOSEPAR */
 #line 126 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldd, yymsp[-4].minor.yy0, yymsp[-1].minor.yy0); ast->chinteger(yylhsminor.yy0, ast->at(yymsp[-3].minor.yy0).token.integer_value); }
-#line 1530 "flow-parser.c"
+#line 1534 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       case 45: /* fldd ::= ID eqsc fldr */
 #line 127 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldd, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->chinteger(yylhsminor.yy0, ast->at(yymsp[-1].minor.yy0).token.integer_value); }
-#line 1536 "flow-parser.c"
+#line 1540 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 49: /* fldr ::= TILDA ID OPENPAR CLOSEPAR */
 #line 134 "flow-parser.y"
 { yymsp[-3].minor.yy0 = ast->node(FTK_fldr, yymsp[-2].minor.yy0); }
-#line 1542 "flow-parser.c"
+#line 1546 "flow-parser.c"
         break;
       case 50: /* fldr ::= TILDA ID OPENPAR fldra CLOSEPAR */
 #line 135 "flow-parser.y"
 { yymsp[-4].minor.yy0 = ast->nprepend(yymsp[-1].minor.yy0, yymsp[-3].minor.yy0); }
-#line 1547 "flow-parser.c"
+#line 1551 "flow-parser.c"
         break;
       case 51: /* fldr ::= HASH fldx */
-      case 52: /* fldr ::= DOLLAR fldx */ yytestcase(yyruleno==52);
+      case 52: /* fldr ::= DOLLAR ID */ yytestcase(yyruleno==52);
       case 53: /* fldr ::= BANG fldr */ yytestcase(yyruleno==53);
 #line 136 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldr, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
-#line 1554 "flow-parser.c"
+#line 1558 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 54: /* fldr ::= fldr PLUS fldr */
@@ -1570,38 +1574,38 @@ static YYACTIONTYPE yy_reduce(
       case 67: /* fldr ::= fldr OR fldr */ yytestcase(yyruleno==67);
 #line 139 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldr, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 1573 "flow-parser.c"
+#line 1577 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 68: /* fldr ::= fldr QUESTION fldr COLON fldr */
 #line 153 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldr, yymsp[-3].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 1579 "flow-parser.c"
+#line 1583 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       case 69: /* fldra ::= fldr */
 #line 155 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fldr, yymsp[0].minor.yy0); }
-#line 1585 "flow-parser.c"
+#line 1589 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 72: /* fldx ::= fldn dtid */
 #line 161 "flow-parser.y"
 { yylhsminor.yy0 = ast->chtype(ast->nprepend(yymsp[0].minor.yy0, yymsp[-1].minor.yy0), FTK_fldx); }
-#line 1591 "flow-parser.c"
+#line 1595 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 74: /* dtid ::= ID */
 #line 169 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_dtid, yymsp[0].minor.yy0); }
-#line 1597 "flow-parser.c"
+#line 1601 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 76: /* eqsc ::= EQUALS */
       case 77: /* eqsc ::= COLON */ yytestcase(yyruleno==77);
 #line 174 "flow-parser.y"
 { ast->chinteger(yymsp[0].minor.yy0, 0); }
-#line 1604 "flow-parser.c"
+#line 1608 "flow-parser.c"
         break;
       default:
         break;
@@ -1648,7 +1652,7 @@ static void yy_parse_failed(
 #line 42 "flow-parser.y"
 
     ast->node(FTK_SYNTAX_ERROR, (int) ast->store.size());
-#line 1651 "flow-parser.c"
+#line 1655 "flow-parser.c"
 /************ End %parse_failure code *****************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
@@ -1670,7 +1674,7 @@ static void yy_syntax_error(
 #line 36 "flow-parser.y"
 
     ast->node(FTK_SYNTAX_ERROR, (int) ast->store.size());
-#line 1673 "flow-parser.c"
+#line 1677 "flow-parser.c"
 /************ End %syntax_error code ******************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
@@ -1699,7 +1703,7 @@ static void yy_accept(
 #line 39 "flow-parser.y"
 
     //std::cerr << "parsed just fine, ast size: " << ast->store.size() << " root: " << ast->store.back().children[0] << "\n";
-#line 1702 "flow-parser.c"
+#line 1706 "flow-parser.c"
 /*********** End %parse_accept code *******************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE

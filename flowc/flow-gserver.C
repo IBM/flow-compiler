@@ -392,7 +392,7 @@ bool convert_value(EnumDescriptor const *&ledp, std::pair<std::string, std::stri
             cc.first.clear(); cc.second.clear();
             return false;
     }
-    if(right_ftk_type == FTK_dtid) switch(lt) {
+    if(right_ftk_type == FTK_enum) switch(lt) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
         case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
@@ -1088,8 +1088,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 //OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
                 if(op.arg[0]) {
-                    OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
-                    cur_loop_tmp.push_back(sfmt() << "T" << loop_c.size());
+                    OUT << "auto &Tmp" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
+                    cur_loop_tmp.push_back(sfmt() << "Tmp" << loop_c.size());
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
@@ -1102,7 +1102,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
             case FUNC:
                 assert(tvl.size() >= op.arg[0]);
-                rvl = sfmt() << op.arg1 << "(";
+                rvl = sfmt() << "flowrt::" << op.arg1 << "(";
                 for(int i = tvl.size() - op.arg[0]; i < tvl.size(); ++i) {
                     rvl += tvl[i].first; 
                     if(i + 1 != tvl.size()) rvl += ", ";

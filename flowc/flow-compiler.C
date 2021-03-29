@@ -391,12 +391,10 @@ static std::map<std::string, function_info> function_table = {
     { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
     // int length(string s)
     { "length",   { FTK_INTEGER, { FTK_STRING }, 1, 0 }},
-    // string concat(string s, string t)
-    { "concat",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 2, 0 }},
     // int size(any a)
-    { "size",     { FTK_INTEGER, { 0 }, 1, 0 }},
+    //{ "size",     { FTK_INTEGER, { 0 }, 1, 0 }},
     // string join(repeated string, string sep, string last_sep, string prefix, string suffix)
-    { "join",     { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0 }}
+    //{ "join",     { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0 }}
 };
 
 int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim) {
@@ -513,7 +511,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
             case FTK_INTEGER:
             case FTK_STRING:
             case FTK_FLOAT:
-            case FTK_dtid:
+            case FTK_enum:
                 if(left_type == FTK_fldm) {
                     ++error_count;
                     pcerr.AddError(main_file, at(d), sfmt() << "field \"" << id << "\" is of type message");
@@ -795,37 +793,27 @@ int flow_compiler::compile_exp_id(int node) {
  */
 int flow_compiler::compile_id_ref(int node) {
     int error_count = 0;
-    int id_node = 0;
-    switch(at(node).type) {
-        case FTK_fldd:
-            if(atc(node, 1).type == FTK_dtid) {
-                id_node = at(node).children[1];
-                //print_ast(std::cerr, node);
-            }
-            break;
-            // Fall through to check subexpressions
-        default:
-            for(auto c: at(node).children)
-                error_count += compile_id_ref(c);
-    }
-    if(id_node == 0) 
+    if(at(node).type != FTK_enum) {
+        for(auto c: at(node).children) 
+            error_count += compile_id_ref(c);
         return error_count;
-    std::string id_label(get_dotted_id(id_node));
+    }
+    std::string id_label(get_dotted_id(node));
     // Find all enums that match this id
     std::set<EnumValueDescriptor const *> matches;
 
     for(auto evd: enum_value_set) {
         if(evd->name() == id_label || evd->full_name() == id_label || stru1::ends_with(evd->full_name(), std::string(".")+id_label))  {
             if(matches.size() == 0) 
-                enum_descriptor.put(id_node, evd);
+                enum_descriptor.put(node, evd);
             matches.insert(evd);
         }
     }
     if(matches.size() == 0) {
-        pcerr.AddError(main_file, at(id_node), sfmt() << "unknown enum label \"" << id_label << "\"");
+        pcerr.AddError(main_file, at(node), sfmt() << "unknown enum label \"" << id_label << "\"");
         ++error_count;
     } else if(matches.size() > 1) {
-        pcerr.AddError(main_file, at(id_node), sfmt() << "ambiguous enum label \"" << id_label << "\"");
+        pcerr.AddError(main_file, at(node), sfmt() << "ambiguous enum label \"" << id_label << "\"");
         ++error_count;
     }
     return error_count;
@@ -1489,7 +1477,7 @@ int flow_compiler::check_assign(int error_node, lrv_descriptor const &left, lrv_
         check = 1; 
     } else if(left.type() == FTK_STRING || left.grpc_type_name() == "bool" || left.t_size() > right.t_size()) {
         check = 3;
-    } else if(left.type() == FTK_dtid) {
+    } else if(left.type() == FTK_enum) {
         pcerr.AddError(main_file, at(error_node), sfmt() << "cannont convert from \"" << right.type_name() << "\" to \"" << left.enum_descriptor()->full_name() << "\"");
     } else {
         pcerr.AddWarning(main_file, at(error_node), sfmt() << "conversion from \"" << right.type_name() << "\" to \"" << left.type_name() << "\" could cause data loss");
@@ -1535,7 +1523,6 @@ op get_pconv_op(int l_type, int r_type) {
 }
 static 
 op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
-    //std::cerr << "convert " << r_type << " (" << grpc_type_name((google::protobuf::FieldDescriptor::Type) r_grpc_type) << ") to " << l_type << " (" << grpc_type_name((google::protobuf::FieldDescriptor::Type) l_grpc_type) << ")\n";
     switch(r_type) {
         case FTK_INTEGER:
             switch(l_type) {
@@ -1587,7 +1574,7 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                     break;
             }
             break;
-        case FTK_dtid:
+        case FTK_enum:
             switch(l_type) {
                 case FTK_INTEGER:
                     if(l_grpc_type == google::protobuf::FieldDescriptor::Type::TYPE_BOOL) 
@@ -1597,7 +1584,7 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                     return COEF;
                 case FTK_STRING:
                     return COES;
-                case FTK_dtid:
+                case FTK_enum:
                     return COEE;
                 default:
                     //std::cerr << "Need to convert enum to " << r_type << "(" << r_grpc_type << ")!!\n";
@@ -1605,7 +1592,8 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
             }
             break;
         default: 
-            std::cerr << "Asked to convert: " << l_type << " to " << r_type << " (" << l_grpc_type << ", " << r_grpc_type << ")\n";
+            std::cerr << "Asked to convert: " << l_type << " to " << r_type << " (" << l_grpc_type << ", " << r_grpc_type << ") STRING " << FTK_STRING << " enum: " << FTK_enum << " fldx: " << FTK_fldx << " dtid: " << FTK_dtid << "\n";
+            return CON1;
     }
     return NOP;
 }
@@ -1690,16 +1678,19 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                     icode.push_back(fop(FUNC, get_id(fields[0]), fields.size()-1, 0));
                     break;
                 case FTK_HASH:
-                    error_count += encode_expression(fields[1], FTK_fldx);
-                    icode.push_back(fop(FUNC, "op_hash", 1, 0));
+                    // TODO: field must be repeated
+                    //error_count += encode_expression(fields[1], FTK_fldx);
+                    //icode.push_back(fop(FUNC, "op_hash", 1, 0));
+                    icode.push_back(fop(RVC, "1", fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
+                    break;
+                case FTK_DOLLAR:
+                    //error_count += encode_expression(fields[1], FTK_STRING);
+                    //icode.push_back(fop(FUNC, "op_dollar", 1, 0));
+                    icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
                     break;
                 case FTK_BANG:
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     icode.push_back(fop(IOP, "!", 1, 0));
-                    break;
-                case FTK_DOLLAR:
-                    error_count += encode_expression(fields[1], FTK_STRING);
-                    icode.push_back(fop(FUNC, "op_dollar", 1, 0));
                     break;
                 case FTK_PLUS: 
                     error_count += encode_expression(fields[1], 0);
@@ -1792,7 +1783,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
         case FTK_FLOAT: 
             icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE));
             break;
-        case FTK_dtid: 
+        case FTK_enum: 
             icode.push_back(fop(RVC, std::to_string(enum_descriptor(fldr_node)->number() == 0)));
             icode.back().ev1 = enum_descriptor(fldr_node);
             if(expected_type == FTK_STRING) 
@@ -1919,6 +1910,10 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     //ri = icode.size();
                     //icode.push_back(fop(RVA, rv_name, rvfd.grpc_type_name(), rvd)); 
                     op coop = get_conv_op(rvfd.type(), lvd.type(), rvfd.grpc_type(), lvd.grpc_type());
+                    if(coop == CON1) {
+                        print_ast(std::cerr, arg_node);
+                        coop = NOP;
+                    }
                     if(coop == COEE && lvd.enum_descriptor() != rvfd.enum_descriptor()) {
                         // Check if all values in rv can be converted to lv
                         bool can_convert = true;
@@ -1936,8 +1931,8 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     }
                     if(coop != NOP) {
                         icode.push_back(fop(coop, lvd.grpc_type(), rvfd.grpc_type()));
-                        if(lvd.type() == FTK_dtid) icode.back().el = lvd.enum_descriptor();
-                        if(rvfd.type() == FTK_dtid) icode.back().er = rvfd.enum_descriptor();
+                        if(lvd.type() == FTK_enum) icode.back().el = lvd.enum_descriptor();
+                        if(rvfd.type() == FTK_enum) icode.back().er = rvfd.enum_descriptor();
                     }
                     icode.push_back(fop(SETF, lv_name));
                 }
@@ -1960,7 +1955,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
         case FTK_STRING: 
         case FTK_INTEGER: 
         case FTK_FLOAT: 
-        case FTK_dtid: 
+        case FTK_enum: 
             switch(lvd.grpc_type()) {
                 case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
                 case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
@@ -2250,7 +2245,6 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         }
         icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
         icode[stage_idx].arg[2] =  stage_dim;                 // BSTG arg 3: max node dimension 
-        //std::cerr << "STAGE " << stage << " dim: " << stage_dim << " dim2: " << stage_dim2 << "\n";
     }
 
     // Generate code to populate the Response 

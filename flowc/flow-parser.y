@@ -106,7 +106,7 @@ valx(A) ::= valn(B).                                           { A = B; }
 // vall: any literal including enum values 
 
 vall(A) ::= valx(B).                                           { A = B; }
-vall(A) ::= dtid(B).                                           { A = B; }
+vall(A) ::= dtid(B).                                           { A = ast->chtype(B, FTK_enum); }
 
 // rexp: return expression
 
@@ -134,7 +134,7 @@ fldr(A) ::= OPENPAR fldr(B) CLOSEPAR.                          { A = B; }
 fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }             // or an internal function call
 fldr(A) ::= TILDA ID(B) OPENPAR fldra(C) CLOSEPAR.             { A = ast->nprepend(C, B); }                
 fldr(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_fldr, B, C); }          // size of repeated field
-fldr(A) ::= DOLLAR(B) fldx(C).                                 { A = ast->node(FTK_fldr, B, C); }           
+fldr(A) ::= DOLLAR(B) ID(C).                                   { A = ast->node(FTK_fldr, B, C); }          // flow variable reference 
 fldr(A) ::= BANG(B) fldr(C).                                   { A = ast->node(FTK_fldr, B, C); }
 fldr(A) ::= fldr(B) PLUS(C) fldr(D).                           { A = ast->node(FTK_fldr, C, B, D); }
 fldr(A) ::= fldr(B) MINUS(C) fldr(D).                          { A = ast->node(FTK_fldr, C, B, D); }
