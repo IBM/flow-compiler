@@ -20,6 +20,7 @@ enum {
     FTK_blck,
     FTK_lblk,
     FTK_elem,
+    FTK_enum,
     FTK_fldm, 
     FTK_fldd,
     FTK_fldx,

@@ -25,6 +25,7 @@ char const *node_name(int i) {
         case FTK_fldr: return "fldr";
         case FTK_fldd: return "fldd";
         case FTK_fldx: return "fldx";
+        case FTK_enum: return "enum";
         case FTK_dtid: return "dtid";
 /*                       
         case FTK_SEMICOLON: return ";";
@@ -204,7 +205,11 @@ std::string const &flow_ast::get_id(int node) const {
 std::string flow_ast::get_joined_id(int node, int start_pos, std::string const &j) const {
     auto const &n = at(node);
     if(n.type == FTK_ID) return get_id(node);
-    assert(n.children.size() > start_pos && n.type == FTK_dtid || n.type == FTK_fldx);
+    //std::cerr << "CS: " << n.children.size() << "POS: " << start_pos << " type: " << n.type << " did: " << FTK_dtid << " fldx: " << FTK_fldx << " enum: " << FTK_enum << "\n";
+    if(!(n.children.size() >= start_pos && (n.type == FTK_dtid || n.type == FTK_fldx || n.type == FTK_enum))) {
+        print_ast(std::cerr, node);
+        assert(false);
+    }
     std::vector<std::string> ids(n.children.size()-start_pos);
     std::transform(n.children.begin()+start_pos, n.children.end(), ids.begin(), [this](int n)->std::string {return get_text(n);});
     return stru1::join(ids, j);
