@@ -20,7 +20,7 @@ int grpc_type_to_ftk(google::protobuf::FieldDescriptor::Type t) {
             return FTK_FLOAT;
 
         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
-            return FTK_dtid;
+            return FTK_enum;
 
         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:

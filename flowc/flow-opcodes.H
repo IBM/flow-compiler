@@ -40,7 +40,6 @@ enum op {
      *      arg[]   dimension, node, stages, foak, foak-with-output
      */
     BNOD,           // node begin
-    NSET,           // node setup
     /**    
      *      arg1    node name
      *      arg[]   node, condition-node, neg condition-node...
@@ -49,8 +48,12 @@ enum op {
     ENOD,           // node end
     BPRP,           // result preparation begin
     EPRP,           // result preparation end
-    LOOP,           // begin loop
-    ELP,            // end loop                         
+    LOOP,           // loop
+    LPC,            // loop size
+    NLP,            // node loop 
+    BNL,            // node begin
+    BLP,            // begin loop body
+    ELP,            // end loop body                       
     /**
      * All set fileds have:
      *      arg1    left value string representation as message-type[[+]field-name]*
@@ -58,8 +61,8 @@ enum op {
      *      arg[0]  right value node-id
      */
 
-    SETL,           // Set field 
-    RVA,            // Right value field accessor
+    SETF,           // Set field 
+    RVF,            // Right value field
     RVC,            // Right value constant
 
     CON1,           // Conversion NOP 1
@@ -86,10 +89,6 @@ enum op {
 
     CON2,           // Conversion NOP 2
 
-    SET,            // set field from another field of same type
-
-    SETT,           // set field from temporary variable of same type
-
     /** 
      *      arg1    left value string representation as message-type[[+]field-name]*
      *      arg2    right value string representation as message-type[[+]field-name]*
@@ -107,13 +106,12 @@ enum op {
      *      arg1    error message
      */
     ERR,            // generate a grpc error
-    FUNC,           // call internal function
     /**
-     *      arg1    right value name
-     *      d1      right value descriptor
-     *      arg     ast-node-ids for all fields up to the last repeated field
+     * arg1 function name or operand
+     * arg[0] number of arguments to use
      */
-    INDX            // index data
+    FUNC,           // operand call internal function
+    IOP,            // infix operator
 };
 struct fop {
     op code;
@@ -130,12 +128,15 @@ struct fop {
     fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, Descriptor const *ad2=nullptr): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2) {}
     fop(op c, std::string const &a1, Descriptor const *ad1): code(c), arg1(a1), d1(ad1)  {}
     fop(op c, std::string const &a1, Descriptor const *ad1, int i): code(c), arg1(a1), d1(ad1)  {arg.push_back(i);}
+    //fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, int i): code(c), arg1(a1), arg2(a2), d1(ad1)  {arg.push_back(i);}
     fop(op c, std::string const &a1, std::string const &a2, MethodDescriptor const *am1): code(c), arg1(a1), arg2(a2), m1(am1) {}
     fop(op c, std::string const &a1, std::string const &a2, MethodDescriptor const *am1, Descriptor const *ad1, Descriptor const *ad2): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2), m1(am1) {}
     fop(op c, int i): code(c) { arg.push_back(i); }
     fop(op c, int i, int j): code(c) { arg.push_back(i); arg.push_back(j); }
     fop(op c, std::string const &a1, int i): code(c), arg1(a1) { arg.push_back(i); }
+    fop(op c, std::string const &a1, std::string const &a2, int i): code(c), arg1(a1), arg2(a2) { arg.push_back(i); }
     fop(op c, std::string const &a1, int i, int j): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j); }
+    fop(op c, std::string const &a1, std::string const &a2, int i, int j): code(c), arg1(a1), arg2(a2) { arg.push_back(i); arg.push_back(j); }
     fop(op c, std::string const &a1, int i, int j, int k): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j);  arg.push_back(k); }
 };
 std::ostream &operator<< (std::ostream &out, fop const &fop);

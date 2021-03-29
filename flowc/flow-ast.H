@@ -20,7 +20,7 @@ enum {
     FTK_blck,
     FTK_lblk,
     FTK_elem,
-    FTK_bexp,
+    FTK_enum,
     FTK_fldm, 
     FTK_fldd,
     FTK_fldx,
@@ -213,6 +213,16 @@ struct flow_ast {
 
         for(int n: children) {
             std::set<int> cf = find_nodes(n, node_types);
+            found.insert(cf.begin(), cf.end());
+        }
+        return found;
+    }
+    template<class MATCH>
+    std::set<int> find_nodes(int node, MATCH match) const {
+        std::set<int> found;
+        if(match(node)) found.insert(node);
+        for(int c: at(node).children) {
+            std::set<int> cf = find_nodes(c, match);
             found.insert(cf.begin(), cf.end());
         }
         return found;
