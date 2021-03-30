@@ -58,20 +58,15 @@ stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }       
 blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                  // Blocks must be enclosed in { }
 blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }           // Empty blocks are allowed
 
-blck2(A) ::= OPENBRA list2(B) CLOSEBRA.                        { A = B; }                                  // Blocks must be enclosed in { }
-blck2(A) ::= OPENBRA(B) CLOSEBRA.                              { A = ast->chtype(B, FTK_blck); }           // Empty blocks are allowed
-
 // list: the content of a block, is a list of elems
 
 list(A) ::= elem(B).                                           { A = ast->node(FTK_blck, B); }             // FTK_blck is a list of declarations (elem)
 list(A) ::= list(B) elem(C).                                   { A = ast->nappend(B, C); }
 
-list2(A) ::= elem2(B).                                         { A = ast->node(FTK_blck, B); }             // FTK_blck is a list of declarations (elem)
-list2(A) ::= list2(B) elem2(C).                                { A = ast->nappend(B, C); }
 
 // elem: any of the definitions allowed in a primary block
 
-elem(A) ::= ID(B) blck2(C).                                    { A = ast->node(FTK_elem, B, C); }       
+elem(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_elem, B, C); }       
 elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
@@ -80,16 +75,7 @@ elem(A) ::= ID(B) oexp(C) SEMICOLON.                           { A = ast->node(F
 elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'return')
 elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
-lblk(A) ::= ID(B) blck2(C).                                    { A = ast->node(FTK_lblk, B, C); }
-
-// elem: any of the definitions allowed in a secondary block
-
-elem2(A) ::= ID(B) blck2(C).                                    { A = ast->node(FTK_elem, B, C); }       
-elem2(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          
-elem2(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
-elem2(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
-elem2(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          
-elem2(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
+lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); }
 
 // valn: any numeric literal
 

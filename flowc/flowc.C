@@ -321,11 +321,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(opts.have("print-pseudocode"))
         dump_code(std::cout);
 
-    if(error_count == 0 && package_name.empty())
-        package_name = orchestrator_name;
-
-    package_name = to_identifier(package_name);
-
     if(token_comment.size() > 0 && token_comment[0].first == 1) {
         main_description = token_comment[0].second;
         if(!main_description.empty())

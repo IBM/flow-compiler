@@ -106,7 +106,7 @@ private:
     std::string grpccc;
     // Data
     std::string main_file; 
-    std::string package_name, input_label; 
+    std::string input_label; 
     // Orchestrator image name and tag
     std::string orchestrator_image;
     std::string orchestrator_tag;
@@ -147,7 +147,6 @@ private:
     std::set<int> node_set;
     std::set<int> entry_set;
     std::set<int> container_set;
-
     // Block ast-node flow graph by entry block ast-node
     // for each entry a list of sets of overlapping nodes
     std::map<int, std::vector<std::set<int>>> flow_graph;
@@ -330,8 +329,8 @@ public:
 
     int compile(std::set<std::string> const &targets);
 
-    // Parse tree accessors to retrieve the first encoutered value, all values in tree order or a map.
-    // If requires is set an error will be generated if no value is found. An error is also generated if the encoutered values 
+    // AST accessors to retrieve the first encoutered value, all values in tree order or a map.
+    // <required> triggers error when no value is found. An error is also generated if the encoutered values 
     // do not match any of the accepted types.
     int get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);

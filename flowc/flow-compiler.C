@@ -1122,6 +1122,7 @@ int flow_compiler::compile_stmt(int stmt_node) {
             } break;
         case FTK_DEFINE:
             if(statement == "package") {
+                std::string package_name;
                 if(compile_id(package_name, stmt.children[1])) {
                     pcerr.AddError(main_file, at(stmt.children[1]), "expected package name id");
                     error_count += 1;
@@ -1130,25 +1131,22 @@ int flow_compiler::compile_stmt(int stmt_node) {
                 std::string repository;
                 if(compile_string(repository, stmt.children[1])) {
                     pcerr.AddError(main_file, at(stmt.children[1]), "expected repository path string");
-                    return 1;
+                    error_count += 1;
                 }
                 default_repository = repository;
             } else if(statement == "image_pull_secret") {
                 std::string secret;
                 if(compile_string(secret, stmt.children[1])) {
                     pcerr.AddError(main_file, at(stmt.children[1]), "expected image pull secret name");
-                    return 1;
+                    error_count += 1;
                 }
                 image_pull_secrets.insert(secret);
             } else if(statement == "port") {
                 if(at(stmt.children[1]).type != FTK_STRING && at(stmt.children[1]).type != FTK_INTEGER) {
                     pcerr.AddError(main_file, at(stmt.children[1]), "port value expected");
-                    return 1;
+                    error_count += 1;
                 }
                 base_port = get_integer(stmt.children[1]);
-            } else {
-                //pcerr.AddError(main_file, stmt.token, sfmt() << "token not expected: \"" << statement << "\"");
-                //error_count += 1;
             }
             break;
         default: 
