@@ -13,10 +13,7 @@
 #include "vex.H"
 
 using namespace stru1;
-#define DEBUG_CG 0
 #define OUT indenter
-#define OUTD if(DEBUG_CG) OUT
-#define DOUT OUTD << "// "
 
 static 
 int check_enum(EnumDescriptor const *ledp, int value, std::string *symname=nullptr) {
@@ -752,8 +749,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
    
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
-        OUT << "// " << i+1 << " " << op << "\n";
-        // std::cerr << i+1 << ": " << op << "\n";
+        //OUT << "// " << i+1 << " " << op << "\n";
         switch(op.code) {
             case MTHD:
                 input_name = op.arg1;
@@ -996,7 +992,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
                 break;
             case BNL: { // node level loop begin
-                //OUT << "// LOOPN " << loop_c.back() << " =" << loop_end << "\n";
                 std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
                 OUT << "auto " << loop_size_varname << " = " << loop_end << ";\n";
 
@@ -1040,12 +1035,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     loop_c.pop_back();
 
                 OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
-                DOUT << "ENOD1: " << acinf << "\n";
                 acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
                 first_with_output = false;
-                DOUT << "ENODP2: " << acinf << "\n";
                 break;
             case EPRP:
                 while(acinf.loop_level() > 0) {
@@ -1054,12 +1047,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "}\n";
                     cur_loop_tmp.pop_back();
                 }
-                DOUT << "EPRP1: " << acinf << "\n";
                 acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
                 first_with_output = false;
-                DOUT << "EPRP2: " << acinf << "\n";
                 break;
             case BPRP:
                 OUT << "// prepare the "<< op.d1->full_name() << " result for " << entry_dot_name << "\n";
@@ -1084,7 +1075,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 loop_c.back().insert(stem);
             } break;
             case BLP:
-                //OUT << "// LOOPX " << loop_c.back() << " =" << loop_end << "\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
                 if(op.arg[0]) {
                     OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
@@ -1546,7 +1536,6 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
         for(int n: ss) if(n != blck_entry) 
             if(node_types.find(name(n)) == node_types.end()) {
                 node_types.insert(name(n));
-                //out << "// " << "int " << 
             }
     }
 
