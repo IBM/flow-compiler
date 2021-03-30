@@ -160,7 +160,7 @@ OPTIONS
 
        --runtime=RUNTIME -R RUNTIME
               Generate server image using flowc:version.RUNTIME as a base "Docker" image. See --version for 
-              dislaying the avaailable runtimes.
+              displaying the available runtimes.
 
        --server
               Generate code for the "gRPC" aggregator
