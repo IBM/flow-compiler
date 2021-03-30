@@ -51,15 +51,22 @@ extern "C" {
 
 namespace flowrt {
 static inline std::string substr(std::string const &s, int begin, int end) {
+    if(s.empty()) return s;
+    while(end < 0) end = (end + s.length()) % s.length();
+    while(begin < 0) begin = (begin + s.length()) % s.length();
     return s.substr(begin, std::max(end-begin, 0));
 }
 static inline std::string pref(std::string const &s, int end) {
+    if(s.empty()) return s;
+    while(end < 0) end = (end + s.length()) % s.length();
     return s.substr(0, std::max(end, 0));
 }
 static inline std::string suff(std::string const &s, int begin) {
+    if(s.empty()) return s;
+    while(begin < 0) begin = (begin + s.length()) % s.length();
     return s.substr(std::max(begin, 0));
 }
-static inline int suff(std::string const &s) {
+static inline int length(std::string const &s) {
     return s.length();
 }
 }

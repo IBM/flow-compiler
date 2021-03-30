@@ -804,8 +804,9 @@ int flow_compiler::compile_id_ref(int node) {
 
     for(auto evd: enum_value_set) {
         if(evd->name() == id_label || evd->full_name() == id_label || stru1::ends_with(evd->full_name(), std::string(".")+id_label))  {
-            if(matches.size() == 0) 
+            if(matches.size() == 0) {
                 enum_descriptor.put(node, evd);
+            }
             matches.insert(evd);
         }
     }
@@ -1531,16 +1532,13 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                         return COIB;
                     if(l_grpc_type != r_grpc_type) return COII;
                     return NOP;
-
                 case FTK_FLOAT:
                     return COIF;
                 case FTK_STRING:
                     return COIS;
                 default:
-                    //std::cerr << "Need to convert integer to " << r_type << "(" << r_grpc_type << ")!!\n";
                     break;
             } 
-            
             break;
         case FTK_FLOAT:
             switch(l_type) {
@@ -1554,10 +1552,8 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                 case FTK_STRING:
                     return COFS;
                 default:
-                    //std::cerr << "Need to convert float to " << r_type << "(" << r_grpc_type << ")!!\n";
                     break;
             } 
-            
             break;
         case FTK_STRING:
             switch(l_type) {
@@ -1570,7 +1566,6 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                 case FTK_STRING:
                     return NOP;
                 default:
-                    //std::cerr << "Need to convert string to " << r_type << "(" << r_grpc_type << ")!!\n";
                     break;
             }
             break;
@@ -1587,13 +1582,11 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
                 case FTK_enum:
                     return COEE;
                 default:
-                    //std::cerr << "Need to convert enum to " << r_type << "(" << r_grpc_type << ")!!\n";
                     break;
             }
             break;
         default: 
             std::cerr << "Asked to convert: " << l_type << " to " << r_type << " (" << l_grpc_type << ", " << r_grpc_type << ") STRING " << FTK_STRING << " enum: " << FTK_enum << " fldx: " << FTK_fldx << " dtid: " << FTK_dtid << "\n";
-            return CON1;
     }
     return NOP;
 }
@@ -1786,10 +1779,11 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
         case FTK_enum: 
             icode.push_back(fop(RVC, std::to_string(enum_descriptor(fldr_node)->number() == 0)));
             icode.back().ev1 = enum_descriptor(fldr_node);
-            if(expected_type == FTK_STRING) 
+            if(expected_type == FTK_STRING) {
                 icode.push_back(COES);
-            else
+            } else {
                 icode.push_back(COEI);
+            }
             icode.back().er = enum_descriptor(fldr_node)->type();
             coop = NOP;
             break;
@@ -1879,10 +1873,15 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 error_count += populate_message(lname, lrv_descriptor(lvd, fidp), at(fldd_node).children[1], node_ip, loop_level);
             }
         } break;
-        case FTK_fldr: 
-            error_count += encode_expression(arg_node, 0);                    
+        case FTK_fldr: {
+            error_count += encode_expression(arg_node, lvd.type());
+            /*
+            op coop = get_conv_op(value_type(arg_node), lvd.type(), 0, lvd.grpc_type());
+            if(coop != NOP)
+                icode.push_back(coop);
+                */
             icode.push_back(fop(SETF, lv_name));
-        break;
+        } break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
             // TODO improve name generation
