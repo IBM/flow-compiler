@@ -172,10 +172,10 @@ std::string rstrip(int &column, std::string const &str, std::string const &strip
     auto b = str.find_last_not_of(strip_chars);
     if(b == std::string::npos) {
         column = int(str.length());
-        return str;
+        return "";
     }
-    column = int(b);
-    return str.substr(0, b);
+    column = int(b+1);
+    return str.substr(0, b+1);
 }
 inline static
 int split(std::string *left, std::string *right, std::string const &str, std::string const &sep) {
