@@ -64,7 +64,7 @@ std::string pref(std::string const &s, int end) {
 }
 inline static
 std::string suff(std::string const &s, int begin) {
-    return substr(s, begin, s.length();
+    return substr(s, begin, s.length());
 }
 inline static
 int length(std::string const &s) {
@@ -85,12 +85,12 @@ std::string tolower(std::string const &s) {
 inline static
 std::string ltrim(std::string const &s, std::string const &chars="\t\r\a\b\v\f\n ") {
     auto lp = s.find_first_not_of(chars);
-    return lp == sd::string::npos? std::string(): s.substr(lp);
+    return lp == std::string::npos? std::string(): s.substr(lp);
 }
 inline static
 std::string rtrim(std::string const &s, std::string const &chars="\t\r\a\b\v\f\n ") {
     auto rp = s.find_last_not_of(chars);
-    return rp == sd::string::npos? std::string(): s.substr(0, rp+1);
+    return rp == std::string::npos? std::string(): s.substr(0, rp+1);
 }
 inline static
 std::string trim(std::string const &s, std::string const &chars="\t\r\a\b\v\f\n ") {
