@@ -50,24 +50,61 @@ extern "C" {
 }
 
 namespace flowrt {
-static inline std::string substr(std::string const &s, int begin, int end) {
+inline static
+std::string substr(std::string const &s, int begin, int end) {
     if(s.empty()) return s;
-    while(end < 0) end = (end + s.length()) % s.length();
-    while(begin < 0) begin = (begin + s.length()) % s.length();
-    return s.substr(begin, std::max(end-begin, 0));
+    if(end < 0) end += s.length();
+    if(begin < 0) begin += s.length();
+    if(begin >= end) return "";
+    return s.substr(begin, end-begin);
 }
-static inline std::string pref(std::string const &s, int end) {
-    if(s.empty()) return s;
-    while(end < 0) end = (end + s.length()) % s.length();
-    return s.substr(0, std::max(end, 0));
+inline static
+std::string pref(std::string const &s, int end) {
+    return substr(s, 0, end);
 }
-static inline std::string suff(std::string const &s, int begin) {
-    if(s.empty()) return s;
-    while(begin < 0) begin = (begin + s.length()) % s.length();
-    return s.substr(std::max(begin, 0));
+inline static
+std::string suff(std::string const &s, int begin) {
+    return substr(s, begin, s.length();
 }
-static inline int length(std::string const &s) {
+inline static
+int length(std::string const &s) {
     return s.length();
+}
+inline static
+std::string toupper(std::string const &s) {
+    std::string u(s);
+    std::transform(s.begin(), s.end(), u.begin(), ::toupper);
+    return u;
+}
+inline static
+std::string tolower(std::string const &s) {
+    std::string u(s);
+    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    return u;
+}
+inline static
+std::string ltrim(std::string const &s, std::string const &chars="\t\r\a\b\v\f\n ") {
+    auto lp = s.find_first_not_of(chars);
+    return lp == sd::string::npos? std::string(): s.substr(lp);
+}
+inline static
+std::string rtrim(std::string const &s, std::string const &chars="\t\r\a\b\v\f\n ") {
+    auto rp = s.find_last_not_of(chars);
+    return rp == sd::string::npos? std::string(): s.substr(0, rp+1);
+}
+inline static
+std::string trim(std::string const &s, std::string const &chars="\t\r\a\b\v\f\n ") {
+    return ltrim(rtrim(s, chars), chars);
+}
+inline static
+std::string tr(std::string const &s, std::string const &match, std::string const &replace="") {
+    std::string r;
+    for(auto c: s) {
+        auto mp = match.find_first_of(c);
+        if(mp == std::string::npos) r += c;
+        else if(mp < replace.length()) r += replace[mp];
+    }
+    return r;
 }
 }
 

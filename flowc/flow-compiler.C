@@ -377,24 +377,28 @@ int flow_compiler::compile_method(std::string &method, int mthd_node, int max_co
 }
 struct function_info {
     int return_type;
+    bool return_repeated;
     std::vector<int> arg_type;
     unsigned required_argc;
-    bool repeated;
-    //std::string label;
 };
 static std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
-    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, 0}},
+    { "substr",   { FTK_STRING,false, { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
     // string pref(string s, int end)
-    { "pref",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
+    { "pref",     { FTK_STRING,false, { FTK_STRING, FTK_INTEGER }, 2}},
     // string suff(string s, int begin)
-    { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER  }, 2, 0 }},
+    { "suff",     { FTK_STRING,false, { FTK_STRING, FTK_INTEGER }, 2}},
     // int length(string s)
-    { "length",   { FTK_INTEGER, { FTK_STRING }, 1, 0 }},
-    // int size(any a)
-    //{ "size",     { FTK_INTEGER, { 0 }, 1, 0 }},
-    // string join(repeated string, string sep, string last_sep, string prefix, string suffix)
-    //{ "join",     { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0 }}
+    { "length",   { FTK_INTEGER,false,{ FTK_STRING }, 1}},
+    // string *trim(string s, string strip_chars)
+    { "trim",     { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
+    { "ltrim",    { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
+    { "rtrim",    { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
+    // string to*(string s)
+    { "toupper",  { FTK_STRING,false, { FTK_STRING }, 1}},
+    { "tolower",  { FTK_STRING,false, { FTK_STRING }, 1}},
+    // string tr(string s, string match_list, string replace_list)
+    { "tr",       { FTK_STRING,false, { FTK_STRING, FTK_STRING, FTK_STRING }, 2}},
 };
 
 int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim) {
