@@ -1,5 +1,5 @@
 # flow-compiler
-A tool that builds applications out of gRPC microservices. 
+A tool that builds a service as an aggregation of gRPC microservices.
 
 ## Installation
 Detailed instructions on how to build the **flow-compiler** are [here](flowc/README.md).
