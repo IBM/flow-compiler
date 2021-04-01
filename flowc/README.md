@@ -12,7 +12,7 @@ The first step is to install the required components:
       
 If you intend to run the final application natively, some other components might be needed:
 
-- The **civetweb** embeddable web server, if you want to add a **REST** API or a web interface to you application. See details in the github project: [civetweb](https://github.com/civetweb/civetweb). Find instructions on how to build [here](BUILD-civetweb.md)
+- The **civetweb** embeddable web server, if you want to add a **REST** API or a web interface to you application. See details in the github project: [civetweb](https://github.com/civetweb/civetweb). Find [here](BUILD-civetweb.md) instructions on how to build the **civetweb** library.
 
 Note that on **macOs** most of the above requirements can be installed with `brew` and that is the recommended method.
 
