@@ -14,7 +14,7 @@ If you intend to run the final application natively, some other components might
 
 - The **civetweb** embeddable web server, if you want to add a **REST** API or a web interface to you application. See details in the github project: [civetweb](https://github.com/civetweb/civetweb). Find [here](BUILD-civetweb.md) instructions on how to build the **civetweb** library.
 
-> Note that on **macOs** most of the above requirements can be installed with `brew` and that is the recommended method.
+> On **macOs** most of the above requirements can be installed with `brew` and that is the recommended method.
 
 ## Build the compiler
 
