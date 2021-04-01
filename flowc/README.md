@@ -31,13 +31,17 @@ cd flowc && make install INSTALL_PREFIX=$BIN_DIR
 Note that the above command might need to be prefixed with `sudo` if you are attempting to install in a system directory.
 
 
-To build a docker image with the **flow-compiler** in it (requires access to the **Docker** daemon):
+If you plan to build and run applications directly in a container, you have to first build a docker image with the compiler in it (this requires access to the **Docker** daemon):
 
 ```bash 
 cd flowc && make image
 ```
-Note that the docker image is needed if you plan to build and run applications directly in a container.
 
+A number of variables can be set to customize the build. All of them can be given to `make` at the command line, or written in a file called `makefile.local` located in the same directory with the `Makefile`.
 
-To customize the build create a file `makefile.local` with the your options in the directory with the `Makefile`.
+This is a list of variables that can be changed:
+
+- **INSTALL_PREFIX** the location of the binary after make install, defaults to `/usr/local/bin`
+- **BASE_IMAGE** the name of the default runtime for the containerized applications, defaults to `redhat-ubi8`
+- **GRPC_INCS** and **GRPC_LIBS** compile and link flags for the grpc libraries. The defaults are obtained with `pkg-config`  
 
