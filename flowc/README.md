@@ -16,7 +16,7 @@ If you intend to run the final application natively, some other components might
 
 Note that on **macOs** most of the above requirements can be installed with `brew` and that is the recommended method.
 
-## Building the compiler:
+## Build the compiler
 
 Compile `flowc` with default settings
 
@@ -45,6 +45,7 @@ This is a list of variables that can be changed:
 - **BASE_IMAGE** the name of the default runtime for the containerized applications, defaults to `redhat-ubi8`. Other available runtimes are `alpine-3.13` and `ubuntu-20.04`.
 - **GRPC_INCS** and **GRPC_LIBS** compile and link flags for the grpc libraries. The defaults are obtained with `pkg-config`  
 
-## Continue to 
--[Designing a flow](FLOW.md). How to define the application flow and compile it into a running service.
+# Continue To 
+
+-How to define the application [flow](FLOW.md) and compile it into a service.
 -How to build a **Docker** image with the flow [application].
