@@ -1,5 +1,5 @@
 # Quick Start
-The flow-compiler is written in **C++** and uses a variety of open source components. The generated code also has some dependencies on open source libraries. 
+The flow-compiler is written in **C++** and uses a variety of open source components. The generated code also has dependencies on open source libraries. 
 
 The first step is to install the required components:
     * **C++** compiler that supports the *c++11* standard
