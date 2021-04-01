@@ -42,6 +42,6 @@ A number of variables can be set to customize the build. All of them can be give
 This is a list of variables that can be changed:
 
 - **INSTALL_PREFIX** the location of the binary after make install, defaults to `/usr/local/bin`
-- **BASE_IMAGE** the name of the default runtime for the containerized applications, defaults to `redhat-ubi8`
+- **BASE_IMAGE** the name of the default runtime for the containerized applications, defaults to `redhat-ubi8`. Other available runtimes are `alpine-3.13` and `ubuntu-20.04`.
 - **GRPC_INCS** and **GRPC_LIBS** compile and link flags for the grpc libraries. The defaults are obtained with `pkg-config`  
 
