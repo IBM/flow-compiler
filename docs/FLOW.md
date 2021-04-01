@@ -15,7 +15,7 @@ The output is:
 * **C++** source code for the aggregator 
 * `Makefile` and `Dockerfile` to build the binary and/or container
 * **HTML** forms that can be used to interact with the aggregated service
-* Deployment script for the containerized application
+* A deployment script for the containerized application that can be used with **Docker Compose**, **Docker Swarm**, and **Kubernetes**
 
 ## The Interface
 
