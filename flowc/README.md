@@ -48,4 +48,4 @@ This is a list of variables that can be changed:
 # Continue To 
 
 - How to define the application [flow](../docs/FLOW.md) and compile it into a service.
-- How to build a **Docker** image with the flow [application].
+- How to build a **Docker** [image](../docs/BUILD-IMAGE.md) with the aggregated application.
