@@ -2,6 +2,7 @@
 The flow-compiler is written in **C++** and uses a variety of open source components. The generated code also has dependencies on open source libraries. 
 
 The first step is to install the required components:
+
     - **C++** compiler that supports the *c++11* standard
     - **gRPC** libraries and the **gRPC** compiler wit **C++** plugin. Details for C++ for your platform can be found here: [grpc.io](https://grpc.io/docs/languages/cpp/quickstart)
     - **dot**, from the **graphviz** toolkit. Details are here: [graphviz.org](http://www.graphviz.org)
