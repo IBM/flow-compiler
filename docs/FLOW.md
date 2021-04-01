@@ -19,7 +19,7 @@ The output is:
 
 ## The Interface
 
-The aggregated service is 
+The aggregated service is a regular **gRPC** service so it is defined in the usual manner.  
 
 **flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated.
 
