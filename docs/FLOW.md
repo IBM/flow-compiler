@@ -19,7 +19,10 @@ The output is:
 
 ## The Interface
 
-The aggregated service is a regular **gRPC** service so it is defined in the usual manner.  
+The aggregated service is defined as a **gRPC** service that uses **Protocol Buffer** *version 3.0*. 
+> Details about the language definitions are [here] (https://developers.google.com/protocol-buffers/).
+
+
 
 **flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated.
 
