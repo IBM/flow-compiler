@@ -24,7 +24,7 @@ Compile `flowc` with default settings
 cd flowc && make -j
 ```
 
-To install flow in the directory pointed by `BIN_DIR` use the following command:
+To install `flowc` in the directory pointed by `BIN_DIR` use the following command:
 ```bash
 cd flowc && make install INSTALL_PREFIX=$BIN_DIR
 ```
