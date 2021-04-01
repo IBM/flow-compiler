@@ -5,7 +5,7 @@ A tool that builds a service as an aggregation of gRPC microservices.
 Instructions on how to build the **flow-compiler** are [here](flowc/README.md).
 
 ## Tutorial 
-A brief tutorial with an example aplication is available [here](HOWTO-FLOW.md).
+A brief tutorial with an example aplication is available [here](docs/FLOW.md).
 
 ## Citing
 
