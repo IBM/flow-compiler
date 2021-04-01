@@ -34,4 +34,4 @@ If you publish work that uses the flow-compiler, please use the following citati
     pages = "31--36",
 }
 ```
-License ![GitHub](https://img.shields.io/github/IBM/flow-compiler)
+License ![GitHub]
