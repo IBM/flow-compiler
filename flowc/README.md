@@ -12,7 +12,32 @@ The first step is to install the required components:
       
 If you intend to run the final application natively, some other components might be needed:
 
-- The **civetweb** embeddable web server, if you want to add a **REST** API or a web interface to you application. See details the github project: [civetweb](https://github.com/civetweb/civetweb)
+- The **civetweb** embeddable web server, if you want to add a **REST** API or a web interface to you application. See details in the github project: [civetweb](https://github.com/civetweb/civetweb). Find instructions on how to build [here](BUILD-civetweb.md)
+
+Note that on **macOs** most of the above requirements can be installed with `brew` and that is the recommended method.
 
 ## Building the compiler:
+
+Compile `flowc` with default settings
+
+```bash
+cd flowc && make -j
+```
+
+To install flow in the directory pointed by `BIN_DIR` use the following command:
+```bash
+cd flowc && make install INSTALL_PREFIX=$BIN_DIR
+```
+Note that the above command might need to be prefixed with `sudo` if you are attempting to install in a system directory.
+
+
+To build a docker image with the **flow-compiler** in it (requires access to the **Docker** daemon):
+
+```bash 
+cd flowc && make image
+```
+Note that the docker image is needed if you plan to build and run applications directly in a container.
+
+
+To customize the build create a file `makefile.local` with the your options in the directory with the `Makefile`.
 
