@@ -2,15 +2,18 @@
 
 ## Introduction
 
-Flow Compiler offers a solution for quickly building a **gRPC** application by glueing together a number of other **gRPC** enabled microservices.
+The Flow Compiler offers a solution for quickly building a **gRPC** enabled service by glueing together a number of other **gRPC** enabled microservices.
 
 The input to **flowc** consists of:
 
 * The **gRPC** definitions of all the microservices to be glued together
-* The **gRPC** definition of the final application, the integrated service
-* The definition of a graph that repesents the relations between the **Protocol Buffer** messages used by all component microservices
+* The **gRPC** definition of the final aggregated service
+* The definition of a graph that repesents how the information flows from/to the component microservices.
 
-**flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated. 
+The output consist of **C++** source code for the aggregator along with the corrsponding `Makefile` and `Dockerfile`.
+
+
+**flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated.
 
 **flowc** can also generate a deployment tool that can be used with **Kubernetes**, **Docker Compose** or **Docker Swarm**, if the application is dockerized.  
 
