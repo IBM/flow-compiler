@@ -10,8 +10,16 @@ The input to **flowc** consists of:
 * The **gRPC** definition of the final aggregated service
 * The definition of a graph that repesents how the information flows from/to the component microservices.
 
-The output consist of **C++** source code for the aggregator along with the corrsponding `Makefile` and `Dockerfile`.
+The output is:
 
+* **C++** source code for the aggregator 
+* `Makefile` and `Dockerfile` to build the binary and/or container
+* **HTML** forms that can be used to interact with the aggregated service
+* Deployment script for the containerized application
+
+## The Interface
+
+The aggregated service is 
 
 **flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated.
 
