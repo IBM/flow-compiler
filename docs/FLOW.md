@@ -19,8 +19,8 @@ The output is:
 
 ## The Interface
 
-The aggregated service is defined as a **gRPC** service that uses **Protocol Buffer** *version 3.0*. 
-> Details about the protobuf language are [here](https://developers.google.com/protocol-buffers/).
+The aggregated service is defined as a **gRPC** service that uses **Protocol Buffers** *version 3.0*. 
+> Full information about the **Protocol Buffers** language is [here](https://developers.google.com/protocol-buffers/).
 
 
 
