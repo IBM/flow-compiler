@@ -10,7 +10,7 @@ The first step is to install the required components:
 - **Docker**, with installation instructions here: [docs.docker.com/install](https://docs.docker.com/install/) 
 - **gnutar**, only for **macOs**
       
-If you intend to run the final application natively, some other components might be needed:
+If you intend to run the final application natively (as opposed to in a container), some other components might be needed:
 
 - The **civetweb** embeddable web server, if you want to add a **REST** API or a web interface to you application. See details in the github project: [civetweb](https://github.com/civetweb/civetweb). Find [here](BUILD-civetweb.md) instructions on how to build the **civetweb** library.
 
