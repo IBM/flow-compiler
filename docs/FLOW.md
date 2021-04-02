@@ -6,8 +6,8 @@ The Flow Compiler offers a solution for quickly building a **gRPC** enabled serv
 
 The input to **flowc** consists of:
 
-* The **gRPC** definitions of all the microservices to be glued together
-* The **gRPC** definition of the final aggregated service
+* The **gRPC** definitions of all the microservices to be glued together. This is the collection of all the `.proto` used by all the microservices.
+* The **gRPC** definition of the final aggregated service. 
 * The definition of a graph that repesents how the information flows from/to the component microservices.
 
 The output is:
