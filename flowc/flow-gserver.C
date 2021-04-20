@@ -1101,9 +1101,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     tvl.pop_back();
                 tvl.push_back(std::make_pair(rvl, 0));
                 break;
-            case IOP:
+            case IOP: // arg[0]: number of operands, arg[1]: operator priority
                 assert(tvl.size() >= op.arg[0]);
-                switch(op.arg[0]) {
+                switch(op.arg[0]) { 
                     case 1:
                         if(op.arg[1] < tvl.back().second)
                             rvl = sfmt() << op.arg1 << "(" << tvl.back().first << ")";

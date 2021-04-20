@@ -375,13 +375,41 @@ int flow_compiler::compile_method(std::string &method, int mthd_node, int max_co
     }
     return 0;
 }
+
+static const std::map<int, int> operator_precedence = {
+    {FTK_ID, 0},
+    {FTK_fldx, 0},
+    {FTK_HASH, 0},
+    {FTK_DOLLAR, 0},
+    {FTK_BANG, 0},
+    {FTK_PLUS, 6},
+    {FTK_MINUS, 6},
+    {FTK_SLASH, 5},
+    {FTK_STAR, 5},
+    {FTK_PERCENT, 5},
+    {FTK_COMP, 8},
+    {FTK_EQ, 10},
+    {FTK_NE, 10},
+    {FTK_LE, 9},
+    {FTK_GE, 9},
+    {FTK_LT, 9},
+    {FTK_GT, 9},
+    {FTK_AND, 14}, 
+    {FTK_OR, 15}, 
+    {FTK_QUESTION, 15}, 
+};
+int get_operator_precedence(int node_type) {
+    MASSERT(operator_precedence.find(node_type) != operator_precedence.end()) << "precedence not defined for node type " << node_type << "\n";
+    return operator_precedence.find(node_type)->second;
+}
+
 struct function_info {
     int return_type;
     bool return_repeated;
     std::vector<int> arg_type;
     unsigned required_argc;
 };
-static std::map<std::string, function_info> function_table = {
+static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
     { "substr",   { FTK_STRING,false, { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
     // string pref(string s, int end)
@@ -1661,6 +1689,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
     int error_count = 0;
     auto const &fields = at(fldr_node).children;
     auto coop = get_pconv_op(expected_type, value_type(fldr_node));
+    int op_precedence = -1;
     switch(at(fldr_node).type) {
         case FTK_fldr: 
             if(at(fields[0]).type == FTK_ID) {
@@ -1668,9 +1697,11 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                 for(unsigned a = 0; a+1 < fields.size(); ++a) 
                     error_count += encode_expression(fields[a+1], funp->second.arg_type[a]);
             }
+            MASSERT(operator_precedence.find(at(fields[0]).type) != operator_precedence.end()) << "precedence not defined for type " << at(fields[0]).type << ", at " << at(fields[0]).type << "\n";
+            op_precedence = operator_precedence.find(at(fields[0]).type)->second;
             switch(at(fields[0]).type) {
                 case FTK_ID: 
-                    icode.push_back(fop(FUNC, get_id(fields[0]), fields.size()-1, 0));
+                    icode.push_back(fop(FUNC, get_id(fields[0]), fields.size()-1, op_precedence));
                     break;
                 case FTK_HASH:
                     // TODO: field must be repeated
@@ -1685,83 +1716,83 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                     break;
                 case FTK_BANG:
                     error_count += encode_expression(fields[1], FTK_INTEGER);
-                    icode.push_back(fop(IOP, "!", 1, 0));
+                    icode.push_back(fop(IOP, "!", 1, op_precedence));
                     break;
                 case FTK_PLUS: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "+", 2, 6));
+                    icode.push_back(fop(IOP, "+", 2, op_precedence));
                     break;
                 case FTK_MINUS: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "-", 2, 6));
+                    icode.push_back(fop(IOP, "-", 2, op_precedence));
                     break;
                 case FTK_SLASH: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "/", 2, 5));
+                    icode.push_back(fop(IOP, "/", 2, op_precedence));
                     break;
                 case FTK_STAR: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "*", 2, 5));
+                    icode.push_back(fop(IOP, "*", 2, op_precedence));
                     break;
                 case FTK_PERCENT: 
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     error_count += encode_expression(fields[2], FTK_INTEGER);
-                    icode.push_back(fop(IOP, "%", 2, 5));
+                    icode.push_back(fop(IOP, "%", 2, op_precedence));
                     break;
                 case FTK_COMP:
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "<=>", 2, 8));
+                    icode.push_back(fop(IOP, "<=>", 2, op_precedence));
                     break;
                 case FTK_EQ: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "==", 2, 10));
+                    icode.push_back(fop(IOP, "==", 2, op_precedence));
                     break;
                 case FTK_NE: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "!=", 2, 10));
+                    icode.push_back(fop(IOP, "!=", 2, op_precedence));
                     break;
                 case FTK_LE: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "<=", 2, 9));
+                    icode.push_back(fop(IOP, "<=", 2, op_precedence));
                     break;
                 case FTK_GE: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, ">=", 2, 9));
+                    icode.push_back(fop(IOP, ">=", 2, op_precedence));
                     break;
                 case FTK_LT: 
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, "<", 2, 9));
+                    icode.push_back(fop(IOP, "<", 2, op_precedence));
                     break;
                 case FTK_GT:
                     error_count += encode_expression(fields[1], 0);
                     error_count += encode_expression(fields[2], value_type(fields[1]));
-                    icode.push_back(fop(IOP, ">", 2, 9));
+                    icode.push_back(fop(IOP, ">", 2, op_precedence));
                     break;
                 case FTK_AND: 
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     error_count += encode_expression(fields[2], FTK_INTEGER);
-                    icode.push_back(fop(IOP, "&&", 2, 14));
+                    icode.push_back(fop(IOP, "&&", 2, op_precedence));
                     break;
                 case FTK_OR:
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     error_count += encode_expression(fields[2], FTK_INTEGER);
-                    icode.push_back(fop(IOP, "||", 2, 15));
+                    icode.push_back(fop(IOP, "||", 2, op_precedence));
                     break;
                 case FTK_QUESTION:
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     error_count += encode_expression(fields[2], 0);
                     error_count += encode_expression(fields[3], value_type(fields[2]));
-                    icode.push_back(fop(IOP, "?:", 3, 16));
+                    icode.push_back(fop(IOP, "?:", 3, op_precedence));
                     break;
                 break;
             }

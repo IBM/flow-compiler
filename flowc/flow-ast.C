@@ -277,6 +277,8 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     return indent; 
 }
 
+int get_operator_precedence(int node_type);
+
 void flow_ast::to_text_r(std::ostream &out, int expr, int op) const {
     out << "C" << expr;
         /*
