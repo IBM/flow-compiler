@@ -429,14 +429,14 @@ static const std::map<std::string, function_info> function_table = {
     { "tr",       { FTK_STRING,false, { FTK_STRING, FTK_STRING, FTK_STRING }, 2}},
 };
 
-int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim) {
+int flow_compiler::compile_fldr(int fldr_node) {
     int error_count = 0;
     auto const &fldr = at(fldr_node);
     assert(fldr.type == FTK_fldr && fldr.children.size() > 0);
 
     for(unsigned n = 1, e = fldr.children.size(); n < e; ++n) {
         if(at(fldr.children[n]).type == FTK_fldr)
-            error_count += compile_fldr(fldr.children[n], nullptr, 0, 0);
+            error_count += compile_fldr(fldr.children[n]);
     }
 
     auto const &ff = at(fldr.children[0]);
@@ -448,12 +448,12 @@ int flow_compiler::compile_fldr(int fldr_node, FieldDescriptor const *left_dp, i
             if(funp == function_table.end()) {
                 ++error_count;
                 pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
-            }
+            } else 
             // check the number of arguments
             if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc + 1 != fldr.children.size()) {
                 ++error_count;
                pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << (fldr.children.size() - 1) << " were given");
-            }
+            } else 
             if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc + 1 > fldr.children.size() || funp->second.arg_type.size() + 1 < fldr.children.size()) {
                 ++error_count;
                pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc << " and at most " << funp->second.arg_type.size() << " arguments but " << (fldr.children.size() - 1) << " were given");
@@ -538,7 +538,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
             break;
             case FTK_fldr:
                 // Check for the right number of arguments, for valid identifiers and proper return type
-                error_count += compile_fldr(fldd.children[1], fidp, left_type, 0);
+                error_count += compile_fldr(fldd.children[1]);
             break;
             case FTK_INTEGER:
             case FTK_STRING:
@@ -1060,8 +1060,11 @@ int flow_compiler::compile_stmt(int stmt_node) {
                         method_descriptor.copy(exp_node, node_node);
                         input_descriptor.copy(exp_node, node_node);
                         message_descriptor.copy(exp_node, node_node);
-                        if(stmt.children.size() > 3)
+                        if(stmt.children.size() > 3) {
                             condition.put(node_node, stmt.children[3]);
+                            if(at(stmt.children[3]).type == FTK_fldr) 
+                                error_count += compile_fldr(stmt.children[3]);
+                        }
                     }
                 }
                 // Check this node against other nodes with the same name

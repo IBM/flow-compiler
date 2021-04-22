@@ -233,7 +233,7 @@ public:
     int compile_if_import(int stmt_node);
     int compile_stmt(int stmt_node);
     // Compile function calls - fldx are not resolved 
-    int compile_fldr(int fldr_node, FieldDescriptor const *left_dp, int left_type, int left_dim);
+    int compile_fldr(int fldr_node);
     // Compile all the filed mappings - this does not resolve fldx references
     int compile_fldm(int fldm_node, Descriptor const *dp);
     // The following should be called on a second pass (after all nodes have been compiled)
