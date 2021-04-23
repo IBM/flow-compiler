@@ -402,33 +402,57 @@ int get_operator_precedence(int node_type) {
     MASSERT(operator_precedence.find(node_type) != operator_precedence.end()) << "precedence not defined for node type " << node_type << "\n";
     return operator_precedence.find(node_type)->second;
 }
+int flow_compiler::fixup_vt(int node) {
+    for(auto c: at(node).children)
+        fixup_vt(c);
+    if(at(node).type == FTK_fldr && !value_type.has(node) && at(node).children.size() > 1 && value_type.has(at(node).children[1]))
+        value_type.put(node, value_type(at(node).children[1]));
+    return 0;
 
+}
 struct function_info {
     int return_type;
-    bool return_repeated;
     std::vector<int> arg_type;
     unsigned required_argc;
 };
+/** 
+ * function signature table:
+ *      return_type: Either a basic grpc compiler type or the negative of the index into the argument list.
+ *      arg_type: Either a basic grpc compiler type or FTK_ACCEPT for any type. Negative values means the argument must be arepeated field.
+ *      required_argc: The number of required arguments. The number of accepted arguments is the size of arg_type
+ */
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
-    { "slice",   { FTK_STRING,false, { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
-    { "substr",   { FTK_STRING,false, { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
+    { "slice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
+    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
     // string pref(string s, int end)
-    { "pref",     { FTK_STRING,false, { FTK_STRING, FTK_INTEGER }, 2}},
+    { "pref",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2}},
     // string suff(string s, int begin)
-    { "suff",     { FTK_STRING,false, { FTK_STRING, FTK_INTEGER }, 2}},
+    { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2}},
     // int length(string s)
-    { "length",   { FTK_INTEGER,false,{ FTK_STRING }, 1}},
-    { "clength",  { FTK_INTEGER,false,{ FTK_STRING }, 1}},
+    { "length",   { FTK_INTEGER, { FTK_STRING }, 1}},
+    { "clength",  { FTK_INTEGER, { FTK_STRING }, 1}},
     // string *trim(string s, string strip_chars)
-    { "trim",     { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
-    { "ltrim",    { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
-    { "rtrim",    { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
+    { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
+    { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
+    { "rtrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
     // string to*(string s)
-    { "toupper",  { FTK_STRING,false, { FTK_STRING }, 1}},
-    { "tolower",  { FTK_STRING,false, { FTK_STRING }, 1}},
+    { "toupper",  { FTK_STRING,  { FTK_STRING }, 1}},
+    { "tolower",  { FTK_STRING,  { FTK_STRING }, 1}},
     // string tr(string s, string match_list, string replace_list)
-    { "tr",       { FTK_STRING,false, { FTK_STRING, FTK_STRING, FTK_STRING }, 2}},
+    { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2}},
+    // concatenate / add fields
+    { "sum",      { -1,          { -FTK_ACCEPT }, 1}},
+    { "max",      { -1,          { -FTK_ACCEPT }, 1}},
+    { "min",      { -1,          { -FTK_ACCEPT }, 1}},
+    // sort
+    { "sort",     { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 1}},
+    // index
+    { "at",       { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 2}},
+    { "first",    { -1,          { -FTK_ACCEPT }, 1}},
+    { "last",     { -1,          { -FTK_ACCEPT }, 1}},
+    // string join(elements, separator, last_separator)
+    { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1}},
 };
 
 int flow_compiler::compile_fldr(int fldr_node) {
@@ -437,8 +461,21 @@ int flow_compiler::compile_fldr(int fldr_node) {
     assert(fldr.type == FTK_fldr && fldr.children.size() > 0);
 
     for(unsigned n = 1, e = fldr.children.size(); n < e; ++n) {
-        if(at(fldr.children[n]).type == FTK_fldr)
-            error_count += compile_fldr(fldr.children[n]);
+        switch(at(fldr.children[n]).type) {
+            case FTK_fldr:
+                error_count += compile_fldr(fldr.children[n]);
+                break;
+            case FTK_INTEGER: case FTK_STRING: case FTK_FLOAT:
+                value_type.put(fldr.children[n], at(fldr.children[n]).type);
+                break;
+            case FTK_fldx: {
+                // this needs to be fixed up in the second pass
+            } break;
+            case FTK_enum: 
+            break;
+            default:
+                MASSERT(false) << "did not set value type for: " << fldr.children[n] << ":" << at(fldr.children[n]).type << "\n";
+        }
     }
 
     auto const &ff = at(fldr.children[0]);
@@ -450,17 +487,18 @@ int flow_compiler::compile_fldr(int fldr_node) {
             if(funp == function_table.end()) {
                 ++error_count;
                 pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
-            } else 
-            // check the number of arguments
-            if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc + 1 != fldr.children.size()) {
+            } else if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc + 1 != fldr.children.size()) {
+                // check the number of arguments
                 ++error_count;
-               pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << (fldr.children.size() - 1) << " were given");
-            } else 
-            if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc + 1 > fldr.children.size() || funp->second.arg_type.size() + 1 < fldr.children.size()) {
+                pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << (fldr.children.size() - 1) << " were given");
+            } else if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc + 1 > fldr.children.size() || funp->second.arg_type.size() + 1 < fldr.children.size()) {
                 ++error_count;
-               pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc << " and at most " << funp->second.arg_type.size() << " arguments but " << (fldr.children.size() - 1) << " were given");
+                pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc << " and at most " << funp->second.arg_type.size() << " arguments but " << (fldr.children.size() - 1) << " were given");
             }
-            value_type.put(fldr_node, funp->second.return_type);
+            if(funp->second.return_type < 0) 
+                value_type.put(fldr_node, abs(value_type(fldr.children[abs(funp->second.return_type)])));
+            else
+                value_type.put(fldr_node, funp->second.return_type);
         } break;
         case FTK_HASH:
             assert(fldr.children.size() == 2);
@@ -797,6 +835,12 @@ int flow_compiler::compile_fldx(int node) {
             pcerr.AddError(main_file, at(f), sfmt() << "the \"" << id << "\" field in \"" << get_name(dp) << "\" is not of message type");
             return error_count + 1;
         }
+    }
+    auto fdp = field_descriptor(fldx.children[fldx.children.size()-1]);
+    if(fdp != nullptr) {
+        int ftkt = grpc_type_to_ftk(fdp->type());
+        if(ftkt == FTK_STRING || ftkt == FTK_INTEGER || ftkt == FTK_FLOAT)
+            value_type.put(node, ftkt);
     }
     return error_count;
 }
@@ -1699,8 +1743,10 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
         case FTK_fldr: 
             if(at(fields[0]).type == FTK_ID) {
                 auto funp = function_table.find(get_id(fields[0]));
-                for(unsigned a = 0; a+1 < fields.size(); ++a) 
-                    error_count += encode_expression(fields[a+1], funp->second.arg_type[a]);
+                for(unsigned a = 0; a+1 < fields.size(); ++a) {
+                    int evt = abs(funp->second.arg_type[a]);
+                    error_count += encode_expression(fields[a+1], evt == FTK_ACCEPT? 0: evt);
+                }
             }
             MASSERT(operator_precedence.find(at(fields[0]).type) != operator_precedence.end()) << "precedence not defined for type " << at(fields[0]).type << ", at " << at(fields[0]).type << "\n";
             op_precedence = operator_precedence.find(at(fields[0]).type)->second;
@@ -1709,10 +1755,13 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                     icode.push_back(fop(FUNC, get_id(fields[0]), fields.size()-1, op_precedence));
                     break;
                 case FTK_HASH:
-                    // TODO: field must be repeated
-                    //error_count += encode_expression(fields[1], FTK_fldx);
-                    //icode.push_back(fop(FUNC, "op_hash", 1, 0));
-                    icode.push_back(fop(RVC, "1", fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
+                    if(dimension(fields[1]) == 0) {
+                        icode.push_back(fop(RVC, "1", fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
+                    } else {
+                        // TODO Make sure the argument is a repeated field reference 
+                        error_count += encode_expression(fields[1], 0);
+                        icode.push_back(fop(IOP, "#", 1, op_precedence));
+                    }
                     break;
                 case FTK_DOLLAR:
                     //error_count += encode_expression(fields[1], FTK_STRING);
@@ -2369,6 +2418,9 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     // Revisit id references
     error_count += compile_id_ref(root);
     if(error_count > 0) return error_count;
+
+    // Fixup value_type for fldr
+    error_count += fixup_vt(root);
 
     for(auto const &ep: named_blocks) if(type(ep.second.second) == "entry") {
         // Build the flow graph for each entry 

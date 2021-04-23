@@ -234,6 +234,7 @@ public:
     int compile_stmt(int stmt_node);
     // Compile function calls - fldx are not resolved 
     int compile_fldr(int fldr_node);
+    int fixup_vt(int node);
     // Compile all the filed mappings - this does not resolve fldx references
     int compile_fldm(int fldm_node, Descriptor const *dp);
     // The following should be called on a second pass (after all nodes have been compiled)
