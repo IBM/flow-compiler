@@ -51,49 +51,48 @@ extern "C" {
 
 namespace flowrt {
 static inline
-int length(std::string const &s) {
-    int l = 0;
-    bool invalid_utf8 = false;
-    for(auto b = s.begin(), e = s.end(); b != e; ++b) {
-        char c = *b;
-        ++l;
-        if((c & 0x80) == 0) continue;
-        if(++b == e || (*b & 0xC0) != 0x80) { invalid_utf8 = true; break; }
-        if((c & 0xE0) == 0xC0) continue;
-        if(++b == e || (*b & 0xC0) != 0x80) { invalid_utf8 = true; break; }
-        if((c & 0xF0) == 0xE0) continue;
-        if(++b == e || (*b & 0xC0) != 0x80) { invalid_utf8 = true; break; }
-        if((c & 0xF1) == 0xF0) continue;
-        invalid_utf8 = true; break;
-    }
-    return invalid_utf8? -l: l;
+int next_utf8_cp(std::string const &s, int bpos = 0) {
+    int e = s.length();
+    if(e <= bpos) return -1;
+    char c = s[bpos++];
+    if((c & 0x80) == 0) return bpos;
+    if(bpos == e || (s[bpos++] & 0xC0) != 0x80) return -bpos;
+    if((c & 0xE0) == 0xC0) return bpos;
+    if(bpos == e || (s[bpos++] & 0xC0) != 0x80) return -bpos;
+    if((c & 0xF0) == 0xE0) return bpos;
+    if(bpos == e || (s[bpos++] & 0xC0) != 0x80) return -bpos;
+    if((c & 0xF1) == 0xF0) return bpos;
+    return -bpos;
 }
 static inline
-int cpos(std::string const &s, int i) {
-    unsigned b = 0, e = s.length();
-    bool invalid_pos = false;
-    while(i > 0 && b != e) {
-        if(i-- == 0) break;
-        char c = s[b++];
-        if((c & 0x80) == 0) continue;
-        if(b == e || (s[b++] & 0xC0) != 0x80) { invalid_pos = true; break; }
-        if((c & 0xE0) == 0xC0) continue;
-        if(b == e || (s[b++] & 0xC0) != 0x80) { invalid_pos = true; break; }
-        if((c & 0xF0) == 0xE0) continue;
-        if(b == e || (s[b++] & 0xC0) != 0x80) { invalid_pos = true; break; }
-        if((c & 0xF1) == 0xF0) continue;
-        invalid_pos = true; break;
+int length(std::string const &s) {
+    int bp = -1, nbp = 0, l = -1;
+    do 
+        nbp = next_utf8_cp(s, bp = nbp), ++l;
+    while(nbp >= 0);
+    return l;
+}
+static inline
+int cpos(std::string const &s, int pos) {
+    int bp = 0, nbp = 0;
+    while(pos > 0) { 
+        nbp = next_utf8_cp(s, bp);
+        if(nbp < 0) break;
+        bp = nbp;
+        --pos;
     }
-    if(i > 0) return -b-1;
-    return invalid_pos? -b: b;
+    return pos == 0? bp: -bp;
 }
 inline static
 std::string substr(std::string const &s, int begin, int end) {
     if(s.empty()) return s;
-    if(end < 0) end += clength(s);
-    if(begin < 0) begin += clength(s);
-    begin = cpos(s, begin); end = cpos(s, end);
-    if(begin < 0 || end < 0 || begin >= end) return "";
+    if(end < 0) end += length(s);
+    if(begin < 0) begin += length(s);
+    if(begin >= end) return "";
+    begin = cpos(s, begin); 
+    if(begin < 0) return "";
+    end = cpos(s, end);
+    if(end < 0) return "";
     return s.substr(begin, end-begin);
 }
 inline static
