@@ -279,58 +279,75 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
 
 int get_operator_precedence(int node_type);
 
-void flow_ast::to_text_r(std::ostream &out, int expr, int op) const {
-    out << "C" << expr;
-        /*
-    auto const &bx = at(bexp);
+void flow_ast::to_text_r(std::ostream &out, int expr, int opp) const {
     bool need_parens = false;
-    switch(bx.type) {
+    switch(at(expr).type) {
+        case FTK_fldx:
+            out << get_id(at(expr).children[0]) + "@" + get_joined_id(expr, 1, ".");
+            break;
+        case FTK_INTEGER:
+            out << get_value(expr);
+            break;
+        case FTK_FLOAT:
+            out << get_value(expr);
+            break;
+        case FTK_STRING:
+            out << c_escape(get_string(expr));
+            break;
+        case FTK_ID:
+            out << get_id(expr);
+            break;
+        case FTK_dtid:
+            out << get_dotted_id(expr);
+            break;
         case FTK_fldr:
-            switch(bx.children.size()) {
-                case 1:
-                    to_text_r(out, bx.children[0], op);
+            if(at(at(expr).children[0]).type == FTK_ID) {
+                need_parens = get_operator_precedence(FTK_ID) > opp;
+                if(need_parens) out << "(";
+                out << "~" << get_id(at(expr).children[0]) << "(";
+                for(unsigned p = 1; p < at(expr).children.size(); ++p) {
+                    if(p > 1) out << ", ";
+                    to_text_r(out, at(expr).children[p], 0);
+                }
+                out << ")";
+                if(need_parens) out << ")";
+            } else 
+            switch(at(expr).children.size()) {
+                case 4:
+                    to_text_r(out, at(expr).children[0], opp);
                     break;
                 case 2:
-                    need_parens = check_bexp_op_priority(op, at(bx.children[0]).type);
+                    need_parens = get_operator_precedence(at(at(expr).children[0]).type) > opp;
                     if(need_parens) out << "(";
-                    out << " " << node_name(at(bx.children[0]).type);
-                    to_text_r(out, bx.children[1], at(bx.children[0]).type);
+                    out << node_name(at(at(expr).children[0]).type);
+                    to_text_r(out, at(expr).children[1], get_operator_precedence(at(at(expr).children[0]).type));
                     if(need_parens) out << ")";
                     break;
                 case 3:
-                    need_parens = check_bexp_op_priority(op, at(bx.children[1]).type);
+                    need_parens = get_operator_precedence(at(at(expr).children[0]).type) > opp;
                     if(need_parens) out << "(";
-                    to_text_r(out, bx.children[0], at(bx.children[1]).type);
-                    out << " " << node_name(at(bx.children[1]).type) << " ";
-                    to_text_r(out, bx.children[2], at(bx.children[1]).type);
+                    to_text_r(out, at(expr).children[1], get_operator_precedence(at(at(expr).children[0]).type));
+                    out << " " << node_name(at(at(expr).children[0]).type) << " ";
+                    to_text_r(out, at(expr).children[2], get_operator_precedence(at(at(expr).children[0]).type));
                     if(need_parens) out << ")";
                     break;
+                default: 
+                    out << expr << ":" << node_name(at(expr).type) << "[";
+                    for(auto c: at(expr).children) 
+                        out << " " << c;
+                    out << "]";
             }
             break;
-        case FTK_fldx:
-            out << get_id(bx.children[0]) + "@" + get_joined_id(bexp, 1, ".");
-            break;
-        case FTK_INTEGER:
-            out << get_value(bexp);
-            break;
-        case FTK_FLOAT:
-            out << get_value(bexp);
-            break;
-        case FTK_STRING:
-            out << c_escape(get_string(bexp));
-            break;
-        case FTK_ID:
-            out << get_id(bexp);
-            break;
-        case FTK_dtid:
-            out << get_dotted_id(bexp);
-            break;
+        default:
+            out << expr << ":" << node_name(at(expr).type) << "{";
+            for(auto c: at(expr).children) 
+                out << " " << c;
+            out << "}";
     }
-    */
 }
 std::string flow_ast::to_text(int node) const {
     std::ostringstream out;
-    to_text_r(out, node, 0);
+    to_text_r(out, node, 100);
     return out.str();
 }
 std::string flow_ast::get_full_typename(int node) const {
