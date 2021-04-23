@@ -126,6 +126,7 @@ struct flow_ast {
         return store[node-1];
     }
     flow_ast_node const &atc(int node, int child) const {
+        if(child < 0) child += at(node).children.size();
         return at(at(node).children[child]);
     }
     int ast_root() const {
