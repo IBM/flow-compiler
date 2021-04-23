@@ -63,6 +63,7 @@ enum op {
 
     SETF,           // Set field 
     RVF,            // Right value field
+    SVF,            // Right value repeated field size
     RVC,            // Right value constant
 
     CON1,           // Conversion NOP 1

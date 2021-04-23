@@ -32,6 +32,7 @@ char const *op_name(op o) {
         case IOP:  return "IOP";
         case FUNC: return "FUNC";
         case RVF:  return "RVF ";      
+        case SVF:  return "SVF ";      
         case RVC:  return "RVC ";      
         case COFI: return "COFI";    
         case COFS: return "COFS";   
