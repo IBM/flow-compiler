@@ -50,8 +50,58 @@ extern "C" {
 }
 
 namespace flowrt {
+static inline
+int length(std::string const &s) {
+    int l = 0;
+    bool invalid_utf8 = false;
+    for(auto b = s.begin(), e = s.end(); b != e; ++b) {
+        char c = *b;
+        ++l;
+        if((c & 0x80) == 0) continue;
+        if(++b == e || (*b & 0xC0) != 0x80) { invalid_utf8 = true; break; }
+        if((c & 0xE0) == 0xC0) continue;
+        if(++b == e || (*b & 0xC0) != 0x80) { invalid_utf8 = true; break; }
+        if((c & 0xF0) == 0xE0) continue;
+        if(++b == e || (*b & 0xC0) != 0x80) { invalid_utf8 = true; break; }
+        if((c & 0xF1) == 0xF0) continue;
+        invalid_utf8 = true; break;
+    }
+    return invalid_utf8? -l: l;
+}
+static inline
+int cpos(std::string const &s, int i) {
+    unsigned b = 0, e = s.length();
+    bool invalid_pos = false;
+    while(i > 0 && b != e) {
+        if(i-- == 0) break;
+        char c = s[b++];
+        if((c & 0x80) == 0) continue;
+        if(b == e || (s[b++] & 0xC0) != 0x80) { invalid_pos = true; break; }
+        if((c & 0xE0) == 0xC0) continue;
+        if(b == e || (s[b++] & 0xC0) != 0x80) { invalid_pos = true; break; }
+        if((c & 0xF0) == 0xE0) continue;
+        if(b == e || (s[b++] & 0xC0) != 0x80) { invalid_pos = true; break; }
+        if((c & 0xF1) == 0xF0) continue;
+        invalid_pos = true; break;
+    }
+    if(i > 0) return -b-1;
+    return invalid_pos? -b: b;
+}
 inline static
 std::string substr(std::string const &s, int begin, int end) {
+    if(s.empty()) return s;
+    if(end < 0) end += clength(s);
+    if(begin < 0) begin += clength(s);
+    begin = cpos(s, begin); end = cpos(s, end);
+    if(begin < 0 || end < 0 || begin >= end) return "";
+    return s.substr(begin, end-begin);
+}
+inline static
+int size(std::string const &s) {
+    return s.length();
+}
+inline static
+std::string slice(std::string const &s, int begin, int end) {
     if(s.empty()) return s;
     if(end < 0) end += s.length();
     if(begin < 0) begin += s.length();
@@ -65,10 +115,6 @@ std::string pref(std::string const &s, int end) {
 inline static
 std::string suff(std::string const &s, int begin) {
     return substr(s, begin, s.length());
-}
-inline static
-int length(std::string const &s) {
-    return s.length();
 }
 inline static
 std::string toupper(std::string const &s) {

@@ -411,6 +411,7 @@ struct function_info {
 };
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
+    { "slice",   { FTK_STRING,false, { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
     { "substr",   { FTK_STRING,false, { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
     // string pref(string s, int end)
     { "pref",     { FTK_STRING,false, { FTK_STRING, FTK_INTEGER }, 2}},
@@ -418,6 +419,7 @@ static const std::map<std::string, function_info> function_table = {
     { "suff",     { FTK_STRING,false, { FTK_STRING, FTK_INTEGER }, 2}},
     // int length(string s)
     { "length",   { FTK_INTEGER,false,{ FTK_STRING }, 1}},
+    { "clength",  { FTK_INTEGER,false,{ FTK_STRING }, 1}},
     // string *trim(string s, string strip_chars)
     { "trim",     { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
     { "ltrim",    { FTK_STRING,false, { FTK_STRING, FTK_STRING }, 1}},
