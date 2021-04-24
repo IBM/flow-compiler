@@ -469,9 +469,10 @@ int flow_compiler::compile_fldr(int fldr_node) {
                 value_type.put(fldr.children[n], at(fldr.children[n]).type);
                 break;
             case FTK_fldx: {
-                // this needs to be fixed up in the second pass
+                // this will be fixed up in the second pass
             } break;
             case FTK_enum: 
+
             break;
             default:
                 MASSERT(false) << "did not set value type for: " << fldr.children[n] << ":" << at(fldr.children[n]).type << "\n";
@@ -1759,8 +1760,6 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                         icode.push_back(fop(RVC, "1", fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
                     } else {
                         icode.push_back(fop(SVF, fldx_mname(fields[1], 1000), dimension(at(fields[1]).children[0])));
-                        //error_count += encode_expression(fields[1], 0);
-                        //icode.push_back(fop(IOP, "#", 1, op_precedence));
                     }
                     break;
                 case FTK_DOLLAR:
@@ -2292,7 +2291,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             } else {
                 // This is either an empty or an error node
                 int errm_node = find_first(node, type, "error");
-                MASSERT(errm_node != 0) << "Expected error message in error node\n";
+                MASSERT(errm_node != 0) << "expected error message in error node\n";
                 icode.push_back(fop(ERR, get_string(errm_node)));
             }
 
@@ -2378,6 +2377,7 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         pcerr.AddError(main_file, at(synerr.first), synerr.second);
         ++error_count;
     }
+    if(error_count > 0) return error_count;
 
     // The main file parsed correctly, now
     // import all the nedded proto files before anything else.
