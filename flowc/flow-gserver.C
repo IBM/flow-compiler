@@ -1153,6 +1153,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
 
             case SVF:
+                rvl = cpp_var(loop_c, op.arg1, op.arg[0], SIZE);
+                tvl.push_back(std::make_pair(rvl, 0));
+                break;
             case RVF: 
                 rvl = cpp_var(loop_c, op.arg1, op.arg[0], RIGHT_VALUE);
                 tvl.push_back(std::make_pair(rvl, 0));
