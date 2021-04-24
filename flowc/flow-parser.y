@@ -48,8 +48,9 @@ main(A) ::= flow(B).                                           { A = ast->node(F
 flow(A) ::= stmt(B).                                           { A = ast->node(FTK_flow, B); }             // FTK_flow is a list of FTK_stmt
 flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappend(B, C); }
 
-stmt(A) ::= ID(B) vall(C) SEMICOLON.                           { A = ast->stmt_keyw(B) == FTK_IMPORT? ast->node(FTK_IMPORT, C): ast->node(ast->stmt_keyw(B), B, C); 
+stmt(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->stmt_keyw(B) == FTK_IMPORT? ast->node(FTK_IMPORT, C): ast->node(ast->stmt_keyw(B), B, C); 
                                                                  ast->expect(A, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); } 
+stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(ast->stmt_keyw(B), B, C); ast->expect(A, FTK_DEFINE, "keyword used as variable name"); } 
 stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); ast->expect(A, FTK_NODE, "expected \"node\" keyword"); } 
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
                                                                  ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); } 
