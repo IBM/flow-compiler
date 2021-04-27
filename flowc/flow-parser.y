@@ -49,8 +49,12 @@ flow(A) ::= stmt(B).                                           { A = ast->node(F
 flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappend(B, C); }
 
 stmt(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->stmt_keyw(B) == FTK_IMPORT? ast->node(FTK_IMPORT, C): ast->node(ast->stmt_keyw(B), B, C); 
-                                                                 ast->expect(A, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); } 
-stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(ast->stmt_keyw(B), B, C); ast->expect(A, FTK_DEFINE, "keyword used as variable name"); } 
+                                                                 ast->expect(A, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); 
+                                                                 if(ast->stmt_keyw(B) == FTK_DEFINE) ast->define_var(ast->get_id(B), C);
+                                                               } 
+stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(ast->stmt_keyw(B), B, C); ast->expect(A, FTK_DEFINE, "keyword used as variable name");
+                                                                 ast->define_var(ast->get_id(B), C);
+                                                               } 
 stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); ast->expect(A, FTK_NODE, "expected \"node\" keyword"); } 
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
                                                                  ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); } 
@@ -65,7 +69,7 @@ list(A) ::= elem(B).                                           { A = ast->node(F
 list(A) ::= list(B) elem(C).                                   { A = ast->nappend(B, C); }
 
 
-// elem: any of the definitions allowed in a primary block
+// elem: any of the definitions allowed in a block
 
 elem(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_elem, B, C); }       
 elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          
@@ -89,6 +93,7 @@ valn(A) ::= MINUS valn(B).                                     { A = ast->negate
 
 valx(A) ::= STRING(B).                                         { A = B; }
 valx(A) ::= valn(B).                                           { A = B; }
+valx(A) ::= DOLLAR ID(C).                                      { A = ast->lookup_var(ast->get_id(C)); if(A == 0) ast->error(C, stru1::sfmt() << "reference to undefined symbol \"" << ast->get_id(A=C) << "\""); }
 
 // vall: any literal including enum values 
 
@@ -121,7 +126,6 @@ fldr(A) ::= OPENPAR fldr(B) CLOSEPAR.                          { A = B; }
 fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }             // or an internal function call
 fldr(A) ::= TILDA ID(B) OPENPAR fldra(C) CLOSEPAR.             { A = ast->nprepend(C, B); }                
 fldr(A) ::= HASH(B) fldx(C).                                   { A = ast->node(FTK_fldr, B, C); }          // size of repeated field
-fldr(A) ::= DOLLAR(B) ID(C).                                   { A = ast->node(FTK_fldr, B, C); }          // flow variable reference 
 fldr(A) ::= BANG(B) fldr(C).                                   { A = ast->node(FTK_fldr, B, C); }
 fldr(A) ::= fldr(B) PLUS(C) fldr(D).                           { A = ast->node(FTK_fldr, C, B, D); }
 fldr(A) ::= fldr(B) MINUS(C) fldr(D).                          { A = ast->node(FTK_fldr, C, B, D); }
