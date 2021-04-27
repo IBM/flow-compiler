@@ -45,6 +45,7 @@ struct flow_ast_node {
 };
 std::ostream &operator << (std::ostream &out, flow_ast_node const &node);
 
+
 struct flow_ast {
     std::vector<flow_ast_node> store;
     // Preserve comments that have a @id reference
@@ -73,6 +74,75 @@ struct flow_ast {
     // dimension of the data at this node
     ast::attribute<int> dimension;
 
+    /** Symbol table 
+     */
+    std::map<std::string, int> defines;
+    /** Errors accumulated while parsing. 
+     */
+    std::vector<std::pair<int, std::string>> syntax_errors;
+
+    int define_var(std::string const &name, int node) {
+        return defines[name] = node;
+    }
+    int lookup_var(std::string const &name) const {
+        auto f = defines.find(name); 
+        return f == defines.end()? 0: f->second;
+    }
+
+    struct ast_iterator {
+        flow_ast const *tree;
+        std::vector<std::pair<unsigned short, int>> path;
+        int current_node;
+        ast_iterator(): tree(nullptr), current_node(0) {
+        }
+        ast_iterator(flow_ast const *t): tree(t), current_node(t->ast_root()) {
+        }
+        bool operator < (ast_iterator const &o) const {
+            if(current_node == o.current_node) return false;
+            if(o.current_node == 0) return true;
+            for(int i = 0, e = std::min(path.size(), o.path.size()); i < e; ++i) {
+                if(path[i].first > o.path[i].first) return false;
+                if(path[i].first < o.path[i].first) return true;
+            }
+            return path.size() < o.path.size();
+        }
+        bool operator != (ast_iterator const &i) const {
+            return *this < i || i < *this;
+        }
+        bool operator == (ast_iterator const &i) const {
+            return !(*this != i);
+        }
+        int operator *() const {
+            return current_node;
+        }
+        ast_iterator &operator ++() {
+            if(current_node == 0) return *this;
+            int n = current_node;
+            if(tree->at(n).children.size() > 0) {
+                path.push_back(std::make_pair(0u, n)); 
+                current_node = tree->at(n).children[0];
+            } else while(path.size() > 0) {
+                n = path.back().second;
+                int c = path.back().first;
+                path.pop_back();
+                if(tree->at(n).children.size() > c + 1) {
+                    path.push_back(std::make_pair(c+1, n)); 
+                    current_node = tree->at(n).children[c+1];
+                    break;
+                }
+            }
+            if(path.size() == 0) {
+                current_node = 0;
+            }
+            return *this;
+        }
+    };
+    ast_iterator begin() const {
+        return ast_iterator(this);
+    }
+    ast_iterator end() const {
+        return ast_iterator();
+    }
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
             name(""), type(""), description(""), condition(0), value_type(0), dimension(0)  {
             }
@@ -228,20 +298,42 @@ struct flow_ast {
         }
         return found;
     }
+    template<class MATCH>
+    int find(MATCH match, int node = 0, int stop = 0) const {
+        bool start = node == 0;
+        for(int n: *this) {
+            if(start && match(n)) return n;
+            if(!start && n == node) start = true;
+            if(start && stop == n) break;
+        }
+        return 0;
+    }
+    /*
+    int find_def(std::string const &label, int c=0) const {
+        auto dc = [this, &label](int n) { return at(n).type == FTK_DEFINE && get_id(at(n).children[0]) == label; };
+        int last_n = 0;
+        for(int n = find(dc, 0, c); n != 0; n = find(dc, n, c)) 
+            last_n = n;
+        return last_n;
+    }
+    */
     int stmt_keyw(int in) const {
         static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}};
         auto ki = keywords.find(get_id(in));
         int k = ki == keywords.end()? FTK_DEFINE: ki->second;
         return k;
     }
-    std::vector<std::pair<int, std::string>> syntax_errors;
+    void error(int node, std::string message) {
+        syntax_errors.push_back(std::make_pair(node, message));
+    }
     void expect(int node, std::set<int> const &types, std::string const &errm) {
         if(!stru1::contains(types, at(node).type)) 
-            syntax_errors.push_back(std::make_pair(node, errm));
+            error(node, errm);
     }
     void expect(int node, int type, std::string const &errm) {
         expect(node, std::set<int>({type}), errm);
     }
 };
+std::ostream &operator << (std::ostream &out, class flow_ast::ast_iterator const &p);
 
 #endif

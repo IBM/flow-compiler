@@ -366,4 +366,7 @@ std::string flow_ast::get_full_typename(int node) const {
     }
 }
 
-
+std::ostream &operator << (std::ostream &out, flow_ast::ast_iterator const &p) {
+    out << "<" << p.current_node << " " << p.path << ">";
+    return out;
+}
