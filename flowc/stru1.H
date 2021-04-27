@@ -494,7 +494,7 @@ std::string decamelize(std::string const &s) {
 }
 static inline
 /**
- * Capitalize and letter preceeded by space.
+ * Capitalize any letter preceeded by space.
  */
 std::string camelize(std::string const &s, bool capitalize_first=false) {
     std::ostringstream out;
