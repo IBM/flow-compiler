@@ -16,6 +16,17 @@
 
 BUILD_VERSION=0.14.1
 
+DBG?=no
+ifeq ($(DBG), yes) 
+CCFLAGS?=-Og -g
+STACK_TRACE?=1
+BUILD_VERSION:=$(BUILD_VERSION)d
+else
+CCFLAGS?=-O3
+STACK_TRACE?=0
+endif
+
+
 ## One of the runtimes alpine-3.11, alpine-3.12, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi8
 
@@ -46,7 +57,6 @@ endif
 # lemon is needed only if changes are made to the parser
 LEMON?=lemon
 
-STACK_TRACE?=1
 
 IMAGE_TAG?=$(BUILD_VERSION).$(BASE_IMAGE)
 IMAGE?=flowc:$(IMAGE_TAG)
@@ -79,11 +89,6 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
 
 OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o
-ifeq ($(DBG), yes) 
-CCFLAGS?=-Og -g
-else
-CCFLAGS?=-O3
-endif
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
@@ -112,11 +117,10 @@ flow-parser.c: flow-parser.y
 clean:
 	rm -f flowc $(TOOLS) $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-RUNTIME_TEMPLATES=$(wildcard runtimes/*/template.runtime.Dockerfile)
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
+RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
-	echo "$(RUNTIMES)"
 	echo "#include <string>" > $@
 	echo "#include <map>" >> $@
 	for FILE in $^; do echo "char const *$$FILE = R\"TEMPLATE(" | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE"; echo ')TEMPLATE";'; echo "unsigned long const len_$$FILE = " | tr -- '-./' '___' | tr -d $$'\n'; cat "$$FILE" | wc -c; echo ";";  done >> $@
@@ -132,16 +136,22 @@ tar: flow-compiler-src.tgz
 flow-compiler-minsrc.tgz: $(MINSRC_FILES)
 	$(TAR) -czf $@ --transform 's,^,flow-compiler/,' $^
 
+ifeq ($(DBG), yes) 
+install: flowc
+	mkdir -p $(INSTALL_PREFIX)
+	ln -s $(shell pwd)/$^ $(INSTALL_PREFIX)/$^
+else
 install: flowc
 	mkdir -p $(INSTALL_PREFIX)
 	strip $^
 	cp $^ $(INSTALL_PREFIX)
+endif
 
 #################### Docker image builder
 flow-base-image-info.json: runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE)  > /dev/null 2>&1
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm  --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
+	cat runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm --build-arg "RUNTIME=$(RUNTIMES)" --build-arg "DEBUG_FLOWC=$(DBG)" --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > $@
 
@@ -167,30 +177,41 @@ image-info-Linux:
 
 image-info: image-info-$(HOST_OS)
 
-image: image-info-$(HOST_OS)
+flowc-image: image-info-$(HOST_OS)
 	@$(MAKE) -s flow-base-image-info.json
 	@echo Image $(IMAGE)  is up to date
 
+image:
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
+
 alpine-3.13:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 alpine-3.12:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 alpine-3.11:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 ubuntu-18.04:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 ubuntu-20.04:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 redhat-ubi7:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 redhat-ubi8:
-	@$(MAKE) "BASE_IMAGE=$@" image
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 all-images:
 	@$(MAKE) alpine-3.12 && $(MAKE) alpine-3.11 && $(MAKE) ubuntu-18.04 && $(MAKE) ubuntu-20.04 && $(MAKE) redhat-ubi7 && $(MAKE) redhat-ubi8

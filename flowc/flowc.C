@@ -1059,8 +1059,12 @@ int main(int argc, char *argv[]) {
             std::cout << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n";
 #else
 #endif
-            std::cout << "default runtime: " << get_default_runtime() << "\n";
-            std::cout << "available runtimes: " << stru1::join(available_runtimes(), ", ") << "\n";
+            if(available_runtimes().size() == 1) {
+                std::cout << "runtime: " << get_default_runtime() << "\n";
+            } else {
+                std::cout << "default runtime: " << get_default_runtime() << "\n";
+                std::cout << "available runtimes: " << stru1::join(available_runtimes(), ", ") << "\n";
+            }
             return 0;
         } else {
             ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";

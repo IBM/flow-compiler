@@ -3,15 +3,18 @@ FROM flow-base
 ARG BUILD_ID=?
 ARG BUILD_VERSION=?
 ARG BASE_IMAGE=?
+ARG DEBUG_FLOWC=?
+ARG RUNTIME=?
 
-USER root
 
 ## Build and install flow compiler
-COPY flow-compiler-minsrc.tgz /tmp
+COPY --chown=worker:worker flow-compiler-minsrc.tgz /tmp
+RUN  tar -xzvf /tmp/flow-compiler-minsrc.tgz && rm -f /tmp/flow-compiler-minsrc.tgz
+USER root
 
-RUN cd /tmp && tar -xzvf flow-compiler-minsrc.tgz && cd /tmp/flow-compiler && \
-    make "STACK_TRACE=0" "BUILD_ID=$BUILD_ID" "BUILD_VERSION=$BUILD_VERSION" "BUILD_IMAGE=$BUILD_IMAGE" install && \
-    cd /tmp && rm -fr flow-compiler flow-compiler-minsrc.tgz
+RUN cd flow-compiler && \
+    make -j $(nproc) "RUNTIME_TEMPLATES=" "RUNTIMES=$RUNTIME" "DBG=$DEBUG_FLOWC" "BUILD_ID=$BUILD_ID" "BUILD_VERSION=$BUILD_VERSION" "BUILD_IMAGE=$BUILD_IMAGE" install && \
+    ( [ "$DEBUG_FLOWC" == "yes" ] || cd .. && rm -fr flow-compiler )
 
 USER worker
 
