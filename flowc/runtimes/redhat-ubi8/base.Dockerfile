@@ -43,7 +43,6 @@ RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd 
 #    && find /tmp/grpc -name \*_plugin | while read A; do cp -n $A /usr/local/bin; done \
 #    && ldconfig /usr/local/lib \
 #    && cd /tmp && rm -fr grpc
-
 #RUN curl -L https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz -o c-ares-${CARES_VERSION}.tar.gz
 #RUN tar -xzvf c-ares-${CARES_VERSION}.tar.gz && rm -f c-ares-${CARES_VERSION}.tar.gz && \
 #   cd c-ares-${CARES_VERSION} && ./configure --enable-shared=no && make && make install && \
