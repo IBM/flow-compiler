@@ -85,10 +85,6 @@ public:
     }
     virtual void AddError(int line, int column, std::string const & message);
 };
-class GeneratorOD: public google::protobuf::compiler::GeneratorContext {
-public:
-    virtual ::google::protobuf::io::ZeroCopyOutputStream *Open(std::string const & filename);
-};
 inline static 
 std::string get_name(::google::protobuf::Descriptor const *dp) {
     return dp->name();
