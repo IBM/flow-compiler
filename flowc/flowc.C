@@ -71,12 +71,6 @@ void FErrorPrinter::AddNote(std::string const &filename, int line, int column, s
 void ErrorPrinter::AddError(int line, int column, std::string const & message) {
     fperr.AddError(filename, line, column, message);
 }
-::google::protobuf::io::ZeroCopyOutputStream *GeneratorOD::Open(std::string const &filename) {
-    mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-    std::string fn = output_filename(filename);
-    int fd = open(fn.c_str(), O_CREAT|O_RDWR|O_TRUNC, mode);
-    return new ::google::protobuf::io::FileOutputStream(fd);
-}
 void handler(int sig) {
     void *array[10];
     size_t size;
@@ -181,6 +175,7 @@ int flow_compiler::add_to_proto_path(std::string const &directory) {
         return 1;
     source_tree.MapPath("", directory);
     grpccc += "-I"; grpccc += directory; grpccc += " ";
+    protocc += "-I"; protocc += directory; protocc += " ";
     return 0;
 }
 int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
@@ -218,6 +213,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid
      */ 
+    protocc = sfmt() << "protoc --cpp_out=" << output_filename(".") << " ";
     grpccc = sfmt() << "protoc --grpc_out=" << output_filename(".") << " --plugin=protoc-gen-grpc=" << search_path("grpc_cpp_plugin");
     { 
         struct stat sb;
@@ -235,6 +231,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         source_tree.MapPath("", dirname);
         if(dirname.empty()) dirname = ".";
         grpccc += " -I"; grpccc += dirname; grpccc += " ";
+        protocc += "-I"; protocc += dirname; protocc += " ";
     }
     
     for(auto const &path: opts["proto-path"]) 
@@ -277,13 +274,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     if(opts.have("htdocs")) {
-        std::string htdocs_path(path_join(std::getenv("PWD"), opts.opt("htdocs")));
+        std::string htdocs_path(path_join(gwd(), opts.opt("htdocs")));
         set(global_vars, "HTDOCS_PATH", htdocs_path);
     }
 
-    set(global_vars, "PROTO_FILES_PATH", path_join(std::getenv("PWD"), output_filename(".")));
+    set(global_vars, "PROTO_FILES_PATH", path_join(gwd(), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
-
     /****************************************************************
      * file names
      */
