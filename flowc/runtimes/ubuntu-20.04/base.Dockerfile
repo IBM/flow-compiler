@@ -1,6 +1,6 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.13
-ARG GRPC_VERSION=1.36.3
+ARG GRPC_VERSION=1.36.4
 ARG CARES_VERSION=1.16.1
 
 user root
@@ -9,7 +9,7 @@ RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install
     git libtool-bin build-essential autoconf pkg-config libssl-dev libssl1.1 graphviz uuid-dev gdb \
     libgflags-dev libgtest-dev zlib1g-dev cmake && apt-get clean
 
-## Build and install c-ares (https://c-ares.haxx.se)
+## Build and install c-ares (https://c-ares.haxx.se) -- not neeed if grpc version is after 1.30
 #RUN curl -L https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz -o c-ares-${CARES_VERSION}.tar.gz
 #RUN tar -xzvf c-ares-${CARES_VERSION}.tar.gz && rm -f c-ares-${CARES_VERSION}.tar.gz && \
 #    cd c-ares-${CARES_VERSION} && ./configure --enable-shared=no && make && make install && \
