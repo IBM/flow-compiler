@@ -102,8 +102,8 @@ private:
     FErrorPrinter pcerr;
     compiler::DiskSourceTree source_tree;
     compiler::Importer importer;
-    // Command line option dependent grpc compiler command
-    std::string grpccc;
+    // Command line option dependent grpc compiler commands
+    std::string grpccc, protocc;
     // Data
     std::string main_file; 
     std::string input_label; 
@@ -374,6 +374,7 @@ public:
 #endif
 
 #define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
+#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << (c) << " " << __func__ << " "  << error_count << ", errors\n"
 #define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
 #define OFSTREAM_SE(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n"; if(!ofs.is_open()) { ++error_count; pcerr.AddError(s, -1, 0, "cannont write file"); }
 
