@@ -12,31 +12,34 @@
 #include "grpc-helpers.H"
 
 using namespace stru1;
-
-int flow_compiler::genc_protobuf() {
+int flow_compiler::genc_protobuf() { 
     int error_count = 0;
+    DEBUG_ENTER;
     for(auto fdp: fdps) {
         std::string file(fdp->name());
-        GeneratorOD context;
-        compiler::cpp::CppGenerator gencc;
-        std::string error;
-        if(!gencc.Generate(fdp, "", &context, &error)) {
-            pcerr.AddError(file, -1, 0, error);
+        std::string ccc = protocc + file;
+        DEBUG_CHECK(ccc);
+        if(system(ccc.c_str()) != 0) {
+            pcerr.AddError(file, -1, 0, "failed to gerenate protobuf code");
             ++error_count;
         }
     }
+    DEBUG_LEAVE;
     return error_count;
 }
 int flow_compiler::genc_grpc() { 
     int error_count = 0;
+    DEBUG_ENTER;
     for(auto fdp: fdps) if(fdp->service_count() > 0) {
         std::string file(fdp->name());
-        std::string protocc = grpccc + file;
-        if(system(protocc.c_str()) != 0) {
+        std::string ccc = grpccc + file;
+        DEBUG_CHECK(ccc);
+        if(system(ccc.c_str()) != 0) {
             pcerr.AddError(file, -1, 0, "failed to gerenate gRPC code");
             ++error_count;
         }
     }
+    DEBUG_LEAVE;
     return error_count;
 }
 
