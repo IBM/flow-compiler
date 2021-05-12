@@ -32,9 +32,9 @@ BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux
-.PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8 alpine-3.13
-.PHONY: tools
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image
+.PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8 alpine-3.13 
+.PHONY: tools 
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -213,8 +213,7 @@ redhat-ubi8:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
-all-images:
-	@$(MAKE) alpine-3.12 && $(MAKE) alpine-3.11 && $(MAKE) ubuntu-18.04 && $(MAKE) ubuntu-20.04 && $(MAKE) redhat-ubi7 && $(MAKE) redhat-ubi8
+all-images: $(RUNTIMES)
 
 recli: recli.C
 	$(CXX) -std=c++11 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
