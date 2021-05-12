@@ -32,7 +32,7 @@ GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 ifeq ($(HOST_OS), Darwin)
 GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -lgrpc++_reflection -ldl
 else
-GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed -ldl
+GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -Wl,--no-as-needed -lgrpc++_reflection -ldl -Wl,--as-needed 
 endif
 
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
@@ -41,8 +41,8 @@ CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
 CARES_INCS?=$(shell pkg-config --cflags libcares) 
 CARES_LIBS?=$(shell pkg-config --libs libcares)
 
-SERVER_LFLAGS+= $(GRPC_LIBS) $(CARES_LIBS) 
-SERVER_CFLAGS+= $(GRPC_INCS) $(CARES_INCS)
+SERVER_LFLAGS+= $(CARES_LIBS) 
+SERVER_CFLAGS+= $(CARES_INCS)
 
 ifeq ($(REST), no)
 SERVER_CFLAGS+= -DNO_REST
@@ -61,6 +61,9 @@ endif
 ifeq ($(FLOWC_UUID), NONE)
 SERVER_CFLAGS+= -DNO_UUID
 endif
+
+SERVER_LFLAGS+= $(GRPC_LIBS)
+SERVER_CFLAGS+= $(GRPC_INCS)
 
 ifeq ($(PUSH_REPO), )
 DOCKER:=docker-info
