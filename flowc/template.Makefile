@@ -32,7 +32,7 @@ GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 ifeq ($(HOST_OS), Darwin)
 GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -lgrpc++_reflection -ldl
 else
-GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -Wl,--no-as-needed -lgrpc++_reflection -ldl -Wl,--as-needed 
+GRPC_LIBS?=$(shell pkg-config --libs-only-L grpc++ protobuf) -Wl,--no-as-needed -Wl,--whole-archive  -lgrpc++_reflection -ldl -Wl,--no-whole-archive -Wl,--as-needed $(shell pkg-config --libs grpc++ protobuf) 
 endif
 
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
