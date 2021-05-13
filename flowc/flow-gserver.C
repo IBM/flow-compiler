@@ -953,14 +953,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     nodes_rv[name(cur_node)] = cur_output_name;
 
                 OUT << "/*\n";
-                OUT << " * node: " << cur_node << "\n";
-                OUT << " * has calls: " << (node_has_calls? "yes" : "no") << "\n";
-                OUT << " * name: " << cur_node_name << "\n";
-                OUT << " * type: " << name(cur_node) << "\n";
-                OUT << " * dimension: " << node_dim << "\n";
-                OUT << " * input name: " << cur_input_name << "\n";
-                OUT << " * output name: " << cur_output_name << "\n";
-                OUT << " * stage: " << cur_stage_name << "\n";
+                OUT << " * stage: (" << cur_stage << ") " << cur_stage_name << "\n";
+                OUT << " * node: " << cur_node_name << " (" << cur_node << "/" << name(cur_node) << ") " << (node_has_calls? "" : "no calls") << " dim " << node_dim << "  \n";
+                OUT << " * input/output: " << cur_input_name << "/" << cur_output_name << "\n";
                 if(alternate_nodes) {
                     OUT << " * is first: " << (first_node? "yes": "no") << "\n";
                     OUT << " * is first with output: " << (first_with_output? "yes": "no") << "\n";

@@ -89,6 +89,19 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
                 out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[a] << ansi::escape(ANSI_RESET, use_ansi);
 
             break;
+        case RVF:
+            out << op_name(fop.code) << "  ";
+            out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi);
+            if(fop.arg.size() > 0 && fop.arg[0] > 0) 
+                out << "[" << fop.arg[0] << "] ";
+            else 
+                out << " ";
+            for(unsigned i = 1; i < fop.arg.size(); ++i) { 
+                if(i > 1) out << ", ";
+                out << fop.arg[i]; 
+            }
+            break;
+
         default:
             break;
     }
@@ -101,16 +114,16 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
         case BNOD:
         case IFNC:
         case BSTG:
+        case RVF:
             return propc(out, fop);
         default:
             break;
     }
     bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
 
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);
-
+    if(fop.code == MTHD || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);
     out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BSTG || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
+    if(fop.code == MTHD || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
 
     bool escape_string1 = fop.code == RVC && fop.arg.size() > 1 && fop.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     bool escape_string2 = fop.code == RVC && fop.arg.size() > 2 && fop.arg[2] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
@@ -129,7 +142,6 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     }
     if(fop.m1 != nullptr) 
         out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
-    bool first = true;
     if(fop.code > CON1 && fop.code < CON2) {
         if(fop.arg.size() > 0) 
             out << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
@@ -142,6 +154,7 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
         out << "er: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.er) << ansi::escape(ANSI_RESET, use_ansi) << " ";
     if(fop.ev1 != nullptr) 
         out << "ev1: " << ansi::escape(ANSI_RED, use_ansi) << fop.ev1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
+    bool first = true;
     for(auto a: fop.arg) { 
         if(!first) out << ", ";
         out << a; 
