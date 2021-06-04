@@ -1,5 +1,5 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.13
+ARG CIVETWEB_VERSION=1.14
 
 USER root
 
