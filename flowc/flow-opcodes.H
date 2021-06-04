@@ -140,5 +140,7 @@ struct fop {
     fop(op c, std::string const &a1, std::string const &a2, int i, int j): code(c), arg1(a1), arg2(a2) { arg.push_back(i); arg.push_back(j); }
     fop(op c, std::string const &a1, int i, int j, int k): code(c), arg1(a1) { arg.push_back(i); arg.push_back(j);  arg.push_back(k); }
 };
+// Enum to string
+char const *op_name(op o);
 std::ostream &operator<< (std::ostream &out, fop const &fop);
 #endif

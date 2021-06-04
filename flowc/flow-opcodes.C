@@ -4,7 +4,6 @@
 #include "flow-opcodes.H"
 #include "grpc-helpers.H"
 
-static
 char const *op_name(op o) { 
     switch(o) {
         case NOP:   return "NOP ";
