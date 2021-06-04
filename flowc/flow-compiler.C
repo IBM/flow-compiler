@@ -1588,6 +1588,7 @@ op get_pconv_op(int l_type, int r_type) {
                 default:
                     break;
             }
+            break;
         case FTK_FLOAT:
             switch(r_type) {
                 case FTK_STRING:
@@ -1602,6 +1603,27 @@ op get_pconv_op(int l_type, int r_type) {
     }
     return NOP;
 }
+static 
+std::string type_name(int t) {
+    switch(t) {
+        case FTK_STRING:
+            return "FTK_STRING";
+        case FTK_INTEGER:
+            return "FTK_INTEGER";
+        case FTK_FLOAT:
+            return "FTK_INTEGER";
+        default:
+            return std::to_string(t);
+    }
+}
+/*
+static
+op get_pconv_op(int l_type, int r_type) {
+    auto c = get_pconv_op_i(l_type, r_type);
+    std::cerr << "~~~~ get_pconv_op(" <<  type_name(l_type) << ", " << type_name(r_type) << "): "  << op_name(c) << "\n";
+    return c;
+}
+*/
 static 
 op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
     switch(r_type) {
