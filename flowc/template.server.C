@@ -1903,7 +1903,7 @@ int main(int argc, char *argv[]) {
 #endif
         std::cout << "\n";
         std::cout << "  GRPC-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IPv6):]PORT[s].\n";
-        std::cout << "                        Append 's' for secure connections. Set port to 0 allocate a random port. IP must be in IPv6 format.\n";
+        std::cout << "                        Append 's' for secure connections. Set port to 0 to allocate a random port. IP must be in IPv6 format.\n";
 #if !defined(NO_REST) || !(NO_REST)    
         std::cout << "  REST-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IP):]PORT[s|r]\n";
         std::cout << "                        Append 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n";
