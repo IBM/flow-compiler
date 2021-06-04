@@ -2034,6 +2034,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
             std::string fa_name = std::string(dimension(arg_node), '*')+cs_name("RS", rvn);
             icode.push_back(fop(RVF, fa_name, dimension(arg_node), dimension(arg_node)));
+            //icode.push_back(fop(RVF, fa_name, 0, 0));
             icode.push_back(fop(COPY, lv_name));
             assert(false);
         } break;
@@ -2284,7 +2285,8 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                 if(md != nullptr) {
                     icode.push_back(fop(CALL, rq_name, rs_name, md));
                 } else {
-                    icode.push_back(fop(RVF, rq_name, dimension(node)));
+                    // Dimension is set here to 0 as the reuests are already indexed
+                    icode.push_back(fop(RVF, rq_name, 0));
                     icode.push_back(fop(COPY, rs_name));
                 }
 
