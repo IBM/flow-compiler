@@ -601,8 +601,9 @@ static std::string cpp_left_stem(std::string const &name) {
     return ".";
 }
 static 
-std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::string const &name, int node_dim, accessor_type at, std::string *stem = nullptr) {
-    if(name.length() <= 1) return name;
+std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::string const &pseu_name, int node_dim, accessor_type at, std::string *stem = nullptr) {
+    if(pseu_name.length() <= 1) return pseu_name;
+    std::string name = pseu_name;
     std::string var = std::string(node_dim, 'v');
     std::string fname;
     int ic = 0, fc = 0;

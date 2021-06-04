@@ -1759,7 +1759,8 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                     if(dimension(fields[1]) == 0) {
                         icode.push_back(fop(RVC, "1", fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
                     } else {
-                        icode.push_back(fop(SVF, fldx_mname(fields[1], 1000), dimension(at(fields[1]).children[0])));
+                        std::string name = fldx_mname(fields[1], 1000);
+                        icode.push_back(fop(SVF, name.substr(0, name.length()-1), dimension(at(fields[1]).children[0])));
                     }
                     break;
                 case FTK_DOLLAR:
