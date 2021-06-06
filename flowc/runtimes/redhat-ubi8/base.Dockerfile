@@ -1,6 +1,6 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.13
-ARG GRPC_VERSION=1.36.4
+ARG CIVETWEB_VERSION=1.14
+ARG GRPC_VERSION=1.38.0
 ARG CARES_VERSION=1.16.1
 
 user root
@@ -34,7 +34,16 @@ RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd 
     mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
     && find /tmp/grpc -name lib\*.a | while read A; do cp -n $A /usr/local/lib; done \
     && find /tmp/grpc -name \*_plugin | while read A; do cp -n $A /usr/local/bin; done \
+    && cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ \
     && cd /tmp && rm -fr grpc
+
+
+#    && find /tmp/grpc/third_party/abseil-cpp -name lib\*.a | while read A; do cp -n $A /usr/local/lib64; done \
+#    && find /tmp/grpc/third_party/abseil-cpp -name lib\*.so | while read A; do cp -n $A /usr/local/lib64; done \
+
+## Fix for grpc 1.36+
+RUN cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done \
+ && cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done
 
 # version before 1.30
 #RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \

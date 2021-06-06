@@ -1,5 +1,5 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.13
+ARG CIVETWEB_VERSION=1.14
 ARG GRPC_VERSION=1.36.4
 ARG CARES_VERSION=1.16.1
 
@@ -31,6 +31,10 @@ USER root
 # version after 1.30
 RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
     mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF ../.. && make -j$(nproc) && make install && cd /tmp && rm -fr grpc
+
+## Fix for grpc 1.36+
+RUN cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done \
+ && cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done
 
 # version before 1.30
 #RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
