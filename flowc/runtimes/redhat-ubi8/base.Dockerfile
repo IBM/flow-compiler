@@ -30,20 +30,20 @@ ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl"
 USER root
 
 ## Build and install grpc for C++
-RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
-    mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
-    && find /tmp/grpc -name lib\*.a | while read A; do cp -n $A /usr/local/lib; done \
-    && find /tmp/grpc -name \*_plugin | while read A; do cp -n $A /usr/local/bin; done \
-    && cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ \
-    && cd /tmp && rm -fr grpc
-
-
-#    && find /tmp/grpc/third_party/abseil-cpp -name lib\*.a | while read A; do cp -n $A /usr/local/lib64; done \
-#    && find /tmp/grpc/third_party/abseil-cpp -name lib\*.so | while read A; do cp -n $A /usr/local/lib64; done \
+RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init \
+    && mkdir -p cmake/build && pushd cmake/build \
+    && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
+    && cmake -DgRPC_BUILD_TESTS=ON ../.. && make -j$(nproc) grpc_cli && strip grpc_cli && cp grpc_cli /usr/local/bin \
+    && popd \
+    && mkdir -p third_party/abseil-cpp/cmake/build && cd third_party/abseil-cpp/cmake/build \
+    && cmake -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j$(nproc) && make install
 
 ## Fix for grpc 1.36+
-RUN cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done \
- && cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done
+RUN  cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
+     cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done && \
+     cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done
+
+RUN  cd /tmp && rm -fr grpc
 
 # version before 1.30
 #RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
