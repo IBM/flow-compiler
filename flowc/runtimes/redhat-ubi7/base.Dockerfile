@@ -2,6 +2,7 @@ FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.12
 ARG GRPC_VERSION=1.28.1
 ARG CARES_VERSION=1.16.0
+ARG GFLAGS_VERSION=v2.2.2
 
 user root
 
@@ -18,17 +19,23 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
+RUN curl -L https://github.com/Kitware/CMake/releases/download/v3.14.1/cmake-3.14.1-Linux-x86_64.sh -o cmake.sh \
+  && chmod 755 cmake.sh && ./cmake.sh --skip-license --prefix=/usr/local && rm -f cmake.sh
+
+RUN cd /tmp && git clone -b ${GFLAGS_VERSION} https://github.com/gflags/gflags.git && \
+    cd gflags && mkdir build && cd build && \
+    cmake -D CMAKE_BUILD_TYPE=Release -D GFLAGS_BUILD_SHARED_LIBS=ON -D GFLAGS_BUILD_STATIC_LIBS=OFF -D GFLAGS_BUILD_TESTING=ON .. && \
+    make -j$(nproc) && make install && cd /tmp && rm -fr gflags
+
 ## Build and install grpc for C++
 ## Find the version with curl -L https://grpc.io/release
 
 RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
-    make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make install && cd /tmp/grpc/third_party/protobuf && make install && cd /tmp && rm -fr grpc 
+    make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make -j$(nproc) grpc_cli && make install && \
+    find . -name grpc_cli | while read F; do cp $F /usr/local/bin; done && \
+    cd /tmp/grpc/third_party/protobuf && make install \
+    && cd /tmp && rm -fr grpc 
 
-# RUN make -j$(nproc) && make -j$(nproc) grpc_cli && make install && cd third_party/protobuf && make install && ldconfig
-
-# RUN cp /var/local/git/grpc/bins/opt/grpc_cli /usr/local/bin/
-#RUN cp /var/local/git/grpc/bins/opt/protobuf/protoc /usr/local/bin/
-#RUN strip /usr/local/lib/*.so* && find /usr/local/bin/ -type f ! -name "*.sh" -exec strip {} \;
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib64/pkgconfig
 RUN ldconfig /usr/local/lib
 

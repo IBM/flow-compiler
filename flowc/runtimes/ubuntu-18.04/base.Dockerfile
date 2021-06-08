@@ -12,7 +12,9 @@ RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install
 ## Build and install grpc for C++
 
 RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
-    make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make install && cd /tmp/grpc/third_party/protobuf && make install && cd /tmp && rm -fr grpc 
+    make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make -j$(nproc) grpc_cli && make install && \
+    find . -name grpc_cli | while read F; do cp $F /usr/local/bin; done && \
+    cd /tmp/grpc/third_party/protobuf && make install && cd /tmp && rm -fr grpc 
 
 USER worker
 WORKDIR /home/worker
