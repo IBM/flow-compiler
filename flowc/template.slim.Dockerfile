@@ -3,6 +3,7 @@ RUN tar -cf /home/worker/bin.tar {{NAME}}/*
 RUN mkdir -p /home/worker/lib && chown -R worker:worker /home/worker/lib
 RUN ldd /home/worker/{{NAME}}/{{NAME}}-server 2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
 RUN ldd /home/worker/{{NAME}}/{{NAME}}-client 2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//' >> needed-libs-a.txt
+RUN find /usr -name grpc_cli | while read BF; do ldd $BF 2>/dev/null | grep -E -o '/.*\(0x[0-9A-Fa-f]+\)$' | sed -E -e 's/\s+\(0x[0-9A-Fa-f]+\)$//'; done >> needed-libs-a.txt
 RUN sort -u needed-libs-a.txt | while read F; do cp "$F" /home/worker/lib; done 
 RUN tar -cf /home/worker/so.tar lib/*
 
@@ -72,7 +73,7 @@ do\n\
     done\n\
 done\n\
 ' > install.sh && chown -R worker:worker install.sh && chmod a+x install.sh
-RUN ./install.sh /home/worker/{{NAME}}/{{NAME}}-server && ./install.sh /home/worker/{{NAME}}/{{NAME}}-client && rm -fr /home/worker/lib
+RUN ./install.sh /usr/bin/grpc_cli && ./install.sh /home/worker/{{NAME}}/{{NAME}}-server && ./install.sh /home/worker/{{NAME}}/{{NAME}}-client && rm -fr /home/worker/lib
 USER worker
 WORKDIR /home/worker/{{NAME}}
 ENV GRPC_POLL_STRATEGY "poll"
