@@ -1795,7 +1795,7 @@ static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filen
     return error_count;
 }
 // returns: 0 OK, 1 error, 2 show help, 3 show config
-static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg) {
+static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int min_args=1) {
     int uac = 0, a = 1, rc = 0;
     while(a < argc) {
         if(strcmp(argv[a], "--help") == 0) {
@@ -1822,12 +1822,14 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg) {
                 case 1:
                     cfg.push_back("grpc_listening_ports");
                     break;
+#if !defined(NO_REST)
                 case 2:
                     cfg.push_back("rest_listening_ports");
                     break;
                 case 3:
                     cfg.push_back("webapp_directory");
                     break;
+#endif
                 default:
                     return 1;
             }
@@ -1838,7 +1840,7 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg) {
             return 1;
         }
     }
-    return rc;
+    return uac < min_args? 1: rc;
 }
 static int parse_listening_port_list(std::set<std::string> &list, std::string const &slist) {
     std::set<std::string> dnames, dendpoints;
@@ -1881,11 +1883,6 @@ static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const
         out << cfg[c] << "=" << cfg[c+1] << "\n";
     return out;
 }
-#if !defined(NO_REST) || !(NO_REST)    
-#define MAX_ARGC 4
-#else
-#define MAX_ARGC 2
-#endif
 int main(int argc, char *argv[]) {
 #if !defined(NO_REST) || !(NO_REST)    
     std::cout << "{{NAME}} gRPC/REST server" << std::endl;
@@ -1894,7 +1891,7 @@ int main(int argc, char *argv[]) {
 #endif
     std::vector<std::string> cfg;
     int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
-    if(argc < 2 || flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg)) == 1 || cmd == 2 || argc > MAX_ARGC) {
+    if(flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, 1)) == 1 || cmd == 2) {
         flowc::print_banner(std::cout);
 #if !defined(NO_REST) || !(NO_REST)    
         std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
@@ -1917,19 +1914,19 @@ int main(int argc, char *argv[]) {
 #if !defined(NO_REST) || !(NO_REST)    
         std::cout << "   --enable-webapp     TRUE/FALSE   Set to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n";
 #endif
-        std::cout << "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to used the default gRPC value.\n";
+        std::cout << "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to use the default gRPC value.\n";
         std::cout << "   --grpc-ssl-certificate  FILE     Full path to a .pem file with the ssl certificate. Default is {{NAME}}-grpc.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "   --help                           Show this screen and exit\n";
-        std::cout << "   --server-id         STRING       String to used as an idendifier for this server. If not set a random string will automatically be generated.\n";
-        std::cout << "   --send-id           TRUE/FALSE   Set to 0 to disable sending the node id in replies. Enabled by default.\n";
-        std::cout << "   --ssl-certificate   FILE         Full path to a .pem file with the ssl certificates to be used by either gRPC or REST\n";
+        std::cout << "   --server-id         STRING       String to use as an idendifier for this server. If not set a random string will automatically be generated.\n";
+        std::cout << "   --send-id           TRUE/FALSE   Set to false to disable sending the node id in replies. Enabled by default.\n";
+        std::cout << "   --ssl-certificate   FILE         Full path to a .pem file with the SSL certificates to be used by either gRPC or REST\n";
         std::cout << "   --trace-calls       TRUE/FALSE   Enable trace mode\n";
         std::cout << "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node calls\n";
         std::cout << "\n";
 #if !defined(NO_REST) || !(NO_REST)    
         std::cout << "REST Options:\n";
         std::cout << "   --rest-num-threads  NUMBER       Number of threads to run in the REST server. Default is " << DEFAULT_REST_THREADS << ".\n";
-        std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the ssl certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n";
+        std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the SSL certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n";
         std::cout << "\n";
 #endif
         std::cout << "Node Options:\n";
