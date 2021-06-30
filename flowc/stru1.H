@@ -257,9 +257,10 @@ std::string to_lower(std::string const &s) {
     return u;
 }
 inline static
-std::string to_option(std::string const &s) {
+std::string to_option(std::string const &s, bool lower=true) {
     std::string u(s);
-    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    if(lower)
+        std::transform(s.begin(), s.end(), u.begin(), ::tolower);
     for(auto &c: u) if(c == '_')  c = '-';
     return u;
 }

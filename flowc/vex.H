@@ -50,9 +50,9 @@ cmap<Ts...> make_cmap(Ts&&... args) {
  */
 struct amap {
     /**
-     * If the variable is found true and the value corresponding to the index should be returned.
-     * If the index is out of range the first value should be returned.
-     * If the varaible is not found, false and an empty string must be returned.
+     * Return the value corresponding to the index and true if the value is found
+     * Return the first value if the index is out of range.
+     * If the variable is not found, return false and an empty string.
      */
     virtual std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
         return std::make_pair(false, std::string());
@@ -386,7 +386,7 @@ struct macro_parser {
                 } else if(transf == "upper") {
                     value = stru1::to_upper(value);
                 } else if(transf == "option" || transf == "cname") {
-                    value = stru1::to_option(value);
+                    value = stru1::to_option(value, false);
                 } else if(transf == "id" || transf == "identifier") {
                     value = stru1::to_identifier(value);
                 } else if(transf == "html") {
