@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
-BUILD_VERSION=0.15.0
+BUILD_VERSION=0.15.1
 
 DBG?=no
 ifeq ($(DBG), yes) 
