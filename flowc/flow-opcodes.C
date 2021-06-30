@@ -33,6 +33,7 @@ char const *op_name(op o) {
         case RVF:  return "RVF ";      
         case SVF:  return "SVF ";      
         case RVC:  return "RVC ";      
+        case RVV:  return "RVV ";      
         case COFI: return "COFI";    
         case COFS: return "COFS";   
         case COFB: return "COFB";  

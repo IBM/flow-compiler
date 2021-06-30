@@ -65,6 +65,7 @@ enum op {
     RVF,            // Right value field
     SVF,            // Right value repeated field size
     RVC,            // Right value constant
+    RVV,            // Right value variable
 
     CON1,           // Conversion NOP 1
 
