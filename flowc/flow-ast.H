@@ -81,8 +81,9 @@ struct flow_ast {
      */
     std::vector<std::pair<int, std::string>> syntax_errors;
 
-    int define_var(std::string const &name, int node) {
-        return defines[name] = node;
+    int define_var(std::string const &var_name, int node) {
+        name.put(node, var_name);
+        return defines[var_name] = node;
     }
     int lookup_var(std::string const &name) const {
         auto f = defines.find(name); 
