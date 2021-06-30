@@ -48,7 +48,19 @@ extern char **environ;
 extern "C" {
 #include <civetweb.h>
 }
-
+namespace flowrt {
+static inline 
+std::string getenv(std::string const &name, std::string const &default_v="") {
+    auto v = ::getenv(name.c_str());
+    return v == nullptr? default_v: std::string(v);
+}
+}
+{H:HAVE_DEFN{namespace flowdef {
+{I:DEFN{    {{DEFD/ccom}}
+    std::string {{DEFN}} = flowrt::getenv("{{NAME/id/upper}}_FD_{{DEFN/upper}}", "{{DEFV}}");
+}I}
+}
+}H}
 namespace flowrt {
 static inline
 int next_utf8_cp(std::string const &s, int bpos = 0) {
@@ -1688,7 +1700,11 @@ static bool check_entry_option(std::string const &opt) {
     }
     return false;
 }
-static std::set<std::string> valid_options = {"grpc_listening_ports", "webapp_directory", "enable_webapp", "async_calls", "trace_calls", "server_id", "send_id", "cares_refresh", "grpc_num_threads", "trace_connections", "accumulate_addresses", "ssl_certificate", "grpc_ssl_certificate"};
+static std::set<std::string> valid_options = {"grpc_listening_ports", "webapp_directory", "enable_webapp", "async_calls", 
+    "trace_calls", "server_id", "send_id", "cares_refresh", "grpc_num_threads", 
+    "trace_connections", "accumulate_addresses", "ssl_certificate", "grpc_ssl_certificate",
+{I:DEFN{"fd_{{DEFN}}", }I}
+};
 static bool check_option(std::string const &opt, bool print_message, std::string const &location="") {
     if(opt.substr(0, strlen("rest_")) == "rest_") {
 #if !defined(NO_REST) || !(NO_REST)    
@@ -1893,66 +1909,81 @@ int main(int argc, char *argv[]) {
     int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
     if(flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, 1)) == 1 || cmd == 2) {
         flowc::print_banner(std::cout);
+        std::cout <<
 #if !defined(NO_REST) || !(NO_REST)    
-        std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n";
+        "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n"
 #else
-        std::cout << "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [OPTIONS]\n";
+        "Usage: " << argv[0] << " GRPC-LISTENING-PORTS [OPTIONS]\n"
 #endif
-        std::cout << "\n";
-        std::cout << "  GRPC-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IPv6):]PORT[s].\n";
-        std::cout << "                        Append 's' for secure connections. Set port to 0 to allocate a random port. IP must be in IPv6 format.\n";
+        "\n"
+        "  GRPC-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IPv6):]PORT[s].\n"
+        "                        Append 's' for secure connections. Set port to 0 to allocate a random port. IP must be in IPv6 format.\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        std::cout << "  REST-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IP):]PORT[s|r]\n";
-        std::cout << "                        Append 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n";
-        std::cout << "  WEBAPP-DRIRECTORY     Directory with webapp content\n";
+        "  REST-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IP):]PORT[s|r]\n"
+        "                        Append 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n"
+        "  WEBAPP-DRIRECTORY     Directory with webapp content\n"
 #endif
-        std::cout << "\n";
-        std::cout << "Options:\n";
-        std::cout << "   --async-calls       TRUE/FALSE   Set to false to disable asynchronous client calls. Default is enabled.\n";
-        std::cout << "   --cares-refresh     SECONDS      Set the number of seconds between DNS lookup calls. Default is " << DEFAULT_CARES_REFRESH << " seconds.\n";
-        std::cout << "   --cfg                            Display current configuration and exit\n";
+        "\n"
+        "Options:\n"
+        "   --async-calls       TRUE/FALSE   Set to false to disable asynchronous client calls. Default is enabled.\n"
+        "   --cares-refresh     SECONDS      Set the number of seconds between DNS lookup calls. Default is " << DEFAULT_CARES_REFRESH << " seconds.\n"
+        "   --cfg                            Display current configuration and exit\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        std::cout << "   --enable-webapp     TRUE/FALSE   Set to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n";
+        "   --enable-webapp     TRUE/FALSE   Set to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n"
 #endif
-        std::cout << "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to use the default gRPC value.\n";
-        std::cout << "   --grpc-ssl-certificate  FILE     Full path to a .pem file with the ssl certificate. Default is {{NAME}}-grpc.pem and {{NAME}}.pem in the current directory.\n";
-        std::cout << "   --help                           Show this screen and exit\n";
-        std::cout << "   --server-id         STRING       String to use as an idendifier for this server. If not set a random string will automatically be generated.\n";
-        std::cout << "   --send-id           TRUE/FALSE   Set to false to disable sending the node id in replies. Enabled by default.\n";
-        std::cout << "   --ssl-certificate   FILE         Full path to a .pem file with the SSL certificates to be used by either gRPC or REST\n";
-        std::cout << "   --trace-calls       TRUE/FALSE   Enable trace mode\n";
-        std::cout << "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node calls\n";
-        std::cout << "\n";
+        "   --grpc-num-threads  NUMBER       Number of threads to run in the gRPC server. Set to 0 to use the default gRPC value.\n"
+        "   --grpc-ssl-certificate  FILE     Full path to a .pem file with the ssl certificate. Default is {{NAME}}-grpc.pem and {{NAME}}.pem in the current directory.\n"
+        "   --help                           Show this screen and exit\n"
+        "   --server-id         STRING       String to use as an idendifier for this server. If not set a random string will automatically be generated.\n"
+        "   --send-id           TRUE/FALSE   Set to false to disable sending the node id in replies. Enabled by default.\n"
+        "   --ssl-certificate   FILE         Full path to a .pem file with the SSL certificates to be used by either gRPC or REST\n"
+        "   --trace-calls       TRUE/FALSE   Enable trace mode\n"
+        "   --trace-connectios  TRUE/FALSE   Enable the trace flag in all node calls\n"
+        "\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        std::cout << "REST Options:\n";
-        std::cout << "   --rest-num-threads  NUMBER       Number of threads to run in the REST server. Default is " << DEFAULT_REST_THREADS << ".\n";
-        std::cout << "   --rest-ssl-certificate  FILE     Full path to a .pem file with the SSL certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n";
-        std::cout << "\n";
+        "REST Options:\n"
+        "   --rest-num-threads  NUMBER       Number of threads to run in the REST server. Default is " << DEFAULT_REST_THREADS << ".\n"
+        "   --rest-ssl-certificate  FILE     Full path to a .pem file with the SSL certificates. Default is {{NAME}}-rest.pem and {{NAME}}.pem in the current directory.\n"
+        "\n"
 #endif
-        std::cout << "Node Options:\n";
+        "Node Options:\n"
 {I:CLI_NODE_NAME{    
-        std::cout << "   --node-{{CLI_NODE_NAME/lower/option}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
-        std::cout << "   --node-{{CLI_NODE_NAME/lower/option}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n";
-        std::cout << "   --node-{{CLI_NODE_NAME/lower/option}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_NAME/lower/id}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << ".\n";
-        std::cout << "   --node-{{CLI_NODE_NAME/lower/option}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_NAME/id/lower}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << ".\n";
-        std::cout << "   --node-{{CLI_NODE_NAME/lower/option}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_NAME/id/lower}}\n";
+        "   --node-{{CLI_NODE_NAME/lower/option}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_NAME/lower/id}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << ".\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_NAME/id/lower}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << ".\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_NAME/id/lower}}\n"
 }I}
-        std::cout << "\n";
-        std::cout << "Entry Options:\n";
-{I:ENTRY_NAME{    std::cout << "    --entry-{{ENTRY_NAME/option}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Defaults is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n";
+        "\n"
+        "Entry Options:\n"
+{I:ENTRY_NAME{    "   --entry-{{ENTRY_NAME/option}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Default is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n"
 }I}
-        std::cout << "\n";
-        std::cout << "All options can be set in the file {{NAME}}.cfg.\n";
-        std::cout << "Additionally options can be set in environment variables prefixed with '{{NAME/id/upper}}_'.\n";
-        std::cout << "\n";
-        std::cout << "Note *\n";
-        std::cout << "Node endpoints in the form HOST:PORT will be sent directly to the gRPC interface.\n";
-        std::cout << "Node endpoints in the form @HOST:PORT will be looked up every 30 seconds to produce an IP list used with the gRPC calls.\n";
-        std::cout << "Node endpoints in the form (command) will run command every 30 seconds to produce the IP list to be used with the gRPC calls.\n";
-        std::cout << "\n";
-        std::cout << "\n";
+{H:HAVE_DEFN{
+        "\n"
+        "Global Defines:\n"
+{I:DEFN{   
+        "   --fd-{{DEFN/option}}  {{DEFT}}\t {{DEFD}} (" << flowdef::{{DEFN}} << ")\n"
+}I}
+}H}
+        "\n"
+        "All options can be set in the file {{NAME}}.cfg.\n"
+        "Additionally options can be set in environment variables prefixed with '{{NAME/id/upper}}_'.\n"
+        "\n"
+        "Note *\n"
+        "Node endpoints in the form HOST:PORT will be sent directly to the gRPC interface.\n"
+        "Node endpoints in the form @HOST:PORT will be looked up every 30 seconds to produce an IP list used with the gRPC calls.\n"
+        "Node endpoints in the form (command) will run command every 30 seconds to produce the IP list to be used with the gRPC calls.\n"
+        "\n"
+        "\n"
+        ;
         return cmd == 1? 1 :0;
     }
+
+{I:DEFN{   
+    if(flowc::get_cfg(cfg, "fd_{{DEFN}}") != nullptr)
+        flowdef::{{DEFN}} = flowc::get_cfg(cfg, "fd_{{DEFN}}");
+}I}
+
 
     // Use the default grpc health checking service
 	//grpc::EnableDefaultHealthCheckService(true);
