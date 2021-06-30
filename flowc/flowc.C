@@ -324,6 +324,19 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
 
     /*******************************************************************
+     * Set global level defines
+     */
+    clear(global_vars, "HAVE_DEFN");
+    for(int i: find_nodes(ast_root(), {FTK_DEFINE})) {
+        auto &defn = at(i);
+        append(global_vars, "DEFN", get_id(defn.children[0]));
+        append(global_vars, "DEFV", get_value(defn.children[1]));
+        append(global_vars, "DEFD", description(defn.children[0]));
+        append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": "NUMBER");
+        set(global_vars, "HAVE_DEFN", "");
+    }
+
+    /*******************************************************************
      * Override some of the vars set at compile time
      */
     base_port = opts.opti("base-port", base_port);
@@ -504,10 +517,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             std::string group_name = ni.group;
             append(global_vars, "NODE_GROUP", group_name);
             append(group_vars[group_name], "G_NODE_GROUP", group_name);
-            //append(group_vars[group_name], "G_NODE_GROUP_UPPER", to_upper(to_underscore(group_name)));
             append(group_vars[group_name], "G_NODE_NAME", nn);
-            //append(group_vars[group_name], "G_NODE_OPTION", to_option(nn));
-            //append(group_vars[group_name], "G_NODE_SERVICE", sfmt() << to_option(orchestrator_name) << "-" << group_name);
 
             pv = ni.port;
             append(global_vars, "IMAGE_PORT", std::to_string(pv));
@@ -768,8 +778,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(global_vars, "VOLUME_NAME", vn);
         append(global_vars, "VOLUME_LOCAL", mip.second.local);
         append(global_vars, "VOLUME_COS", mip.second.cos);
-        append(global_vars, "VOLUME_SECRET", to_option(mip.second.secret));
-        append(global_vars, "VOLUME_PVC", to_option(mip.second.pvc));
+        append(global_vars, "VOLUME_SECRET", mip.second.secret);
+        append(global_vars, "VOLUME_PVC", mip.second.pvc);
         append(global_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
 
         auto cp = comments.find(vn);
