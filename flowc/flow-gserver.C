@@ -1148,6 +1148,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 tvl.push_back(std::make_pair(rvl, 0));
                 break;
 
+            case RVV: 
+                tvl.push_back(std::make_pair("flowdef::"+op.arg1, 0));
+                break;
+
             case SVF:
                 rvl = cpp_var(loop_c, op.arg1, op.arg[0], SIZE);
                 tvl.push_back(std::make_pair(rvl, 0));
@@ -1314,8 +1318,11 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         }
         sdp = mdp->service();
         std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node), true, true);
+        std::map<std::string, int> defsn;
+        error_count += get_nv_block(defsn, entry_node, "defaults", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
         std::map<std::string, std::string> defs;
-        error_count += get_nv_block(defs, entry_node, "defaults", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+        for(auto d: defsn)
+            defs[d.first] = get_value(d.second);
         std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
@@ -1406,8 +1413,12 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         std::string set_metadata;
         if(rn.second.headers.size() > 0) {
             std::vector<std::string> metadata;
-            for(auto const &hnv: rn.second.headers) 
-                metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", " << c_escape(hnv.second) << ");");
+            for(auto const &hnv: rn.second.headers) {
+                if(name.has(hnv.second)) 
+                    metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", flowdef::" << name(hnv.second) << ");");
+                else
+                    metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", " << c_escape(get_string(hnv.second)) << ");");
+            }
             
             set_metadata = join(metadata, " ", " ", "{", "", "", "}");
         }

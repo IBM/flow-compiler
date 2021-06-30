@@ -453,6 +453,8 @@ static const std::map<std::string, function_info> function_table = {
     { "last",     { -1,          { -FTK_ACCEPT }, 1}},
     // string join(elements, separator, last_separator)
     { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1}},
+    // string getenv(name, default_value)
+    { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
 };
 
 int flow_compiler::compile_fldr(int fldr_node) {
@@ -474,6 +476,7 @@ int flow_compiler::compile_fldr(int fldr_node) {
             case FTK_enum: 
 
             break;
+
             default:
                 MASSERT(false) << "did not set value type for: " << fldr.children[n] << ":" << at(fldr.children[n]).type << "\n";
         }
@@ -509,10 +512,12 @@ int flow_compiler::compile_fldr(int fldr_node) {
             assert(fldr.children.size() == 2);
             value_type.put(fldr_node, FTK_INTEGER);
             break;
+            /*
         case FTK_DOLLAR:
             assert(fldr.children.size() == 2);
             value_type.put(fldr_node, FTK_STRING);
             break;
+            */
         case FTK_PLUS: case FTK_MINUS: case FTK_SLASH: case FTK_STAR: case FTK_PERCENT: 
             assert(fldr.children.size() == 3);
             if(value_type.has(fldr.children[1])) 
@@ -769,9 +774,11 @@ int flow_compiler::update_dimensions(int node) {
                 case FTK_BANG:
                     dimension.put(node, std::max(0, dimension(children[1])));
                     break;
+                    /*
                 case FTK_DOLLAR:
                     dimension.put(node, 0);
                     break;
+                    */
                 case FTK_COMP:
                 case FTK_EQ: case FTK_NE: case FTK_LE: case FTK_GE: case FTK_LT: case FTK_GT:
                 case FTK_AND: case FTK_OR:
@@ -1785,11 +1792,11 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                         icode.push_back(fop(SVF, name.substr(0, name.length()-1), dimension(at(fields[1]).children[0])));
                     }
                     break;
+                    /*
                 case FTK_DOLLAR:
-                    //error_count += encode_expression(fields[1], FTK_STRING);
-                    //icode.push_back(fop(FUNC, "op_dollar", 1, 0));
-                    icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                    icode.push_back(fop(RVV, get_id(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
                     break;
+                    */
                 case FTK_BANG:
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     icode.push_back(fop(IOP, "!", 1, op_precedence));
@@ -1877,13 +1884,22 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
             icode.push_back(fop(RVF, fldx_mname(fldr_node, 1000), dimension(fields[0])));
             break;
         case FTK_STRING: 
-            icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+            if(name.has(fldr_node)) 
+                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+            else
+                icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
             break;
         case FTK_INTEGER: 
-            icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
+            if(name.has(fldr_node)) 
+                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+            else
+                icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
             break;
         case FTK_FLOAT: 
-            icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE));
+            if(name.has(fldr_node)) 
+                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+            else
+                icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE));
             break;
         case FTK_enum: 
             icode.push_back(fop(RVC, std::to_string(enum_descriptor(fldr_node)->number() == 0)));

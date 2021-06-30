@@ -178,7 +178,7 @@ int flow_compiler::add_to_proto_path(std::string const &directory) {
     protocc += "-I"; protocc += directory; protocc += " ";
     return 0;
 }
-int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
+int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
     int error_count = 0;
     int old_value = 0;
     for(int p = 0, v = find_in_blck(parent_block, block_label, &p); v != 0; v = find_in_blck(parent_block, block_label, &p)) {
@@ -198,7 +198,7 @@ int flow_compiler::get_nv_block(std::map<std::string, std::string> &nvs, int par
                 pcerr.AddError(main_file, at(nv.second), sfmt() << "value for \"" << nv.first << "\" must be of type " << join(accepted, ", ", " or "));
                 continue;
             }
-            nvs[nv.first] = get_value(nv.second); 
+            nvs[nv.first] = nv.second; 
         }
         old_value = v;
     }
@@ -651,8 +651,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             old_value = 0;
             ni.environment.clear();
-            if(!external_node)
-                error_count += get_nv_block(ni.environment, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+            if(!external_node) {
+                std::map<std::string, int> env;
+                error_count += get_nv_block(env, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+                for(auto a: env)
+                    ni.environment[a.first] = get_value(a.second);
+            }
         }
         // Avoid group name collision
         set(global_vars, "MAIN_POD", "main");

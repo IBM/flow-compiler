@@ -59,7 +59,7 @@ struct node_info {
     int order;              // Order in which the nodes are evaluated, 0 is last
     bool no_call;           // If true, there is no gRPC service associated with this node
                             // Extra headers to be set as metadata 
-    std::map<std::string, std::string> headers;
+    std::map<std::string, int> headers;
                             // External endpoint for this service 
     std::string external_endpoint;
     std::string image_name; // Docker tag for the image
@@ -335,7 +335,7 @@ public:
     // do not match any of the accepted types.
     int get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
-    int get_nv_block(std::map<std::string, std::string> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types);
+    int get_nv_block(std::map<std::string, int> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types);
 
     // Code generation for:
     // C++ client
