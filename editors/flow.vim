@@ -32,7 +32,8 @@ syn match   protoInt     /-\?\<\d\+\>/
 syn match   protoInt     /\<0[xX]\x+\>/
 syn match   protoFloat   /\<-\?\d*\(\.\d*\)\?/
 syn match   protoStructure /[A-Za-z][A-Za-z0-9_]*[@!~$#%&^]/
-syn match   flowInternal /[~][A-Za-z][A-Za-z0-9]*/
+syn match   flowInternal /[~][A-Za-z][A-Za-z0-9_]*/
+syn match   flowExternal /[$][A-Za-z][A-Za-z0-9_]*/
 syn region  protoComment start="\/\*" end="\*\/" contains=@protoCommentGrp
 syn region  protoComment start="//" skip="\\$" end="$" keepend contains=@protoCommentGrp
 syn region  protoString  start=/"/ skip=/\\./ end=/"/
@@ -52,6 +53,7 @@ hi def link protoRPC          Keyword
 hi def link protoType         Type
 hi def link protoTypedef      Typedef
 hi def link flowInternal      Function
+hi def link flowExternal      Include
 hi def link protoBool         Boolean
 
 hi def link protoInt          Number
