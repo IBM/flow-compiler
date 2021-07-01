@@ -33,14 +33,13 @@ RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd 
     && cmake -DgRPC_BUILD_TESTS=ON ../.. && make -j$(nproc) grpc_cli && strip grpc_cli && cp grpc_cli /usr/local/bin \
     && popd \
     && mkdir -p third_party/abseil-cpp/cmake/build && cd third_party/abseil-cpp/cmake/build \
-    && cmake -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j$(nproc) && make install
-
-## Fix for grpc 1.36+
-RUN  cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
+    && cmake -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j$(nproc) && make install \
+    && \
+     cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
      cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done && \
-     cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done
-
-RUN  cd /tmp && rm -fr grpc
+     cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done \
+    && \
+    cd /tmp && rm -fr grpc
 
 # version before 1.30
 #RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
