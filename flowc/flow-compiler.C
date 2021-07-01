@@ -1792,11 +1792,6 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                         icode.push_back(fop(SVF, name.substr(0, name.length()-1), dimension(at(fields[1]).children[0])));
                     }
                     break;
-                    /*
-                case FTK_DOLLAR:
-                    icode.push_back(fop(RVV, get_id(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
-                    break;
-                    */
                 case FTK_BANG:
                     error_count += encode_expression(fields[1], FTK_INTEGER);
                     icode.push_back(fop(IOP, "!", 1, op_precedence));
@@ -1891,13 +1886,13 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
             break;
         case FTK_INTEGER: 
             if(name.has(fldr_node)) 
-                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
             else
                 icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_INT64));
             break;
         case FTK_FLOAT: 
             if(name.has(fldr_node)) 
-                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                icode.push_back(fop(RVV, name(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE));
             else
                 icode.push_back(fop(RVC, get_value(fldr_node), fldr_node, google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE));
             break;
@@ -2086,6 +2081,8 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
                     if(enum_descriptor.has(arg_node)) 
                         icode.push_back(fop(RVC, enum_descriptor(arg_node)->name(), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
+                    else if(name.has(arg_node)) 
+                        icode.push_back(fop(RVV, name(arg_node), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
                     else
                         icode.push_back(fop(RVC, get_value(arg_node), arg_node, (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING));
                 break;
@@ -2110,6 +2107,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             }
                         }
                     } else if(at(arg_node).type == FTK_STRING) {
+                        // TODO - add conversion from variable to enum
                         auto evd = lvd.enum_descriptor()->FindValueByName(get_value(arg_node));
                         if(evd != nullptr) {
                             icode.push_back(fop(RVC, evd->name(), arg_node, lvd.grpc_type()));
@@ -2121,6 +2119,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
                     } else {
                         int number = at(arg_node).type == FTK_INTEGER? (int) get_integer(arg_node): (int) get_float(arg_node);
+                        // TODO - add conversion from variable to enum
                         auto evd = lvd.enum_descriptor()->FindValueByNumber(number);
                         if(evd != nullptr) {
                             icode.push_back(fop(RVC, evd->name(), arg_node, lvd.grpc_type()));
@@ -2133,13 +2132,14 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 break;
 
                 case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
-                    if(enum_descriptor.has(arg_node)) {
+                    if(name.has(arg_node)) {
+                        icode.push_back(fop(RVV, name(arg_node), arg_node, lvd.grpc_type()));
+                     } else if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number() != 0), arg_node, lvd.grpc_type()));
                     } else {
                         icode.push_back(fop(RVC, std::to_string(string_to_bool(get_value(arg_node))), arg_node, lvd.grpc_type()));
                     }
                 break;
-
 
                 case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
                 case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
@@ -2156,7 +2156,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
                 case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
                 case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-                    if(enum_descriptor.has(arg_node)) {
+                    if(name.has(arg_node)) {
+                        icode.push_back(fop(RVV, name(arg_node), arg_node, lvd.grpc_type()));
+                    } else if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number()), arg_node, lvd.grpc_type()));
                     } else if(at(arg_node).type == FTK_STRING) {
                         pcerr.AddError(main_file, at(arg_node), sfmt() << "numeric value expected here");
