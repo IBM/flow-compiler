@@ -48,6 +48,20 @@ extern char **environ;
 extern "C" {
 #include <civetweb.h>
 }
+namespace flowc {
+inline static bool stringtobool(std::string const &s, bool default_value=false) {
+    if(s.empty()) return default_value;
+    std::string so(s.length(), ' ');
+    std::transform(s.begin(), s.end(), so.begin(), ::tolower);
+    if(so == "yes" || so == "y" || so == "t" || so == "true" || so == "on")
+        return true;
+    return std::atof(so.c_str()) != 0;
+}
+inline static bool strtobool(char const *s, bool default_value=false) {
+    if(s == nullptr || *s == '\0') return default_value;
+    return stringtobool(std::string(s), default_value);
+}
+}
 namespace flowrt {
 enum flow_type {INTEGER, FLOAT, STRING};
 static inline 
@@ -65,6 +79,7 @@ struct var<flowrt::INTEGER> {
     operator long () const { return value; }
     operator std::string () const { return std::to_string(value); }
     operator double () const { return value; }
+    operator bool () const { return value != 0; }
     var(std::string const &d) { set(d.c_str()); }
 };
 template  <>
@@ -74,6 +89,7 @@ struct var<flowrt::FLOAT> {
     operator long () const { return (long) value; }
     operator std::string () const { return std::to_string(value); }
     operator double () const { return value; }
+    operator bool () const { return value != 0; }
     var(std::string const &d) { set(d.c_str()); }
 };
 template <> 
@@ -83,6 +99,7 @@ struct var<flowrt::STRING> {
     operator long () const { return std::atol(value.c_str()); }
     operator std::string () const { return value; }
     operator double () const { return std::strtod(value.c_str(), nullptr); }
+    operator bool () const { return flowc::stringtobool(value); }
     var(std::string const &d) { set(d.c_str()); }
 };
 {I:DEFN{    {{DEFD/ccom}}
@@ -301,22 +318,6 @@ static std::string get_system_time() {
     static char const *seconds_format = sizeof(tv.tv_sec) == sizeof(long)?  "%s.%03ld": "%s.%03d";  
     snprintf(buf, sizeof(buf), seconds_format, tmbuf, tv.tv_usec/1000);
     return buf;
-}
-inline static bool stringtobool(std::string const &s, bool default_value=false) {
-    if(s.empty()) return default_value;
-    std::string so(s.length(), ' ');
-    std::transform(s.begin(), s.end(), so.begin(), ::tolower);
-    if(so == "yes" || so == "y" || so == "t" || so == "true" || so == "on")
-        return true;
-    return std::atof(so.c_str()) != 0;
-}
-inline static bool strtobool(char const *s, bool default_value=false) {
-    if(s == nullptr || *s == '\0') return default_value;
-    std::string so(s);
-    std::transform(so.begin(), so.end(), so.begin(), ::tolower);
-    if(so == "yes" || so == "y" || so == "t" || so == "true" || so == "on")
-        return true;
-    return std::atof(s) != 0;
 }
 inline static long strtolong(char const *s, long default_value=0) {
     if(s == nullptr || *s == '\0') return default_value;
