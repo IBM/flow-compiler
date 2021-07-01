@@ -49,6 +49,7 @@ extern "C" {
 #include <civetweb.h>
 }
 namespace flowrt {
+enum flow_type {INTEGER, FLOAT, STRING};
 static inline 
 std::string getenv(std::string const &name, std::string const &default_v="") {
     auto v = ::getenv(name.c_str());
@@ -56,8 +57,36 @@ std::string getenv(std::string const &name, std::string const &default_v="") {
 }
 }
 {H:HAVE_DEFN{namespace flowdef {
+template <flowrt::flow_type FT> struct var;
+template <> 
+struct var<flowrt::INTEGER> {
+    long value;
+    void set(char const *c) { if(c != nullptr) value = std::atol(c); }
+    operator long () const { return value; }
+    operator std::string () const { return std::to_string(value); }
+    operator double () const { return value; }
+    var(std::string const &d) { set(d.c_str()); }
+};
+template  <>
+struct var<flowrt::FLOAT> {
+    double value;
+    void set(char const *c) { if(c != nullptr) value = std::strtod(c, nullptr); }
+    operator long () const { return (long) value; }
+    operator std::string () const { return std::to_string(value); }
+    operator double () const { return value; }
+    var(std::string const &d) { set(d.c_str()); }
+};
+template <> 
+struct var<flowrt::STRING> {
+    std::string value;
+    void set(char const *c) { if(c != nullptr) value = c; }
+    operator long () const { return std::atol(value.c_str()); }
+    operator std::string () const { return value; }
+    operator double () const { return std::strtod(value.c_str(), nullptr); }
+    var(std::string const &d) { set(d.c_str()); }
+};
 {I:DEFN{    {{DEFD/ccom}}
-    std::string {{DEFN}} = flowrt::getenv("{{NAME/id/upper}}_FD_{{DEFN/upper}}", "{{DEFV}}");
+    var<flowrt::{{DEFT}}> {{DEFN}}(flowrt::getenv("{{NAME/id/upper}}_FD_{{DEFN/upper}}", {{DEFV/string}}));
 }I}
 }
 }H}
@@ -1962,7 +1991,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "Global Defines:\n"
 {I:DEFN{   
-        "   --fd-{{DEFN/option}}  {{DEFT}}\t {{DEFD}} (" << flowdef::{{DEFN}} << ")\n"
+        "   --fd-{{DEFN/option}}  {{DEFT}}\t {{DEFD}} (" << flowdef::{{DEFN}}.value << ")\n"
 }I}
 }H}
         "\n"
@@ -1978,12 +2007,9 @@ int main(int argc, char *argv[]) {
         ;
         return cmd == 1? 1 :0;
     }
-
 {I:DEFN{   
-    if(flowc::get_cfg(cfg, "fd_{{DEFN}}") != nullptr)
-        flowdef::{{DEFN}} = flowc::get_cfg(cfg, "fd_{{DEFN}}");
+    flowdef::{{DEFN}}.set(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
 }I}
-
 
     // Use the default grpc health checking service
 	//grpc::EnableDefaultHealthCheckService(true);
