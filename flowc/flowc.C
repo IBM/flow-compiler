@@ -332,7 +332,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(global_vars, "DEFN", get_id(defn.children[0]));
         append(global_vars, "DEFV", get_value(defn.children[1]));
         append(global_vars, "DEFD", description(defn.children[0]));
-        append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": "NUMBER");
+        append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
         set(global_vars, "HAVE_DEFN", "");
     }
 
