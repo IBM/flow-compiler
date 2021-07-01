@@ -171,7 +171,7 @@ struct macro_descr {
  *      In case 1 the name is looked up and and applied any transforms that follow. 
  *      Subsequent names will be looked up if the first name is not found. 
  *      If no name is found the default value will be used if given.
- *      When a default value is not given the macro itself will be copied in the output.
+ *      When a default value is not given the output will be an empty string.
  *
  *      Cases 2,3,4,5 render 'template' repeatedly in a loop.
  *      In the cases 2 and 3 with - the template is repeated until one of the variables within are not found.
