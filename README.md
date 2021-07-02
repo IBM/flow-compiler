@@ -1,5 +1,5 @@
 # flow-compiler
-A tool that builds a service as an aggregation of gRPC microservices.
+A tool that builds gRPC[+REST] services as aggregations of other gRPC microservices.
 
 ## Installation
 Instructions on how to build the **flow-compiler** are [here](docs/BUILD.md).
