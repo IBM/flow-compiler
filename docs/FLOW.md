@@ -19,17 +19,16 @@ The output is:
 
 ## The Interface
 
-The aggregated service is defined as a **gRPC** service that uses **Protocol Buffers** *version 3.0*. 
+The aggregated application is defined as a **gRPC** service that uses **Protocol Buffers** *version 3.0*. 
 > Full information about the **Protocol Buffers** language is [here](https://developers.google.com/protocol-buffers/).
 
 
 
-**flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated.
+**flowc** will generate **C++** code for the final application. Optionally, a **Docker** image containing the ready to run application can be built.
 
-**flowc** can also generate a deployment tool that can be used with **Kubernetes**, **Docker Compose** or **Docker Swarm**, if the application is dockerized.  
+**flowc** can also generate a deployment tool that can be used with **Kubernetes**, **Docker Compose** or **Docker Swarm**, for dockerized application.  
 
-More information about **Protocol Buffers** can be found here: [https://developers.google.com/protocol-buffers/](https://developers.google.com/protocol-buffers/), and 
-about **gRPC**, here: [https://grpc.io](https://grpc.io).
+More information about **Protocol Buffers** can be found here: [https://developers.google.com/protocol-buffers/](https://developers.google.com/protocol-buffers/), and about **gRPC**, here: [https://grpc.io](https://grpc.io).
 
 Glossary of terms used here:
 
