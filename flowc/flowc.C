@@ -734,8 +734,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 rest_entries.insert(mdp->full_name());
         }
         set_all(global_vars, "REST_ENTRY", rest_entries.begin(), rest_entries.end());
-        for(auto const &re: rest_entries) 
-            append(global_vars, "REST_ENTRY_UPPERID", to_upper(to_underscore(re)));
     }
     // Generic entry and client node info. 
     // Note that client here is not necessarily an instantiated node.
@@ -866,22 +864,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count != 0) 
         pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
    
-    DEBUG_LEAVE;
-    return error_count;
-}
-int flow_compiler::genc_client_source(std::string const &client_src) {
-    int error_count = 0;
-    DEBUG_ENTER;
-    OFSTREAM_SE(outf, client_src);
-    error_count += genc_client(outf);
-    DEBUG_LEAVE;
-    return error_count;
-}
-int flow_compiler::genc_server_source(std::string const &server_src) {
-    int error_count = 0;
-    DEBUG_ENTER;
-    OFSTREAM_SE(outf, server_src);
-    error_count += gc_server(outf);
     DEBUG_LEAVE;
     return error_count;
 }

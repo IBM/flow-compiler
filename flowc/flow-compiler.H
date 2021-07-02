@@ -339,7 +339,9 @@ public:
 
     // Code generation for:
     // C++ client
-    int genc_client(std::ostream &out);
+    int genc_client_source(std::string const &client_src);
+    // C++ server
+    int genc_server_source(std::string const &server_src);
     // Kubernetes deployment yaml (pods and services).
     int genc_kube(std::ostream &out);
     // Docker Composer and Swarm yaml
@@ -354,8 +356,6 @@ public:
     int genc_makefile(std::string const &filename);
     int genc_dockerfile(std::string const &orchestrator_name);
     int genc_python_client(std::string const &client_bin);
-    int genc_client_source(std::string const &client_src);
-    int genc_server_source(std::string const &server_src);
 
     // Set code generation variables - all return the number of errors generated
     // Entry related info

@@ -1451,8 +1451,11 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         set(vars, "HAVE_CLI", "");
     return error_count;
 }
-int flow_compiler::gc_server(std::ostream &out) {
+int flow_compiler::genc_server_source(std::string const &server_src) {
     int error_count = 0;
+    DEBUG_ENTER;
+    OFSTREAM_SE(out, server_src);
+
     decltype(global_vars) local_vars;
 
     std::set<int> entry_node_set;
@@ -1468,22 +1471,24 @@ int flow_compiler::gc_server(std::ostream &out) {
     }
     ServiceDescriptor const *sdp =  method_descriptor(*entry_node_set.begin())->service();
     set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
-#if 0
-    std::cerr << "** server * global **********************************\n";
-    std::cerr << join(global_vars, "\n") << "\n";
-    std::cerr << "** server * local ***********************************\n";
-    std::cerr << join(local_vars, "\n") << "\n";
-    std::cerr << "*****************************************************\n";
-    std::ofstream jg("server-global.json");
-    stru1::to_json(jg, global_vars);
-    std::ofstream jl("server-local.json");
-    stru1::to_json(jl, local_vars);
-#endif
+
     extern char const *template_server_C;
     auto mgv = vex::make_smap(global_vars);
     auto mlv = vex::make_smap(local_vars);
 
+    if(DEBUG_GENC) {
+        std::string ofn = server_src + "-global.json";
+        OFSTREAM_SE(outj, ofn);
+        stru1::to_json(outj, global_vars);
+    }
+    if(DEBUG_GENC) {
+        std::string ofn = server_src + "-local.json";
+        OFSTREAM_SE(outj, ofn);
+        stru1::to_json(outj, local_vars);
+    }
+
     vex::expand(out, template_server_C, vex::make_cmap(mlv, mgv));
+    DEBUG_LEAVE;
     return error_count;
 }
 int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) const {
