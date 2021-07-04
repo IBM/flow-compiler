@@ -52,10 +52,9 @@ struct envmap {
 
 static int usage(char const *bpath, int rc = 0) {
     std::cout << "Variable substitution from environment and configuration files\n\n";
-    std::cout << "Usage: " << bpath << " [options] <TEMPLATE-FILE> [VAR-FILE...]\n\n";
-    std::cout << "options:\n";
-    std::cout << "  --help      Display this scren end exit\n";
-    std::cout << "  --no-env    Do not use environment varaibles\n";
+    std::cout << "Usage: " << bpath << " <TEMPLATE-FILE> [VAR-FILE...]\n\n";
+    std::cout << "\n";
+    std::cout << "If no VAR-FILE is given the environment variables will be used.\n";
     std::cout << "\n";
     return rc;
 }
@@ -138,9 +137,10 @@ int main(int argc, char *argv[]) {
         in = &fin;
     } 
     vex::lvmap maps;
-    std::vector<std::map<std::string, std::vector<std::string>>> mv(argc-1);
+    std::vector<std::map<std::string, std::vector<std::string>>> mv(1);
     auto jt = vex::make_vmap(vex::make_smap(mv[0]));
-    std::vector<decltype(jt)> mvs; 
+    std::vector<decltype(jt)> mvs;
+    mv.resize(argc-2);
 
     for(int i = 2; i < argc; ++i) {
         int rc = 0;
@@ -173,11 +173,19 @@ int main(int argc, char *argv[]) {
         maps.push_front(&m);
 
     int rc = 1;
-    if(mv.size() == 2) { 
-        rc = vex::expand(std::cout, *in, vex::make_cmap(vex::make_smap(mv.back()), vex::make_smap(mv[mv.size()-2])));
-    } else {
-        envmap em;
-        int rc = vex::expand(std::cout, *in, vex::make_cmap(maps, em));
+    switch(mv.size()) {
+        case 0:
+            rc = vex::expand(std::cout, *in, envmap());
+            break;
+        case 1:
+            rc = vex::expand(std::cout, *in, vex::make_smap(mv.back()));
+            break;
+        case 2:
+            rc = vex::expand(std::cout, *in, vex::make_cmap(vex::make_smap(mv.back()), vex::make_smap(mv[mv.size()-2])));
+            break;
+        default:
+            int rc = vex::expand(std::cout, *in, maps);
+            break;
     }
     return rc;
 }
