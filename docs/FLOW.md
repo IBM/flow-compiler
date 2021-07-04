@@ -8,7 +8,7 @@ The input to **flowc** consists of:
 
 * The **gRPC** definitions of all the microservices to be glued together. This is the collection of all the `.proto` files used by all the microservices.
 * The **gRPC** definition of the final aggregated service. 
-* The definition of a graph that repesents how the information flows from/to the component microservices.
+* The definition of a graph that repesents the information flow from/to the component microservices.
 
 The output is:
 
@@ -19,17 +19,16 @@ The output is:
 
 ## The Interface
 
-The aggregated service is defined as a **gRPC** service that uses **Protocol Buffers** *version 3.0*. 
+The aggregated application is defined as a **gRPC** service that uses **Protocol Buffers** *version 3.0*. 
 > Full information about the **Protocol Buffers** language is [here](https://developers.google.com/protocol-buffers/).
 
 
 
-**flowc** will generate **C++** code for the application. Optionally a **Docker** image containing the ready to run application can be generated.
+**flowc** will generate **C++** code for the final application. Optionally, a **Docker** image containing the ready to run application can be built.
 
-**flowc** can also generate a deployment tool that can be used with **Kubernetes**, **Docker Compose** or **Docker Swarm**, if the application is dockerized.  
+**flowc** can also generate a deployment tool that can be used with **Kubernetes**, **Docker Compose** or **Docker Swarm**, for dockerized application.  
 
-More information about **Protocol Buffers** can be found here: [https://developers.google.com/protocol-buffers/](https://developers.google.com/protocol-buffers/), and 
-about **gRPC**, here: [https://grpc.io](https://grpc.io).
+More information about **Protocol Buffers** can be found here: [https://developers.google.com/protocol-buffers/](https://developers.google.com/protocol-buffers/), and about **gRPC**, here: [https://grpc.io](https://grpc.io).
 
 Glossary of terms used here:
 
