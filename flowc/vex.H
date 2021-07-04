@@ -11,7 +11,7 @@ namespace vex {
 /**
 * Cascaded map template. The maps are looked up left to right.
 */
-template <class... Ts> struct cmap{
+template <class... Ts> struct cmap {
     /**
      * If the variable is found true and the value corresponding to the index should be returned.
      * If the index is out of range the first value should be returned.
@@ -66,7 +66,6 @@ struct amap {
 };
 /**
  * Templates to virtualize a vex::map.
- * vsmap keeps a reference to the original map, vdmap make a deep copy.
  */
 template <class MAP> 
 struct vmap: public amap {

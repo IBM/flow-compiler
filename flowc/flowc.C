@@ -923,7 +923,6 @@ int flow_compiler::genc_www() {
     std::string www_directory = output_filename("www");
     mkdir(www_directory.c_str(), 0777);
 
-    auto global_smap = vex::make_smap(global_vars);
     std::string outputfn = output_filename("www/index.html");
     OFSTREAM_SE(outf, outputfn);
 
@@ -953,9 +952,8 @@ int flow_compiler::genc_www() {
             stru1::to_json(outj, local_vars);
         }
         if(error_count == 0) {
-            auto lsmap = vex::make_smap(local_vars);
             extern char const *template_index_html;
-            vex::expand(outf, template_index_html, vex::make_cmap(lsmap, vex::make_smap(global_vars)));
+            vex::expand(outf, template_index_html, vex::make_cmap(vex::make_smap(local_vars), vex::make_smap(global_vars)));
         }
     }
     DEBUG_LEAVE;
@@ -964,12 +962,11 @@ int flow_compiler::genc_www() {
 int flow_compiler::genc_makefile(std::string const &makefile_name) {
     int error_count = 0;
     DEBUG_ENTER;
-    auto global_smap = vex::make_smap(global_vars);
     std::string fn = output_filename(makefile_name);
     OFSTREAM_SE(makf, fn);
     if(error_count == 0) {
         extern char const *template_Makefile;
-        vex::expand(makf, template_Makefile, global_smap);
+        vex::expand(makf, template_Makefile, vex::make_smap(global_vars));
     }
 
     // Create a link to this makefile if Makefile isn't in the way
