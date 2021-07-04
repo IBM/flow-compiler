@@ -83,7 +83,7 @@ vmap<M> make_vmap(M m) {
     return vmap<M>(m);
 }
 /**
- * Variable map based on a std::map likeinterface. Uses find() and end() methods only.
+ * Variable map based on a std::map like interface. Uses find() and end() methods only.
  * find() must take a string type as argument.
  * The result to find must be a pointer type to a structure that stores the values in a filed called 'second'.
  * The value field must be an array type withe a size() method.
