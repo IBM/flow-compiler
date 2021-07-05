@@ -158,6 +158,10 @@ struct macro_descr {
         after = a;
     }
 };
+std::ostream &operator << (std::ostream &o, macro_descr const &m) {
+    o << "{" << m.label << "("<< m.name << ") c: "<< m.count << ", mm: " << m.min_max << ", len: " << (m.end-m.begin) << ", has-default: " << m.has_default << "}";
+    return o;
+}
 /** 
  * Find a mcaro reference in one of the thre forms below
  *      
@@ -299,7 +303,6 @@ struct macro_parser {
                 } else {
                     md.min_max = 0;
                 }
-
                 e = match_id_list(p, templ_end, "+");
                 if(e == templ_end)
                     continue;
@@ -307,7 +310,11 @@ struct macro_parser {
                     md.name = std::string(p, e);
                     p = e;
                 }
+                /*
                 if(e == nullptr && *p == '-') 
+                    ++p;
+                    */
+                if(*p == '-') 
                     ++p;
                 if(p == templ_end) 
                     continue;
@@ -379,7 +386,6 @@ struct macro_parser {
                 std::string transf = namet.substr(ne, te - ne);
                 ne = te;
                 // apply transform here
-                //std::cerr << "APPLY TRANSFORM: " << transf << "\n";
                 if(transf == "lower") {
                     value = stru1::to_lower(value);
                 } else if(transf == "upper") {
@@ -438,7 +444,6 @@ struct macro_parser {
         char const *pos = templ;
         int missed = 0, found = 0;
         while(mprc == 0 && !(md.name.empty() && md.label.empty())) {
-            //std::cerr << "--- " << (md.before - templ) << ":" << (md.after-md.before) << " GOT: " << md.name << "(" << md.label << ") def: " << md.has_default << " [" << md.default_value << "] " << (md.end - md.begin) << std::endl;
             out << std::string(pos, md.before);
             pos = md.after;
             if(md.label.empty()) {
@@ -458,11 +463,9 @@ struct macro_parser {
                 // loop variable reference
                 int maxx = md.count >= 0? md.count: (md.name.empty()? -1: gets(map, md.name, md.min_max));
                 int mima = md.name.empty()? (md.min_max > 0? 1: -1) : 0;
-                //std::cerr << "REPEATING " << md.label << " " << maxx << " min-max: " << md.min_max << " mima: " << mima << " TIMES\n";
                 std::ostringstream sout;
                 for(int i = 0; maxx < 0 || i < maxx; ++i) {
                     auto rok = render_varsub(sout, md.begin, md.end, map, i);
-                    //std::cerr << "    REP " << md.label << i << " found: " << rok.first << ", missed: " << rok.second << "\n";
                     if(mima < 0 && rok.second > 0)
                         break;
                     if(mima > 0 && rok.first == 0)
@@ -482,25 +485,27 @@ struct macro_parser {
     }
 };
 template <class MAP> 
+static 
 int expand(std::ostream &out, char const *in, char const *end_in, MAP const &map) {
     macro_parser mp;
     auto rc = mp.render_varsub(out, in, end_in, map); 
     return rc.second;
 }
 template <class MAP> 
+static 
 int expand(std::ostream &out, char const *in, MAP const &map) {
     return expand(out, in, strchr(in, '\0'), map); 
 }
 template <class MAP> 
+static 
 int expand(std::ostream &out, std::string const &in, MAP const &map) {
     return expand(out, in.c_str(), in.c_str()+in.length(), map); 
 }
 template <class MAP> 
-int expand(std::ostream &out, std::istream &in, MAP const &map) {
-    std::string templ;
-    for(char c = in.get(); in.good(); c = in.get()) {
-        templ +=  c;
-    }
+static 
+int expand(std::ostream &out, std::istream &is, MAP const &map) {
+    std::istreambuf_iterator<char> eos;
+    std::string templ(std::istreambuf_iterator<char>(is), eos);
     return expand(out, templ, map);
 }
 }
