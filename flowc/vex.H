@@ -158,6 +158,7 @@ struct macro_descr {
         after = a;
     }
 };
+inline static
 std::ostream &operator << (std::ostream &o, macro_descr const &m) {
     o << "{" << m.label << "("<< m.name << ") c: "<< m.count << ", mm: " << m.min_max << ", len: " << (m.end-m.begin) << ", has-default: " << m.has_default << "}";
     return o;
