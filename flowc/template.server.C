@@ -71,14 +71,8 @@ std::string getenv(std::string const &name, std::string const &default_v="") {
 }
 }
 {H:HAVE_DEFN{namespace flowdef {
-struct varmt {
-    long lvalue; double dvalue; bool bvalue; std::string svalue;
-    operator long () const { return lvalue; }
-    operator double () const { return dvalue; }
-    operator bool () const { return bvalue; }
-    operator std::string () const { return svalue; }
-};
 template <flowrt::flow_type FT> struct var;
+template <class T, flowrt::flow_type FT> bool operator == (T x, var<FT> const &y) { return x == T(y); }
 template <> 
 struct var<flowrt::INTEGER> {
     long value;
