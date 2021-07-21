@@ -475,8 +475,6 @@ struct macro_parser {
                     // prevent infinite loops for templates without variable references
                     if(rok.first == 0 && rok.second == 0 && maxx <= 0)
                         break;
-
-                    if(i > 12) break;
                 }
             }
             mprc = find_macro(md, pos, templ_end);
