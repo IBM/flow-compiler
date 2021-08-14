@@ -457,4 +457,6 @@ The LEMON Parser Generator
 
 [https://www.hwaci.com/sw/lemon/](https://www.hwaci.com/sw/lemon/)
 
+> Both the source code to lemon itself and the code that lemon generates are in the public domain.
+
 
