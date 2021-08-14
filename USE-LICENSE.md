@@ -1,7 +1,7 @@
 OTHER LICENSES
 =====
 
-This document includes several copyright licenses for different aspects of the software. 
+This document includes several copyright licenses for different parts of the software. 
 Some licenses apply only to the built software and not to the compiler itself.
 
 
@@ -449,5 +449,12 @@ Civetweb License
 > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 > THE SOFTWARE.
+
+The LEMON Parser Generator
+----
+
+### Used to gereate the parser for flow-compiler
+
+[https://www.hwaci.com/sw/lemon/](https://www.hwaci.com/sw/lemon/)
 
 
