@@ -1952,7 +1952,7 @@ int main(int argc, char *argv[]) {
 #if !defined(NO_REST) || !(NO_REST)    
         "  REST-LISTENING-PORTS  A space or comma separated list of ports in the form [(HOSTNAME|IP):]PORT[s|r]\n"
         "                        Append 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n"
-        "  WEBAPP-DRIRECTORY     Directory with webapp content\n"
+        "  WEBAPP-DIRECTORY      Directory with webapp content\n"
 #endif
         "\n"
         "Options:\n"
