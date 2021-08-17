@@ -2011,6 +2011,7 @@ int main(int argc, char *argv[]) {
     }
 {I:DEFN{   
     flowdef::{{DEFN}}.set(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
+    std::cout << "{{DEFN}}=" << std::string(flowdef::{{DEFN}}) << "\n";
 }I}
 
     // Use the default grpc health checking service
