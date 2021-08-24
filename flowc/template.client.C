@@ -224,7 +224,7 @@ static rpc_method_id get_rpc_method_id(std::string const &name) {
 }
 int main(int argc, char *argv[]) {
     if(!parse_command_line(argc, argv) || show_help || (argc != 4 && show_input.empty() && show_output.empty())) {
-        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC JSON-INPUT-FILE\n";
+        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC JSONL-INPUT-FILE\n";
         std::cerr << "    or " << argv[0] << " --input-schema|--output-schema [SERVICE.]RPC\n";
         std::cerr << "    or " << argv[0] << " --help\n";
         std::cerr << "\n";
@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "  -b, --blocking-calls        Disable asynchronous calls in the aggregator\n";
         std::cerr << "  -g, --ignore-grpc-errors    Keep going when grpc errors are encountered\n";
         std::cerr << "  -j, --ignore-json-errors    Keep going even if input JSON fails conversion to protobuf\n";
-        std::cerr << "  -H, --header NAME=VALUE     Add header to the request\n";
+        std::cerr << "  -H, --header NAME=VALUE     Add header to every request\n";
         std::cerr << "  -h, --help                  Display this help\n";
         std::cerr << "  -s, --input-schema RPC      Input JSON schema for RPC\n";
         std::cerr << "  -S, --output-schema RPC     Output JSON schema for RPC\n";
