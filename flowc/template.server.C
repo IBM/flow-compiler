@@ -64,7 +64,7 @@ inline static bool strtobool(char const *s, bool default_value=false) {
 }
 namespace flowrt {
 enum flow_type {INTEGER, FLOAT, STRING};
-static inline 
+inline static 
 std::string getenv(std::string const &name, std::string const &default_v="") {
     auto v = ::getenv(name.c_str());
     return v == nullptr? default_v: std::string(v);
@@ -109,7 +109,7 @@ var<flowrt::{{DEFT}}> {{DEFN}}(flowrt::getenv("{{NAME/id/upper}}_FD_{{DEFN/upper
 }
 }H}
 namespace flowrt {
-static inline
+inline static
 int next_utf8_cp(std::string const &s, int bpos = 0) {
     int e = s.length();
     if(e <= bpos) return -1;
@@ -123,7 +123,7 @@ int next_utf8_cp(std::string const &s, int bpos = 0) {
     if((c & 0xF1) == 0xF0) return bpos;
     return -bpos;
 }
-static inline
+inline static
 int length(std::string const &s) {
     int bp = -1, nbp = 0, l = -1;
     do 
@@ -131,7 +131,7 @@ int length(std::string const &s) {
     while(nbp >= 0);
     return l;
 }
-static inline
+inline static
 int cpos(std::string const &s, int pos) {
     int bp = 0, nbp = 0;
     while(pos > 0) { 
@@ -184,6 +184,54 @@ inline static
 std::string tolower(std::string const &s) {
     std::string u(s);
     std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    return u;
+}
+inline static
+std::string camelize(std::string const &s, bool capitalize_first=false) {
+    std::ostringstream out;
+    bool cap_next = capitalize_first;
+    for(char c: s) 
+        if(isspace(c)) {
+            cap_next = true;
+        } else {
+            out << (cap_next? ::toupper(c): c);
+            cap_next = false;
+        }
+    return out.str();
+}
+inline static 
+std::string decamelize(std::string const &s) {
+    std::ostringstream out;
+
+    char prev_c = ' ';
+    for(unsigned sl = s.length(), i = 0; i < sl; ++i) {
+        char c = s[i];
+        if(::isspace(c) || c == '_') {
+            if(prev_c != ' ') out << ' ';
+            prev_c = ' ';
+        } else if(::isalpha(c) && ::toupper(c) == c) {
+            if((::isalpha(prev_c) && ::toupper(prev_c) != prev_c) ||
+               (::isalpha(prev_c) && ::toupper(prev_c) == prev_c && i+1 < sl && ::isalpha(s[i+1]) && ::toupper(s[i+1]) != s[i+1]))
+                out << ' ';
+            out << (prev_c = c);
+        } else {
+            out << (prev_c = c);
+        }
+    }
+    return out.str();
+}
+inline static
+std::string tocname(std::string const &s, bool lower=true) {
+    std::string u(s);
+    if(lower)
+        std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    for(auto &c: u) if(c == '_')  c = '-';
+    return u;
+}
+inline static
+std::string toid(std::string const &s) {
+    std::string u(s);
+    for(auto &c: u) if(c == '-' || c == '.')  c = '_';
     return u;
 }
 inline static
@@ -2011,9 +2059,7 @@ int main(int argc, char *argv[]) {
     }
 {I:DEFN{   
     flowdef::{{DEFN}}.set(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
-    std::cout << "{{DEFN}}=" << std::string(flowdef::{{DEFN}}) << "\n";
 }I}
-
     // Use the default grpc health checking service
 	//grpc::EnableDefaultHealthCheckService(true);
 
@@ -2109,6 +2155,9 @@ int main(int argc, char *argv[]) {
 }I}
 {I:ENTRY_NAME{    flowc::entry_{{ENTRY_NAME}}_timeout = flowc::strtolong(flowc::get_cfg(cfg, "entry_{{ENTRY_NAME}}_timeout"), flowc::entry_{{ENTRY_NAME}}_timeout);
     std::cout << "rpc [{{ENTRY_NAME}}] timeout " << flowc::entry_{{ENTRY_NAME}}_timeout << "\n";
+}I}
+{I:DEFN{
+    std::cout << "{{DEFN}}=" << std::string(flowdef::{{DEFN}}) << "\n";
 }I}
 
     flowc::global_node_ID = flowc::strtostring(flowc::get_cfg(cfg, "server_id"), flowc::server_id());
