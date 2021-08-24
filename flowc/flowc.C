@@ -1029,7 +1029,7 @@ static std::set<std::string> can_use_tempdir = {
 static int remove_callback(const char *pathname, const struct stat *, int, struct FTW *) {
     return remove(pathname);
 } 
-
+void show_builtin_help(std::ostream &);
 int main(int argc, char *argv[]) {
     signal(SIGABRT, handler);
     signal(SIGSEGV, handler);
@@ -1037,7 +1037,11 @@ int main(int argc, char *argv[]) {
     if(opts.parse(template_help, argc, argv) != 0 || opts.have("version") || opts.have("help") || argc != 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
         if(opts.have("help-syntax")) {
-            std::cout << ansi::emphasize(template_syntax, ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n";
+            std::cout << ansi::emphasize(template_syntax, ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n\n";
+            std::ostringstream out;
+            show_builtin_help(out);
+            std::cout << "Built in functions:\n\n";
+            std::cout << ansi::emphasize(out.str(), ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n";
             return 0;
         } else if(opts.have("version")) {
             std::cout << FLOWC_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
