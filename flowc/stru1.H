@@ -438,7 +438,7 @@ std::ostream &to_json(std::ostream &out, std::map<std::string, V> const &v) {
     return out;
 }
 template <class CP> // assumes a correctly formed json
-static inline std::string scan_json(std::pair<CP, CP> &x) {
+inline static std::string scan_json(std::pair<CP, CP> &x) {
     std::string tok;
     CP &p = x.first; CP &e = x.second;
     while(p != e && std::isspace(*p)) 
@@ -515,9 +515,25 @@ std::string join(ITER begin, ITER end, std::string const &j1, std::string const 
     }
     return r.str();
 }
-template <class CONTAINER> inline static
-std::string join(CONTAINER const &buf, std::string const &j1, std::string const &j_last="", std::string const &j_begin="",std::string const &prefix="", std::string const &suffix="", std::string const &j_end="") {
+template <class BECONTAINER> inline static
+std::string join(BECONTAINER const &buf, std::string const &j1, std::string const &j_last="", std::string const &j_begin="",std::string const &prefix="", std::string const &suffix="", std::string const &j_end="") {
     return join(buf.begin(), buf.end(), j1, j_last, j_begin, prefix, suffix, j_end);
+}
+template <class ITER, class UNOP> inline static
+std::string joint(ITER begin, ITER end, UNOP unary_op, std::string const &j1, std::string const &j_last="") {
+    std::ostringstream r;
+    for(auto p = begin; p != end; ++p) { 
+        auto np = p; ++np;
+        if(p == begin) r << "";
+        else if(np == end && !j_last.empty()) r << j_last;
+        else r << j1;
+        r << unary_op(*p);
+    }
+    return r.str();
+}
+template <class BECONTAINER, class UNOP> inline static
+std::string joint(BECONTAINER const &buf, UNOP unary_op, std::string const &j1, std::string const &j_last="") {
+    return joint(buf.begin(), buf.end(), unary_op, j1, j_last);
 }
 inline static
 std::string search_path(std::string const &bin) {
@@ -556,7 +572,7 @@ bool difference(DEST &d, CONT const &a, SET const &b) {
  * Parse the string [timeout_str] and return the time in milliseconds.
  * Return 0 on parse error or if the time is negative. 
  */
-static inline
+inline static
 int get_time_value(std::string const &timeout_str) {
     char  *eptr = nullptr;
     auto timeout = std::strtod(timeout_str.c_str(), &eptr);
@@ -569,7 +585,7 @@ int get_time_value(std::string const &timeout_str) {
     if(unit == "hours" || unit == "hour" || unit == "h") return int(timeout * 3600 * 1000);
     return 0;
 }
-static inline 
+inline static 
 /**
  * Replace all underscore runs with a space and insert a space before any camel hump.
  * Keep uppercase runs.
@@ -599,7 +615,7 @@ std::string decamelize(std::string const &s) {
     }
     return out.str();
 }
-static inline
+inline static
 /**
  * Capitalize any letter preceeded by space.
  */
