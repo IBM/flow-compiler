@@ -414,6 +414,7 @@ struct function_info {
     int return_type;
     std::vector<int> arg_type;
     unsigned required_argc;
+    char const *help;
 };
 /** 
  * function signature table:
@@ -423,39 +424,71 @@ struct function_info {
  */
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
-    { "slice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
-    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3}},
+    { "slice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
+    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
     // string pref(string s, int end)
-    { "pref",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2}},
+    { "pref",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2, "Returns the prefix of the string argument. The index is in utf-8 characters.\n"}},
     // string suff(string s, int begin)
-    { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2}},
+    { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2, "Returns the suffix of the string argument. The index is in utf-8 characters.\n"}},
     // int length(string s)
-    { "length",   { FTK_INTEGER, { FTK_STRING }, 1}},
-    { "clength",  { FTK_INTEGER, { FTK_STRING }, 1}},
+    { "length",   { FTK_INTEGER, { FTK_STRING }, 1, "Returns the number of utf-8 characters in the argument string.\n"}},
+    { "size",  { FTK_INTEGER, { FTK_STRING }, 1, "Returns the size of the argument in bytes.\n"}},
     // string *trim(string s, string strip_chars)
-    { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
-    { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
-    { "rtrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
+    { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from both ends of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
+    { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from the beginning of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
+    { "rtrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from the end of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
     // string to*(string s)
-    { "toupper",  { FTK_STRING,  { FTK_STRING }, 1}},
-    { "tolower",  { FTK_STRING,  { FTK_STRING }, 1}},
+    { "toupper",    { FTK_STRING,  { FTK_STRING }, 1, "Converts all characters in the argument string to upper case (ASCII only).\n"}},
+    { "tolower",    { FTK_STRING,  { FTK_STRING }, 1, "Converts all characters in the argument string to lower case (ASCII only).\n"}},
+    { "toid",       { FTK_STRING,  { FTK_STRING }, 1, "Converts the string argument to a string that can be used as an identifier, by replacing all illegal characters with an underscore('_').\n"}},
+    { "tocname",    { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character with a dash('-').\n"}},
+    { "camelize",   { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a camel-cased identifier string.\n"}},
+    { "decamelize", { FTK_STRING,  { FTK_STRING }, 1, "Converts a camel-cased string to a readable string.\n"}},
     // string tr(string s, string match_list, string replace_list)
-    { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2}},
-    // concatenate / add fields
-    { "sum",      { -1,          { -FTK_ACCEPT }, 1}},
-    { "max",      { -1,          { -FTK_ACCEPT }, 1}},
-    { "min",      { -1,          { -FTK_ACCEPT }, 1}},
-    // sort
-    { "sort",     { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 1}},
-    // index
-    { "at",       { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 2}},
-    { "first",    { -1,          { -FTK_ACCEPT }, 1}},
-    { "last",     { -1,          { -FTK_ACCEPT }, 1}},
-    // string join(elements, separator, last_separator)
-    { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1}},
+    { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2, "Returns the transformation of the string given as first argument by replacing all the characters in the second argument with the corresponding character in the third argument.\nIf there is no corresponding character, the character is deleted.\n"}},
     // string getenv(name, default_value)
-    { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1}},
+    { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Returns the value of the environment variable named by the first argument. If the environment variable is missing, the value of the second argument is returned.\n"}},
+    // concatenate / add fields
+    { "sum",      { -1,          { -FTK_ACCEPT }, 1, "Returns the sum of all the values in the repeated field (using operator '+').\n"}},
+    { "max",      { -1,          { -FTK_ACCEPT }, 1, "Returns the maximum value in the repeated field.\n"}},
+    { "min",      { -1,          { -FTK_ACCEPT }, 1, "Returns the minimum value in the repeated field.\n"}},
+    // sort
+    { "sort",     { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER }, 1, "Returns a repeated field with the elements sorted in the order given by the second argument.\n"}},
+    // index
+    { "at",       { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 2, "Returns the element at the position indicated by the argument.\nNegative values allow indexing from the end of the repeated field.\nThe default value for the ANY type is returned when the index is out of range.\n"}},
+    { "first",    { -1,          { -FTK_ACCEPT }, 1, "Returns the first element in the repeated field, or the default value for the ANY type if the field is empty.\n"}},
+    { "last",     { -1,          { -FTK_ACCEPT }, 1, "Returns the last element in the repeated field, or the default value for the ANY type if the field is empty.\n"}},
+    // string join(elements, separator, last_separator)
+    { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
 };
+
+static std::string ftk2s(int ftk) {
+    switch(ftk) {
+        case FTK_STRING: return "string";
+        case FTK_INTEGER: return "int";
+        case -FTK_ACCEPT: return "repeated ANY";
+        case -1: return "ANY";
+        default: break;
+    }
+    return "?";
+}
+
+void show_builtin_help(std::ostream &out) {
+    for(auto const &fe: function_table) {
+        out << ftk2s(fe.second.return_type) << " \"~" << fe.first << "\"(";
+        if(fe.second.arg_type.size() == fe.second.required_argc) {
+            out << stru1::joint(fe.second.arg_type, ftk2s, ", ");
+        } else {
+            out << stru1::joint(fe.second.arg_type.begin(), fe.second.arg_type.begin()+fe.second.required_argc, ftk2s, ", ");
+            out << "[";
+            if(fe.second.required_argc > 0) out << ", ";
+            out << stru1::joint(fe.second.arg_type.begin()+fe.second.required_argc, fe.second.arg_type.end(), ftk2s, ", ");
+            out << "]";
+        }
+        out << ");\n";
+        out << fe.second.help << "\n";
+    }
+}
 
 int flow_compiler::compile_fldr(int fldr_node) {
     int error_count = 0;
