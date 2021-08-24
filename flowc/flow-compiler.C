@@ -456,8 +456,6 @@ static const std::map<std::string, function_info> function_table = {
     { "sort",     { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER }, 1, "Returns a repeated field with the elements sorted in the order given by the second argument.\n"}},
     // index
     { "at",       { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 2, "Returns the element at the position indicated by the argument.\nNegative values allow indexing from the end of the repeated field.\nThe default value for the ANY type is returned when the index is out of range.\n"}},
-    { "first",    { -1,          { -FTK_ACCEPT }, 1, "Returns the first element in the repeated field, or the default value for the ANY type if the field is empty.\n"}},
-    { "last",     { -1,          { -FTK_ACCEPT }, 1, "Returns the last element in the repeated field, or the default value for the ANY type if the field is empty.\n"}},
     // string join(elements, separator, last_separator)
     { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
 };
