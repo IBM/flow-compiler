@@ -525,8 +525,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
             // For kubernetes check that ports in the same pod don't clash
             for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == group_name) {
-                ++error_count;
-                pcerr.AddWarning(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.first << "\"");
+                pcerr.AddWarning(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.second.xname << "\" in group \"" << group_name << "\"");
                 // Only generate one port conflict message
                 break;
             }
