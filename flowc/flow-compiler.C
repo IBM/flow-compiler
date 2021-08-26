@@ -424,15 +424,11 @@ struct function_info {
  */
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
-    { "slice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
-    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 3, "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
-    // string pref(string s, int end)
-    { "pref",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2, "Returns the prefix of the string argument. The index is in utf-8 characters.\n"}},
-    // string suff(string s, int begin)
-    { "suff",     { FTK_STRING,  { FTK_STRING, FTK_INTEGER }, 2, "Returns the suffix of the string argument. The index is in utf-8 characters.\n"}},
+    { "strslice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
+    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
     // int length(string s)
     { "length",   { FTK_INTEGER, { FTK_STRING }, 1, "Returns the number of utf-8 characters in the argument string.\n"}},
-    { "size",  { FTK_INTEGER, { FTK_STRING }, 1, "Returns the size of the argument in bytes.\n"}},
+    { "size",  { FTK_INTEGER, { FTK_STRING }, 1, "Returns the size of the string argument in bytes.\n"}},
     // string *trim(string s, string strip_chars)
     { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from both ends of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
     { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from the beginning of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
@@ -440,24 +436,17 @@ static const std::map<std::string, function_info> function_table = {
     // string to*(string s)
     { "toupper",    { FTK_STRING,  { FTK_STRING }, 1, "Converts all characters in the argument string to upper case (ASCII only).\n"}},
     { "tolower",    { FTK_STRING,  { FTK_STRING }, 1, "Converts all characters in the argument string to lower case (ASCII only).\n"}},
-    { "toid",       { FTK_STRING,  { FTK_STRING }, 1, "Converts the string argument to a string that can be used as an identifier, by replacing all illegal characters with an underscore('_').\n"}},
-    { "tocname",    { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character with a dash('-').\n"}},
+    { "toid",       { FTK_STRING,  { FTK_STRING }, 1, "Converts the string argument to a string that can be used as an identifier, by replacing all illegal character runs with an underscore('_').\n"}},
+    { "tocname",    { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character runs with a dash('-').\n"}},
     { "camelize",   { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a camel-cased identifier string.\n"}},
     { "decamelize", { FTK_STRING,  { FTK_STRING }, 1, "Converts a camel-cased string to a readable string.\n"}},
     // string tr(string s, string match_list, string replace_list)
     { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2, "Returns the transformation of the string given as first argument by replacing all the characters in the second argument with the corresponding character in the third argument.\nIf there is no corresponding character, the character is deleted.\n"}},
     // string getenv(name, default_value)
     { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Returns the value of the environment variable named by the first argument. If the environment variable is missing, the value of the second argument is returned.\n"}},
-    // concatenate / add fields
-    { "sum",      { -1,          { -FTK_ACCEPT }, 1, "Returns the sum of all the values in the repeated field (using operator '+').\n"}},
-    { "max",      { -1,          { -FTK_ACCEPT }, 1, "Returns the maximum value in the repeated field.\n"}},
-    { "min",      { -1,          { -FTK_ACCEPT }, 1, "Returns the minimum value in the repeated field.\n"}},
-    // sort
-    { "sort",     { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER }, 1, "Returns a repeated field with the elements sorted in the order given by the second argument.\n"}},
-    // index
-    { "at",       { -1,          { -FTK_ACCEPT, FTK_INTEGER }, 2, "Returns the element at the position indicated by the argument.\nNegative values allow indexing from the end of the repeated field.\nThe default value for the ANY type is returned when the index is out of range.\n"}},
     // string join(elements, separator, last_separator)
     { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
+    { "slice",     { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER, FTK_INTEGER }, 2, "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
 };
 
 static std::string ftk2s(int ftk) {

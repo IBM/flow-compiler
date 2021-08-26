@@ -155,11 +155,15 @@ std::string substr(std::string const &s, int begin, int end) {
     return s.substr(begin, end-begin);
 }
 inline static
+std::string substr(std::string const &s, int begin) {
+    return substr(s, begin, length(s));
+}
+inline static
 int size(std::string const &s) {
     return s.length();
 }
 inline static
-std::string slice(std::string const &s, int begin, int end) {
+std::string strslice(std::string const &s, int begin, int end) {
     if(s.empty()) return s;
     if(end < 0) end += s.length();
     if(begin < 0) begin += s.length();
@@ -167,12 +171,8 @@ std::string slice(std::string const &s, int begin, int end) {
     return s.substr(begin, end-begin);
 }
 inline static
-std::string pref(std::string const &s, int end) {
-    return substr(s, 0, end);
-}
-inline static
-std::string suff(std::string const &s, int begin) {
-    return substr(s, begin, s.length());
+std::string strslice(std::string const &s, int begin) {
+    return strslice(s, begin, s.length());
 }
 inline static
 std::string toupper(std::string const &s) {
@@ -222,16 +222,26 @@ std::string decamelize(std::string const &s) {
 }
 inline static
 std::string tocname(std::string const &s, bool lower=true) {
-    std::string u(s);
-    if(lower)
-        std::transform(s.begin(), s.end(), u.begin(), ::tolower);
-    for(auto &c: u) if(c == '_')  c = '-';
+    std::string u;
+    char l = '\0';
+    for(char c: s) {
+        c = ::tolower(c);
+        if(c == '_') c = '-';
+        if(l != '-') u += c;
+        l = c;
+    }
     return u;
 }
 inline static
 std::string toid(std::string const &s) {
-    std::string u(s);
-    for(auto &c: u) if(c == '-' || c == '.')  c = '_';
+    std::string u;
+    char l = '\0';
+    for(char c: s) {
+        if(c == '-' || c == '.') c = '_';
+        if(l != '_') u += c;
+        l = c;
+    }
+
     return u;
 }
 inline static
@@ -1179,9 +1189,11 @@ std::string www_directory("./www");
 std::map<std::string, char const *> schema_map = {
 {I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
     { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
+    { "/-node-proto/{{CLI_NODE_NAME}}", {{CLI_PROTO/c-""}} }, 
 }I}
-{I:ENTRY_NAME{   { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
+{I:ENTRY_NAME{    { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
     { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON/c}} }, 
+    { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c-""}} }, 
 }I}
 };
 static int log_message(const struct mg_connection *conn, const char *message) {
