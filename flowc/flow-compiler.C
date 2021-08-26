@@ -414,6 +414,7 @@ struct function_info {
     int return_type;
     std::vector<int> arg_type;
     unsigned required_argc;
+    int dim;        // Number of dimensions added or removed
     char const *help;
 };
 /** 
@@ -424,29 +425,30 @@ struct function_info {
  */
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
-    { "strslice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
-    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
+    { "strslice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
+    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
     // int length(string s)
-    { "length",   { FTK_INTEGER, { FTK_STRING }, 1, "Returns the number of utf-8 characters in the argument string.\n"}},
-    { "size",  { FTK_INTEGER, { FTK_STRING }, 1, "Returns the size of the string argument in bytes.\n"}},
+    { "length",   { FTK_INTEGER, { FTK_STRING }, 1, 0, "Returns the number of utf-8 characters in the argument string.\n"}},
+    { "size",  { FTK_INTEGER, { FTK_STRING }, 1, 0, "Returns the size of the string argument in bytes.\n"}},
     // string *trim(string s, string strip_chars)
-    { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from both ends of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
-    { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from the beginning of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
-    { "rtrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Deletes all the characters in the second argument string from the end of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
+    { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Deletes all the characters in the second argument string from both ends of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
+    { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Deletes all the characters in the second argument string from the beginning of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
+    { "rtrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Deletes all the characters in the second argument string from the end of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
     // string to*(string s)
-    { "toupper",    { FTK_STRING,  { FTK_STRING }, 1, "Converts all characters in the argument string to upper case (ASCII only).\n"}},
-    { "tolower",    { FTK_STRING,  { FTK_STRING }, 1, "Converts all characters in the argument string to lower case (ASCII only).\n"}},
-    { "toid",       { FTK_STRING,  { FTK_STRING }, 1, "Converts the string argument to a string that can be used as an identifier, by replacing all illegal character runs with an underscore('_').\n"}},
-    { "tocname",    { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character runs with a dash('-').\n"}},
-    { "camelize",   { FTK_STRING,  { FTK_STRING }, 1, "Converts the string in the argument to a camel-cased identifier string.\n"}},
-    { "decamelize", { FTK_STRING,  { FTK_STRING }, 1, "Converts a camel-cased string to a readable string.\n"}},
+    { "toupper",    { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts all characters in the argument string to upper case (ASCII only).\n"}},
+    { "tolower",    { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts all characters in the argument string to lower case (ASCII only).\n"}},
+    { "toid",       { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts the string argument to a string that can be used as an identifier, by replacing all illegal character runs with an underscore('_').\n"}},
+    { "tocname",    { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character runs with a dash('-').\n"}},
+    { "camelize",   { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts the string in the argument to a camel-cased identifier string.\n"}},
+    { "decamelize", { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts a camel-cased string to a readable string.\n"}},
     // string tr(string s, string match_list, string replace_list)
-    { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2, "Returns the transformation of the string given as first argument by replacing all the characters in the second argument with the corresponding character in the third argument.\nIf there is no corresponding character, the character is deleted.\n"}},
+    { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0, "Returns the transformation of the string given as first argument by replacing all the characters in the second argument with the corresponding character in the third argument.\nIf there is no corresponding character, the character is deleted.\n"}},
     // string getenv(name, default_value)
-    { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, "Returns the value of the environment variable named by the first argument. If the environment variable is missing, the value of the second argument is returned.\n"}},
+    { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Returns the value of the environment variable named by the first argument. If the environment variable is missing, the value of the second argument is returned.\n"}},
     // string join(elements, separator, last_separator)
-    { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
-    { "slice",     { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER, FTK_INTEGER }, 2, "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
+    { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, -1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
+    { "split",    { -FTK_STRING, { FTK_STRING, FTK_STRING }, 1, 1, "Splits the first argument by any characters in the second argument\n"}},
+    { "slice",    { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
 };
 
 static std::string ftk2s(int ftk) {
@@ -786,7 +788,8 @@ int flow_compiler::update_dimensions(int node) {
                     int dim = 0;
                     for(unsigned a = 0; a+1 < children.size(); ++a) 
                         dim = std::max(dim, dimension(children[a+1]));
-                    dimension.put(node, dim);
+                    auto funp = function_table.find(get_id(children[0]));
+                    dimension.put(node, dim + funp->second.dim);
                 } break;
                 case FTK_HASH:
                     dimension.put(node, std::max(0, dimension(children[1])-1));
@@ -1784,7 +1787,7 @@ std::string flow_compiler::fldx_mname(int fldx_node, int context_dim) const {
     }
     return fa_name;
 }
-int flow_compiler::encode_expression(int fldr_node, int expected_type) {
+int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_change) {
     int error_count = 0;
     auto const &fields = at(fldr_node).children;
     auto coop = get_pconv_op(expected_type, value_type(fldr_node));
@@ -1794,8 +1797,13 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
             if(at(fields[0]).type == FTK_ID) {
                 auto funp = function_table.find(get_id(fields[0]));
                 for(unsigned a = 0; a+1 < fields.size(); ++a) {
+                    if(funp->second.arg_type[a] < 0) 
+                        icode.push_back(fop(CLLS, a));
                     int evt = abs(funp->second.arg_type[a]);
-                    error_count += encode_expression(fields[a+1], evt == FTK_ACCEPT? 0: evt);
+                    error_count += encode_expression(fields[a+1], (evt == FTK_ACCEPT? 0: evt), funp->second.dim);
+                    // FIXME: needs review 
+                    if(funp->second.arg_type[a] < 0) 
+                        icode.push_back(fop(DACC, funp->second.dim));
                 }
             }
             MASSERT(operator_precedence.find(at(fields[0]).type) != operator_precedence.end()) << "precedence not defined for type " << at(fields[0]).type << ", at " << at(fields[0]).type << "\n";
@@ -1813,83 +1821,83 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
                     }
                     break;
                 case FTK_BANG:
-                    error_count += encode_expression(fields[1], FTK_INTEGER);
+                    error_count += encode_expression(fields[1], FTK_INTEGER, dim_change);
                     icode.push_back(fop(IOP, "!", 1, op_precedence));
                     break;
                 case FTK_PLUS: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "+", 2, op_precedence));
                     break;
                 case FTK_MINUS: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "-", 2, op_precedence));
                     break;
                 case FTK_SLASH: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "/", 2, op_precedence));
                     break;
                 case FTK_STAR: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "*", 2, op_precedence));
                     break;
                 case FTK_PERCENT: 
-                    error_count += encode_expression(fields[1], FTK_INTEGER);
-                    error_count += encode_expression(fields[2], FTK_INTEGER);
+                    error_count += encode_expression(fields[1], FTK_INTEGER, dim_change);
+                    error_count += encode_expression(fields[2], FTK_INTEGER, dim_change);
                     icode.push_back(fop(IOP, "%", 2, op_precedence));
                     break;
                 case FTK_COMP:
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "<=>", 2, op_precedence));
                     break;
                 case FTK_EQ: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "==", 2, op_precedence));
                     break;
                 case FTK_NE: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "!=", 2, op_precedence));
                     break;
                 case FTK_LE: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "<=", 2, op_precedence));
                     break;
                 case FTK_GE: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, ">=", 2, op_precedence));
                     break;
                 case FTK_LT: 
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, "<", 2, op_precedence));
                     break;
                 case FTK_GT:
-                    error_count += encode_expression(fields[1], 0);
-                    error_count += encode_expression(fields[2], value_type(fields[1]));
+                    error_count += encode_expression(fields[1], 0, dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
                     icode.push_back(fop(IOP, ">", 2, op_precedence));
                     break;
                 case FTK_AND: 
-                    error_count += encode_expression(fields[1], FTK_INTEGER);
-                    error_count += encode_expression(fields[2], FTK_INTEGER);
+                    error_count += encode_expression(fields[1], FTK_INTEGER, dim_change);
+                    error_count += encode_expression(fields[2], FTK_INTEGER, dim_change);
                     icode.push_back(fop(IOP, "&&", 2, op_precedence));
                     break;
                 case FTK_OR:
-                    error_count += encode_expression(fields[1], FTK_INTEGER);
-                    error_count += encode_expression(fields[2], FTK_INTEGER);
+                    error_count += encode_expression(fields[1], FTK_INTEGER, dim_change);
+                    error_count += encode_expression(fields[2], FTK_INTEGER, dim_change);
                     icode.push_back(fop(IOP, "||", 2, op_precedence));
                     break;
                 case FTK_QUESTION:
-                    error_count += encode_expression(fields[1], FTK_INTEGER);
-                    error_count += encode_expression(fields[2], 0);
-                    error_count += encode_expression(fields[3], value_type(fields[2]));
+                    error_count += encode_expression(fields[1], FTK_INTEGER, dim_change);
+                    error_count += encode_expression(fields[2], 0, dim_change);
+                    error_count += encode_expression(fields[3], value_type(fields[2]), dim_change);
                     icode.push_back(fop(IOP, "?:", 3, op_precedence));
                     break;
                 break;
@@ -1897,6 +1905,8 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type) {
             break;
         case FTK_fldx:
             icode.push_back(fop(RVF, fldx_mname(fldr_node, 1000), dimension(fields[0])));
+            if(dim_change < 0 && dimension(fldr_node) > 0)
+                icode.push_back(fop(STOL, fldx_mname(fldr_node, dimension(fldr_node)), dimension(fields[0])));
             break;
         case FTK_STRING: 
             if(name.has(fldr_node)) 
@@ -2014,7 +2024,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             }
         } break;
         case FTK_fldr: {
-            error_count += encode_expression(arg_node, lvd.type());
+            error_count += encode_expression(arg_node, lvd.type(), 0);
             /*
             op coop = get_conv_op(value_type(arg_node), lvd.type(), 0, lvd.grpc_type());
             if(coop != NOP)
@@ -2315,7 +2325,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
             int cc = 0;
             if(condition.has(node)) {
-                error_count += encode_expression(condition(node), FTK_INTEGER);
+                error_count += encode_expression(condition(node), FTK_INTEGER, 0);
                 ++cc;
             }
             // Add all the conditions for the nodes with the same name that haven't been compiled yet 
@@ -2323,7 +2333,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             for(auto n: all_nodes(name(node))) {
                 if(!contains(node_ip, n)) {
                     if(condition.has(n)) {
-                        error_count += encode_expression(condition(n), FTK_INTEGER);
+                        error_count += encode_expression(condition(n), FTK_INTEGER, 0);
                         icode.push_back(fop(IOP, "!", 1, 0));
                         if(cc > 0) {
                             icode.push_back(fop(IOP, "&&", 2, 14));

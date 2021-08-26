@@ -268,6 +268,30 @@ std::string tr(std::string const &s, std::string const &match, std::string const
     }
     return r;
 }
+template <class T> inline static 
+std::string join(int acc_max, T&& acc, std::string const &sep, std::string const &last_sep) {
+    std::ostringstream buff;
+    for(int i = 0; i < acc_max; ++i) {
+        if(i > 0) {
+            if(i + 1 == acc_max)
+                buff << last_sep;
+            else 
+                buff << sep;
+        }
+        buff << acc(i);
+    }
+    return buff.str();
+}
+template <class T> inline static 
+std::string join(int acc_max, T&& acc, std::string const &sep="") {
+    return join(acc_max, acc, sep, sep);
+}
+template <typename N, typename A> inline static
+N min(A l) { return (N)l; }
+template<typename N, typename A, typename... As> inline static 
+N min(A first, As... args) {
+    return std::min((N) first, min(args...));
+}
 }
 
 /**********************************************************************************************************
@@ -488,7 +512,7 @@ struct node_cfg {
     bool check_option(std::string const &) const;
 };
 
-{I:CLI_NODE_NAME{node_cfg ns_{{CLI_NODE_NAME/lower/id}}("{{CLI_NODE_NAME/lower/id}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT-DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT}}", "{{CLI_NODE_CERTFN-}}");
+{I:CLI_NODE_NAME{node_cfg ns_{{CLI_NODE_NAME/lower/id}}("{{CLI_NODE_NAME/lower/id}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT-DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT-}}", "{{CLI_NODE_CERTFN-}}");
 }I}
 
 {I:ENTRY_NAME{long entry_{{ENTRY_NAME}}_timeout = {{ENTRY_TIMEOUT-DEFAULT_ENTRY_TIMEOUT}};
@@ -1189,11 +1213,11 @@ std::string www_directory("./www");
 std::map<std::string, char const *> schema_map = {
 {I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
     { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
-    { "/-node-proto/{{CLI_NODE_NAME}}", {{CLI_PROTO/c-""}} }, 
+    { "/-node-proto/{{CLI_NODE_NAME}}", {{CLI_PROTO/c}} }, 
 }I}
 {I:ENTRY_NAME{    { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
     { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON/c}} }, 
-    { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c-""}} }, 
+    { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c}} }, 
 }I}
 };
 static int log_message(const struct mg_connection *conn, const char *message) {
@@ -2040,7 +2064,7 @@ int main(int argc, char *argv[]) {
         "Node Options:\n"
 {I:CLI_NODE_NAME{    
         "   --node-{{CLI_NODE_NAME/lower/option}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n"
-        "   --node-{{CLI_NODE_NAME/lower/option}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}). "<<(flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint.empty()? std::string("No default."): (std::string("]")+flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint+std::string("["))) << "\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_NAME/lower/id}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << ".\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_NAME/id/lower}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << ".\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_NAME/id/lower}}\n"

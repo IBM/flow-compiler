@@ -729,6 +729,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::vector<std::set<std::string>> loop_c;
     std::string rvl, lvl;   // Left and right value expressions
     std::vector<std::pair<std::string, int>> tvl; // Values stack
+    std::vector<std::string> flvs; // Field length values stack
     // 
     int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
@@ -1125,7 +1126,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         tvl.push_back(std::make_pair(rvl, op.arg[1]));
                         break;
                     case 3:
-                        rvl = sfmt() << "((" << tvl[tvl.size()-3] << ")? " << tvl[tvl.size()-1] << ": " << tvl[tvl.size()-1] << ")";
+                        rvl = sfmt() << "((" << tvl[tvl.size()-3] << ")? " << tvl[tvl.size()-2] << ": " << tvl[tvl.size()-1] << ")";
                         tvl.pop_back(); tvl.pop_back(); tvl.pop_back();
                         tvl.push_back(std::make_pair(rvl, op.arg[1]));
                         break;
@@ -1156,10 +1157,34 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 rvl = cpp_var(loop_c, op.arg1, op.arg[0], SIZE);
                 tvl.push_back(std::make_pair(rvl, 0));
                 break;
+
             case RVF: 
                 rvl = cpp_var(loop_c, op.arg1, op.arg[0], RIGHT_VALUE);
                 tvl.push_back(std::make_pair(rvl, 0));
                 //OUT << "auto GJ" << i << " = " << rvl << ";\n";
+                break;
+
+            case DACC: {
+                    std::set<std::string> lxset;
+                    while(flvs.size() > 0 && flvs.back() != "") {
+                        lxset.insert(flvs.back()); flvs.pop_back();
+                    }
+                    std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::min(", "", "", ")");
+                    if(flvs.size() > 0) 
+                        flvs.pop_back();
+
+                    rvl = sfmt() << lenx << ", [&] (int I1) -> auto { return " << tvl[tvl.size()-1].first << "; }";
+                    tvl.pop_back();
+                    tvl.push_back(std::make_pair(rvl, 0));
+                }
+                break;
+
+            case STOL: 
+                flvs.push_back( cpp_var(loop_c, op.arg1, op.arg[0], SIZE, nullptr) );
+                break;
+
+            case CLLS: 
+                flvs.push_back("");
                 break;
 
             case CALL:
@@ -1324,6 +1349,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         for(auto d: defsn)
             defs[d.first] = get_value(d.second);
         std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
+        append(vars, "ENTRY_PROTO", mdp->DebugString());
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
         append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
@@ -1436,10 +1462,11 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
         std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), node_name, description(cli_node), true, false);
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
+        append(vars, "CLI_PROTO", mdp->DebugString());
         append(vars, "CLI_METHOD_NAME", mdp->name());
         append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
         append(vars, "CLI_NODE_GROUP", rn.second.group);
-        append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
+        //append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
         int cc_value = 0;
         error_count += get_block_value(cc_value, cli_node, "replicas", false, {FTK_INTEGER});
         cc_value = cc_value == 0? default_maxcc: get_integer(cc_value);
