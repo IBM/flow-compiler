@@ -463,6 +463,21 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(referenced_nodes.size() > 0) 
         set(global_vars, "HAVE_NODES", ""); 
 
+    for(auto &rn: referenced_nodes) {
+        int cli_node = rn.first;
+        if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
+            continue;
+
+        auto &ni = rn.second;
+        std::string const &nn = ni.xname;
+        append(global_vars, "XCLI_NODE_NAME", nn);
+
+        int value = 0;
+        error_count += get_block_value(value, cli_node, "endpoint", false, {FTK_STRING});
+        if(value > 0) 
+            ni.external_endpoint = get_string(value);
+        append(global_vars, "CLI_NODE_ENDPOINT", ni.external_endpoint);
+    }
     // Grab all the image names, image ports and volume names 
     if(contains(targets, "driver")) {
         // Make a first pass to collect the declared ports and groups
