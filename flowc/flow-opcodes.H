@@ -66,6 +66,9 @@ enum op {
     SVF,            // Right value repeated field size
     RVC,            // Right value constant
     RVV,            // Right value variable
+    DACC,           // Dimension accessor arg[0] = dimensions 
+    STOL,           // Stack field length
+    CLLS,           // Clear field length stack
 
     CON1,           // Conversion NOP 1
 
