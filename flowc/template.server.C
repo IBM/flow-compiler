@@ -2064,7 +2064,7 @@ int main(int argc, char *argv[]) {
         "Node Options:\n"
 {I:CLI_NODE_NAME{    
         "   --node-{{CLI_NODE_NAME/lower/option}}-certificate  FILE \tSSL server certificate for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}})\n"
-        "   --node-{{CLI_NODE_NAME/lower/option}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}). "<<(flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint.empty()? std::string("No default."): (std::string("]")+flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint+std::string("["))) << "\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-endpoint  HOST:PORT* \tgRPC edndpoints for node {{CLI_NODE_NAME/lower/id}} ({{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}). "<<(flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint.empty()? std::string("No default."): (std::string("[")+flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint+std::string("]"))) << "\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_NAME/lower/id}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << ".\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_NAME/id/lower}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << ".\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_NAME/id/lower}}\n"
