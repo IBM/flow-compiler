@@ -781,7 +781,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(global_vars, "VOLUME_COS", mip.second.cos);
         append(global_vars, "VOLUME_SECRET", mip.second.secret);
         append(global_vars, "VOLUME_PVC", mip.second.pvc);
-        append(global_vars, "VOLUME_IS_RO", mip.second.read_only? "1": "0");
+        append(global_vars, "VOLUME_ISRO", mip.second.read_only? "1": "0");
 
         auto cp = comments.find(vn);
         if(cp != comments.end()) {
