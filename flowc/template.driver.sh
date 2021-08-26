@@ -22,13 +22,14 @@ fi
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
 {G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
-{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_NAME}}}"
+{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_LOCAL}}}"
 export {{VOLUME_NAME/id/upper}}="$flow_{{VOLUME_NAME/id/upper}}"
 flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
 export {{VOLUME_NAME/id/upper}}_SECRET_NAME=$flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME
 flow_{{VOLUME_NAME/id/upper}}_URL=${{{VOLUME_NAME/id/upper}}_URL-{{VOLUME_COS}}}
 export {{VOLUME_NAME/id/upper}}_URL=$flow_{{VOLUME_NAME/id/upper}}_URL
 }A}
+export use_MODE=compose
 export use_COMPOSE=
 export use_SWARM="#"
 export use_K8S="#"
@@ -42,8 +43,9 @@ dd_display_help() {
 echo "Docker Compose/Swarm and Kubernetes configuration generator for {{NAME}}"
 echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $(basename "$0") <up|down> [-p] [-r] [-s] [-S] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {O:VOLUME_OPTION{--mount-{{VOLUME_OPTION}} DIRECTORY  }O}"
-echo "   or $(basename "$0") -k [--project-name NAME] <delete|deploy|show|config>"
+echo "Usage $(basename "$0") <up|down|config|logs|run> [-p] [-r] [-s] [-C] [-T] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}"
+echo "   or $(basename "$0") <up|down|config> -S [--project-name NAME] [--grpc-port PORT] [--rest-port PORT]"
+echo "   or $(basename "$0") -K [--project-name NAME] <delete|deploy|show|config>"
 echo "   or $(basename "$0") [-T] <run|logs>"
 {V:HAVE_VOLUMES{
 echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}"
@@ -65,7 +67,10 @@ echo "Options:"
 echo "    -h, --help"
 echo "        Display this help screen and exit"
 echo ""
-echo "    -k, --kubernetes"
+echo "    -C, --compose"
+echo "        Enable Docker Compose mode (default)"
+echo ""
+echo "    -K, --kubernetes"
 echo "        Enable Kubernetes mode"
 echo ""
 echo "    -p, --export-ports"
@@ -216,6 +221,7 @@ case "$1" in
     export use_COMPOSE="#"
     export use_K8S="#"
     export use_SWARM=
+    export use_MODE=swarm
 {O:MAIN_EP_ENVIRONMENT_NAME{    if [ $scale_{{NODE_NAME/id/upper}} -gt 1 ]
     then
         export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="@tasks.${kd_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
@@ -225,10 +231,18 @@ case "$1" in
 }O}
     shift
     ;;
-    -k|--kubernetes)
+    -K|--kubernetes)
     export use_COMPOSE="#"
     export use_SWARM="#"
     export use_K8S=
+    export use_MODE=k8s
+    shift
+    ;;
+    -C|--compose)
+    export use_COMPOSE=""
+    export use_SWARM="#"
+    export use_K8S="#"
+    export use_MODE=compose
     shift
     ;;
     -T|--timestamps)
@@ -338,7 +352,7 @@ provision() {
         download_file -o "${{VOLUME_NAME/id/upper}}" --untar "${{VOLUME_NAME/id/upper}}_URL" || return 1
 }O}
 }A}
-{O:VOLUME_NAME{    [ {{VOLUME_IS_RO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME/id/upper}}"
+{O:VOLUME_NAME{    [ {{VOLUME_ISRO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME/id/upper}}"
 }O}
     return 0
 }
