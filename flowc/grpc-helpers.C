@@ -5,15 +5,21 @@
 using namespace stru1;
 using namespace google::protobuf;
 
-static void gen_proto(std::ostream &pbuf, ::google::protobuf::Descriptor const *dp) {
+static void gen_proto(std::ostream &pbuf, ::google::protobuf::Descriptor const *dp, std::set<std::string> &visited) {
+    if(visited.find(get_name(dp)+"/d") != visited.end())
+        return;
+    visited.insert(get_name(dp)+"/d");
     for(int f = 0, fc = dp->field_count(); f != fc; ++f) {
         FieldDescriptor const *fd = dp->field(f);
         switch(fd->type()) {
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
-                gen_proto(pbuf, fd->message_type());
+                gen_proto(pbuf, fd->message_type(), visited);
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
-                pbuf << fd->enum_type()->DebugString() << "\n";
+                if(visited.find(get_name(fd->enum_type())+"/e") == visited.end()) {
+                    pbuf << fd->enum_type()->DebugString() << "\n";
+                    visited.insert(get_name(fd->enum_type())+"/e");
+                }
                 break; 
             default:
                 break;
@@ -24,9 +30,13 @@ static void gen_proto(std::ostream &pbuf, ::google::protobuf::Descriptor const *
 
 std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp) {
     std::ostringstream pbuf;
-    gen_proto(pbuf, mdp->input_type());
-    gen_proto(pbuf, mdp->output_type());
-    pbuf << mdp->DebugString() << "\n";
+    pbuf << "syntax = \"proto3\";\n\n";
+    std::set<std::string> visited;
+    gen_proto(pbuf, mdp->input_type(), visited);
+    gen_proto(pbuf, mdp->output_type(), visited);
+    pbuf << "service " << get_name(mdp->service()) << " {\n\t";
+    pbuf << mdp->DebugString();
+    pbuf << "}\n";
     return pbuf.str();
 }
 static void enum_as_strings(std::ostream &buf, ::google::protobuf::EnumDescriptor const *ep) {

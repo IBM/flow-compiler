@@ -102,6 +102,10 @@ std::string get_name(::google::protobuf::EnumValueDescriptor const *dp) {
     return dp->name();
 }
 inline static 
+std::string get_name(::google::protobuf::EnumDescriptor const *dp) {
+    return dp->name();
+}
+inline static 
 std::string get_full_name(::google::protobuf::EnumDescriptor const *dp) {
     std::string pkg = dp->file()->package();
     if(pkg.empty()) 
