@@ -1203,6 +1203,24 @@ public:
 }I}
     
 };
+namespace flowinfo {
+std::map<std::string, char const *> schema_map = {
+{I:CLI_NODE_NAME{    
+#if !defined(NO_REST) || !(NO_REST)    
+    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
+    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
+#endif
+    { "/-node-proto/{{CLI_NODE_NAME}}", {{CLI_PROTO/c}} }, 
+}I}
+{I:ENTRY_NAME{    
+#if !defined(NO_REST) || !(NO_REST)    
+    { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
+    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON/c}} }, 
+#endif
+    { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c}} }, 
+}I}
+};
+}
 #if !defined(NO_REST) || !(NO_REST)    
 namespace rest {
 std::string gateway_endpoint;
@@ -1210,16 +1228,6 @@ std::string app_directory("./app");
 std::string docs_directory("./docs");
 std::string www_directory("./www");
 
-std::map<std::string, char const *> schema_map = {
-{I:CLI_NODE_NAME{    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
-    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
-    { "/-node-proto/{{CLI_NODE_NAME}}", {{CLI_PROTO/c}} }, 
-}I}
-{I:ENTRY_NAME{    { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
-    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON/c}} }, 
-    { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c}} }, 
-}I}
-};
 static int log_message(const struct mg_connection *conn, const char *message) {
     FLOG << message << "\n";
 	return 1;
@@ -1312,15 +1320,15 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
         {I:ENTRY_NAME{
             << "\"/{{ENTRY_NAME}}\": {"
                "\"timeout\": " << flowc::entry_{{ENTRY_NAME}}_timeout << ","
-               "\"input-schema\": " << schema_map.find("/-input/{{ENTRY_NAME}}")->second << "," 
-               "\"output-schema\": " << schema_map.find("/-output/{{ENTRY_NAME}}")->second << "" 
+               "\"input-schema\": " << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second << "," 
+               "\"output-schema\": " << flowinfo::schema_map.find("/-output/{{ENTRY_NAME}}")->second << "" 
                "},"
         }I}
         {I:CLI_NODE_NAME{
           <<   "\"/-node/{{CLI_NODE_NAME}}\": {"
                "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
-               "\"input-schema\": " << schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "," 
-               "\"output-schema\": " << schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "" 
+               "\"input-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "," 
+               "\"output-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "" 
                "},"
         }I}
         "\"/-info\": {}"
@@ -1329,8 +1337,8 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
 }
 static int get_schema(struct mg_connection *conn, void *) {
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
-    auto sp = schema_map.find(local_uri);
-    if(sp == schema_map.end()) 
+    auto sp = flowinfo::schema_map.find(local_uri);
+    if(sp == flowinfo::schema_map.end()) 
         return not_found(conn, "Name not recognized");
     return json_reply(conn, sp->second);
 }
@@ -1700,8 +1708,10 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
     if(!rest_only) {
 	    mg_set_request_handler(ctx, "/-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-output", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-proto", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-node-proto", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-info", get_info, 0);
 {I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", rest_api::N_{{CLI_NODE_NAME/id}}, (void *) "/-node/{{CLI_NODE_NAME}}");
 }I}
@@ -1925,7 +1935,15 @@ static unsigned read_cfg(std::vector<std::string> &cfg, std::string const &filen
 
     return error_count;
 }
-// returns: 0 OK, 1 error, 2 show help, 3 show config
+inline static 
+bool endsw(char const *str, char const *end) {
+    return strlen(str) >= strlen(end) && strcmp(str + strlen(str) - strlen(end), end) == 0;
+}
+inline static 
+bool startsw(char const *str, char const *start) {
+    return strncmp(str, start, strlen(start)) == 0;
+}
+// returns: 0 OK, 1 error, 2 show help, 3 show config 4 show info
 static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int min_args=1) {
     int uac = 0, a = 1, rc = 0;
     while(a < argc) {
@@ -1935,6 +1953,14 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int
         } else if(strcmp(argv[a], "--cfg") == 0) {
             rc = 3;
             ++a;
+        } else if((startsw(argv[a], "--node") || startsw(argv[a], "--entry")) && endsw(argv[1], "-proto")) {
+            rc = 4;
+            ++a;
+#if !defined(NO_REST)
+        } else if((startsw(argv[a], "--node") || startsw(argv[a], "--entry")) && (endsw(argv[1], "-input") || endsw(argv[1], "-output"))) {
+            rc = 4;
+            ++a;
+#endif
         } else if(strncmp(argv[a], "--", 2) == 0) {
             if(a+1 == argc)  {
                 std::cerr << "Missing value for option: '" << argv[a] << "'\n";
@@ -1971,13 +1997,19 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int
             return 1;
         }
     }
-    return uac < min_args? 1: rc;
+    if(rc == 0 && uac < min_args) rc = 1;
+    return rc;
 }
 static int parse_listening_port_list(std::set<std::string> &list, std::string const &slist) {
     std::set<std::string> dnames, dendpoints;
     return casd::parse_endpoint_list(dnames, dendpoints, list, slist)? 0: 1;
 }
 static void print_banner(std::ostream &out) {
+#if !defined(NO_REST) || !(NO_REST)    
+    out << "{{NAME}} gRPC/REST server" << std::endl;
+#else
+    out << "{{NAME}} gRPC server" << std::endl;
+#endif
     out 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
@@ -2015,11 +2047,6 @@ static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const
     return out;
 }
 int main(int argc, char *argv[]) {
-#if !defined(NO_REST) || !(NO_REST)    
-    std::cout << "{{NAME}} gRPC/REST server" << std::endl;
-#else
-    std::cout << "{{NAME}} gRPC server" << std::endl;
-#endif
     std::vector<std::string> cfg;
     int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
     if(flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, 1)) == 1 || cmd == 2) {
@@ -2068,10 +2095,20 @@ int main(int argc, char *argv[]) {
         "   --node-{{CLI_NODE_NAME/lower/option}}-maxcc  NUMBER \tMaximum number of concurrent requests that can be send to {{CLI_NODE_NAME/lower/id}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << ".\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-timeout  MILLISECONDS \tTimeout for calls to node {{CLI_NODE_NAME/id/lower}}. Default is " << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << ".\n"
         "   --node-{{CLI_NODE_NAME/lower/option}}-trace  TRUE/FALSE \tEnable the trace flag in calls to node {{CLI_NODE_NAME/id/lower}}\n"
+#if !defined(NO_REST) || !(NO_REST)    
+        "   --node-{{CLI_NODE_NAME/lower/option}}-input   Display input schema for {{CLI_NODE_NAME}}\n"
+        "   --node-{{CLI_NODE_NAME/lower/option}}-output  Display output schema for {{CLI_NODE_NAME}}\n"
+#endif
+        "   --node-{{CLI_NODE_NAME/lower/option}}-proto   Display minimal proto file for {{CLI_NODE_NAME}}\n"
 }I}
         "\n"
         "Entry Options:\n"
-{I:ENTRY_NAME{    "   --entry-{{ENTRY_NAME/option}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Default is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n"
+{I:ENTRY_NAME{    "   --entry-{{ENTRY_NAME/lower/option}}-timeout  MILLISECONDS \tTimeout for calls to this entry. Default is " << flowc::entry_{{ENTRY_NAME}}_timeout << ".\n"
+#if !defined(NO_REST) || !(NO_REST)    
+        "   --entry-{{ENTRY_NAME/lower/option}}-input   Display input schema for {{ENTRY_NAME}}\n"
+        "   --entry-{{ENTRY_NAME/lower/option}}-output  Display output schema for {{ENTRY_NAME}}\n"
+#endif
+        "   --entry-{{ENTRY_NAME/lower/option}}-proto   Display minimal proto file for {{ENTRY_NAME}}\n"
 }I}
 {H:HAVE_DEFN{
         "\n"
@@ -2093,6 +2130,49 @@ int main(int argc, char *argv[]) {
         ;
         return cmd == 1? 1 :0;
     }
+
+    if(cmd == 4) {
+        for(int a = 1; a < argc; ++a) {
+{I:CLI_NODE_NAME{
+#if !defined(NO_REST) || !(NO_REST)    
+        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/lower/option}}-input") == 0) {
+            std::cout << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "\n";
+            continue;
+        }
+        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/lower/option}}-output") == 0) {
+            std::cout << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "\n";
+            continue;
+        }
+#endif
+        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/lower/option}}-proto") == 0) {
+            std::cout << flowinfo::schema_map.find("/-node-proto/{{CLI_NODE_NAME}}")->second << "\n";
+            continue;
+        }
+}I}
+{I:ENTRY_NAME{
+#if !defined(NO_REST) || !(NO_REST)    
+        if(strcmp(argv[a], "--entry-{{ENTRY_NAME/lower/option}}-input") == 0) {
+            std::cout << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second << "\n";
+            continue;
+        }
+        if(strcmp(argv[a], "--entry-{{ENTRY_NAME/lower/option}}-output") == 0) {
+            std::cout << flowinfo::schema_map.find("/-output/{{ENTRY_NAME}}")->second << "\n";
+            continue;
+        }
+#endif
+        if(strcmp(argv[a], "--entry-{{ENTRY_NAME/lower/option}}-proto") == 0) {
+            std::cout << flowinfo::schema_map.find("/-proto/{{ENTRY_NAME}}")->second << "\n";
+            continue;
+        }
+}I}
+        std::cerr << "Unrecognized option '" << argv[a] << "'\n";
+        }
+        return 0;
+    }
+        
+
+    flowc::print_banner(std::cout);
+
 {I:DEFN{   
     flowdef::{{DEFN}}.set(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
 }I}
@@ -2182,7 +2262,6 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     if(error_count != 0) return 1;
-    flowc::print_banner(std::cout);
     signal(SIGTERM, flowc::signal_shutdown_handler);
     signal(SIGINT, flowc::signal_shutdown_handler);
     signal(SIGHUP, flowc::signal_shutdown_handler);
