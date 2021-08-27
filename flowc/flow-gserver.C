@@ -1349,7 +1349,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         for(auto d: defsn)
             defs[d.first] = get_value(d.second);
         std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
-        append(vars, "ENTRY_PROTO", mdp->DebugString());
+        append(vars, "ENTRY_PROTO", gen_proto(mdp));
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
         append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
@@ -1373,6 +1373,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_HIDDEN_LABELS", hidden_labels);
 
         if(entry_count == 1) {
+            append(vars, "MAIN_ENTRY_PROTO", gen_proto(mdp));
             append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "MAIN_ENTRY_NAME", mdp->name());
             append(vars, "MAIN_ENTRY_URL", sfmt() << "/" << mdp->name());
@@ -1386,6 +1387,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "MAIN_ENTRY_HIDDEN_FIELDS", hidden_fields);
             append(vars, "MAIN_ENTRY_HIDDEN_LABELS", hidden_labels);
         } else {
+            append(vars, "ALT_ENTRY_PROTO", gen_proto(mdp));
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
             append(vars, "ALT_ENTRY_NAME", mdp->name());
             append(vars, "ALT_ENTRY_URL", sfmt() << "/" << mdp->name());
@@ -1425,6 +1427,7 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
     append(vars, "MAIN_ENTRY_METHOD_NAME", mdp->name());
     append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
+    append(vars, "MAIN_ENTRY_PROTO", gen_proto(mdp));
     return error_count;
 }
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
@@ -1462,11 +1465,11 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
         std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), node_name, description(cli_node), true, false);
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
-        append(vars, "CLI_PROTO", mdp->DebugString());
+        append(vars, "CLI_PROTO", gen_proto(mdp));
         append(vars, "CLI_METHOD_NAME", mdp->name());
         append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
         append(vars, "CLI_NODE_GROUP", rn.second.group);
-        //append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
+        append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
         int cc_value = 0;
         error_count += get_block_value(cc_value, cli_node, "replicas", false, {FTK_INTEGER});
         cc_value = cc_value == 0? default_maxcc: get_integer(cc_value);

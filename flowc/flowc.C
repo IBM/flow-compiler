@@ -476,7 +476,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += get_block_value(value, cli_node, "endpoint", false, {FTK_STRING});
         if(value > 0) 
             ni.external_endpoint = get_string(value);
-        append(global_vars, "CLI_NODE_ENDPOINT", ni.external_endpoint);
     }
     // Grab all the image names, image ports and volume names 
     if(contains(targets, "driver")) {
