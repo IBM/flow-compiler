@@ -1404,6 +1404,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     }
     if(entry_count > 1)
         set(vars, "HAVE_ALT_ENTRY", "");
+    set(vars, "ENTRY_COUNT", sfmt() << entry_count);
+    set(vars, "ALT_ENTRY_COUNT", sfmt() << entry_count-1);
     return error_count;
 }
 int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
