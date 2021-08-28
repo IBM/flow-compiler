@@ -34,7 +34,7 @@ std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp) {
     std::set<std::string> visited;
     gen_proto(pbuf, mdp->input_type(), visited);
     gen_proto(pbuf, mdp->output_type(), visited);
-    pbuf << "service " << get_name(mdp->service()) << " {\n\t";
+    pbuf << "service " << get_name(mdp->service()) << " {\n  ";
     pbuf << mdp->DebugString();
     pbuf << "}\n";
     return pbuf.str();
