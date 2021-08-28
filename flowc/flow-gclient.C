@@ -25,39 +25,6 @@ int flow_compiler::find_in_blck(int block_node, std::string const &name, int *po
     return 0;
 }
 
-static int cpp_descriptor(std::ostream &buff, Descriptor const *dp, int pos = 0) {
-    for(int i = 0, c = dp->field_count(); i < c; ++i) {
-        ++pos;
-        FieldDescriptor const *fdp = dp->field(i); 
-        char type = 'x';
-        switch(grpc_type_to_ftk(fdp->type())) {
-            case FTK_FLOAT: case FTK_INTEGER:
-                type = 'N';
-                break;
-            case FTK_STRING:
-                type = 'S';
-                break;
-            case FTK_fldm:
-                type = 'M';
-                break;
-            case FTK_ID:
-                type = 'E';
-                break;
-            default:
-                break;
-        }
-        if(fdp->is_repeated()) type = tolower(type);
-        buff << '{';
-        if(i + 1 == c) buff << 0; else buff << pos;
-        buff <<  ",'" << type << "',\"" << fdp->json_name() << "\"}";
-        if(type == 'm' || type == 'M') {
-            buff << ',';
-            pos = cpp_descriptor(buff, fdp->message_type(), pos);
-        }
-        if(i + 1 != c) buff << ',';
-    }
-    return pos;
-}
 int flow_compiler::genc_client_source(std::string const &client_src) {
     int error_count = 0;
     DEBUG_ENTER;
@@ -73,25 +40,6 @@ int flow_compiler::genc_client_source(std::string const &client_src) {
         if(type(cli_node) == "container") 
             continue;
         methods.push_back(method_descriptor(cli_node));
-    }
-    std::set<MethodDescriptor const *> mset;
-    for(auto mdp: methods) {
-        if(contains(mset, mdp)) continue;
-        mset.insert(mdp);
-        append(local_vars, "METHOD_NAME", mdp->name());
-        std::string full_name(get_name(mdp->service()) + "." + mdp->name());
-        append(local_vars, "METHOD_FULL_NAME", full_name);
-        append(local_vars, "SERVICE_NAME", get_full_name(mdp->service()));
-        append(local_vars, "GRPC_SERVICE_NAME", mdp->service()->name());
-        append(local_vars, "SERVICE_INPUT_TYPE", get_full_name(mdp->input_type()));
-        append(local_vars, "SERVICE_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-        
-        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), mdp->output_type()->full_name(), "", true, false);
-        append(local_vars, "SERVICE_OUTPUT_SCHEMA_JSON", output_schema);
-
-
-        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(),  mdp->input_type()->full_name(), "", true, false);
-        append(local_vars, "SERVICE_INPUT_SCHEMA_JSON", input_schema);
     }
     if(methods.size() < 1) {
         pcerr.AddError(main_file, -1, 0, "no service entry or node found, cannot generate client");
