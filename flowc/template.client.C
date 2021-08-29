@@ -19,6 +19,7 @@
 #include <getopt.h>
 #include <grpc++/grpc++.h>
 #include <google/protobuf/util/json_util.h>
+#include <ares.h>
 
 static std::string message_to_json(google::protobuf::Message const &message, bool pretty=true) {
     google::protobuf::util::JsonPrintOptions options;
@@ -261,8 +262,23 @@ static entry_info const *find_entry(std::string const &name) {
     }
     return p;
 }
+static void print_banner(std::ostream &out) {
+    out << "{{NAME}} gRPC client\n" 
+        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+        << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
+        <<  "grpc " << grpc::Version() 
+        << ", c-ares " << ares_version(nullptr) << "\n"
+#if defined(__clang__)          
+        << "clang++ " << __clang_version__ << " (" << __cplusplus <<  ")\n"
+#elif defined(__GNUC__) 
+        << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n"
+#else
+#endif
+        << std::endl;
+}
 int main(int argc, char *argv[]) {
     if(!parse_command_line(argc, argv) || show_help || (show.size() == 0 && (argc < 2 || argc > 5))) {
+        print_banner(std::cerr);
         std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [[SERVICE.]RPC] [JSONL-INPUT-FILE] [OUTPUT-FILE]\n";
         std::cerr << "    or " << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n";
         std::cerr << "    or " << argv[0] << " --help\n";
@@ -284,6 +300,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "\n";
         return show_help? 1: 0;
     }
+        
 
     if(show.size() > 0) {
         for(auto const &se: show) {
@@ -304,6 +321,7 @@ int main(int argc, char *argv[]) {
         }
         return 0;
     }
+    print_banner(std::cerr);
 
     std::string endpoint(strchr(argv[1], ':') == nullptr? std::string("localhost:")+argv[1]: std::string(argv[1]));
     entry_info const *eip = nullptr;
