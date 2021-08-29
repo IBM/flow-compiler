@@ -114,11 +114,22 @@ static std::array<entry_info, {{ENTRY_COUNT}}> entry_table = { {
 struct output_queue {
     std::ostream &outs; 
     unsigned long line_count;
-    output_queue(std::ostream &o): outs(o), line_count(0) {
+    std::map<unsigned long, std::string> outq;
+    std::string label;
+    output_queue(std::ostream &o, std::string const &o_label): outs(o), line_count(0), label(o_label) {
     }
     void output(unsigned long input_line, std::string const &line) {
+        if(line_count + 1 != input_line) {
+            outq[input_line] = line;
+            return;
+        }
         outs << line << "\n";
         ++line_count;
+        while(outq.size() > 0 && outq.begin()->first == line_count + 1) {
+            outs << outq.begin()->second << "\n";
+            ++line_count;
+            outq.erase(outq.begin());
+        }
     }
 };
 template <class INT, class OUTT>
@@ -131,20 +142,19 @@ struct call_info {
     grpc::Status status;
 };
 template<class INT, class OUTT, class PPASP>
-static int process_file(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::ostream &outs, PPASP prepare_async) {
+static int process_file(unsigned concurrent_calls, std::string const &label, std::istream &ins, output_queue &oq, PPASP prepare_async) {
+    int error_count = 0;
     grpc::CompletionQueue cq;
     std::vector<call_info<INT, OUTT>> ciq;
-    std::map<unsigned long, unsigned> ccp;
-    output_queue oq(outs);
 
-    int error_count = 0;
+    unsigned active_calls = 0;
     std::string input_line;
     unsigned long line_count = 0;
     bool have_input = true, ok;
     unsigned slot = 0;
     INT request;
 
-    while((have_input = have_input && !!std::getline(ins, input_line)) || ccp.size() > 0) {
+    while((have_input = have_input && !!std::getline(ins, input_line)) || active_calls > 0) {
         if(have_input) {
             ++line_count;
             auto b = input_line.find_first_not_of("\t\r\a\b\v\f ");
@@ -166,10 +176,11 @@ static int process_file(unsigned concurrent_calls, std::string const &label, std
                 continue;
             }
         }
-        if(ccp.size() == concurrent_calls || !have_input) {
+        if(active_calls == concurrent_calls || !have_input) {
             // Wait for completion
             slot = 0; ok = false;
             cq.Next((void **) &slot, &ok);
+            --active_calls;
             if(ok && slot > 0 && slot <= concurrent_calls) {
                 call_info<INT, OUTT> &cc = ciq[slot-1];
                 if(show_headers) {
@@ -198,6 +209,7 @@ static int process_file(unsigned concurrent_calls, std::string const &label, std
         }
         if(have_input) {
             // get the next free slot
+            ++active_calls;
             unsigned x = 0; while(x < concurrent_calls && ciq[x].id == 0) ++x;
             assert(x < concurrent_calls);
             call_info<INT, OUTT> &cc = ciq[x];
@@ -250,8 +262,8 @@ static entry_info const *find_entry(std::string const &name) {
     return p;
 }
 int main(int argc, char *argv[]) {
-    if(!parse_command_line(argc, argv) || show_help || (show.size() == 0 && (argc < 2 || argc > 4))) {
-        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [[SERVICE.]RPC] [JSONL-INPUT-FILE]\n";
+    if(!parse_command_line(argc, argv) || show_help || (show.size() == 0 && (argc < 2 || argc > 5))) {
+        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [[SERVICE.]RPC] [JSONL-INPUT-FILE] [OUTPUT-FILE]\n";
         std::cerr << "    or " << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n";
         std::cerr << "    or " << argv[0] << " --help\n";
         std::cerr << "\n";
@@ -314,22 +326,35 @@ int main(int argc, char *argv[]) {
     }
 
     std::shared_ptr<grpc::Channel> channel(grpc::CreateChannel(endpoint, grpc::InsecureChannelCredentials()));
-    std::istream *in = nullptr;
+
+    std::istream *in = &std::cin;
     std::ifstream infs;
-    std::string input_label;
-    if(argc < 4 || strcmp("-", argv[3]) == 0) {
-        in = &std::cin;
-        input_label = "<stdin>";
-    } else {
+    std::string input_label("<stdin>");
+    std::ostream *out = &std::cout;
+    std::ofstream outfs;
+    std::string output_label("<stdout>");
+
+    if(argc >= 4 && strcmp("-", argv[3]) != 0) {
         infs.open(argv[3]);
         if(!infs.is_open()) {
-            std::cerr << "Could not open file: " << argv[3] << "\n";
+            std::cerr << "Could not read file: " << argv[3] << "\n";
             return 1;
         }
         in = &infs;
         input_label = argv[3];
     }
-    int rc = 1;
+    if(argc >= 5 && strcmp("-", argv[4]) != 0) {
+        outfs.open(argv[4]);
+        if(!outfs.is_open()) {
+            std::cerr << "Could not write file: " << argv[4] << "\n";
+            return 1;
+        }
+        out = &outfs;
+        output_label = argv[3];
+    }
+
+    output_queue oq(*out, output_label);
+    int rc = 0;
     switch(eip->id) {
 {I:ENTRY_FULL_NAME{        case {{ENTRY_FULL_NAME/id/upper}}: {
             // rpc {{METHOD_FULL_NAME}}
@@ -337,7 +362,7 @@ int main(int argc, char *argv[]) {
             auto prep_lambda  = [&client_stub](grpc::ClientContext *ctx, {{ENTRY_INPUT_TYPE}} &request, grpc::CompletionQueue *cq) -> auto { 
                 return client_stub->PrepareAsync{{ENTRY_NAME}}(ctx, request, cq);
             };
-            rc = process_file<{{ENTRY_INPUT_TYPE}}, {{ENTRY_OUTPUT_TYPE}}, decltype(prep_lambda)>(concurrent_calls, input_label, *in, std::cout, prep_lambda);
+            rc = process_file<{{ENTRY_INPUT_TYPE}}, {{ENTRY_OUTPUT_TYPE}}, decltype(prep_lambda)>(concurrent_calls, input_label, *in, oq, prep_lambda);
                     
         } break;
 }I}
