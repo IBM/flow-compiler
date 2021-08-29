@@ -111,40 +111,40 @@ static std::array<entry_info, {{ENTRY_COUNT}}> entry_table = { {
 }I}
 } };
 
-template <class INT, class OUTT>
-struct call_info {
-    INT request;
-    OUTT response;
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<OUTT>> carr;
-    grpc::Status status;
-    grpc::ClientContext context;
-    unsigned long id;
-};
-
 struct output_queue {
     std::ostream &outs; 
     unsigned long line_count;
     output_queue(std::ostream &o): outs(o), line_count(0) {
     }
-    void output(unsigned long input_line, std::string &line) {
+    void output(unsigned long input_line, std::string const &line) {
         outs << line << "\n";
         ++line_count;
     }
 };
-
-template<class INT, class OUTT, class UPSTUB>
-static int process_file(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::ostream &outs, UPSTUB const &stub) {
+template <class INT, class OUTT>
+struct call_info {
+    unsigned long id = 0;
+    INT request;
+    OUTT response;
+    std::unique_ptr<::grpc::ClientAsyncResponseReader<OUTT>> carr;
+    std::unique_ptr<grpc::ClientContext> contextp;
+    grpc::Status status;
+};
+template<class INT, class OUTT, class PPASP>
+static int process_file(unsigned concurrent_calls, std::string const &label, std::istream &ins, std::ostream &outs, PPASP prepare_async) {
     grpc::CompletionQueue cq;
     std::vector<call_info<INT, OUTT>> ciq;
     std::map<unsigned long, unsigned> ccp;
     output_queue oq(outs);
 
+    int error_count = 0;
     std::string input_line;
     unsigned long line_count = 0;
-    unsigned long out_line = 0;
-    bool have_input;
+    bool have_input = true, ok;
+    unsigned slot = 0;
+    INT request;
 
-    while((have_input = !!std::getline(ins, input_line)) || ccp.size() > 0) {
+    while((have_input = have_input && !!std::getline(ins, input_line)) || ccp.size() > 0) {
         if(have_input) {
             ++line_count;
             auto b = input_line.find_first_not_of("\t\r\a\b\v\f ");
@@ -153,73 +153,77 @@ static int process_file(unsigned concurrent_calls, std::string const &label, std
                 oq.output(line_count, input_line);
                 continue;
             }
-            // If no free slot, wait for completion
-            unsigned long got_tag;
-            bool ok = false;
-            cq.Next((void **) &got_tag, &ok);
-            if(ok && got_tag == 1) {
-                auto cci = ccp.find(got_tag);
-                // check reply and status
-            }
-        }
-
-        // find the first available slot
-/*
-        unsigned x = 0; while(x < concurrent_calls && busy[x]) ++x;
-        if(x == concurrent_calls || !have_input) {
-            
-            //while(cq.Next(&TAG, &NextOK)) {
-            //}
-            
-            if(show_headers) {
-                for(auto const &mde: contexts[x]->GetServerInitialMetadata()) {
-                    std::string header(mde.first.data(), mde.first.length());
-                    std::cerr << "- " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
-                }
-                for(auto const &mde: contexts[x]->GetServerTrailingMetadata()) {
-                    std::string header(mde.first.data(), mde.first.length());
-                    std::cerr << "= " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
-                }
-            }
-            if(!statuses[x].ok()) {
-                std::cerr << label << "(" << line_count << ") from " << contexts[x]->peer() << ": " << statuses[x].error_code() << ": " << statuses[x].error_message() << "\n" << statuses[x].error_details() << std::endl;
-                if(!ignore_grpc_errors)
-                    return 1;
-                // Otput a comment line with the error message to keep the input and output file in sync
-                std::cout << "# " << statuses[x].error_code() << ": " << statuses[x].error_message() << "\n";
-            }
-            std::cout << message_to_json(outputs[x], false)  << "\n";
-        }
-
-        if(have_input) {
-            // prepare the input
-
-            inputs[x].Clear();
-            auto conv_status = google::protobuf::util::JsonStringToMessage(input_line, &inputs[x]);
+            request.Clear();
+            // Attempt to convert the input 
+            auto conv_status = google::protobuf::util::JsonStringToMessage(input_line, &request);
             if(!conv_status.ok()) {
-                std::cerr << label << "(" << line_count << "): " << conv_status.ToString() << std::endl;
+                std::string error_message(conv_status.ToString());
+                std::cerr << label << "(" << line_count << "): " << error_message << std::endl;
+                ++error_count;
                 if(!ignore_json_errors) 
-                    return 1;
-                // Output a new line to keep the input and the output files in sync
-                std::cout << "\n";
+                    break;
+                oq.output(line_count, error_message);
+                continue;
             }
-            outputs[x].Clear();
-            contexts[x] = std::unique_ptr<::grpc::ClientContext>(new ::grpc::ClientContext);
-
-            if(use_blocking_calls) contexts[x]->AddMetadata("overlapped-calls", "0");
-            if(time_calls) contexts[x]->AddMetadata("time-call", "1");
-            for(auto const &xhe: added_headers) 
-                contexts[x]->AddMetadata(xhe.first, xhe.second);
-
+        }
+        if(ccp.size() == concurrent_calls || !have_input) {
+            // Wait for completion
+            slot = 0; ok = false;
+            cq.Next((void **) &slot, &ok);
+            if(ok && slot > 0 && slot <= concurrent_calls) {
+                call_info<INT, OUTT> &cc = ciq[slot-1];
+                if(show_headers) {
+                    std::cerr << "# " << cc.id << "\n";
+                    for(auto const &mde: cc.contextp->GetServerInitialMetadata()) {
+                        std::string header(mde.first.data(), mde.first.length());
+                        std::cerr << "- " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+                    }
+                    for(auto const &mde: cc.contextp->GetServerTrailingMetadata()) {
+                        std::string header(mde.first.data(), mde.first.length());
+                        std::cerr << "= " << header << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
+                    }
+                }
+                if(!cc.status.ok()) {
+                    ++error_count;
+                    std::cerr << label << "(" << cc.id << ") from " << cc.contextp->peer() << ": " << cc.status.error_code() << ": " << cc.status.error_message() << "\n" << cc.status.error_details() << std::endl;
+                    oq.output(cc.id, std::string("# ") + std::to_string(cc.status.error_code()) + ": " + cc.status.error_message());
+                    if(!ignore_grpc_errors)
+                        break;
+                } else {
+                    oq.output(cc.id, message_to_json(cc.response, false));
+                }
+                // free the current slot
+                cc.id = 0;
+            }
+        }
+        if(have_input) {
+            // get the next free slot
+            unsigned x = 0; while(x < concurrent_calls && ciq[x].id == 0) ++x;
+            assert(x < concurrent_calls);
+            call_info<INT, OUTT> &cc = ciq[x];
+            // send the request
+            cc.response.Clear();
+            cc.contextp = std::unique_ptr<::grpc::ClientContext>(new ::grpc::ClientContext);
+            if(use_blocking_calls) 
+                cc.contextp->AddMetadata("overlapped-calls", "0");
+            if(time_calls) 
+                cc.contextp->AddMetadata("time-call", "1");
+            for(auto const &xhe: headers)
+                cc.contextp->AddMetadata(xhe.first, xhe.second);
             if(call_timeout > 0) {
                 auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(call_timeout);
-                contexts[x]->set_deadline(deadline);
+                cc.contextp->set_deadline(deadline);
             }
-            stub->PrepareAsync{{METHOD_NAME}}(contexts[x].get(), inputs[x], &cq);
+            cc.id = line_count;
+            cc.request.CopyFrom(request);
+            cc.carr = prepare_async(cc.contextp.get(), cc.request, &cq);
+            cc.carr->StartCall();
+            cc.carr->Finish(&cc.response, &cc.status, (void *) ((unsigned long)x+1));
         }
-        */
     }
-    return 0;
+    cq.Shutdown();
+    while(cq.Next((void **) &slot, &ok));
+    return error_count;
 }
 static entry_info const *find_entry(std::string const &name) {
     entry_info const *p = nullptr;
@@ -330,7 +334,11 @@ int main(int argc, char *argv[]) {
 {I:ENTRY_FULL_NAME{        case {{ENTRY_FULL_NAME/id/upper}}: {
             // rpc {{METHOD_FULL_NAME}}
             std::unique_ptr<{{ENTRY_SERVICE_NAME}}::Stub> client_stub({{ENTRY_SERVICE_NAME}}::NewStub(channel));
-            rc = process_file<{{ENTRY_INPUT_TYPE}}, {{ENTRY_OUTPUT_TYPE}}, std::unique_ptr<{{ENTRY_SERVICE_NAME}}::Stub>>(concurrent_calls, input_label, *in, std::cout, client_stub);
+            auto prep_lambda  = [&client_stub](grpc::ClientContext *ctx, {{ENTRY_INPUT_TYPE}} &request, grpc::CompletionQueue *cq) -> auto { 
+                return client_stub->PrepareAsync{{ENTRY_NAME}}(ctx, request, cq);
+            };
+            rc = process_file<{{ENTRY_INPUT_TYPE}}, {{ENTRY_OUTPUT_TYPE}}, decltype(prep_lambda)>(concurrent_calls, input_label, *in, std::cout, prep_lambda);
+                    
         } break;
 }I}
         default:
