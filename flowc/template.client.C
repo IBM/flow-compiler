@@ -60,6 +60,8 @@ struct option long_opts[] {
     { "ignore-json-errors",   no_argument, nullptr, 'j' },
     { "time-calls",           no_argument, nullptr, 't' },
     { "show-headers",         no_argument, nullptr, 'v' },
+    { "entries-proto",        no_argument, nullptr, 'E' },
+    { "nodes-proto",          no_argument, nullptr, 'A' },
     { "header",               required_argument, nullptr, 'H' },
     { "timeout",              required_argument, nullptr, 'T' },
     { "streams",              required_argument, nullptr, 'n' },
@@ -71,7 +73,7 @@ struct option long_opts[] {
 
 static bool parse_command_line(int &argc, char **&argv) {
     int ch;
-    while((ch = getopt_long(argc, argv, "hbgjT:n:H:I:O:P:", long_opts, nullptr)) != -1) {
+    while((ch = getopt_long(argc, argv, "hbgjTAN:n:H:I:O:P:", long_opts, nullptr)) != -1) {
         switch (ch) {
             case 'b': use_blocking_calls = true; break;
             case 'g': ignore_grpc_errors = true; break;
@@ -81,6 +83,8 @@ static bool parse_command_line(int &argc, char **&argv) {
             case 'h': show_help = true; break;
             case 'H': add_header(optarg); break;
             case 'n': concurrent_calls = atoi(optarg); break;
+            case 'A': case 'E': 
+                      show.push_back(std::make_pair(ch, std::string())); break;
             case 'I': case 'O': case 'P':
                       show.push_back(std::make_pair(ch, std::string(optarg))); break;
             case 'T': call_timeout = std::atoi(optarg); break;
@@ -239,6 +243,7 @@ static int process_file(unsigned concurrent_calls, std::string const &label, std
     return error_count;
 }
 static entry_info const *find_entry(std::string const &name) {
+    if(name.empty()) return nullptr;
     entry_info const *p = nullptr;
     std::vector<std::string> matches;
     for(auto const &rme: entry_table) {
@@ -281,6 +286,7 @@ int main(int argc, char *argv[]) {
         print_banner(std::cerr);
         std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [[SERVICE.]RPC] [JSONL-INPUT-FILE] [OUTPUT-FILE]\n";
         std::cerr << "    or " << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n";
+        std::cerr << "    or " << argv[0] << " --entries-proto|--nodes-proto\n";
         std::cerr << "    or " << argv[0] << " --help\n";
         std::cerr << "\n";
         std::cerr << "Options:\n";
@@ -305,15 +311,24 @@ int main(int argc, char *argv[]) {
     if(show.size() > 0) {
         for(auto const &se: show) {
             auto pi = find_entry(se.second);
-            if(pi != nullptr) switch (se.first) {
+            switch (se.first) {
                 case 'I':
-                    std::cout << pi->input_schema << "\n";
+                    if(pi != nullptr) 
+                        std::cout << pi->input_schema << "\n";
                     break;
                 case 'O':
-                    std::cout << pi->output_schema << "\n";
+                    if(pi != nullptr) 
+                        std::cout << pi->output_schema << "\n";
                     break;
                 case 'P':
-                    std::cout << pi->proto << "\n";
+                    if(pi != nullptr) 
+                        std::cout << pi->proto << "\n";
+                    break;
+                case 'E':
+                    std::cout << {{ENTRIES_PROTO/c}} << "\n";
+                    break;
+                case 'A':
+                    std::cout << {{ALL_NODES_PROTO/c}} << "\n";
                     break;
                 default:
                     break;

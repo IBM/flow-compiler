@@ -1219,6 +1219,8 @@ std::map<std::string, char const *> schema_map = {
 #endif
     { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c}} }, 
 }I}
+    { "/-proto/", {{ENTRIES_PROTO/c}} },
+    { "/-all-proto/", {{ALL_NODES_PROTO/c}} },
 };
 }
 #if !defined(NO_REST) || !(NO_REST)    

@@ -1412,6 +1412,12 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     set(vars, "ENTRY_COUNT", sfmt() << entry_count);
     set(vars, "ALT_ENTRY_COUNT", sfmt() << entry_count-1);
     set(vars, "ENTRIES_PROTO", gen_proto(entry_mdps));
+    for(auto &rn: referenced_nodes) {
+        MethodDescriptor const *mdp = method_descriptor(rn.first);
+        if(mdp != nullptr)
+            entry_mdps.insert(mdp);
+    }
+    set(vars, "ALL_NODES_PROTO", gen_proto(entry_mdps));
     return error_count;
 }
 int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
