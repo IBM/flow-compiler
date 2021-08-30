@@ -83,7 +83,7 @@ GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-confi
 
 TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C template.help \
 	template.driver.sh template.docker-compose.yaml template.kubernetes.group.yaml template.kubernetes.yaml \
-	template.server.C template.syntax template.index.html template.server.pem\
+	template.server.C template.syntax template.index.html template.server.pem template.client.py \
     	
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
