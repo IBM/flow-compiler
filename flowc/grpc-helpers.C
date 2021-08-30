@@ -29,14 +29,30 @@ static void gen_proto(std::ostream &pbuf, ::google::protobuf::Descriptor const *
 }
 
 std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp) {
+    std::set<::google::protobuf::MethodDescriptor const *> mdps; 
+    mdps.insert(mdp);
+    return gen_proto(mdps);
+}
+std::string gen_proto(std::set<::google::protobuf::MethodDescriptor const *> const &mdps) {
     std::ostringstream pbuf;
     pbuf << "syntax = \"proto3\";\n\n";
+    std::set<std::string> services;
     std::set<std::string> visited;
-    gen_proto(pbuf, mdp->input_type(), visited);
-    gen_proto(pbuf, mdp->output_type(), visited);
-    pbuf << "service " << get_name(mdp->service()) << " {\n  ";
-    pbuf << mdp->DebugString();
-    pbuf << "}\n";
+    for(auto mdp: mdps) {
+        gen_proto(pbuf, mdp->input_type(), visited);
+        gen_proto(pbuf, mdp->output_type(), visited);
+    }
+    for(auto mdp: mdps) {
+        std::string service_name = get_name(mdp->service());
+        if(contains(visited, service_name))
+            continue;
+        visited.insert(service_name);
+        pbuf << "service " << service_name << " {\n";
+        for(auto p2: mdps) 
+            if(get_name(p2->service()) == service_name) 
+                pbuf << "  " << p2->DebugString();
+        pbuf << "}\n";
+    }
     return pbuf.str();
 }
 static void enum_as_strings(std::ostream &buf, ::google::protobuf::EnumDescriptor const *ep) {

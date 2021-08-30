@@ -419,5 +419,6 @@ bool is_enum(::google::protobuf::FieldDescriptor const *fd) {
 }
 std::string json_schema(std::map<std::string, std::string> const &defaults, google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, bool extended_format, bool pretty); 
 std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp);
+std::string gen_proto(std::set<::google::protobuf::MethodDescriptor const *> const &mdps);
 #endif
 
