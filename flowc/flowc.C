@@ -268,7 +268,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(global_vars, "MAIN_FILE_TS", buffer);
 
         std::string xtra_h = path_join(dirname(real_input_filename), orchestrator_name+"-xtra.H");
-        if(stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
+        if(contains(targets, "server") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
             cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
             append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
         }
@@ -883,8 +883,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 int flow_compiler::genc_python_client(std::string const &client_bin) {
     int error_count = 0;
     DEBUG_ENTER;
-    std::string fn = client_bin + ".py";
+    std::string fn = output_filename(client_bin + ".py");
     OFSTREAM_SE(outf, fn);
+    extern char const *template_client_py;
+    vex::expand(outf, template_client_py, vex::make_smap(global_vars));
     DEBUG_LEAVE;
     return error_count;
 }
