@@ -1334,6 +1334,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     
     ServiceDescriptor const *sdp = nullptr;
     int entry_count = 0;
+    std::set<MethodDescriptor const *> entry_mdps;
     for(int entry_node: entry_node_set) {
         ++entry_count;
         MethodDescriptor const *mdp = method_descriptor(entry_node);
@@ -1349,12 +1350,16 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         for(auto d: defsn)
             defs[d.first] = get_value(d.second);
         std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
+        entry_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
         append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
+        append(vars, "ENTRY_SERVICE_SHORT_NAME", get_name(mdp->service()));
         append(vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
+        append(vars, "ENTRY_OUTPUT_SHORT_TYPE", get_name(mdp->output_type()));
         append(vars, "ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+        append(vars, "ENTRY_INPUT_SHORT_TYPE", get_name(mdp->input_type()));
         append(vars, "ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
         append(vars, "ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
         append(vars, "ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
@@ -1406,6 +1411,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         set(vars, "HAVE_ALT_ENTRY", "");
     set(vars, "ENTRY_COUNT", sfmt() << entry_count);
     set(vars, "ALT_ENTRY_COUNT", sfmt() << entry_count-1);
+    set(vars, "ENTRIES_PROTO", gen_proto(entry_mdps));
     return error_count;
 }
 int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
