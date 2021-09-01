@@ -19,6 +19,7 @@
 #include <getopt.h>
 #include <grpc++/grpc++.h>
 #include <google/protobuf/util/json_util.h>
+#include <ares.h>
 
 static std::string message_to_json(google::protobuf::Message const &message, bool pretty=true) {
     google::protobuf::util::JsonPrintOptions options;
@@ -270,7 +271,8 @@ static void print_banner(std::ostream &out) {
     out << "{{NAME}} gRPC client\n" 
         << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
-        <<  "grpc " << grpc::Version() << "\n"
+        <<  "grpc " << grpc::Version()
+        << ", c-ares " << ares_version(nullptr) << "\n"
 #if defined(__clang__)          
         << "clang++ " << __clang_version__ << " (" << __cplusplus <<  ")\n"
 #elif defined(__GNUC__) 

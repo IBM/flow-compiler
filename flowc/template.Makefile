@@ -43,6 +43,8 @@ CARES_LIBS?=$(shell pkg-config --libs libcares)
 
 SERVER_LFLAGS+= $(CARES_LIBS) 
 SERVER_CFLAGS+= $(CARES_INCS)
+CLIENT_LFLAGS+= $(CARES_LIBS) 
+CLIENT_CFLAGS+= $(CARES_INCS)
 
 ifeq ($(REST), no)
 SERVER_CFLAGS+= -DNO_REST
@@ -64,6 +66,8 @@ endif
 
 SERVER_LFLAGS+= $(GRPC_LIBS)
 SERVER_CFLAGS+= $(GRPC_INCS)
+CLIENT_LFLAGS+= $(GRPC_LIBS)
+CLIENT_CFLAGS+= $(GRPC_INCS)
 
 ifeq ($(PUSH_REPO), )
 DOCKER:=docker-info
@@ -139,7 +143,7 @@ image: image-info-$(shell uname -s)
 	${CXX} $(SERVER_CFLAGS) $(CFLAGS) -o $@  $< $(PB_GENERATED_CC) $(SERVER_XTRA_C) $(SERVER_LFLAGS)
 
 {{NAME}}-client: {{NAME}}-client.C $(PB_GENERATED_CC) $(PB_GENERATED_H) 
-	${CXX} $(GRPC_INCS) $(CFLAGS) -o $@  $<  $(PB_GENERATED_CC) $(GRPC_LIBS)
+	${CXX} $(CLIENT_CFLAGS) $(CFLAGS) -o $@  $<  $(PB_GENERATED_CC) $(CLIENT_LFLAGS)
 
 clean:
 	rm -f $(IMAGE_PROXY) {{NAME}}-server {{NAME}}-client 
