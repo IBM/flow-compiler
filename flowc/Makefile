@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
-BUILD_VERSION=0.15.7
+BUILD_VERSION=0.16.0
 
 DBG?=no
 ifeq ($(DBG), yes) 
@@ -27,13 +27,13 @@ STACK_TRACE?=0
 endif
 
 
-## One of the runtimes alpine-3.11, alpine-3.12, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
+## One of the runtimes alpine-3.14, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image
-.PHONY: alpine-3.12 ubuntu-18.04 ubuntu-20.04 redhat-ubi7 alpine-3.11 redhat-ubi8 alpine-3.13 
+.PHONY: ubuntu-18.04 ubuntu-20.04 redhat-ubi7 redhat-ubi8 alpine-3.14
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
@@ -185,15 +185,7 @@ image:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
 
-alpine-3.13:
-	@rm -f flow-templates.C
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
-
-alpine-3.12:
-	@rm -f flow-templates.C
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
-
-alpine-3.11:
+alpine-3.14:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 

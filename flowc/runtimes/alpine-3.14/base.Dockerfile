@@ -1,9 +1,9 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.13
+ARG CIVETWEB_VERSION=1.14
 
 USER root
 
-RUN apk add --no-cache gcc musl-dev g++ grpc make graphviz pkgconf grpc-dev libexecinfo-dev util-linux-dev c-ares gdb grpc-cli
+RUN apk add --no-cache gcc musl-dev g++ grpc grpc-dev protobuf protobuf-dev protoc make graphviz pkgconf libexecinfo-dev util-linux-dev c-ares c-ares-dev gdb grpc-cli
 
 USER worker
 WORKDIR /home/worker
