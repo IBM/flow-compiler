@@ -1,7 +1,6 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.14
+ARG CIVETWEB_VERSION=1.15
 ARG GRPC_VERSION=1.40.0
-ARG CARES_VERSION=1.16.1
 
 user root
 
@@ -16,7 +15,6 @@ RUN yum -y install vim curl jq bc tar unzip binutils \
  openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
  gcc-c++ file graphviz \
  && yum clean all -y
-
 
 USER worker
 WORKDIR /home/worker
@@ -38,23 +36,10 @@ RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd 
     && mkdir -p third_party/abseil-cpp/cmake/build && cd third_party/abseil-cpp/cmake/build \
     && cmake -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j$(nproc) && make install \
     && \
-     cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
-     cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done && \
-     cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done  \
-    && \
+        cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done && \
+        cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
+        cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done && \
     cd /tmp && rm -fr grpc
-
-# version before 1.30
-#RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init && \
-#    make -j$(nproc) HAS_SYSTEM_PROTOBUF=false && make install && cd /tmp/grpc/third_party/protobuf && make install  \
-#    && find /tmp/grpc -name lib\*.a | while read A; do cp -n $A /usr/local/lib; done \
-#    && find /tmp/grpc -name \*_plugin | while read A; do cp -n $A /usr/local/bin; done \
-#    && ldconfig /usr/local/lib \
-#    && cd /tmp && rm -fr grpc
-#RUN curl -L https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz -o c-ares-${CARES_VERSION}.tar.gz
-#RUN tar -xzvf c-ares-${CARES_VERSION}.tar.gz && rm -f c-ares-${CARES_VERSION}.tar.gz && \
-#   cd c-ares-${CARES_VERSION} && ./configure --enable-shared=no && make && make install && \
-#    cd .. && rm -fr c-ares-${CARES_VERSION}
 
 USER worker
 
