@@ -48,6 +48,7 @@ extern char **environ;
 extern "C" {
 #include <civetweb.h>
 }
+#endif
 namespace flowc {
 inline static bool stringtobool(std::string const &s, bool default_value=false) {
     if(s.empty()) return default_value;
@@ -293,7 +294,7 @@ N min(A first, As... args) {
     return std::min((N) first, min(args...));
 }
 }
-
+#if !defined(NO_REST) || !(NO_REST)    
 /**********************************************************************************************************
  * REST headers 
  */
@@ -2123,7 +2124,7 @@ int main(int argc, char *argv[]) {
         "\t`--enable-webapp` TRUE/FALSEn\n\t\tSet to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n\n"
 #endif
         "\t`--grpc-num-threads` NUMBER\n\t\tNumber of threads to run in the gRPC server. Set to '0' to use the default gRPC value.\n\n"
-        "\t`--grpc-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the ssl certificate. Default is '{{NAME}}-grpc.pem' and '{{NAME}}'.pem in the current directory.\n\n"
+        "\t`--grpc-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the ssl certificate. Default is '{{NAME}}-grpc.pem' and '{{NAME}}.pem' in the current directory.\n\n"
         "\t`--help`\n\t\tShow this screen and exit\n\n"
         "\t`--server-id` STRING\n\t\tString to use as an idendifier for this server. If not set a random string will automatically be generated.\n\n"
         "\t`--send-id` TRUE/FALSE\n\t\tSet to false to disable sending the node id in replies. Enabled by default.\n\n"
