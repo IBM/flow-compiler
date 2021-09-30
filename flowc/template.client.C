@@ -150,7 +150,7 @@ template<class INT, class OUTT, class PPASP>
 static int process_file(unsigned concurrent_calls, std::string const &label, std::istream &ins, output_queue &oq, PPASP prepare_async) {
     int error_count = 0;
     grpc::CompletionQueue cq;
-    std::vector<call_info<INT, OUTT>> ciq;
+    std::vector<call_info<INT, OUTT>> ciq(concurrent_calls);
 
     unsigned active_calls = 0;
     std::string input_line;
@@ -284,7 +284,7 @@ static void print_banner(std::ostream &out) {
 int main(int argc, char *argv[]) {
     if(!parse_command_line(argc, argv) || show_help || (show.size() == 0 && (argc < 2 || argc > 5))) {
         print_banner(std::cerr);
-        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [[SERVICE.]RPC] [JSONL-INPUT-FILE] [OUTPUT-FILE]\n";
+        std::cerr << "Usage: " << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE]\n";
         std::cerr << "    or " << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n";
         std::cerr << "    or " << argv[0] << " --entries-proto|--nodes-proto\n";
         std::cerr << "    or " << argv[0] << " --help\n";
