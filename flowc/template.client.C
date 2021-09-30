@@ -215,7 +215,7 @@ static int process_file(unsigned concurrent_calls, std::string const &label, std
         if(have_input) {
             // get the next free slot
             ++active_calls;
-            unsigned x = 0; while(x < concurrent_calls && ciq[x].id == 0) ++x;
+            unsigned x = 0; while(x < concurrent_calls && ciq[x].id != 0) ++x;
             assert(x < concurrent_calls);
             call_info<INT, OUTT> &cc = ciq[x];
             // send the request
