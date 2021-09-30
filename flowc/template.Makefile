@@ -76,6 +76,30 @@ DOCKER:=docker-push
 PUSH_IMAGE:=$(PUSH_REPO:/=)/$(IMAGE_NAME):$(IMAGE_TAG)
 endif
 
+THIS_FILE:=$(lastword $(MAKEFILE_LIST))
+
+info:
+	@echo ""
+	@echo "Available targets are \"server\", \"client\", and \"image\"."
+	@echo ""
+	@echo "The default image name is \"$(IMAGE_NAME):$(IMAGE_TAG)\"."
+	@echo "Set IMAGE to change the image name, or IMAGE_TAG to only change the version tag."
+	@echo "Set PUSH_REPO to a remote repository if the freshly built image needs to be pushed."
+	@echo ""
+	@echo "make -f $(THIS_FILE) IMAGE={{NAME}}:v1.50 image"
+	@echo ""
+	@echo "Note that the gRPC and CivetWeb libraries are searched for with pkg-config."
+	@echo "Alternatively set GRPC_LIBS, GRPC_INCS, CIVETWEB_LIBS and CIVETWEB_INCS with the desired link and  cflags options respectively."
+	@echo ""
+	@echo "To build a debug version of the \"client\", \"server\" or \"image\" set DBG to 'yes':"
+	@echo ""
+	@echo "make -f $(THIS_FILE) DBG=yes server"
+	@echo ""
+	@echo "To build the server without REST support, set REST to 'no' (will not link with CivetWeb):"
+	@echo ""
+	@echo "make -f $(THIS_FILE) REST=no server"
+	@echo ""
+
 ifeq ($(HTDOCS_PATH), )
 {{NAME}}-htdocs.tar.gz:
 	tar -czf $@ --files-from=/dev/null
@@ -84,22 +108,6 @@ else
 	ln -s "$(HTDOCS_PATH)" app
 	tar -czf $@ -h app
 endif
-
-THIS_FILE:=$(lastword $(MAKEFILE_LIST))
-
-info:
-	@echo "Target \"image\" will build a docker image tagged \"$(IMAGE_NAME):$(IMAGE_TAG)\""
-	@echo "Set PUSH_REPO to a remote repository if the freshly built image needs to be pushed"
-	@echo ""
-	@echo "make -f $(THIS_FILE) IMAGE={{NAME}}:0.5 image"
-	@echo ""
-	@echo "Note that the gRPC libraries are searched for with pkg-config."
-	@echo "If pkg-config is not available, set GRPC_LIBS and/or GRPC_INCS with the desired link and/or cflags options"
-	@echo ""
-	@echo "Targets \"server\" and \"client\" will build the server and the client binaries respectively"
-	@echo "Target \"all\" will build both the server and client binaries"
-	@echo ""
-	@echo "make -f $(THIS_FILE) client" 
 
 PB_GENERATED_CC:={P:PB_GENERATED_C{{{PB_GENERATED_C}} }P} {P:GRPC_GENERATED_C{{{GRPC_GENERATED_C}} }P}
 PB_GENERATED_H:={P:PB_GENERATED_H{{{PB_GENERATED_H}} }P} {P:GRPC_GENERATED_H{{{GRPC_GENERATED_H}} }P}
