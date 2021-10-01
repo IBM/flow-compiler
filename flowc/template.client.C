@@ -48,7 +48,7 @@ bool time_calls = false;
 bool async_calls = false;
 bool set_async_calls = false;
 bool enable_trace = false;
-int call_timeout = 0;
+int call_timeout = 3600000;
 int concurrent_calls = 1;
 bool show_headers = false;
 bool show_help = false;
@@ -436,7 +436,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    std::string endpoint(strcspn(argv[1], "0123456789") == strlen(argv[1])? std::string("localhost:")+argv[1]: std::string(argv[1]));
+    std::string endpoint(strspn(argv[1], "0123456789") == strlen(argv[1])? std::string("localhost:")+argv[1]: std::string(argv[1]));
     entry_info const *eip = nullptr;
     if(argc > 2) {
         eip = find_entry(argv[2]);
