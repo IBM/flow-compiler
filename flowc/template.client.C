@@ -374,6 +374,7 @@ int main(int argc, char *argv[]) {
         "\t" << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE] [HEADERS-FILE]\n"
         "\t" << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n"
         "\t" << argv[0] << " --entries-proto|--nodes-proto\n"
+        "\n"
         "\tInput and output files default to <stdin> and <stdout> respectively. The headers file defaults to the output file.\n"
         "\n"
         "OPTIONS\n"
