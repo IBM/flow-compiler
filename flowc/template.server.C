@@ -2106,14 +2106,14 @@ int main(int argc, char *argv[]) {
         "\n"
         "\n"
         "ARGUMENTS\n\n"
-        "\tGRPC-LISTENING-PORTS\n\t\tA space or comma separated list of ports in the form '[(HOSTNAME|IPv6):]PORT[s]'.\n"
+        "\tGRPC-LISTENING-PORTS\n\t\tA comma separated list of ports in the form '[(HOSTNAME|IPv6):]PORT[s]' or 'unix:PATH' or 'unix:///ABSOLUTE-PATH'.\n"
         "\t\tAppend 's' for secure connections. Set port to '0' to allocate a random port. IP numbers must be in IPv6 format.\n"
         "\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        "\tREST-LISTENING-PORTS\n\t\tA space or comma separated list of ports in the form '[(HOSTNAME|IP):]PORT[s|r]'\n"
+        "\tREST-LISTENING-PORTS\n\t\tA comma separated list of ports in the form '[(HOSTNAME|IP):]PORT[s|r]'\n"
         "\t\tAppend 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n"
         "\n"
-        "\tWEBAPP-DIRECTORY\n\t\tDirectory with webapp content. If not sepcified the internally compiled one will be used. See --enable-webapp below.\n"
+        "\tWEBAPP-DIRECTORY\n\t\tDirectory with webapp content. If not sepcified the internally compiled app will be used. See `--enable-webapp` below.\n"
 #endif
         "\n"
         "OPTIONS\n\n"
