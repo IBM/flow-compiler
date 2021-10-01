@@ -1334,7 +1334,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     
     ServiceDescriptor const *sdp = nullptr;
     int entry_count = 0;
-    std::set<MethodDescriptor const *> entry_mdps;
+    std::set<MethodDescriptor const *> entry_mdps, all_mdps;
     for(int entry_node: entry_node_set) {
         ++entry_count;
         MethodDescriptor const *mdp = method_descriptor(entry_node);
@@ -1350,7 +1350,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         for(auto d: defsn)
             defs[d.first] = get_value(d.second);
         std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), main_description, true, true);
-        entry_mdps.insert(mdp);
+        entry_mdps.insert(mdp); all_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
@@ -1415,9 +1415,42 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     for(auto &rn: referenced_nodes) {
         MethodDescriptor const *mdp = method_descriptor(rn.first);
         if(mdp != nullptr)
-            entry_mdps.insert(mdp);
+            all_mdps.insert(mdp);
     }
-    set(vars, "ALL_NODES_PROTO", gen_proto(entry_mdps));
+    for(auto mdp: entry_mdps) {
+        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), "", true, true);
+        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), decamelize(mdp->input_type()->name()), "", true, true);
+        append(vars, "MDP_PROTO", gen_proto(mdp));
+        append(vars, "MDP_FULL_NAME", mdp->full_name());
+        append(vars, "MDP_NAME", mdp->name());
+        append(vars, "MDP_SERVICE_SHORT_NAME", get_name(mdp->service()));
+        append(vars, "MDP_SERVICE_NAME", get_full_name(mdp->service()));
+        append(vars, "MDP_OUTPUT_SHORT_TYPE", get_name(mdp->output_type()));
+        append(vars, "MDP_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+        append(vars, "MDP_INPUT_SHORT_TYPE", get_name(mdp->input_type()));
+        append(vars, "MDP_INPUT_TYPE", get_full_name(mdp->input_type()));
+        append(vars, "MDP_OUTPUT_SCHEMA_JSON", output_schema);
+        append(vars, "MDP_INPUT_SCHEMA_JSON", input_schema);
+        append(vars, "MDP_IS_ENTRY", "1");
+    }
+    for(auto mdp: all_mdps) if(!contains(entry_mdps, mdp)) {
+        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), "", true, true);
+        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), decamelize(mdp->input_type()->name()), "", true, true);
+        append(vars, "MDP_PROTO", gen_proto(mdp));
+        append(vars, "MDP_FULL_NAME", mdp->full_name());
+        append(vars, "MDP_NAME", mdp->name());
+        append(vars, "MDP_SERVICE_SHORT_NAME", get_name(mdp->service()));
+        append(vars, "MDP_SERVICE_NAME", get_full_name(mdp->service()));
+        append(vars, "MDP_OUTPUT_SHORT_TYPE", get_name(mdp->output_type()));
+        append(vars, "MDP_OUTPUT_TYPE", get_full_name(mdp->output_type()));
+        append(vars, "MDP_INPUT_SHORT_TYPE", get_name(mdp->input_type()));
+        append(vars, "MDP_INPUT_TYPE", get_full_name(mdp->input_type()));
+        append(vars, "MDP_OUTPUT_SCHEMA_JSON", output_schema);
+        append(vars, "MDP_INPUT_SCHEMA_JSON", input_schema);
+        append(vars, "MDP_IS_ENTRY", "0");
+    }
+    set(vars, "MDP_COUNT", sfmt() << all_mdps.size());
+    set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
     return error_count;
 }
 int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
