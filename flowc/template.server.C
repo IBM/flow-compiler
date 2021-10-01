@@ -2421,9 +2421,13 @@ int main(int argc, char *argv[]) {
 #if !defined(NO_REST) || !(NO_REST)    
         // Set up the REST gateway if enabled
         rest::gateway_endpoint = server_address[gateway_ap];
-        if(rest::gateway_endpoint.empty() || rest::gateway_endpoint.find_first_not_of("0123456789") == std::string::npos) {
+        if(strncmp(rest::gateway_endpoint.c_str(), "unix:", strlen("unix:")) == 0 || strncmp(rest::gateway_endpoint.c_str(), "unix-abstract:", strlen("unix-abstract:")) == 0) {
+            // unix domain socket
+        } else if(rest::gateway_endpoint.empty() || rest::gateway_endpoint.find_first_not_of("0123456789") == std::string::npos) {
+            // port only 
             rest::gateway_endpoint = flowc::sfmt() << "localhost:" << grpc_server_ports[gateway_ap].first;
         } else {
+            // host or host:port
             auto cpos = rest::gateway_endpoint.back() == ']'? std::string::npos: rest::gateway_endpoint.find_last_of(':');
             if(cpos != std::string::npos)
                 rest::gateway_endpoint = rest::gateway_endpoint.substr(0, cpos);
