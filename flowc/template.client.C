@@ -95,10 +95,10 @@ struct output_queue {
             outq[input_line] = line;
             return;
         }
-        outs << line << "\n";
+        outs << line;
         ++line_count;
         while(outq.size() > 0 && outq.begin()->first == line_count + 1) {
-            outs << outq.begin()->second << "\n";
+            outs << outq.begin()->second;
             ++line_count;
             outq.erase(outq.begin());
         }
@@ -167,7 +167,7 @@ static int process_file(unsigned concurrent_calls, std::string const &label, std
                         outs << "#" << cc.id << "= " << std::string(mde.first.data(), mde.first.length()) << ": " << std::string(mde.second.data(), mde.second.length()) << "\n";
                 }
                 if(use_hq) {
-                    oq.output(cc.id, outs.str());
+                    hq.output(cc.id, outs.str());
                     outs.str("");
                 }
                 if(!cc.status.ok()) {
@@ -367,13 +367,14 @@ static bool parse_command_line(int &argc, char **&argv, ansiesc_out &aout) {
 }
 int main(int argc, char *argv[]) {
     ansiesc_out aout(std::cout);
-    if(!parse_command_line(argc, argv, aout) || show_help || (show.size() == 0 && (argc < 2 || argc > 6)) || show.size() != 0 && argc > 1) {
+    if(!parse_command_line(argc, argv, aout) || show_help || (show.size() == 0 && (argc < 3 || argc > 6)) || show.size() != 0 && argc > 1) {
         unsigned ec = 0;
         print_banner(aout) <<
         "USAGE\n" 
         "\t" << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE] [HEADERS-FILE]\n"
         "\t" << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n"
         "\t" << argv[0] << " --entries-proto|--nodes-proto\n"
+        "\tInput and output files default to <stdin> and <stdout> respectively. The headers file defaults to the output file.\n"
         "\n"
         "OPTIONS\n"
         "\t`--async-calls`, `-a` TRUE/FALSE\n\t\tOverride the asynchronous calls setting in the aggregator.\n\n"
@@ -451,11 +452,6 @@ int main(int argc, char *argv[]) {
     if(eip == nullptr)
         return 1;
 
-    if(concurrent_calls <= 0) {
-        std::cerr << "Invalid number of concurrent calls: " << concurrent_calls << "\n";
-        return 1;
-    }
-
     std::shared_ptr<grpc::Channel> channel(grpc::CreateChannel(endpoint, grpc::InsecureChannelCredentials()));
 
     std::istream *in = &std::cin;
@@ -487,13 +483,18 @@ int main(int argc, char *argv[]) {
     std::ofstream headfs;
     std::string heads_label = output_label;
     if(argc >= 6 && strcmp(argv[4], argv[5]) != 0) {
-        headfs.open(argv[5]);
-        if(!headfs.is_open()) {
-            std::cerr << "Could not write file: " << argv[5] << "\n";
-            return 1;
+        if(strcmp("-", argv[5]) == 0) {
+            heads = &std::cout;
+            heads_label = "<stdout>";
+        } else {
+            headfs.open(argv[5]);
+            if(!headfs.is_open()) {
+                std::cerr << "Could not write file: " << argv[5] << "\n";
+                return 1;
+            }
+            heads = &headfs;
+            heads_label = argv[5];
         }
-        heads = &headfs;
-        heads_label = argv[5];
     }
 
     output_queue oq(*out, output_label);
