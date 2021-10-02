@@ -2383,13 +2383,12 @@ int main(int argc, char *argv[]) {
         } else if(gateway_ap == grpc_listening.size()+1) {
             gateway_ap = ap;
         }
+        server_address[ap] = p;
         if(p.find_first_not_of("0123456789") == std::string::npos) 
             p = std::string("[::]:") + p;
         else if(p.back() == ']' || p.find_first_of(':') == std::string::npos)
             p += ":0";
-
-        server_address[ap] = p;
-        builder.AddListeningPort(server_address[ap], creds, &grpc_server_ports[ap].first);
+        builder.AddListeningPort(p, creds, &grpc_server_ports[ap].first);
         ++ap;
     }
     // When no grpc port is given, add a system allocated port
