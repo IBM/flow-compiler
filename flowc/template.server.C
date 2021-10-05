@@ -527,22 +527,28 @@ bool trace_connections = false;
 bool accumulate_addresses = false;
 
 std::string global_start_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
-
-static std::string json_escape(std::string const &s) {
-    std::string r;
-    for(auto c: s) switch (c) {
-        case '\t': r+= "\\t"; break;
-        case '\r': r+= "\\r"; break;
-        case '\a': r+= "\\a"; break;
-        case '\b': r+= "\\b"; break;
-        case '\v': r+= "\\v"; break;
-        case '\f': r+= "\\f"; break;
-        case '\n': r+= "\\n"; break;
-        case '"':  r+= "\\\""; break;
-        case '\\': r+= "\\\\"; break;
-        default: r+= c; break;
+static std::string json_escape(const std::string &s) {
+    std::ostringstream o;
+    o << '\"';
+    for(auto c: s) {
+        switch (c) {
+        case '"': o << "\\\""; break;
+        case '\\': o << "\\\\"; break;
+        case '\b': o << "\\b"; break;
+        case '\f': o << "\\f"; break;
+        case '\n': o << "\\n"; break;
+        case '\r': o << "\\r"; break;
+        case '\t': o << "\\t"; break;
+        default:
+            if('\x00' <= c && c <= '\x1f') {
+                o << "\\u" << std::hex << std::setw(4) << std::setfill('0') << int(c);
+            } else {
+                o << c;
+            }
+        }
     }
-    return r;
+    o << '\"';
+    return o.str();
 }
 static std::string json_string(std::string const &s) {
     return std::string("\"") + json_escape(s) + "\"";
