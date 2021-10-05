@@ -393,20 +393,18 @@ int main(int argc, char *argv[]) {
         "\t`--streams`, `-n` INTEGER\n\t\tNumber of concurrent calls to make through the connection. The default is '1'.\n\n"
         "\t`--time-calls`, `-t`\n\t\tRetrieve timing information for each call. The timing information is displayed in the 'times-bin' output header.\n\t\tSee `--show-headers` for more information.\n\n"
         "\t`--timeout`, `-T`  MILLISECONDS\n\t\tLimit each call to the given amount of time. The default is '3600000' (one hour). Set to '0' to disable timeouts.\n\n"
-        "\n"
         "ENTRIES\n"
         "\tgRPC services implemented in the aggregator\n";
         for(auto const &mid: entry_table) if(mid.entry) {
             ++ec;
             aout << "\t\t'" << mid.entry_full_name << "'\n";
         }
-        aout << "\n";
         if(ec != entry_table.size()) {
             aout << "\nNODES\n\tgRPC services referenced by nodes\n";
                 for(auto const &mid: entry_table) if(!mid.entry)
                     aout << "\t\t'" << mid.entry_full_name << "'\n";
-            aout << "\n";
         }
+        aout << "\n";
         return show_help? 1: 0;
     }
 

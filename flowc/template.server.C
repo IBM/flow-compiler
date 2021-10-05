@@ -2105,7 +2105,6 @@ int main(int argc, char *argv[]) {
         "\tAll options can be set in the file '{{NAME}}.cfg'."
         " Additionally options can be set in environment variables prefixed with '{{NAME/id/upper}}_'.\n"
         "\n"
-        "\n"
         "ARGUMENTS\n\n"
         "\tGRPC-LISTENING-PORTS\n\t\tA comma separated list of ports in the form '[(HOSTNAME|IPv6):]PORT[s]' or 'unix:PATH' or 'unix:///ABSOLUTE-PATH'.\n"
         "\t\tAppend 's' for secure connections. Set port to '0' to allocate a random port. IP numbers must be in IPv6 format.\n"
@@ -2135,7 +2134,6 @@ int main(int argc, char *argv[]) {
 #if !defined(NO_REST) || !(NO_REST)    
         "\t`--rest-num-threads` NUMBER\n\t\tNumber of threads to run in the REST server. Default is '" << DEFAULT_REST_THREADS << "'.\n\n"
         "\t`--rest-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the SSL certificates. Default is '{{NAME}}-rest.pem' and '{{NAME}}.pem' in the current directory.\n\n"
-        "\n"
 #endif
         "NODE SPECIFIC OPTIONS\n\n"
 {I:CLI_NODE_NAME{    
@@ -2150,7 +2148,6 @@ int main(int argc, char *argv[]) {
 #endif
         "\t`--node-{{CLI_NODE_NAME/lower/option}}-proto`\n\t\tDisplay minimal proto file for '{{CLI_NODE_NAME}}'\n\n"
 }I}
-        "\n"
         "ENTRY SPECIFIC OPTIONS\n\n"
 {I:ENTRY_NAME{    "\t`--entry-{{ENTRY_NAME/lower/option}}-timeout` MILLISECONDS\n\t\tTimeout for calls to the '{{ENTRY_NAME}}' entry. Default is '" << flowc::entry_{{ENTRY_NAME}}_timeout << "'.\n\n"
 #if !defined(NO_REST) || !(NO_REST)    
@@ -2160,7 +2157,6 @@ int main(int argc, char *argv[]) {
         "\t`--entry-{{ENTRY_NAME/lower/option}}-proto`\n\t\tDisplay minimal proto file for '{{ENTRY_NAME}}'\n\n"
 }I}
 {H:HAVE_DEFN{
-        "\n"
         "GLOBAL DEFINES\n"
 {I:DEFN{   
         "\t`--fd-{{DEFN/option}}` {{DEFT}}\n\t\tOverride the value of variable '{{DEFN}}' ('" << flowdef::{{DEFN}}.value << "')\n\n"
