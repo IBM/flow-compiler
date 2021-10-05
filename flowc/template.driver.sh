@@ -2,7 +2,7 @@
 
 ##################################################################################
 # Docker Compose/Swarm configuration generator for {{NAME}}
-# generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
+# generated from {{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
 

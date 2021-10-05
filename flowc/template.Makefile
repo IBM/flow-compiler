@@ -3,7 +3,7 @@
 
 ########################################################################
 # {{NAME}}.mak 
-# generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
+# generated from {{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})
 # with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
 #
 -include makefile.local

@@ -41,7 +41,7 @@ def run_client(args, channel):
 if __name__ == '__main__':
     logging.basicConfig()
     from argparse import RawTextHelpFormatter
-    parser = argparse.ArgumentParser(description='{{NAME}} gRPC client\n{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\ngRPC version {}'.format(grpc.__version__), formatter_class=RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description='{{NAME}} gRPC client\n{{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})\n{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\ngRPC version {}'.format(grpc.__version__), formatter_class=RawTextHelpFormatter)
     parser.add_argument('-a', metavar='HOST:PORT', dest='endpoint', help='gRPC server address', default=None)
     parser.add_argument('-b', '--blocking-calls', action='store_true', dest='blocking_calls', default=False)
     parser.add_argument('-g', '--ignore-grpc-errors', action='store_true', dest='ignore_grpc_errors', default=False, help='do not stop for gRPC errors')

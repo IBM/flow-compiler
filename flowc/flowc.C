@@ -209,6 +209,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     DEBUG_ENTER;
     main_name = orchestrator_name;
     set(global_vars, "INPUT_FILE", input_filename);
+    set(global_vars, "MAIN_FILE_SHORT", stru1::basename(input_filename));
     set(global_vars, "MAIN_SCALE", "1");
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid

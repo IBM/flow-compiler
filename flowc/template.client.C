@@ -1,7 +1,7 @@
 /************************************************************************************************************
  *
  * {{NAME}}-client.C 
- * generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
+ * generated from {{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})
  * with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
  * 
  */
@@ -298,7 +298,7 @@ static entry_info const *find_entry(std::string const &name) {
 }
 static ansiesc_out &print_banner(ansiesc_out &out) {
     out << "{{NAME}} gRPC client\n" 
-           "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+           "{{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})\n" 
            "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
            "grpc " << grpc::Version() << ", c-ares " << ares_version(nullptr) << "\n"
 #if defined(__clang__)          
@@ -369,11 +369,12 @@ int main(int argc, char *argv[]) {
     ansiesc_out aout(std::cout);
     if(!parse_command_line(argc, argv, aout) || show_help || (show.size() == 0 && (argc < 3 || argc > 6)) || show.size() != 0 && argc > 1) {
         unsigned ec = 0;
+        char const *argv0 = strrchr(argv[0], '/')? strrchr(argv[0], '/')+1: argv[0];
         print_banner(aout) <<
         "USAGE\n" 
-        "\t" << argv[0] << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE] [HEADERS-FILE]\n"
-        "\t" << argv[0] << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n"
-        "\t" << argv[0] << " --entries-proto|--nodes-proto\n"
+        "\t" << argv0 << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE] [HEADERS-FILE]\n"
+        "\t" << argv0 << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n"
+        "\t" << argv0 << " --entries-proto|--nodes-proto\n"
         "\n"
         "\tInput and output files default to <stdin> and <stdout> respectively. The headers file defaults to the output file.\n"
         "\n"

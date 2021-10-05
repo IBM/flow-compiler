@@ -1,7 +1,7 @@
 /************************************************************************************************************
  *
  * {{NAME}}-server.C 
- * generated from {{INPUT_FILE}} ({{MAIN_FILE_TS}})
+ * generated from {{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})
  * with {{FLOWC_NAME}} version {{FLOWC_VERSION}} ({{FLOWC_BUILD}})
  * 
  */
@@ -2014,7 +2014,7 @@ static void print_banner(std::ostream &out) {
     out << "{{NAME}} gRPC server" << std::endl;
 #endif
     out 
-        << "{{INPUT_FILE}} ({{MAIN_FILE_TS}})\n" 
+        << "{{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
         <<  "grpc " << grpc::Version() 
 #if !defined(NO_REST) || !(NO_REST)    
@@ -2090,15 +2090,16 @@ inline static flowc::ansiesc_out &operator <<(flowc::ansiesc_out &out, V s) {
 }
 int main(int argc, char *argv[]) {
     std::vector<std::string> cfg;
-    int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config
+    int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config, 4 show info
     if(flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, 1)) == 1 || cmd == 2) {
         flowc::print_banner(std::cout);
         flowc::ansiesc_out aout(std::cout);
+        char const *argv0 = strrchr(argv[0], '/')? strrchr(argv[0], '/')+1: argv[0];
         aout << "USAGE\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        "\t" << argv[0] << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n"
+        "\t" << argv0 << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n"
 #else
-        "\t" << argv[0] << " GRPC-LISTENING-PORTS [OPTIONS]\n"
+        "\t" << argv0 << " GRPC-LISTENING-PORTS [OPTIONS]\n"
 #endif
         "\n"
         "\tAll options can be set in the file '{{NAME}}.cfg'."
@@ -2121,7 +2122,7 @@ int main(int argc, char *argv[]) {
         "\t`--cares-refresh` SECONDS\n\t\tSet the number of seconds between DNS lookup calls. Default is '" << DEFAULT_CARES_REFRESH << "' seconds.\n\n"
         "\t`--cfg`\n\t\tDisplay current configuration and exit\n\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        "\t`--enable-webapp` TRUE/FALSEn\n\t\tSet to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n\n"
+        "\t`--enable-webapp` TRUE/FALSE\n\t\tSet to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n\n"
 #endif
         "\t`--grpc-num-threads` NUMBER\n\t\tNumber of threads to run in the gRPC server. Set to '0' to use the default gRPC value.\n\n"
         "\t`--grpc-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the ssl certificate. Default is '{{NAME}}-grpc.pem' and '{{NAME}}.pem' in the current directory.\n\n"
