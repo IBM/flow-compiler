@@ -2560,7 +2560,6 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         entry_ip[gv.first] = icode.size();
         error_count += compile_flow_graph(gv.first, gv.second, graph_referenced_nodes[gv.first]);
     }
-
     return error_count;
 }
 static std::pair<std::string, std::string> make_labels(std::set<std::string> const &fields, google::protobuf::Descriptor const *d=nullptr)  {
@@ -2571,17 +2570,6 @@ static std::pair<std::string, std::string> make_labels(std::set<std::string> con
         if(includes(fields, all_fields)) 
             return std::make_pair(std::string(), ftip);
     }
-    /*
-    if(fields.size() > 3) {
-        std::set<std::string> f3; 
-        int c = 0;
-        for(auto f: fields) if(c++ < 3) 
-            f3.insert(f);
-        else 
-            break;
-        return std::make_pair(join(f3, ",\n") + "...", ftip);
-    }
-    */
     return std::make_pair(join(fields, ",\\n"), ftip);
 }
 
