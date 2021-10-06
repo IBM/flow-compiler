@@ -669,30 +669,34 @@ int flow_compiler::update_noderef_dimension(int node) {
     if(dimension.has(node)) 
         return 0;
 
+    // input has dimension 0 
     std::string label = get_text(node);
-
     if(label == input_label) {
         dimension.put(node, 0);
         return 0;
-    } 
+    }
+    
+    // gather all the nodes with the same name
     std::set<int> node_set;
     for(auto const &nr: referenced_nodes) {
         if(name(nr.first) == label)
             node_set.insert(nr.first);
     }
+    std::cerr << "In update_noderef_dimension for " << node <<  " node_set: " << node_set << "\n";
 
     int error_count = 0;
-    int nodes_dimension = -3;
+    int nodes_dimension = dimension(*node_set.begin());
     std::set<int> dims;
     for(auto n: node_set) {
         if(!dimension.has(n)) {
-            //std::cerr << "From " << node << " computing dimension for this [" << label << "] " << n << "\n";
+            std::cerr << "From " << node << " computing dimension for this [" << label << "] " << n << "\n";
             update_dimensions(n);
+        } else {
+            std::cerr << "Node " << n << " alreaduy has dimension set to  " << dimension(n) << "\n";
         }
-        if(nodes_dimension < 0)
-            nodes_dimension = dimension(n);
+
         if(nodes_dimension != dimension(n)) {
-            pcerr.AddError(main_file, at(n), sfmt() << "dimension computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
+            pcerr.AddError(main_file, at(n), sfmt() << "dimension for node \"" << name(n) << "\" computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
             ++error_count;
         }
         dims.insert(dimension(n));
