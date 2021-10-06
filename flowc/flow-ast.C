@@ -243,11 +243,9 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     sout << node_name(n.type);
     if(n.type == FTK_fldr) sout << ANSI_RESET;
     if(n.type == FTK_fldd) sout << "|" << ANSI_RED << ANSI_BOLD << n.token.integer_value << ANSI_RESET;
-    //if(flag.has(node)) sout << "|" << node_name(flag(node));
-    sout << "[";
-    if(condition.has_value(node)) sout << ANSI_RED << ANSI_BOLD << node << ANSI_RESET;
-    else sout << node ;
-    sout << "-" << n.type << " " << n.token.line << ":" << n.token.column << "]";
+    sout << "[" << ANSI_BOLD;
+    if(condition.has_value(node)) sout << ANSI_RED;
+    sout << node << ANSI_RESET <<  "-" << n.type << " " << n.token.line << ":" << n.token.column << "]";
 
     if(n.token.text.length() > 0) sout << " " << n.token.text;
     if(n.token.type == FTK_FLOAT) sout << "  " << ANSI_YELLOW << n.token.float_value << ANSI_RESET;
@@ -258,8 +256,8 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         if(type.has(node)) sout << " node type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
         if(condition.has(node)) sout << " condition: " << ANSI_RED << ANSI_BOLD << condition(node) << ANSI_RESET;
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
+        if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_BOLD << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(method_descriptor.has(node) && method_descriptor(node) != nullptr) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
-        if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(input_descriptor.has(node)) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
         if(field_descriptor.has(node)) {
             sout << " field: " << ANSI_GREEN << *field_descriptor(node);
