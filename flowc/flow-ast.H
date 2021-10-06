@@ -89,14 +89,19 @@ struct flow_ast {
         auto f = defines.find(name); 
         return f == defines.end()? 0: f->second;
     }
-
     struct ast_iterator {
         flow_ast const *tree;
         std::vector<std::pair<unsigned short, int>> path;
         int current_node;
         ast_iterator(): tree(nullptr), current_node(0) {
         }
-        ast_iterator(flow_ast const *t): tree(t), current_node(t->ast_root()) {
+        ast_iterator(flow_ast const *t, int cn): tree(t), current_node(cn) {
+        }
+        void print(std::ostream &out) const {
+            out << "<" << current_node << ":";
+            for(auto &cp: path)
+                out << "[" << cp.second << "->" << cp.first << "]";
+            out << ">";
         }
         bool operator < (ast_iterator const &o) const {
             if(current_node == o.current_node) return false;
@@ -107,6 +112,15 @@ struct flow_ast {
             }
             return path.size() < o.path.size();
         }
+        bool operator > (ast_iterator const &i) const {
+            return i < *this;
+        }
+        bool operator <= (ast_iterator const &i) const {
+            return !(i < *this);
+        }
+        bool operator >= (ast_iterator const &i) const {
+            return !(*this < i);
+        }
         bool operator != (ast_iterator const &i) const {
             return *this < i || i < *this;
         }
@@ -116,8 +130,14 @@ struct flow_ast {
         int operator *() const {
             return current_node;
         }
+        int depth() const {
+            if(current_node == 0) return -1;
+            return (int) path.size();
+        }
         ast_iterator &operator ++() {
-            if(current_node == 0) return *this;
+            if(current_node == 0) 
+                return *this;
+
             int n = current_node;
             if(tree->at(n).children.size() > 0) {
                 path.push_back(std::make_pair(0u, n)); 
@@ -137,12 +157,66 @@ struct flow_ast {
             }
             return *this;
         }
+        ast_iterator &operator --() {
+            if(current_node == 0) 
+                return *this;
+            current_node = 0;
+            if(path.size() == 0)
+                return *this;
+            auto p = path.back().second;
+            auto &c = path.back().first;
+            if(c > 0) {
+                --c;
+                current_node = tree->at(p).children[c];
+                while(true) {
+                    unsigned short cncs = tree->at(current_node).children.size();
+                    if(cncs == 0) break;
+                    path.push_back(std::make_pair(cncs-1, current_node));
+                    current_node = tree->at(path.back().second).children[path.back().first];
+                }
+                return *this;
+            }
+            if(path.size() == 1) {
+                current_node = path.back().second;
+                path.pop_back();
+            } else {
+                path.pop_back();
+                current_node = tree->at(path.back().second).children[path.back().first];
+            }
+            return *this;
+        }
     };
-    ast_iterator begin() const {
-        return ast_iterator(this);
+    /** Return a pointer to the first element in the tree
+     */
+    ast_iterator begin(int root=0) const {
+        if(root == 0) root = ast_root();
+        return ast_iterator(this, root);
+    }
+    /** Return a pointer to the last element in the tree
+     */
+    ast_iterator rbegin(int root=0) const {
+        ast_iterator p = begin(root);
+        ast_iterator r = end();
+        while(*p) {
+            r = p; 
+            ++p;
+        }
+        return r;
     }
     ast_iterator end() const {
         return ast_iterator();
+    }
+    ast_iterator rend() const {
+        return ast_iterator();
+    }
+    // Returns an iterator positioned at node 'n'
+    ast_iterator pnode(int n, int root=0) const {
+        ast_iterator p = begin(root);
+        if(n <= 0) return p;
+        ast_iterator e = end();
+        for(; p != e; ++p)
+            if(*p == n) return p;
+        return e;
     }
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
             name(""), type(""), description(""), condition(0), value_type(0), dimension(0)  {
@@ -253,7 +327,6 @@ struct flow_ast {
      * The node must be of a basic type or have the corresponding attribute set (enum_descriptor or message_descriptor)
      */
     std::string get_full_typename(int node) const;
-
     /**
      * Find the first subnode that matches condition
      */
@@ -261,7 +334,6 @@ struct flow_ast {
     int find_first(int node, MATCH match) const {
         if(match(node)) 
             return node;
-        
         for(auto n: at(node).children) {
             int f  = find_first(n, match);
             if(f > 0) return f;
@@ -277,47 +349,21 @@ struct flow_ast {
             return attribute.has(n) && value == attribute(n);
         });
     }
-    std::set<int> find_nodes(int node, std::set<int> const &node_types) const {
+    std::set<int> find_nodes_by_type(int node, std::set<int> const &node_types) const {
         std::set<int> found;
         auto const &children = at(node).children;
         if(node_types.find(at(node).type) != node_types.end())
             found.insert(node);
 
         for(int n: children) {
-            std::set<int> cf = find_nodes(n, node_types);
+            std::set<int> cf = find_nodes_by_type(n, node_types);
             found.insert(cf.begin(), cf.end());
         }
         return found;
     }
-    template<class MATCH>
-    std::set<int> find_nodes(int node, MATCH match) const {
-        std::set<int> found;
-        if(match(node)) found.insert(node);
-        for(int c: at(node).children) {
-            std::set<int> cf = find_nodes(c, match);
-            found.insert(cf.begin(), cf.end());
-        }
-        return found;
-    }
-    template<class MATCH>
-    int find(MATCH match, int node = 0, int stop = 0) const {
-        bool start = node == 0;
-        for(int n: *this) {
-            if(start && match(n)) return n;
-            if(!start && n == node) start = true;
-            if(start && stop == n) break;
-        }
-        return 0;
-    }
-    /*
-    int find_def(std::string const &label, int c=0) const {
-        auto dc = [this, &label](int n) { return at(n).type == FTK_DEFINE && get_id(at(n).children[0]) == label; };
-        int last_n = 0;
-        for(int n = find(dc, 0, c); n != 0; n = find(dc, n, c)) 
-            last_n = n;
-        return last_n;
-    }
-    */
+    /**
+     * Lookup keyword for node 'in'
+     */
     int stmt_keyw(int in) const {
         static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}};
         auto ki = keywords.find(get_id(in));

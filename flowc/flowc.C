@@ -313,7 +313,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             print_graph(std::cout, en);
         }
     }
-    if(opts.have("print-ast")) 
+    if(opts.have("print-ast"))  
         print_ast(std::cout);
     if(opts.have("print-pseudocode"))
         dump_code(std::cout);
@@ -328,7 +328,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * Set global level defines
      */
     clear(global_vars, "HAVE_DEFN");
-    for(int i: find_nodes(ast_root(), {FTK_DEFINE})) {
+    for(int i: find_nodes_by_type(ast_root(), {FTK_DEFINE})) {
         auto &defn = at(i);
         append(global_vars, "DEFN", get_id(defn.children[0]));
         append(global_vars, "DEFV", get_value(defn.children[1]));
