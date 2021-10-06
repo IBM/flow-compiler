@@ -528,7 +528,7 @@ bool trace_connections = false;
 bool accumulate_addresses = false;
 
 std::string global_start_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/1000); 
-static std::string json_escape(const std::string &s) {
+static std::string json_string(const std::string &s) {
     std::ostringstream o;
     o << '\"';
     for(auto c: s) {
@@ -550,9 +550,6 @@ static std::string json_escape(const std::string &s) {
     }
     o << '\"';
     return o.str();
-}
-static std::string json_string(std::string const &s) {
-    return std::string("\"") + json_escape(s) + "\"";
 }
 static std::string log_abridge(std::string const &message, unsigned max_length=256) {
     if(max_length == 0 || message.length() <= max_length) return message;
