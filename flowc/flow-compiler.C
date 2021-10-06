@@ -1347,11 +1347,11 @@ std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int,
     }
     // references in the body
     if(type == 0 || type == 2) {
-        auto aset = find_nodes(blck_node, [this](int n) -> bool { 
-                return at(n).type == FTK_OUTPUT || at(n).type == FTK_RETURN || at(n).type == FTK_HEADERS;  
-        });
-        for(int n: aset) 
-            get_bexp_node_refs(noset, n);
+        for(auto p = begin(blck_node), e = end(); p != e; ++p) {
+            int n = *p;
+            if(at(n).type == FTK_OUTPUT || at(n).type == FTK_RETURN || at(n).type == FTK_HEADERS) 
+                get_bexp_node_refs(noset, n);
+        }
     }
     return noset;
 }
