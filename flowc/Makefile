@@ -32,7 +32,7 @@ endif
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
 ## if this checkout is tagged set the build version to that
 ifeq ($(GIT_TAG), )
-	BUILD_ID?=$(GIT_TS) $(GIT_GUID)-$(GIT_MODIFIED_COUNT)
+	BUILD_ID?=$(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT)
 else
 	BUILD_VERSION:=$(GIT_TAG)
 	BUILD_ID?=$(GIT_TS) $(GIT_MODIFIED_COUNT)
