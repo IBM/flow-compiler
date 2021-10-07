@@ -251,6 +251,7 @@ public:
     // Second pass fix up for number of indices needed
     int update_dimensions(int node);
     int update_noderef_dimension(int node);
+    int update_noderef_dimension_d(int node);
 
     // Get all the nodes of this name, in eval order
     std::vector<int> all_nodes(std::string const &name) const;
@@ -280,7 +281,7 @@ public:
 
     int compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set);
     int fop_compare(fop const &left, fop const &right) const;
-    void dump_code(std::ostream &out) const;
+    void print_pseudocode(std::ostream &out) const;
     void print_graph(std::ostream &out, int entry=-1);
     int get_blck_timeout(int blck, int default_timeout);
 
@@ -374,7 +375,8 @@ public:
 #endif
 
 #define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
-#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << (c) << " " << __func__ << " "  << error_count << ", errors\n"
+#define DEBUG_CHECKX(c) if(DEBUG_GENC) std::cerr << "----- check " << (c) << " " << __func__ << " "  << error_count << ", errors\n"
+#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << std::string(sfmt() << c) << " " << __func__ << " "  << error_count << ", errors\n"
 #define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
 #define OFSTREAM_SE(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n"; if(!ofs.is_open()) { ++error_count; pcerr.AddError(s, -1, 0, "cannont write file"); }
 

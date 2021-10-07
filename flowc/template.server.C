@@ -1092,25 +1092,14 @@ public:
 class {{NAME/id}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
     bool Async_Flag = flowc::asynchronous_calls;
-    // Global call counter used to generate an unique id for each call regardless of entry
+    // Global call counter used to generate an unique ID for each call regardless of entry
     std::atomic<long> Call_Counter;
-    // Current number of active calls for regardless of entry
+    // Current number of active calls regardless of entry
     std::atomic<int> Active_Calls;
 
-        /**
-         * Some notes on error codes (from https://grpc.io/grpc/cpp/classgrpc_1_1_status.html):
-         * UNAUTHENTICATED - The request does not have valid authentication credentials for the operation.
-         * PERMISSION_DENIED - Must not be used for rejections caused by exhausting some resource (use RESOURCE_EXHAUSTED instead for those errors). 
-         *                     Must not be used if the caller can not be identified (use UNAUTHENTICATED instead for those errors).
-         * INVALID_ARGUMENT - Client specified an invalid argument. 
-         * FAILED_PRECONDITION - Operation was rejected because the system is not in a state required for the operation's execution.
-         */
-
 {I:CLI_NODE_NAME{
-    /* {{CLI_NODE_NAME}} line {{CLI_NODE_LINE}}
-     */
+    // {{MAIN_FILE_SHORT}}:{{CLI_NODE_LINE}}: {{CLI_NODE_NAME}} ({{CLI_NODE}})
 #define SET_METADATA_{{CLI_NODE_NAME/id}}(context) {{CLI_NODE_METADATA}}
-
     std::mutex {{CLI_NODE_NAME/id}}_conm; // mutex to guard {{CLI_NODE_NAME/id}}_nversion and {{CLI_NODE_NAME/id}}_conp
     int {{CLI_NODE_NAME/id}}_nversion = 0;
     std::shared_ptr<::flowc::connector<{{CLI_SERVICE_NAME}}>> {{CLI_NODE_NAME/id}}_conp;

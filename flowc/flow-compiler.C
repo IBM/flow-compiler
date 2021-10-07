@@ -661,43 +661,35 @@ int flow_compiler::compile_node_ref(int node) {
     return 0;
 }
 
-/*
- * 2nd pass, this should be called after all the message types are set
- * Resolve dimensions for the node refereced by this label
- */
 int flow_compiler::update_noderef_dimension(int node) {
     if(dimension.has(node)) 
         return 0;
 
     std::string label = get_text(node);
-
     if(label == input_label) {
         dimension.put(node, 0);
         return 0;
     } 
-    std::set<int> node_set;
-    for(auto const &nr: referenced_nodes) {
-        if(name(nr.first) == label)
-            node_set.insert(nr.first);
-    }
 
     int error_count = 0;
     int nodes_dimension = -3;
-    std::set<int> dims;
-    for(auto n: node_set) {
+    DEBUG_ENTER;
+    std::set<int> node_set;
+    for(int n: *this) if(type(n) == "node" && name(n) == label) {
+        node_set.insert(n);
         if(!dimension.has(n)) {
-            //std::cerr << "From " << node << " computing dimension for this [" << label << "] " << n << "\n";
             update_dimensions(n);
         }
+        DEBUG_CHECK(" >>>> from " << node << " computed dimension for " << n << " this [" << label << "] is " << dimension(n));
         if(nodes_dimension < 0)
             nodes_dimension = dimension(n);
+        if(nodes_dimension >= 0 && dimension(n) < 0) 
+            dimension.update(n, nodes_dimension);
         if(nodes_dimension != dimension(n)) {
             pcerr.AddError(main_file, at(n), sfmt() << "dimension computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
             ++error_count;
         }
-        dims.insert(dimension(n));
     }
-    //std::cerr << "Computed dimension for label [" << label << "] " << node << " from " << node_set << ", as: " << nodes_dimension << ", "<< dims<< "\n";
     if(!dimension.has(node)) 
         dimension.put(node, nodes_dimension);
 
@@ -712,7 +704,7 @@ int flow_compiler::update_noderef_dimension(int node) {
             ++error_count;
         }
     }
-        
+    DEBUG_LEAVE;
     return error_count; 
 }
 /*
@@ -2214,6 +2206,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
 int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &fg, std::set<int> const &node_set) {
     int error_count = 0;
+    DEBUG_ENTER;
 
     // pointer to the begining of code for each node
     std::map<int, int> node_ip;
@@ -2229,6 +2222,8 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     for(auto const &stage_set: node_stages) 
         for(auto n: stage_set) method_set.insert(n);
     for(auto n: method_set) icode.back().arg.push_back(n);      // MTHD arg 1... nodes used by this entry
+
+    DEBUG_CHECK(1);
 
     // Reorder nodes and label them accordingly
     std::map<std::string, int> node_order;
@@ -2256,6 +2251,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     std::set<std::string> foak;
     // Keep track of nodes with output
     std::set<std::string> foak_wo;
+    DEBUG_CHECK("generating " << node_stages.size() << " stages");
 
     int stage = 0;
     for(auto const &stage_set: node_stages) {
@@ -2272,9 +2268,9 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         icode.push_back(fop(BSTG, stage));                    // BSTG arg 1: stage number
         icode[stage_idx].arg.push_back(stage_set.size());     // BSTG arg 2: the number of nodes in this stage
         icode[stage_idx].arg.push_back(0);                    // BSTG arg 3: max node dimension (placeholder)
+        DEBUG_CHECK("begin stage " << stage);
 
         std::vector<std::string> stage_set_names;
-
         std::set<std::string> distinct_names;    
 
         for(int n: stage_set) {
@@ -2288,8 +2284,10 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         }
         
         icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
-       
-        for(int pass = 0; pass < 2; ++pass) for(int node: stage_set) if((pass == 0 && method_descriptor(node) == nullptr) || (pass == 1 && method_descriptor(node) != nullptr)) {
+        DEBUG_CHECK("generating nodes " << stage_set);
+      
+        for(int pass = 0; pass < 2; ++pass) for(int node: stage_set) if((pass == 0 && method_descriptor(node) == nullptr && dimension(node) >= 0) || (pass == 1 && method_descriptor(node) != nullptr) || (pass == 1 && dimension(node) < 0)) {
+            DEBUG_CHECK("generating node " << node << " pass " << pass);
             auto md = method_descriptor(node);
             auto output_type = message_descriptor(node);
             auto input_type = input_descriptor(node, output_type);
@@ -2310,7 +2308,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             std::set<std::pair<int, int>> refs;
             get_field_refs(refs, node, 0);
 
-            for(int i = 0, e = dimension(node); i != e; ++i) {
+            for(int i = 0, e = dimension(node); e > 0 && i != e; ++i) {
                 // Grab all distinct right value references in this node
                 std::set<std::pair<std::string, int>> r;
                 for(auto p: refs) if(p.second > i) 
@@ -2364,8 +2362,8 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             } else {
                 // This is either an empty or an error node
                 int errm_node = find_first(node, type, "error");
-                MASSERT(errm_node != 0) << "expected error message in error node\n";
-                icode.push_back(fop(ERR, get_string(errm_node)));
+                if(errm_node != 0) 
+                    icode.push_back(fop(ERR, get_string(errm_node)));
             }
 
             icode.back().arg.push_back(node);
@@ -2389,18 +2387,16 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             // the number of alternate nodes
             icode[node_idx].arg.push_back(all_nodes(name(node)).size()-1);
 
-            // fixup all the nodes without output 
-            
-            for(auto nip: node_ip) if(nip.first != node && name(nip.first) == name(node)) {
-                //MASSERT(icode[nip.second].arg[0] == dim || icode[nip.second].arg[0] == 0) << "No output node " << nip.first << " has dimension " << icode[nip.second].arg[0] << ", expected 0 or " << dim << "\n";
-                if(icode[nip.second].arg[0] != dimension(node)) {
-                    pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
-                    pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
-                    ++error_count;
-                }
-            }
-            
+            // check that previous nodes of the same name have the same dimension
+            if(dimension(node) >= 0)
+                for(auto nip: node_ip) 
+                    if(nip.first != node && name(nip.first) == name(node) && icode[nip.second].arg[0] >= 0 && icode[nip.second].arg[0] != dimension(node)) {
+                        pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
+                        pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
+                        ++error_count;
+                    }
         }
+        DEBUG_CHECK("end stage " << stage);
         icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
         icode[stage_idx].arg[2] =  stage_dim;                 // BSTG arg 3: max node dimension 
     }
@@ -2419,14 +2415,17 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                 << dimension(entry_arg_node) << "\" than expected");
     }
 
-
+    DEBUG_CHECK("pop message");
     error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), entry_arg_node, node_ip, 0);
     icode.push_back(fop(EPRP));
     icode.push_back(fop(END));
 
+    DEBUG_LEAVE;
     return error_count;
 }
-void flow_compiler::dump_code(std::ostream &out) const {
+void flow_compiler::print_pseudocode(std::ostream &out) const {
+    int error_count = 0;
+    DEBUG_ENTER;    
     int digits = log10(icode.size())+1;
     int l = 0;
     for(auto const &s: icode) {
@@ -2435,6 +2434,7 @@ void flow_compiler::dump_code(std::ostream &out) const {
         snprintf(lbuf, digits+1, "%*d", digits, l);
         out << lbuf << " "  << s << "\n";
     }
+    DEBUG_LEAVE;
 }
 int flow_compiler::compile(std::set<std::string> const &targets) {
     int root = ast_root();
@@ -2552,14 +2552,18 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
 
     // Update dimensions for each data referencing node
     if(error_count > 0) return error_count;
+    DEBUG_CHECK("updating dimensions");
     error_count += update_dimensions(root);
+    DEBUG_CHECK("dimensions are fine");
 
     if(error_count > 0) return error_count;
+    DEBUG_CHECK("compiling flow graphs");
     for(auto const &gv: flow_graph) {
         // Mark the entry point 
         entry_ip[gv.first] = icode.size();
         error_count += compile_flow_graph(gv.first, gv.second, graph_referenced_nodes[gv.first]);
     }
+    DEBUG_CHECK("done flow graphs");
     return error_count;
 }
 static std::pair<std::string, std::string> make_labels(std::set<std::string> const &fields, google::protobuf::Descriptor const *d=nullptr)  {

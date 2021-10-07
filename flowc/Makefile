@@ -14,18 +14,39 @@
 #BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
-BUILD_VERSION=0.16.1
+BUILD_VERSION?=0.16.1
+
+GIT_TS:=$(shell git show -s --format=%cD)
+GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
+ifeq ($(GIT_MODIFIED_COUNT), 0)
+	GIT_MODIFIED_COUNT:=
+else
+	GIT_MODIFIED_COUNT:=m$(GIT_MODIFIED_COUNT)
+endif
+GIT_GUID:=$(shell git show -s --format=%h)
+GIT_BRANCH:=$(shell git branch --show-current)
+## if not on the master branch, prepend the branch name
+ifneq ($(GIT_BRANCH), master)
+	GIT_GUID:=$(GIT_BRANCH)-$(GIT_GUID)
+endif
+GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
+## if this checkout is tagged set the build version to that
+ifeq ($(GIT_TAG), )
+	BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
+else
+	BUILD_VERSION:=$(GIT_TAG)
+	BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
+endif
 
 DBG?=no
 ifeq ($(DBG), yes) 
 CCFLAGS?=-Og -g
 STACK_TRACE?=1
-BUILD_VERSION:=$(BUILD_VERSION)d
+BUILD_ID:=$(BUILD_ID) dbg
 else
 CCFLAGS?=-O3
 STACK_TRACE?=0
 endif
-
 
 ## One of the runtimes alpine-3.14, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi8
@@ -57,7 +78,6 @@ endif
 # lemon is needed only if changes are made to the parser
 LEMON?=lemon
 
-
 IMAGE_TAG?=$(BUILD_VERSION).$(BASE_IMAGE)
 IMAGE?=flowc:$(IMAGE_TAG)
 
@@ -66,25 +86,12 @@ IMAGE_NAME:=$(shell echo "$(IMAGE)" | cut -d ':' -f1)
 IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 
 
-ifeq ($(BUILD_ID), )
-GIT_TS:=$(shell git show -s --format=%cD)
-GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
-GIT_GUID:=$(shell  git show -s --format=%h-%ct)
-ifneq ($(GIT_MODIFIED_COUNT), 0)
-GIT_GUID:=$(GIT_GUID)-m$(GIT_MODIFIED_COUNT)
-endif
-endif
-
-## Create a build id out of the git GUID.
-BUILD_ID?=$(GIT_TS) $(GIT_GUID)
-
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
 TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C template.help \
 	template.driver.sh template.docker-compose.yaml template.kubernetes.group.yaml template.kubernetes.yaml \
 	template.server.C template.syntax template.index.html template.server.pem template.client.py \
-    	
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
 
@@ -167,7 +174,6 @@ image-info-Darwin: image-info-Darwin.ts
 		&& touch -t `cat image-info-Darwin.ts` flow-base-image-info.json \
 	|| true
 	@rm -f image-info-Darwin.ts
-
 
 image-info-Linux:
 	@rm -f flow-base-image-info.json

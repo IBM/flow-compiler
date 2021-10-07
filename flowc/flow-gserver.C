@@ -1502,6 +1502,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
         append(vars, "CLI_NODE_DESCRIPTION", description(cli_node));
         append(vars, "CLI_NODE_NAME", node_name);
+        append(vars, "CLI_NODE", name(cli_node));
         append(vars, "CLI_NODE_URL", sfmt() << "/-node/" << node_name);
         auto mdp = method_descriptor(cli_node);
         append(vars, "CLI_SERVICE_NAME", get_full_name(mdp->service()));
