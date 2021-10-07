@@ -65,12 +65,12 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
     switch(fop.code) {
         case BNOD: 
             out << ansi::escape(ANSI_CYAN, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
-            if(fop.arg[0] > 0) 
+            if(fop.arg[0] != 0) 
                 out << ansi::escape(ANSI_YELLOW, use_ansi) << fop.arg[0] << "x"<<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
-            out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi);
-            out << " <- ";
-            out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d2->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi);
-
+            if(fop.d1 != nullptr)
+                out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi);
+            if(fop.d2 != nullptr)
+                out << " <- " << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d2->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi);
             out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[1] << "/" << fop.arg[2] << ansi::escape(ANSI_RESET, use_ansi);
             if(fop.arg[2] != 0) out << " first";
             if(fop.arg[3] != 0 && fop.arg[4] != 0) out << ", ";
