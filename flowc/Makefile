@@ -24,12 +24,12 @@ else
 	GIT_MODIFIED_COUNT:=m$(GIT_MODIFIED_COUNT)
 endif
 GIT_GUID:=$(shell git show -s --format=%h)
-GIT_BRANCH:=$(shell git branch --show-current)
+GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
+GIT_BRANCH:=$(shell git branch --show-currenst 2> /dev/null || git branch | grep -E '^\*')
 ## if not on the master branch, prepend the branch name
 ifneq ($(GIT_BRANCH), master)
 	GIT_GUID:=$(GIT_BRANCH)-$(GIT_GUID)
 endif
-GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
 ## if this checkout is tagged set the build version to that
 ifeq ($(GIT_TAG), )
 	BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
