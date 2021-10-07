@@ -316,7 +316,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(opts.have("print-ast"))  
         print_ast(std::cout);
     if(opts.have("print-pseudocode"))
-        dump_code(std::cout);
+        print_pseudocode(std::cout);
 
     if(token_comment.size() > 0 && token_comment[0].first == 1) {
         main_description = token_comment[0].second;

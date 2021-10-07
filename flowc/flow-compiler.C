@@ -661,56 +661,43 @@ int flow_compiler::compile_node_ref(int node) {
     return 0;
 }
 
-/*
- * 2nd pass, this should be called after all the message types are set
- * Resolve dimensions for the node refereced by this label
- */
 int flow_compiler::update_noderef_dimension(int node) {
     if(dimension.has(node)) 
         return 0;
 
-    // input has dimension 0 
     std::string label = get_text(node);
     if(label == input_label) {
         dimension.put(node, 0);
         return 0;
-    }
-    
-    // gather all the non empty nodes with the same name
-    std::set<int> node_set;
-    for(auto const &nr: referenced_nodes) {
-        if(name(nr.first) == label)
-            node_set.insert(nr.first);
-    }
+    } 
+
     int error_count = 0;
-    DEBUG_ENTER;
-    DEBUG_CHECK(node <<  " node_set: " << node_set);
-
     int nodes_dimension = -3;
-    std::set<int> dims;
-    for(auto n: node_set) {
+    DEBUG_ENTER;
+    std::set<int> node_set;
+    for(int n: *this) if(type(n) == "node" && name(n) == label) {
+        node_set.insert(n);
         if(!dimension.has(n)) {
-            DEBUG_CHECK("from " << node << " computing dimension for " << n << " this [" << label << "]");
             update_dimensions(n);
-        } else {
-            DEBUG_CHECK("node " << n << " already has dimension set to  " << dimension(n));
         }
-        if(dimension(n) == -2)
-            continue;
-        if(nodes_dimension == -3)
+        DEBUG_CHECK(" >>>> from " << node << " computed dimension for " << n << " this [" << label << "] is " << dimension(n));
+        if(nodes_dimension < 0)
             nodes_dimension = dimension(n);
-
+        if(nodes_dimension >= 0 && dimension(n) < 0) 
+            dimension.update(n, nodes_dimension);
         if(nodes_dimension != dimension(n)) {
-            pcerr.AddError(main_file, at(n), sfmt() << "dimension for node \"" << name(n) << "\" computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
+            pcerr.AddError(main_file, at(n), sfmt() << "dimension computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
             ++error_count;
         }
-        dims.insert(dimension(n));
     }
-    //std::cerr << "Computed dimension for label [" << label << "] " << node << " from " << node_set << ", as: " << nodes_dimension << ", "<< dims<< "\n";
     if(!dimension.has(node)) 
         dimension.put(node, nodes_dimension);
 
-    if(nodes_dimension < 0) {
+    if(nodes_dimension >= 0) {
+        // If a node's dimension could not be computed, update it from the other nodes
+        for(auto n: node_set) if(dimension(n) < 0) 
+            dimension.update(n, nodes_dimension);
+    } else {
         // If a node set's dimension could not be computed, generate errors
         for(auto n: node_set) {
             pcerr.AddError(main_file, at(n), sfmt() << "output size can not be determined for node");
@@ -2400,17 +2387,14 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             // the number of alternate nodes
             icode[node_idx].arg.push_back(all_nodes(name(node)).size()-1);
 
-            // fixup all the nodes without output 
-            
-            for(auto nip: node_ip) if(nip.first != node && name(nip.first) == name(node)) {
-                //MASSERT(icode[nip.second].arg[0] == dim || icode[nip.second].arg[0] == 0) << "No output node " << nip.first << " has dimension " << icode[nip.second].arg[0] << ", expected 0 or " << dim << "\n";
-                if(icode[nip.second].arg[0] != dimension(node)) {
-                    pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
-                    pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
-                    ++error_count;
-                }
-            }
-            
+            // check that previous nodes of the same name have the same dimension
+            if(dimension(node) >= 0)
+                for(auto nip: node_ip) 
+                    if(nip.first != node && name(nip.first) == name(node) && icode[nip.second].arg[0] >= 0 && icode[nip.second].arg[0] != dimension(node)) {
+                        pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
+                        pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
+                        ++error_count;
+                    }
         }
         DEBUG_CHECK("end stage " << stage);
         icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
@@ -2439,7 +2423,9 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     DEBUG_LEAVE;
     return error_count;
 }
-void flow_compiler::dump_code(std::ostream &out) const {
+void flow_compiler::print_pseudocode(std::ostream &out) const {
+    int error_count = 0;
+    DEBUG_ENTER;    
     int digits = log10(icode.size())+1;
     int l = 0;
     for(auto const &s: icode) {
@@ -2448,6 +2434,7 @@ void flow_compiler::dump_code(std::ostream &out) const {
         snprintf(lbuf, digits+1, "%*d", digits, l);
         out << lbuf << " "  << s << "\n";
     }
+    DEBUG_LEAVE;
 }
 int flow_compiler::compile(std::set<std::string> const &targets) {
     int root = ast_root();
