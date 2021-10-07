@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
-BUILD_VERSION?=0.16.1
+BUILD_VERSION?=0.16.2
 
 GIT_TS:=$(shell git show -s --format=%cD)
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
