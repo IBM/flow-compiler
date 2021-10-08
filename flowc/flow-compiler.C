@@ -930,7 +930,7 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
     block_data_t &block = block_store[blck_node];
 
     for(int elem_node: blck.children) {
-        // sytax checked: 
+        // syntax checked: 
         //      blck is a list of elem 
         //      each elem has 2 children
         //      the first child is always ID
@@ -1000,6 +1000,16 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
                                 input_descriptor.put(*exp_node, md);
                             } else {
                                 ++error_count;
+                            }
+                        }
+                    } else if(value_node_type == FTK_RETURN && type(blck_node) == "node") {
+                        if(!message_descriptor(blck_node)) for(int n: *this) {
+                            if(n == blck_node) 
+                                break;
+                            if(type(n) == "node" && name(n) == name(blck_node)) {
+                                input_descriptor.copy(n, blck_node);
+                                message_descriptor.copy(n, blck_node);
+                                break;
                             }
                         }
                     }
@@ -1095,8 +1105,8 @@ static inline SET set_union(SET const &s1, SET const & s2) {
     return s;
 }
 int flow_compiler::compile_stmt(int stmt_node) {
-    int exp_node = 0;
     int error_count = 0;
+    int exp_node = 0, node_node = 0;
     auto const &stmt = at(stmt_node);
     assert(stmt.children.size() > 0);
     std::string statement;
@@ -1107,11 +1117,10 @@ int flow_compiler::compile_stmt(int stmt_node) {
             {
                 std::string node_name;
                 if(compile_method(node_name, stmt.children[1], 1)) {
-
                     pcerr.AddError(main_file, at(stmt.children[1]), std::string("expected \"")+statement+"\" name");
                     return 1;
                 }
-                int node_node = stmt.children[2];
+                node_node = stmt.children[2];
 
                 name.put(node_node, node_name);
                 type.put(node_node, statement);
@@ -1186,7 +1195,7 @@ int flow_compiler::compile_stmt(int stmt_node) {
                     pcerr.AddError(main_file, at(stmt.children[1]), "expected method name");
                     return 1;
                 }
-                int node_node = stmt.children[2];
+                node_node = stmt.children[2];
                 type.put(node_node, statement);
                 if(stmt.children.size() != 3 || compile_block(node_node, {"return"}, &exp_node)) {
                     pcerr.AddError(main_file, at(node_node), "parameter definition block expected");
@@ -1196,8 +1205,13 @@ int flow_compiler::compile_stmt(int stmt_node) {
                     pcerr.AddError(main_file, at(node_node), "entry is missing return definition");
                     return 1;
                 }
-                // Check if method is defined in any of the protos
+                // check if method is defined in any of the protos
                 MethodDescriptor const *mdp = check_method(method, stmt.children[1]);
+                if(method_descriptor.has(exp_node)) {
+                    // TODO a redudant message type should be accepted here
+                    pcerr.AddError(main_file, at(exp_node), "return definition must omit message type");
+                    return 1;
+                }
                 method_descriptor.put(exp_node, mdp);
                 method_descriptor.copy(exp_node, node_node);
                 input_descriptor.copy(exp_node, node_node);
@@ -1210,11 +1224,10 @@ int flow_compiler::compile_stmt(int stmt_node) {
                     pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << method << "\"");
                     return 1;
                 }
-                // Quick access to the block node id 
+                // quick access to the block node id 
                 named_blocks_w[method] = std::make_pair(statement, stmt.children[2]);
                 entry_set.insert(stmt.children[2]);
-                //entries[method] = stmt.children[2];
-                // All entries must have the same input type
+                // all entries must have the same input type
                 if(input_dp == nullptr) {
                     input_dp = mdp->input_type();
                 } else {
@@ -1258,15 +1271,25 @@ int flow_compiler::compile_stmt(int stmt_node) {
     }
     
     // If everything went well, visit the exp node
-    if(error_count == 0 && type.has(exp_node) && (type(exp_node) == "return" || type(exp_node) == "output")) {
+    if(error_count == 0 && exp_node != 0 && type.has(exp_node) && (type(exp_node) == "return" || type(exp_node) == "output")) {
         auto const *mp = method_descriptor(exp_node);
-        Descriptor const *d = mp == nullptr? message_descriptor(exp_node): (type(exp_node) == "return"? mp->output_type(): mp->input_type());
+        auto const *d = message_descriptor(exp_node);
+        if(mp != nullptr) 
+            d = type(exp_node) == "return"? mp->output_type(): mp->input_type();
+        if(d == nullptr) 
+            d = message_descriptor(node_node);
+        if(d == nullptr) {
+            pcerr.AddError(main_file, at(exp_node), "unknown return message type");
+            error_count += 1;
+        }
         // Set the method descriptor attribute 
         for(auto c: at(exp_node).children) switch(at(c).type) {
             case FTK_fldm:
                 message_descriptor.put(c, d); 
-                this->name.put(c, get_name(d));
-                error_count += compile_fldm(c, d);
+                if(d != nullptr) {
+                    this->name.put(c, get_name(d));
+                    error_count += compile_fldm(c, d);
+                }
                 break;
             case FTK_ID:
                 // This is a node reference so postpone until the second pass
