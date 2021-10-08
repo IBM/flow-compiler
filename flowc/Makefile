@@ -16,6 +16,8 @@
 
 BUILD_VERSION?=0.16.2
 
+ifndef BUILD_ID
+
 GIT_TS:=$(shell git show -s --format=%cD)
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
 ifeq ($(GIT_MODIFIED_COUNT), 0)
@@ -25,7 +27,7 @@ else
 endif
 GIT_GUID:=$(shell git show -s --format=%h)
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
-GIT_BRANCH:=$(shell git branch --show-currenst 2> /dev/null || git branch | grep -E '^\*')
+GIT_BRANCH:=$(shell git branch --show-current 2> /dev/null || git branch | grep -E '^\*')
 ## if not on the master branch, prepend the branch name
 ifneq ($(GIT_BRANCH), master)
 	GIT_GUID:=$(GIT_BRANCH)-$(GIT_GUID)
@@ -37,6 +39,8 @@ else
 	BUILD_VERSION:=$(GIT_TAG)
 	BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
 endif
+
+endif 
 
 DBG?=no
 ifeq ($(DBG), yes) 
