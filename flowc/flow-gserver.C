@@ -721,9 +721,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
         OUT  << "/**  no code gnerated */\n";
         return 1;
     }
-
-    // Temporary storage for value covert call
-    std::pair<std::string, std::string> convert_code; 
+    std::string no_node_id = "flowc::n_" + get(global_vars, "NO_NODE_NAME", 0);
     // Temporary field reference stack
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
     std::vector<std::set<std::string>> loop_c;
@@ -736,7 +734,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::string input_name, output_name;
     // dimension for every node response and current loop sizes
     accessor_info acinf;
-    //std::map<std::string, int> rs_dims;
     std::vector<int> stage_node_ids;
     std::map<std::string, std::string> nodes_rv;
     bool first_node = false;        // whether the current node is the first in an alias set
@@ -760,8 +757,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "::grpc::Status " << get_name(op.m1) << "(flowc::call_info const &CIF, ::grpc::ServerContext *CTX, " << get_full_name(op.d1) << " const *p" << input_name << ", " << get_full_name(op.d2) << " *p" << output_name << ") {\n";
                 ++indenter;
                 OUT << "GRPC_ENTER_" << entry_name << "(\"" << entry_dot_name << "\", CIF, *CTX, p" << input_name << ")\n";
-                //OUT << "auto CID = CIF.call_id;\n";
-                //OUT << "auto const &Client_metadata = CTX->client_metadata();\n";
                 OUT << get_full_name(op.d1) << " const &" << input_name << " = *p" << input_name << ";\n";
                 OUT << get_full_name(op.d2) << " &" << output_name << " = *p" << output_name << ";\n";
                 OUT << "::grpc::Status L_status = ::grpc::Status::OK;\n";
@@ -891,7 +886,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         --indenter;
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
-                            OUT << "GRPC_RECEIVED(\"" << nn << "\", CIF, NRX, flowc::" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
+                            OUT << "GRPC_RECEIVED(\"" << nn << "\", CIF, NRX, flowc::cn_" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
                         OUT << "FLOGC(CIF.trace_call && LL_Status.ok()) << std::make_tuple(&CIF, X) << \"" << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";
@@ -911,8 +906,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "FLOGC(CIF.trace_call) << CIF << \"back waiting for \" << (" << L_STAGE_CALLS << " - " << L_RECV << ") << \" in " << entry_dot_name << " stage " << cur_stage << " (" << cur_stage_name << ")\\n\";\n";
                     --indenter;
                     OUT << "}\n";
-
-                    //OUT << "} else {\n";
 
                     --indenter;
                     OUT << "}\n";
@@ -973,7 +966,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << reps("std::vector<", node_dim) << get_full_name(op.d1) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_output_name << ";\n";
                 
                 if(first_node) 
-                    OUT << reps("std::vector<", node_dim) << "int"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? " = 0": "") << ";\n";
+                    OUT << reps("std::vector<", node_dim) << "flowc::nodes"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? (std::string(" = ") + no_node_id): std::string()) << ";\n";
                 
                 if(node_has_calls) 
                     OUT << "auto " << cur_node_name << "_ConP = " << cur_node_name << "_get_connector();\n";
@@ -996,7 +989,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(first_with_output) 
                     OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< loop_size_varname << ");\n";
                 if(first_node) 
-                    OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< loop_size_varname << (node_dim-loop_c.size()==0? ", 0": "") << ");\n";
+                    OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< loop_size_varname << (node_dim-loop_c.size()==0? (std::string(", ") + no_node_id): std::string()) << ");\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0; " << cpp_index_prefix << loop_c.size() << " < NS_" << cur_node_name << "_"  << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
 
                 OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_input_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_input_name << "[" << cpp_index_prefix << loop_c.size() <<  "];\n";
@@ -1006,10 +999,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             } break;
             case IFNC:
                 if(op.arg[1] == 0) {
-                    OUT << "if(!" << L_VISITED << ") {" << "\n";
+                    OUT << "if(" << L_VISITED << " == " << no_node_id << ") {" << "\n";
                 } else {
                     assert(tvl.size() > 0);
-                    OUT << "if(!" << L_VISITED << " && " << (tvl.back().second > 5? "(": "") << tvl.back().first << (tvl.back().second > 5? ")": "") << ") {" << "\n";
+                    OUT << "if(" << L_VISITED << " == " << no_node_id << " && " << (tvl.back().second > 5? "(": "") << tvl.back().first << (tvl.back().second > 5? ")": "") << ") {" << "\n";
                     tvl.pop_back();
                 }
                 ++indenter;
@@ -1019,7 +1012,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case ENOD:
                 // if visited
                 if(!node_cg_done)
-                    OUT <<  L_VISITED << " = " << cur_node << ";\n";
+                    OUT <<  L_VISITED << " = flowc::n_" << to_upper(to_identifier(cur_node_name)) << ";\n";
                 --indenter;
                 OUT << "}\n";
                 while(acinf.loop_level() > 0) {
@@ -1478,13 +1471,19 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     return error_count;
 }
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
-    int error_count = 0, node_count = 0;
+    int error_count = 0, node_count = 0, cli_count = 0;
+    std::set<std::string> all_nodes;
     for(auto &rn: referenced_nodes) {
-        ++node_count;
         auto cli_node = rn.first;
-        if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
+        if(type(cli_node) == "container")
             continue;
+        ++node_count;
         std::string const &node_name = rn.second.xname;
+        all_nodes.insert(to_upper(to_identifier(node_name)));
+        append(vars, "NODE_NAME", node_name);
+        if(method_descriptor(cli_node) == nullptr) 
+            continue;
+        ++cli_count;
 
         std::string set_metadata;
         if(rn.second.headers.size() > 0) {
@@ -1525,8 +1524,16 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
             pcerr.AddWarning(main_file, at(cli_node), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
         append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
-    if(node_count > 0) 
+    if(cli_count > 0) 
         set(vars, "HAVE_CLI", "");
+    set(vars, "CLI_NODE_COUNT", sfmt() << cli_count);
+    set(vars, "NODE_COUNT", sfmt() << node_count);
+    std::string no_node_name = "NOTANODE";
+    if(contains(all_nodes, no_node_name))
+        for(int i = 0; i < 10000; ++i) 
+            if(contains(all_nodes, no_node_name))
+                no_node_name = sfmt() << "NOT_A_NODE_" << i;
+    set(vars, "NO_NODE_NAME", no_node_name);
     return error_count;
 }
 int flow_compiler::genc_server_source(std::string const &server_src) {

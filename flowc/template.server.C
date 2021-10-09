@@ -490,12 +490,14 @@ static char const *get_cfg(std::vector<std::string> const &cfg, std::string cons
     }
     return nullptr;
 }
-
-enum Nodes_Enum {
-    NO_NODE = 0 {I:CLI_NODE_NAME{, {{CLI_NODE_NAME/id/upper}}}I}
+enum cli_nodes {
+    cn_{{NO_NODE_NAME/id/upper-NO_NODE}} = 0 {I:CLI_NODE_NAME{, cn_{{CLI_NODE_NAME/id/upper}}}I}
 };
-
+enum nodes {
+    n_{{NO_NODE_NAME/id/upper-NO_NODE}} = 0 {I:NODE_NAME{, n_{{NODE_NAME/id/upper}}}I}
+};
 struct node_cfg {
+    cli_nodes eid;
     std::string id;
     std::set<std::string> fendpoints;
     std::set<std::string> dendpoints;
@@ -507,19 +509,16 @@ struct node_cfg {
     bool trace;
     std::shared_ptr<grpc::ChannelCredentials> creds;
 
-    node_cfg(std::string const &a_id, int a_maxcc, long a_timeout, std::string const &a_endpoint, std::string const &cert_fn):
-        id(a_id), maxcc(a_maxcc), timeout(a_timeout), endpoint(a_endpoint), cert_filename(cert_fn), trace(false), creds(nullptr) {
+    node_cfg(cli_nodes a_eid, std::string const &a_id, int a_maxcc, long a_timeout, std::string const &a_endpoint, std::string const &cert_fn):
+        eid(a_eid), id(a_id), maxcc(a_maxcc), timeout(a_timeout), endpoint(a_endpoint), cert_filename(cert_fn), trace(false), creds(nullptr) {
     }
     bool read_from_cfg(std::vector<std::string> const &cfg);
     bool check_option(std::string const &) const;
 };
-
-{I:CLI_NODE_NAME{node_cfg ns_{{CLI_NODE_NAME/lower/id}}("{{CLI_NODE_NAME/lower/id}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT-DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT-}}", "{{CLI_NODE_CERTFN-}}");
+{I:CLI_NODE_NAME{node_cfg ns_{{CLI_NODE_NAME/lower/id}}(cn_{{CLI_NODE_NAME/id/upper}}, "{{CLI_NODE_NAME/lower/id}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT-DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT-}}", "{{CLI_NODE_CERTFN-}}");
 }I}
-
 {I:ENTRY_NAME{long entry_{{ENTRY_NAME}}_timeout = {{ENTRY_TIMEOUT-DEFAULT_ENTRY_TIMEOUT}};
 }I}
-
 std::string global_node_ID;
 bool asynchronous_calls = true;
 bool trace_calls = false;
@@ -1060,10 +1059,10 @@ public:
 {I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
 }I}
 #ifndef GRPC_RECEIVED
-#define GRPC_RECEIVED(NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, STATUS, CONTEXT, RESPONSE_PTR)
+#define GRPC_RECEIVED(NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, CLI_NODE_ID, STATUS, CONTEXT, RESPONSE_PTR)
 #endif
 #ifndef GRPC_SENDING
-#define GRPC_SENDING(NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, NODE_ID, CONTEXT, REQUEST_PTR)
+#define GRPC_SENDING(NODE_NAME, SERVER_CALL_ID, CLIENT_CALL_ID, CLI_NODE_ID, CONTEXT, REQUEST_PTR)
 #endif
 {I:ENTRY_NAME{
 #ifndef GRPC_LEAVE_{{ENTRY_NAME}}
@@ -1128,7 +1127,7 @@ public:
             CTX.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_NAME/id}}(CTX)
-        GRPC_SENDING("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::{{CLI_NODE_NAME/id/upper}}, CTX, A_inp)
+        GRPC_SENDING("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::cn_{{CLI_NODE_NAME/id/upper}}, CTX, A_inp)
         auto const start_time = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point const deadline = start_time + std::chrono::milliseconds(flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
         CTX.set_deadline(std::min(deadline, CIF.deadline));
@@ -1146,7 +1145,7 @@ public:
             L_context.AddMetadata("start-time", flowc::global_start_time);
         }
         SET_METADATA_{{CLI_NODE_NAME/id}}(L_context)
-        GRPC_SENDING("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::{{CLI_NODE_NAME/id/upper}}, CTX, A_inp)
+        GRPC_SENDING("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::cn_{{CLI_NODE_NAME/id/upper}}, CTX, A_inp)
         ::grpc::Status L_status;
         if(ConP->count() == 0) {
             L_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << "No addresses found for {{CLI_NODE_NAME/id}}: " << flowc::ns_{{CLI_NODE_NAME/id}}.endpoint << "\n");
@@ -1154,7 +1153,7 @@ public:
             int ConN = -1;
             L_status = ConP->stub(ConN, CIF, CCid)->{{CLI_METHOD_NAME}}(&L_context, *A_inp, A_outp);
             ConP->finished(ConN, CIF, CCid, L_status.error_code() == grpc::StatusCode::UNAVAILABLE);
-            GRPC_RECEIVED("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::{{CLI_NODE_NAME/id/upper}}, L_status, L_context, A_outp)
+            GRPC_RECEIVED("{{CLI_NODE_NAME/id}}", CIF, CCid, flowc::cn_{{CLI_NODE_NAME/id/upper}}, L_status, L_context, A_outp)
         }
         FLOGC(CIF.trace_call || flowc::ns_{{CLI_NODE_NAME/id}}.trace) << std::make_tuple(&CIF, CCid) << "{{CLI_NODE_NAME}} request: " << flowc::log_abridge(*A_inp) << "\n";
         if(!L_status.ok()) {
