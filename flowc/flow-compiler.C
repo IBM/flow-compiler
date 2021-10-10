@@ -901,14 +901,14 @@ int flow_compiler::compile_id_ref(int node) {
     }
     std::string id_label(get_dotted_id(node));
     // Find all enums that match this id
-    std::set<EnumValueDescriptor const *> matches;
+    std::set<std::string> matches;
 
     for(auto evd: enum_value_set) {
         if(evd->name() == id_label || evd->full_name() == id_label || stru1::ends_with(evd->full_name(), std::string(".")+id_label))  {
             if(matches.size() == 0) {
                 enum_descriptor.put(node, evd);
             }
-            matches.insert(evd);
+            matches.insert(evd->full_name());
         }
     }
     if(matches.size() == 0) {
@@ -916,6 +916,7 @@ int flow_compiler::compile_id_ref(int node) {
         ++error_count;
     } else if(matches.size() > 1) {
         pcerr.AddError(main_file, at(node), sfmt() << "ambiguous enum label \"" << id_label << "\"");
+        pcerr.AddNote(main_file, at(node), sfmt() << "matches " << stru1::join(matches, ", ", " and ", "", "\"", "\""));
         ++error_count;
     }
     return error_count;
