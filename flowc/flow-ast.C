@@ -68,23 +68,23 @@ char const *node_name(int i) {
         
         case FTK_COMP: return "<=>";
 
-        case FTK_NODE: return "{NODE}";
-        case FTK_CONTAINER: return "{CONTAINER}";
-        case FTK_ENTRY: return "{ENTRY}";
-        case FTK_IMPORT: return "{IMPORT}";
-        case FTK_DEFINE: return "{DEFINE}";
+        case FTK_NODE: return "<NODE>";
+        case FTK_CONTAINER: return "<CONTAINER>";
+        case FTK_ENTRY: return "<ENTRY>";
+        case FTK_IMPORT: return "<IMPORT>";
+        case FTK_DEFINE: return ">DEFINE>";
         
-        case FTK_OUTPUT: return "{OUTPUT}";
-        case FTK_RETURN: return "{RETURN}";
-        case FTK_ERROR: return "{ERROR}";
+        case FTK_OUTPUT: return "<OUTPUT>";
+        case FTK_RETURN: return "<RETURN>";
+        case FTK_ERROR: return "<ERROR>";
 
-        case FTK_ENDPOINT: return "{ENDPOINT}";
-        case FTK_IMAGE: return "{IMAGE}";
-        case FTK_ENVIRONMENT: return "{ENVIRONEMNT}";
-        case FTK_MOUNT: return "{MOUNT}";
-        case FTK_HEADERS: return "{HEADERS}";
+        case FTK_ENDPOINT: return "<ENDPOINT>";
+        case FTK_IMAGE: return "<IMAGE>";
+        case FTK_ENVIRONMENT: return "<ENVIRONEMNT>";
+        case FTK_MOUNT: return "<MOUNT>";
+        case FTK_HEADERS: return "<HEADERS>";
 
-        case FTK_INPUT: return "{INPUT}";
+        case FTK_INPUT: return "<INPUT>";
 
         default: 
              return "symbol";
@@ -205,7 +205,6 @@ std::string const &flow_ast::get_id(int node) const {
 std::string flow_ast::get_joined_id(int node, int start_pos, std::string const &j) const {
     auto const &n = at(node);
     if(n.type == FTK_ID) return get_id(node);
-    //std::cerr << "CS: " << n.children.size() << "POS: " << start_pos << " type: " << n.type << " did: " << FTK_dtid << " fldx: " << FTK_fldx << " enum: " << FTK_enum << "\n";
     if(!(n.children.size() >= start_pos && (n.type == FTK_dtid || n.type == FTK_fldx || n.type == FTK_enum))) {
         print_ast(std::cerr, node);
         assert(false);
@@ -258,7 +257,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
         if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_BOLD << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(method_descriptor.has(node) && method_descriptor(node) != nullptr) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;
-        if(input_descriptor.has(node)) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
+        if(input_descriptor.has(node) && input_descriptor(node) != nullptr) sout << " input: " << ANSI_MAGENTA << *input_descriptor(node) << ANSI_RESET;
         if(field_descriptor.has(node)) {
             sout << " field: " << ANSI_GREEN << *field_descriptor(node);
             if(field_descriptor(node)->is_repeated()) sout << "*";
