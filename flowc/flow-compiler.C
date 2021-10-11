@@ -2460,6 +2460,139 @@ void flow_compiler::print_pseudocode(std::ostream &out) const {
     }
     DEBUG_LEAVE;
 }
+/**
+ * Walk the tree and attempt to fixup all references to grpc methods and proto messages.
+ * Propagate messages and methods to the nodes and entries.
+ */
+int flow_compiler::fixup_proto_refs() {
+    int error_count = 0;
+    int parent_node, prev_node, action_node;
+
+    // make a first pass and solve all method references
+    parent_node = prev_node = action_node = 0;
+    int dtid_node = 0; // node to get the method name from
+    for(int n: *this) {
+        switch(at(n).type) {
+            case FTK_RETURN: case FTK_OUTPUT: {
+                assert(at(n).children.size() == 2 || at(n).children.size() == 1);
+                if(action_node != 0) {
+                    ++error_count;
+                    pcerr.AddError(main_file, at(prev_node), sfmt() << "this \"" << (at(parent_node).type == FTK_ENTRY? "entry": "node") << "\" already has a \"" << get_id(action_node) << "\" statement");
+                    pcerr.AddNote(main_file, at(action_node), sfmt() << "declared here");
+                    break;
+                }
+                action_node = prev_node;
+                // lookup a method if in an entry or a node with output
+                if(dtid_node != 0 || at(parent_node).type == FTK_NODE && get_id(prev_node) == "output") {
+                    if(dtid_node == 0) {
+                        assert(at(n).children.size() == 2);
+                        dtid_node = at(n).children[0];
+                    }
+                    assert(dtid_node != 0);
+                    std::string dtid = get_dotted_id(dtid_node);
+                    MethodDescriptor const *md = check_method(dtid, dtid_node);
+                    if(md != nullptr) {
+                        method_descriptor.put(parent_node, md);
+                        message_descriptor.put(parent_node, md->output_type());
+                        input_descriptor.put(parent_node, md->input_type());
+                    } else {
+                        ++error_count;
+                    }
+                } 
+                // lookup a message type if in a node with return
+                if(at(parent_node).type == FTK_NODE && get_id(prev_node) == "return" && at(n).children.size() == 2) {
+                    dtid_node = at(n).children[0];
+                    std::string dtid = get_dotted_id(dtid_node);
+                    Descriptor const *od = check_message(dtid, dtid_node);
+                    if(od != nullptr) {
+                        method_descriptor.put(parent_node, nullptr);
+                        message_descriptor.put(parent_node, od);
+                        input_descriptor.put(parent_node, od);
+                    } else {
+                        ++error_count;
+                    }
+                }
+            } break;
+            case FTK_ENTRY: 
+                dtid_node = at(n).children[1]; 
+                action_node = 0;
+                parent_node = n;
+                break;
+            case FTK_NODE: 
+                dtid_node = 0;
+                action_node = 0;
+                parent_node = n;
+                break;
+            default: 
+                break;
+        }
+        prev_node = n;
+    }
+    if(error_count != 0)
+        return error_count;
+    // make sure no two entries have the same method and that any return type agrees with the method's return type
+    std::map<MethodDescriptor const *, int> mds;
+    for(int n: *this) if(at(n).type == FTK_ENTRY) {
+        if(contains(mds, method_descriptor(n))) {
+            ++error_count;
+            pcerr.AddError(main_file, at(n), sfmt() << "reuse of rpc method \"" << method_descriptor(n) << "\"");
+            pcerr.AddNote(main_file, at(mds[method_descriptor(n)]), sfmt() << "declared here");
+        } else {
+            mds[method_descriptor(n)] = n;
+        }
+        // check that any declared return type agrees with the method's
+        int rn =  find_first(n, [this](int x) -> bool {
+            return contains(std::set<int>({FTK_OUTPUT, FTK_RETURN}), at(x).type);
+        });
+        if(rn == 0) {
+            ++error_count;
+            pcerr.AddError(main_file, at(n), "no return found for this entry");
+        } else if(message_descriptor(n) != nullptr && at(rn).children.size() == 2) {
+            int dtid_node = at(rn).children[0];
+            if(!stru1::ends_with(message_descriptor(n)->full_name(), get_dotted_id(dtid_node))) {
+                ++error_count;
+                pcerr.AddError(main_file, at(dtid_node), sfmt() << "entry must return message of type \"" << message_descriptor(n)->full_name() << "\", not \"" << get_dotted_id(dtid_node) << "\"");
+            }
+        }
+    }
+    std::map<std::string, int> nodefams;
+    // propagate the output types from the nodes with declared output to the ones without
+    for(int n: *this) if(at(n).type == FTK_NODE && message_descriptor(n) != nullptr && !contains(nodefams, name(n))) {
+        // n is the first node with a method in its family
+        std::string namen = name(n);
+        nodefams[namen] = n;
+        for(int m: *this) if(at(m).type == FTK_NODE && name(m) == namen) {
+            if(!message_descriptor.has(m)) {
+                method_descriptor.put(m, nullptr);
+                message_descriptor.copy(n, m);
+                input_descriptor.put(m, message_descriptor(m));
+            } else if(message_descriptor(m) != message_descriptor(n)) {
+                ++error_count;
+                pcerr.AddError(main_file, at(m), sfmt() << "node declared with a different output type \"" << message_descriptor(m)->name() << "\"");
+                pcerr.AddError(main_file, at(n), sfmt() << "previously declared here with type \"" << message_descriptor(n)->name() << "\"");
+            }
+        }
+    }
+    if(error_count != 0)
+        return error_count;
+
+    // check there are no nodes without an output type or entries without a return
+    for(int n: *this) 
+        switch(at(n).type) {
+            case FTK_NODE: 
+                if(message_descriptor(n) == nullptr) {
+                    ++error_count;
+                    pcerr.AddError(main_file, at(n), "node infer the output type");
+                }
+                break;
+            case FTK_ENTRY:
+                break;
+            default:
+                break;
+        }
+    print_ast(std::cerr);
+    return error_count;
+}
 int flow_compiler::compile(std::set<std::string> const &targets) {
     int root = ast_root();
     if(at(root).type != FTK_ACCEPT || at(root).children.size() != 1)
@@ -2484,6 +2617,8 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     // Some import errors might be inconsequential but for now,
     // give up in case of import errors. 
     if(error_count != 0) return error_count;
+
+    error_count += fixup_proto_refs();
 
     // Compile all statements, i.e. all global porperty settings,
     // all nodes, containers, and entries.

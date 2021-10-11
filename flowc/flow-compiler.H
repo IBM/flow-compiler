@@ -230,6 +230,8 @@ public:
     int compile_block(int blck_node, std::set<std::string> const &output_nvn={}, int *exp_node=nullptr);
     MethodDescriptor const *check_method(std::string &method, int error_node);
     Descriptor const *check_message(std::string &dotted_id, int error_node);
+
+    int fixup_proto_refs();
     int compile_if_import(int stmt_node);
     int compile_stmt(int stmt_node);
     // Compile function calls - fldx are not resolved 
