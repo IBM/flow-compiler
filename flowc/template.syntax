@@ -48,20 +48,16 @@ identifier = [A-Za-z] '{' [A-Za-z] '|' [0-9] '|' "_" '}'
 Node Level Properties:
 
 "image"           String with the "Docker" image name and tag
-
-"port"            Integer. The listening port value for the gRPC service. 
-
 "environment"     Name-value map with the envitonment variables to be set when the image is run. 
                 The values must be strings. 
-
+"id"              Label for this node.
 "group"           Label to be used as a deployment name in the "Kubernetes" configuration. 
                 Nodes with the same group will run together in the same container as a pod.
-
 "limits"          Name-value map with settings that will be used as resource limits in the "Kubernetes" 
                 deployment. The values must be strings and will be copied verbatim into the yaml file.
-
 "init"            Stanza to be added to the "initContainers" section of the "Kubernetes" deployment
-
-"replicas"        Number of overlapped calls that can be made to this service
-
+"replicas"        Number of overlapped calls that can be made to this service.
 "timeout"         Timeout for calling this node. By default no timeout is set.
+"mount"           Volume mount for this image.
+"header"          Header to be added to be sent in the grpc call.
+"endpoint"        grpc endpoint to use for an un-managed service.
