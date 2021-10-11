@@ -362,12 +362,21 @@ struct flow_ast {
         return found;
     }
     /**
-     * Lookup keyword for node 'in'
+     * Lookup statement level keyword for node 'in'
      */
     int stmt_keyw(int in) const {
-        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}};
+        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}, {"error", FTK_ERROR}};
         auto ki = keywords.find(get_id(in));
         int k = ki == keywords.end()? FTK_DEFINE: ki->second;
+        return k;
+    }
+    /**
+     * Lookup block level keyword for node 'in'
+     */
+    int blck_keyw(int in) const {
+        static std::map<std::string, int> keywords = {{"header", FTK_HEADERS}, {"environment", FTK_ENVIRONMENT}, {"mount", FTK_MOUNT}, {"image", FTK_IMAGE}, {"endpoint", FTK_ENDPOINT}, {"output", FTK_OUTPUT}, {"return", FTK_RETURN} };
+        auto ki = keywords.find(get_id(in));
+        int k = ki == keywords.end()? at(in).type: ki->second;
         return k;
     }
     void error(int node, std::string message) {
