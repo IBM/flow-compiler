@@ -55,9 +55,14 @@ stmt(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->stmt_k
 stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(ast->stmt_keyw(B), B, C); ast->expect(A, FTK_DEFINE, "keyword used as variable name");
                                                                  ast->define_var(ast->get_id(B), C);
                                                                } 
-stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); ast->expect(A, FTK_NODE, "expected \"node\" keyword"); } 
+stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); 
+                                                                 ast->expect(A, {FTK_NODE, FTK_ERROR}, "expected \"node\" keyword"); 
+                                                                 if(ast->at(A).type == FTK_NODE) ast->name.put(A, ast->get_dotted_id(C));
+                                                               } 
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
-                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); } 
+                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); 
+                                                                 if(ast->at(A).type == FTK_NODE) ast->name.put(A, ast->get_dotted_id(C));
+                                                               } 
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
 blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                  // Blocks must be enclosed in { }
@@ -76,8 +81,19 @@ elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(F
 elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          
-elem(A) ::= ID(B) oexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'output')
-elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          // Output definition (ID must be 'return')
+elem(A) ::= ID(B) oexp(C) SEMICOLON.                           { ast->chtype(C, ast->blck_keyw(B));
+                                                                 A = ast->node(FTK_elem, B, C);
+                                                                 ast->expect(C, {FTK_RETURN, FTK_OUTPUT}, "expected \"output\" or \"return\" here"); 
+                                                               }          
+elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { ast->chtype(C, ast->blck_keyw(B));
+                                                                 A = ast->node(FTK_elem, B, C); 
+                                                                 ast->expect(C, FTK_RETURN, "expected \"return\" keyword here"); 
+                                                               }          
+rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_elem, B); }              
+rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_elem, ast->node(FTK_fldx, B)); }              
+oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_elem, B, ast->node(FTK_fldx, C)); }           
+oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_elem, B, C); }    
+
 elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
 lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); }
@@ -100,15 +116,6 @@ valx(A) ::= DOLLAR ID(C).                                      { A = ast->lookup
 vall(A) ::= valx(B).                                           { A = B; }
 vall(A) ::= dtid(B).                                           { A = ast->chtype(B, FTK_enum); }
 
-// rexp: return expression
-
-rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_RETURN, B); }              
-rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_RETURN, ast->node(FTK_fldx, B)); }              
-
-// oexp: output expression
-
-oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_OUTPUT, B, ast->node(FTK_fldx, C)); }           
-oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_OUTPUT, B, C); }        // Method and field map output definition
 
 fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }             // fldm is a list of field definitions fldd
 fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappend(B, C); }
