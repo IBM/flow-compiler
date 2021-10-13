@@ -469,7 +469,7 @@ struct flow_ast {
      */
     int get_first_node(std::string const &namen, std::string const &idn="") const {
         for(int n: *this) 
-            if(at(n).type == FTK_NODE && name(n) == namen) 
+            if(at(n).type == FTK_NODE && type(n) == namen) 
                 return n;
         return 0;
     }
@@ -479,7 +479,7 @@ struct flow_ast {
     std::set<int> get_all_nodes(std::string const &namen) const {
         std::set<int> nns;
         for(int n: *this) 
-            if(at(n).type == FTK_NODE && name(n) == namen) 
+            if(at(n).type == FTK_NODE && type(n) == namen) 
                 nns.insert(n);
         return nns;
     }
