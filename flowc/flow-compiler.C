@@ -569,8 +569,11 @@ int flow_compiler::compile_fldr(int fldr_node) {
     }
     return error_count;
 }
-int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
+int flow_compiler::compile_fldm(Descriptor const *dp, int fldm_node) {
     int error_count = 0;
+    if(fldm_node == 0) 
+        return 0;
+
     auto const &fldm = at(fldm_node);
     assert(fldm.type == FTK_fldm);
     for(auto d: fldm.children) {
@@ -595,7 +598,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
                     Descriptor const *ldp = fidp->message_type();
                     message_descriptor.put(fldd.children[1], ldp); 
                     name.put(fldd.children[1], get_name(ldp));
-                    error_count += compile_fldm(fldd.children[1], ldp);
+                    error_count += compile_fldm(ldp, fldd.children[1]);
                 } else {
                     ++error_count;
                     pcerr.AddError(main_file, at(d), sfmt() << "the field \"" << id << "\" in \"" << get_name(dp) << "\" is not of message type");
@@ -1105,6 +1108,48 @@ static inline SET set_union(SET const &s1, SET const & s2) {
     s.insert(s2.begin(), s2.end()); 
     return s;
 }
+int flow_compiler::compile_defines() {
+    int error_count = 0;
+    for(int n: *this) {
+        auto const &stmt = at(n);
+        switch(stmt.type) {
+            case FTK_DEFINE: {
+                std::string statement = get_id(stmt.children[0]);
+                if(statement == "package") {
+                    std::string package_name;
+                    if(compile_id(package_name, stmt.children[1])) {
+                        pcerr.AddError(main_file, at(stmt.children[1]), "expected package name id");
+                        error_count += 1;
+                    }
+                } else if(statement == "repository") {
+                    std::string repository;
+                    if(compile_string(repository, stmt.children[1])) {
+                        pcerr.AddError(main_file, at(stmt.children[1]), "expected repository path string");
+                        error_count += 1;
+                    }
+                    default_repository = repository;
+                } else if(statement == "image_pull_secret") {
+                    std::string secret;
+                    if(compile_string(secret, stmt.children[1])) {
+                        pcerr.AddError(main_file, at(stmt.children[1]), "expected image pull secret name");
+                        error_count += 1;
+                    }
+                    image_pull_secrets.insert(secret);
+                } else if(statement == "port") {
+                    if(at(stmt.children[1]).type != FTK_STRING && at(stmt.children[1]).type != FTK_INTEGER) {
+                        pcerr.AddError(main_file, at(stmt.children[1]), "port value expected");
+                        error_count += 1;
+                    }
+                    base_port = get_integer(stmt.children[1]);
+                }
+            } 
+                break;
+            default: 
+                break;
+        }
+    }
+    return error_count; 
+}
 int flow_compiler::compile_stmt(int stmt_node) {
     int error_count = 0;
     int exp_node = 0, node_node = 0;
@@ -1123,8 +1168,8 @@ int flow_compiler::compile_stmt(int stmt_node) {
                 }
                 node_node = stmt.children[2];
 
-                name.put(node_node, node_name);
-                type.put(node_node, statement);
+                //name.put(node_node, node_name);
+                //type.put(node_node, statement);
                 if(description.has(stmt.children[0]))
                     description.update(node_node, description(stmt.children[0]));
 
@@ -1289,7 +1334,7 @@ int flow_compiler::compile_stmt(int stmt_node) {
                 message_descriptor.put(c, d); 
                 if(d != nullptr) {
                     this->name.put(c, get_name(d));
-                    error_count += compile_fldm(c, d);
+                    // FIXME removed error_count += compile_fldm(c, d);
                 }
                 break;
             case FTK_ID:
@@ -2461,8 +2506,61 @@ void flow_compiler::print_pseudocode(std::ostream &out) const {
     DEBUG_LEAVE;
 }
 /**
+ * Make sure that all nodes have only one id declared and they don't clash
+ */
+int flow_compiler::fixup_node_ids() {
+    int error_count = 0;
+    std::map<std::string, int> node_xnames;
+    int node_count = 0;
+    // make a first pass to make sure ids don't clash and arenot redefined
+    for(int n: *this) if(at(n).type == FTK_NODE) {
+        ++node_count;
+        bool have_id = name(n) != type(n);
+        auto idvns = blck_value_nodes(get_ne_block_node(n), "id");
+        if(idvns.size() > 1 || idvns.size() > 0 && have_id) {
+            ++error_count;
+            int first_id = n;
+            for(auto p = idvns.begin(), e = idvns.end(); p != e; ++p) {
+                if(p == idvns.begin() && !have_id) {
+                    first_id = *p;
+                    continue;
+                }
+                pcerr.AddError(main_file, at(*p), sfmt() << "identifier redefinition for \"" << type(n) << "\" node");
+            }
+            pcerr.AddNote(main_file, at(first_id), "first defined here");
+            continue;
+        }
+        if(!have_id && idvns.size() == 1) {
+            name.update(n, sfmt() << name(n) << "." << get_text(*idvns.begin()));
+            have_id = true;
+        }
+        if(!have_id)
+            continue;
+
+        if(contains(node_xnames, name(n))) {
+            ++error_count;
+            pcerr.AddError(main_file, at(n), sfmt() << "illegal reuse of id for node \"" << type(n) << "\"");
+            pcerr.AddNote(main_file, at(node_xnames[name(n)]), "first defined here");
+            continue;
+        } 
+        node_xnames[name(n)] = n;
+    }
+    // make a second pass and assign ids for the nodes that don't have one
+    for(int n: *this) if(at(n).type == FTK_NODE && name(n) == type(n)) {
+        for(int i = 1; i <= node_count; ++i) {
+            std::string nid = sfmt() << type(n) << "." << i;
+            if(!contains(node_xnames, nid)) {
+                name.update(n, nid);
+                node_xnames[nid] = n;
+                break;
+            }
+        }
+    }
+    return error_count;
+}
+/**
  * Walk the tree and attempt to fixup all references to grpc methods and proto messages.
- * Propagate messages and methods to the nodes and entries.
+ * Propagate messages and methods to the nodes and entries. TODO add check for node and container redefinition
  */
 int flow_compiler::fixup_proto_refs() {
     int error_count = 0;
@@ -2532,13 +2630,22 @@ int flow_compiler::fixup_proto_refs() {
         return error_count;
     // make sure no two entries have the same method and that any return type agrees with the method's return type
     std::map<MethodDescriptor const *, int> mds;
+    int first_entry = 0;
     for(int n: *this) if(at(n).type == FTK_ENTRY) {
         if(contains(mds, method_descriptor(n))) {
             ++error_count;
-            pcerr.AddError(main_file, at(n), sfmt() << "reuse of rpc method \"" << method_descriptor(n) << "\"");
-            pcerr.AddNote(main_file, at(mds[method_descriptor(n)]), sfmt() << "declared here");
+            pcerr.AddError(main_file, at(n), sfmt() << "redefinition of rpc method is not allowed (\"" << method_descriptor(n) << "\")");
+            pcerr.AddNote(main_file, at(mds[method_descriptor(n)]), sfmt() << "first declared here");
         } else {
             mds[method_descriptor(n)] = n;
+        }
+        if(first_entry == 0) 
+            first_entry = n;
+
+        if(input_descriptor(n) != input_descriptor(first_entry)) {
+            ++error_count;
+            pcerr.AddError(main_file, at(n), sfmt() << "all entries must have the same input type: \"" << input_descriptor(first_entry)->full_name() << "\"\n");
+            pcerr.AddNote(main_file, at(first_entry), sfmt() << "first declared here");
         }
         // check that any declared return type agrees with the method's
         int rn =  find_first(n, [this](int x) -> bool {
@@ -2557,11 +2664,11 @@ int flow_compiler::fixup_proto_refs() {
     }
     std::map<std::string, int> nodefams;
     // propagate the output types from the nodes with declared output to the ones without
-    for(int n: *this) if(at(n).type == FTK_NODE && message_descriptor(n) != nullptr && !contains(nodefams, name(n))) {
+    for(int n: *this) if(at(n).type == FTK_NODE && message_descriptor(n) != nullptr && !contains(nodefams, type(n))) {
         // n is the first node with a method in its family
-        std::string namen = name(n);
+        std::string namen = type(n);
         nodefams[namen] = n;
-        for(int m: *this) if(at(m).type == FTK_NODE && name(m) == namen) {
+        for(int m: *this) if(at(m).type == FTK_NODE && type(m) == namen) {
             if(!message_descriptor.has(m)) {
                 method_descriptor.put(m, nullptr);
                 message_descriptor.copy(n, m);
@@ -2582,7 +2689,7 @@ int flow_compiler::fixup_proto_refs() {
             case FTK_NODE: 
                 if(message_descriptor(n) == nullptr) {
                     ++error_count;
-                    pcerr.AddError(main_file, at(n), "node infer the output type");
+                    pcerr.AddError(main_file, at(n), "cannot infer the output type");
                 }
                 break;
             case FTK_ENTRY:
@@ -2590,7 +2697,30 @@ int flow_compiler::fixup_proto_refs() {
             default:
                 break;
         }
-    print_ast(std::cerr);
+    return error_count;
+}
+int flow_compiler::compile_expressions(int node) {
+    int error_count = 0;
+    // First compile fldms
+    for(int n: *this) switch(at(n).type) {
+        case FTK_NODE:
+            error_count += compile_fldm(message_descriptor(n), get_ne_action_fldm(n));
+            //error_count += compile_fldx(get_ne_action_fldx(n));
+            break;
+        case FTK_ENTRY:
+            error_count += compile_fldm(input_descriptor(n), get_ne_action_fldm(n));
+            //error_count += compile_fldx(get_ne_action_fldx(n));
+            break;
+        default:
+            break;
+    }
+    for(int n: *this) switch(at(n).type) {
+        case FTK_NODE:
+        case FTK_ERROR:
+            error_count += compile_fldr(get_ne_condition(n));
+        default:
+            break;
+    }
     return error_count;
 }
 int flow_compiler::compile(std::set<std::string> const &targets) {
@@ -2618,12 +2748,27 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     // give up in case of import errors. 
     if(error_count != 0) return error_count;
 
+    // Check value types for some reserved define names
+    error_count += compile_defines();
+    error_count += fixup_node_ids();
+    if(error_count != 0) return error_count;
+    // Lookup up grpc messages and methods referenced throughout 
     error_count += fixup_proto_refs();
+    if(error_count != 0) return error_count;
+
+    print_ast(std::cerr);
+    std::cerr << "------------\n";
+    error_count += compile_expressions();
+    print_ast(std::cerr);
+    std::cerr << "~~~~~~~~~~~~\n";
 
     // Compile all statements, i.e. all global porperty settings,
     // all nodes, containers, and entries.
     for(int n: at(root).children)
         error_count += compile_stmt(n);
+
+    print_ast(std::cerr);
+
     // Check if all node sets have output message defined
     for(auto const &nb: named_blocks) {
         int node = nb.second.second;

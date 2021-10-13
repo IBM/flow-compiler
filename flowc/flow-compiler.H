@@ -183,6 +183,9 @@ public:
     int add_to_proto_path(std::string const &directory);
     int compile_proto(std::string const &file);
 
+    /**
+     * Generate protobuf and grpc support code, by invoking protoc
+     */
     int genc_protobuf();
     int genc_grpc();
     /**
@@ -231,14 +234,18 @@ public:
     MethodDescriptor const *check_method(std::string &method, int error_node);
     Descriptor const *check_message(std::string &dotted_id, int error_node);
 
+    int fixup_node_ids();
     int fixup_proto_refs();
     int compile_if_import(int stmt_node);
+    int compile_defines();
+    int compile_expressions(int node=0);
+
     int compile_stmt(int stmt_node);
     // Compile function calls - fldx are not resolved 
     int compile_fldr(int fldr_node);
     int fixup_vt(int node);
     // Compile all the filed mappings - this does not resolve fldx references
-    int compile_fldm(int fldm_node, Descriptor const *dp);
+    int compile_fldm(Descriptor const *dp, int fldm_node);
     // The following should be called on a second pass (after all nodes have been compiled)
     int compile_fldx(int node);
     // The following should be called on a second pass (after all nodes have been compiled)
