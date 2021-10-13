@@ -311,9 +311,9 @@ struct flow_ast {
     std::string const get_value(int node) const;
     std::string const &get_string(int node) const;
     std::string const &get_id(int node) const;
-    std::string get_joined_id(int node, int start_pos, std::string const &j) const;
-    std::string get_dotted_id(int node, int start_pos=0) const {
-        return get_joined_id(node, start_pos, ".");
+    std::string get_joined_id(int node, int start_pos, int end_pos, std::string const &j) const;
+    std::string get_dotted_id(int node, int start_pos=0, int end_pos=0) const {
+        return get_joined_id(node, start_pos, end_pos, ".");
     }
     int print_ast(std::ostream &sout, int node=-1, int indent=0) const;
     /***
@@ -379,6 +379,32 @@ struct flow_ast {
         int k = ki == keywords.end()? at(in).type: ki->second;
         return k;
     }
+    /**
+     * Return the first value that matches 'key'. 
+     */
+    int blck_first_value_node(int blck_node, std::string const &key) const {
+        auto const &blck = at(blck_node);
+        assert(blck.type == FTK_blck);
+        for(int p: blck.children) {
+            auto const &elem = at(p);
+            assert(elem.type == FTK_elem);
+            if(get_id(elem.children[0]) == key) 
+                return elem.children[1];
+        }
+        return 0;
+    }
+    std::set<int> blck_value_nodes(int blck_node, std::string const &key) const {
+        auto const &blck = at(blck_node);
+        assert(blck.type == FTK_blck);
+        std::set<int> values;
+        for(int p: blck.children) {
+            auto const &elem = at(p);
+            assert(elem.type == FTK_elem);
+            if(get_id(elem.children[0]) == key) 
+                values.insert(elem.children[1]);
+        }
+        return values;
+    }
     void error(int node, std::string message) {
         syntax_errors.push_back(std::make_pair(node, message));
     }
@@ -388,6 +414,74 @@ struct flow_ast {
     }
     void expect(int node, int type, std::string const &errm) {
         expect(node, std::set<int>({type}), errm);
+    }
+    /** 
+     * Specialized tree accessors for node, entry, error, etc.
+     */
+    /**
+     * Get the node pointing to the properties hash for entry or node node n.
+     */
+    int get_ne_block_node(int n) const {
+        return  find_first(n, [this](int x) -> bool {
+            return at(x).type == FTK_blck;
+        });
+    }
+    /**
+     * Get the return or output node for 'n'. 'n' must be entry or node.
+     */
+    int get_ne_action(int n) const {
+        assert(at(n).type == FTK_NODE || at(n).type == FTK_ENTRY);
+        int bn = get_ne_block_node(n);
+        return  find_first(bn, [this](int x) -> bool {
+            return at(x).type == FTK_RETURN || at(x).type == FTK_OUTPUT;
+        });
+    }
+    /**
+     * Return the fldm associated with this action node
+     */
+    int get_ne_action_fldm(int n) const {
+        int an = get_ne_action(n);
+        if(an == 0) 
+            return 0;
+        an = at(an).children.back();
+        return at(an).type == FTK_fldm? an: 0;
+    }
+    /**
+     * Return the fldm associated with this action node
+     */
+    int get_ne_action_fldx(int n) const {
+        int an = get_ne_action(n);
+        if(an == 0) 
+            return 0;
+        an = at(an).children.back();
+        return at(an).type == FTK_fldx? an: 0;
+    }
+    /**
+     * Return the fldr associated with this action node
+     */
+    int get_ne_condition(int n) const {
+        assert(at(n).type == FTK_NODE || at(n).type == FTK_ERROR);
+        n = at(n).children.back();
+        return at(n).type == FTK_fldr? n: 0;
+    }
+    /** 
+     * Return the first node named 'namen' with id 'idn' (if specified)
+     */
+    int get_first_node(std::string const &namen, std::string const &idn="") const {
+        for(int n: *this) 
+            if(at(n).type == FTK_NODE && name(n) == namen) 
+                return n;
+        return 0;
+    }
+    /** 
+     * Return the first node named 'namen' with id 'idn' (if specified)
+     */
+    std::set<int> get_all_nodes(std::string const &namen) const {
+        std::set<int> nns;
+        for(int n: *this) 
+            if(at(n).type == FTK_NODE && name(n) == namen) 
+                nns.insert(n);
+        return nns;
     }
 };
 std::ostream &operator << (std::ostream &out, class flow_ast::ast_iterator const &p);

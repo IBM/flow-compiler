@@ -202,15 +202,18 @@ std::string const &flow_ast::get_id(int node) const {
     MASSERT(at(node).type == FTK_ID) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected type: " << FTK_ID << "\n";
     return at(node).token.text;
 }
-std::string flow_ast::get_joined_id(int node, int start_pos, std::string const &j) const {
+std::string flow_ast::get_joined_id(int node, int start_pos, int end_pos, std::string const &j) const {
     auto const &n = at(node);
     if(n.type == FTK_ID) return get_id(node);
     if(!(n.children.size() >= start_pos && (n.type == FTK_dtid || n.type == FTK_fldx || n.type == FTK_enum))) {
         print_ast(std::cerr, node);
         assert(false);
     }
-    std::vector<std::string> ids(n.children.size()-start_pos);
-    std::transform(n.children.begin()+start_pos, n.children.end(), ids.begin(), [this](int n)->std::string {return get_text(n);});
+    if(end_pos <= 0) end_pos += n.children.size();
+    assert(end_pos <= n.children.size()); 
+    if(end_pos <= start_pos) return "";
+    std::vector<std::string> ids(end_pos-start_pos);
+    std::transform(n.children.begin()+start_pos, n.children.begin()+end_pos, ids.begin(), [this](int n)->std::string {return get_text(n);});
     return stru1::join(ids, j);
 }
 std::ostream &operator << (std::ostream &out, flow_ast_node const &node) {
@@ -280,7 +283,7 @@ void flow_ast::to_text_r(std::ostream &out, int expr, int opp) const {
     bool need_parens = false;
     switch(at(expr).type) {
         case FTK_fldx:
-            out << get_id(at(expr).children[0]) + "@" + get_joined_id(expr, 1, ".");
+            out << get_id(at(expr).children[0]) + "@" + get_joined_id(expr, 1, 0, ".");
             break;
         case FTK_INTEGER:
             out << get_value(expr);
