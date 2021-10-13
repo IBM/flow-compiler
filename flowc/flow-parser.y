@@ -55,15 +55,34 @@ stmt(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->stmt_k
 stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(ast->stmt_keyw(B), B, C); ast->expect(A, FTK_DEFINE, "keyword used as variable name");
                                                                  ast->define_var(ast->get_id(B), C);
                                                                } 
-stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); 
-                                                                 ast->expect(A, {FTK_NODE, FTK_ERROR}, "expected \"node\" keyword"); 
-                                                                 if(ast->at(A).type == FTK_NODE) ast->name.put(A, ast->get_dotted_id(C));
-                                                               } 
+// node, entry or container                                                   
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
-                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here"); 
-                                                                 if(ast->at(A).type == FTK_NODE) ast->name.put(A, ast->get_dotted_id(C));
+                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here");
+                                                                 if(ast->at(A).type == FTK_NODE) {
+                                                                     ast->name.put(A, ast->get_dotted_id(C));
+                                                                     ast->type.put(A, ast->get_dotted_id(C, 0, 1)); 
+                                                                 } else {
+                                                                     ast->name.put(A, ast->get_dotted_id(C));
+                                                                 }
+                                                                 ast->type.put(D, ast->get_id(B));
                                                                } 
+// node with condition
+stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(ast->stmt_keyw(B), B, C, D, E); 
+                                                                 ast->expect(A, FTK_NODE, "expected \"node\" keyword"); 
+                                                                 ast->type.put(A, ast->get_dotted_id(C, 0, 1)); 
+                                                                 ast->name.put(A, ast->get_dotted_id(C));
+                                                                 ast->type.put(D, ast->get_id(B));
+                                                               } 
+// error productions
+stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valx(D).            { A = ast->node(ast->stmt_keyw(B), C, D);
+                                                                 ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
+                                                               }
+stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valx(D) COMMA valx(E). { A = ast->node(ast->stmt_keyw(B), C, D, E);
+                                                                 ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
+                                                               }
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
+
+
 
 blck(A) ::= OPENBRA list(B) CLOSEBRA.                          { A = B; }                                  // Blocks must be enclosed in { }
 blck(A) ::= OPENBRA(B) CLOSEBRA.                               { A = ast->chtype(B, FTK_blck); }           // Empty blocks are allowed
