@@ -9,6 +9,7 @@
 #ifndef FTK_ID
 #include "flow-parser.h"
 #endif
+#include "massert.H"
 #include "ast-attrs.H"
 #include "stru1.H"
 
@@ -186,6 +187,18 @@ struct flow_ast {
             return *this;
         }
     };
+    struct ast_range {
+        flow_ast const *tree;
+        int subtree_root;
+        ast_range(flow_ast const *t, int str): tree(t), subtree_root(str) {
+        }
+        ast_iterator begin() const {
+           return tree->begin(subtree_root);
+        }
+        ast_iterator end() const {
+            return tree->end(subtree_root);
+        }
+    };
     /** Return a pointer to the first element in the tree
      */
     ast_iterator begin(int root=0) const {
@@ -203,11 +216,14 @@ struct flow_ast {
         }
         return r;
     }
-    ast_iterator end() const {
+    ast_iterator end(int root=0) const {
         return ast_iterator();
     }
-    ast_iterator rend() const {
+    ast_iterator rend(int root=0) const {
         return ast_iterator();
+    }
+    ast_range subtree(int node) const {
+        return ast_range(this, node);
     }
     // Returns an iterator positioned at node 'n'
     ast_iterator pnode(int n, int root=0) const {
@@ -460,28 +476,62 @@ struct flow_ast {
      * Return the fldr associated with this action node
      */
     int get_ne_condition(int n) const {
-        assert(at(n).type == FTK_NODE || at(n).type == FTK_ERROR);
-        n = at(n).children.back();
+        MASSERT(at(n).type == FTK_NODE || at(n).type == FTK_ERROR) << " node " << n << " is of type " << at(n).type << ", needs to be NODE or ERROR\n";
+        n = at(n).type == FTK_NODE? at(n).children.back(): at(n).children[0];
         return at(n).type == FTK_fldr? n: 0;
     }
     /** 
-     * Return the first node named 'namen' with id 'idn' (if specified)
+     * Return the first node named 'namen' 
      */
-    int get_first_node(std::string const &namen, std::string const &idn="") const {
+    int get_first_node(std::string const &namen) const {
         for(int n: *this) 
             if(at(n).type == FTK_NODE && type(n) == namen) 
                 return n;
         return 0;
     }
     /** 
-     * Return the first node named 'namen' with id 'idn' (if specified)
+     * Return all nodes in eval order (all nodes with condition in source order followed by the node without
      */
-    std::set<int> get_all_nodes(std::string const &namen) const {
-        std::set<int> nns;
+    std::vector<int> get_all_nodes(std::string const &namen) const {
+        int noc_node = -1;
+        std::vector<int> nns;
         for(int n: *this) 
-            if(at(n).type == FTK_NODE && type(n) == namen) 
-                nns.insert(n);
+            if(at(n).type == FTK_NODE && type(n) == namen) {
+                if(get_ne_condition(n) != 0)
+                    nns.push_back(n);
+                else 
+                    noc_node = n;
+            }
+        if(noc_node >= 0) nns.push_back(noc_node);
         return nns;
+    }
+    std::vector<int> get_all_nodes(int nn) const {
+        return get_all_nodes(type(nn));
+    }
+    std::set<int> get_referenced_nodes(int nn) const {
+        std::set<int> rns;
+        for(auto p = begin(nn), e = end(); p != e; ++p)
+            if(at(*p).type == FTK_fldx)
+                rns.insert(get_first_node(get_id(at(*p).children[0])));
+        return rns;
+    }
+    std::set<int> get_referenced_nodes_action(int nn) const {
+        std::set<int> rns;
+        int anode = get_ne_action(nn);
+        if(anode != 0)  for(int n: subtree(anode)) {
+            if(at(n).type == FTK_fldx)
+                rns.insert(get_first_node(get_id(at(n).children[0])));
+        }
+        return rns;
+    }
+    std::set<int> get_referenced_nodes_condition(int nn) const {
+        std::set<int> rns;
+        int anode = get_ne_condition(nn);
+        if(anode != 0)  for(int n: subtree(anode)) {
+            if(at(n).type == FTK_fldx)
+                rns.insert(get_first_node(get_id(at(n).children[0])));
+        }
+        return rns;
     }
 };
 std::ostream &operator << (std::ostream &out, class flow_ast::ast_iterator const &p);

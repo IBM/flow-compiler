@@ -72,7 +72,7 @@ char const *node_name(int i) {
         case FTK_CONTAINER: return "<CONTAINER>";
         case FTK_ENTRY: return "<ENTRY>";
         case FTK_IMPORT: return "<IMPORT>";
-        case FTK_DEFINE: return ">DEFINE>";
+        case FTK_DEFINE: return "<DEFINE>";
         
         case FTK_OUTPUT: return "<OUTPUT>";
         case FTK_RETURN: return "<RETURN>";
@@ -91,20 +91,20 @@ char const *node_name(int i) {
     }
 }
 int64_t flow_ast::get_integer(int node) const {
-    assert(at(node).type == FTK_INTEGER);
+    MASSERT(at(node).type == FTK_INTEGER) << "node " << node << " is of type " << at(node).type << ", not INTEGER\n";
     return at(node).token.integer_value;
 }
 double flow_ast::get_float(int node) const {
-    assert(at(node).type == FTK_FLOAT);
+    MASSERT(at(node).type == FTK_FLOAT) << "node " << node << " is of type " << at(node).type << ", not FLOAT\n";
     return at(node).token.float_value;
 }
 double flow_ast::get_numberf(int node) const {
-    assert(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER);
+    MASSERT(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER) << "node " << node << " is of type " << at(node).type << ", not FLOAT or INTEGER\n";
     return at(node).type == FTK_FLOAT? at(node).token.float_value: at(node).token.integer_value;
 }
 std::string flow_ast::get_number(int node, int grpc_type) const {
     auto const &n = at(node);
-    assert(n.type == FTK_INTEGER || n.type == FTK_FLOAT);
+    MASSERT(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER) << "node " << node << " is of type " << at(node).type << ", not FLOAT or INTEGER\n";
     switch(grpc_type) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             return n.type == FTK_INTEGER? std::to_string((double) n.token.integer_value): std::to_string(n.token.float_value);
@@ -130,8 +130,9 @@ std::string flow_ast::get_number(int node, int grpc_type) const {
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
             return n.type == FTK_INTEGER? std::to_string(*(uint64_t *)&n.token.integer_value)+"u": std::to_string((uint64_t)n.token.float_value);
         default:
-            assert(false);
+            MASSERT(false) << "unhandled grpc type " << grpc_type << "\n";
     }
+    return "";
 }
 bool flow_ast::can_cast(int node, int grpc_type) const {
     auto const &n = at(node);
@@ -207,10 +208,11 @@ std::string flow_ast::get_joined_id(int node, int start_pos, int end_pos, std::s
     if(n.type == FTK_ID) return get_id(node);
     if(!(n.children.size() >= start_pos && (n.type == FTK_dtid || n.type == FTK_fldx || n.type == FTK_enum))) {
         print_ast(std::cerr, node);
-        assert(false);
+        MASSERT(n.children.size() >= start_pos) << "node is of unexpected type: " << node << "\n";
+        MASSERT(false) << "start pos " << start_pos << " past size " << n.children.size() << "\n";
     }
     if(end_pos <= 0) end_pos += n.children.size();
-    assert(end_pos <= n.children.size()); 
+    MASSERT(end_pos <= n.children.size()) << "end pos " << end_pos << " past size " << n.children.size() << "\n";
     if(end_pos <= start_pos) return "";
     std::vector<std::string> ids(end_pos-start_pos);
     std::transform(n.children.begin()+start_pos, n.children.begin()+end_pos, ids.begin(), [this](int n)->std::string {return get_text(n);});
