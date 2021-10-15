@@ -136,28 +136,15 @@ private:
     std::vector<FileDescriptor const *> fdps;
     // Lookup table for enum ids
     std::set<EnumValueDescriptor const *> enum_value_set;
-    // Block data: a set of name value pairs in source file order
-    // values are AST node ids of the value node
-    typedef std::vector<std::pair<std::string, int>> block_data_t;
-    // All blocks indexed by AST node
-    std::map<int, block_data_t> block_store;
-    // Table with nodes, containers and entries: names[name]: (type, block ast-node)
-    std::map<std::string, std::pair<std::string, int>> named_blocks_w;
-    decltype(named_blocks_w) const &named_blocks;
-    std::set<int> node_set;
-    std::set<int> entry_set;
-    std::set<int> container_set;
     // Block ast-node flow graph by entry block ast-node
     // for each entry a list of sets of overlapping nodes
     std::map<int, std::vector<std::set<int>>> flow_graph;
     // All the referenced (used) nodes and the corresponding data
-    std::map<int, node_info> referenced_nodes;
+    //std::map<int, node_info> referenced_nodes;
     // local vars for each group
     std::map<std::string, var_store_t> group_vars;
     // volume for each group
     std::map<std::string, std::set<std::string>> group_volumes;
-    // All the volume names that need to be mounted
-    //std::set<std::string> volumes;
     // All mount records indexed by AST node
     std::map<int, mount_info> mounts;
 
@@ -302,13 +289,13 @@ public:
 
     // ID that includes the node name
     std::string node_name_id(int node_n, std::string const &prefix="", std::string const &suffix="") const {
-        std::string id = stru1::to_lower(stru1::to_identifier(referenced_nodes.find(node_n)->second.xname));
+        std::string id = stru1::to_lower(stru1::to_identifier(name(node_n)));
         if(!prefix.empty()) id = prefix + "_" + id;
         if(!suffix.empty()) id = id + "_" + suffix;
         return id;
     }
     std::string node_type_id(int node_n, std::string const &prefix="", std::string const &suffix="") const {
-        std::string id = stru1::to_lower(stru1::to_identifier(name(node_n)));
+        std::string id = stru1::to_lower(stru1::to_identifier(type(node_n)));
         if(!prefix.empty()) id = prefix + "_" + id;
         if(!suffix.empty()) id = id + "_" + suffix;
         return id;
@@ -319,7 +306,7 @@ public:
     // [prefix_]I_input label[_stage][_suffix]        for the input node
     // [prefix_]E_methid_name(node)[_stage][_suffix]  for the entry node
     // [prefix_]node_label[_stage][_suffix]           for node nodes      
-    std::string cs_name(std::string const &prefix, std::string const &label, std::string const &suffix="") const {
+    std::string cs_name_s(std::string const &prefix, std::string const &label, std::string const &suffix="") const {
         std::ostringstream buf;
         if(!prefix.empty()) buf << prefix << '_';
         buf << label;
@@ -330,14 +317,14 @@ public:
     std::string get_node_label(int node) const {
         if(node == 0) 
             return std::string("I_") + stru1::to_lower(stru1::to_identifier(input_label)); 
-        if(type(node) == "entry") 
+        if(at(node).type == FTK_ENTRY) 
             return std::string("E_") + stru1::to_lower(stru1::to_identifier(method_descriptor(node)->name()));
-        return referenced_nodes.find(node)->second.label();
+        return stru1::to_lower(stru1::to_identifier(name(node)));
     }
     std::string cs_name(std::string const &prefix, int node, std::string const &suffix="") const {
         if(node == 0)
-            return cs_name("RQ", get_node_label(node), suffix);
-        return cs_name(prefix, get_node_label(node), suffix);
+            return cs_name_s("RQ", get_node_label(node), suffix);
+        return cs_name_s(prefix, get_node_label(node), suffix);
     }
 
     int compile(std::set<std::string> const &targets);

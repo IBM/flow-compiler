@@ -166,3 +166,4 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     }
     return out;
 }
+

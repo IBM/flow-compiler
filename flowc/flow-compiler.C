@@ -645,37 +645,11 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
     }
     return error_count;
 }
-/*
- * Resolve message_descriptor attributes for node references
- */
-/*
-int flow_compiler::compile_node_ref(int node) {
-    std::string node_name(get_id(node));
-    Descriptor const *dp = nullptr;
-    if(node_name == input_label) {
-        dp = input_dp;
-    } else {
-        auto nnp = named_blocks.find(node_name);
-        if(nnp == named_blocks.end()) {
-            pcerr.AddError(main_file, at(node), sfmt() << "unknown node \"" << node_name << "\"");
-            return 1;
-        }
-        int blk = nnp->second.second;
-        if(message_descriptor(blk) != nullptr)
-            dp = message_descriptor(blk);
-        else if(method_descriptor(blk) != nullptr) 
-            dp = method_descriptor(blk)->output_type();
-    }
-    message_descriptor.put(node, dp);
-    return 0;
-}
-*/
 int flow_compiler::update_noderef_dimension(int node) {
     if(dimension.has(node)) 
         return 0;
 
     std::string label = get_text(node);
-    //std::cerr << "ENTER NODIM " << node << " LABEL " << label << "\n";
     if(label == input_label) {
         dimension.put(node, 0);
         return 0;
@@ -684,7 +658,6 @@ int flow_compiler::update_noderef_dimension(int node) {
     int error_count = 0;
     int nodes_dimension = -4;
     auto node_set = get_all_nodes(label);
-    //std::cerr << " >>>>>> from " << node << " all nodes will be: " << node_set << "\n";
     for(int n: node_set) {
         if(!dimension.has(n)) {
             update_dimensions(n);
@@ -720,7 +693,6 @@ int flow_compiler::update_noderef_dimension(int node) {
         }
     }
     
-    //std::cerr << "EXIT NODIM " << node << "\n";
     return error_count; 
 }
 /*
@@ -730,7 +702,6 @@ int flow_compiler::update_dimensions(int node) {
     if(dimension.has(node))
         return 0;
 
-    //std::cerr << "ENTER UDIM " << node << "\n";
     int error_count = 0;
     auto const &children = at(node).children;
 
@@ -831,11 +802,9 @@ int flow_compiler::update_dimensions(int node) {
         default: 
             break;
     }
-    //std::cerr << "EXIT UDIM " << node << "\n";
     return error_count;
 }
 int flow_compiler::compile_fldx(int node) {
-    //std::cerr << "COMPILE FLDX: " << node << "\n";
     if(node == 0)
         return 0;
     int error_count = 0;
@@ -907,7 +876,6 @@ int flow_compiler::compile_exp_id(int node) {
 int flow_compiler::compile_enum(int node, EnumDescriptor const *ed) {
     if(node == 0) return 0;
     int error_count = 0;
-    std::cerr << "COMPILE ENUM " << node << " context " << ed << "\n";
     EnumValueDescriptor const *evdp = nullptr;
     std::string id_label(get_dotted_id(node));
     // find all enums that match this id
@@ -933,7 +901,6 @@ int flow_compiler::compile_enum(int node, EnumDescriptor const *ed) {
     }
     if(evdp != nullptr)
         enum_descriptor.put(node, evdp);
-    std::cerr << "COMPILED ENUM TO " << evdp << "\n";
     if(matches.size() == 0) {
         pcerr.AddError(main_file, at(node), sfmt() << "unknown enum label \"" << id_label << "\"");
         ++error_count;
@@ -946,6 +913,7 @@ int flow_compiler::compile_enum(int node, EnumDescriptor const *ed) {
 }
 
 // If exp_node is a valid pointer, the block is expected to contain one output (oexp) or return (rexp) definition 
+/*
 int flow_compiler::compile_block(int blck_node, std::set<std::string> const &output_nvn, int *exp_node) {
     auto const &blck = at(blck_node);
     assert(blck.type == FTK_blck);
@@ -984,7 +952,6 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
                 block.push_back(std::make_pair(elem_id, value_node));
                 break;
             case FTK_lblk:
-                // TODO allow anonymous mounts
                 if(elem_id == "mount") {
                     block.push_back(std::make_pair(elem_id, value_node));
                     type.put(at(value_node).children[1], elem_id);
@@ -1052,6 +1019,7 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
     }
     return error_count;
 }
+*/
 /**
  * Check if the string refers to a valid method and return the descriptor. 
  * An error associated with 'error_node' is printed if 'error_node' is a valid node and 
@@ -1171,281 +1139,9 @@ int flow_compiler::compile_defines() {
     }
     return error_count; 
 }
-int flow_compiler::compile_stmt(int stmt_node) {
-    int error_count = 0;
-    int exp_node = 0, node_node = 0;
-    auto const &stmt = at(stmt_node);
-    assert(stmt.children.size() > 0);
-    std::string statement;
-    compile_id(statement, stmt.children[0]); // sytax checked for ID already
-
-    switch(stmt.type) {
-        case FTK_CONTAINER: case FTK_NODE: 
-            {
-                std::string node_name;
-                if(compile_method(node_name, stmt.children[1], 1)) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), std::string("expected \"")+statement+"\" name");
-                    return 1;
-                }
-                node_node = stmt.children[2];
-
-                //name.put(node_node, node_name);
-                //type.put(node_node, statement);
-                if(description.has(stmt.children[0]))
-                    description.update(node_node, description(stmt.children[0]));
-
-                // Look for the action entry in the node block
-                if(compile_block(node_node, {"output", "return", "error"}, stmt.type == FTK_NODE? &exp_node: nullptr)) {
-                    //pcerr.AddError(main_file, at(stmt.children[2]), sfmt() << "invalid \"" << statement << "\" parameter definition block");
-                    return 1;
-                }
-                if(stmt.type == FTK_NODE) {
-                    if(exp_node != 0) {
-                        // move attributes to the node 
-                        method_descriptor.copy(exp_node, node_node);
-                        input_descriptor.copy(exp_node, node_node);
-                        message_descriptor.copy(exp_node, node_node);
-                        if(stmt.children.size() > 3) {
-                            condition.put(node_node, stmt.children[3]);
-                            if(at(stmt.children[3]).type == FTK_fldr) 
-                                error_count += compile_fldr(stmt.children[3]);
-                        }
-                    }
-                }
-                // Check this node against other nodes with the same name
-                for(int visited: set_union(node_set, container_set)) if(name(visited) == node_name) {
-
-                    if(type(visited) != type(node_node)) {
-                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << node_name << "\" with a different type");
-                        pcerr.AddNote(main_file, at(visited), sfmt() << "previously defined here as \"" << type(visited) << "\"");
-                        return 1;
-                    }
-                    if(type(node_node) == "container") {
-                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of container \"" << node_name << "\"");
-                        pcerr.AddNote(main_file, at(visited), "previously defined here");
-                        return 1;
-                    }
-                    // visited and node_node are both of type node
-                    if(!condition.has(visited) && !condition.has(node_node)) {
-                        // Can't have more than one default node
-                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of node \"" << node_name << "\"");
-                        pcerr.AddNote(main_file, at(visited), "previously defined here");
-                        return 1;
-                    }
-                    if(message_descriptor.has(visited) && message_descriptor.has(node_node) &&
-                            message_descriptor(visited) != message_descriptor(node_node)) {
-                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "node \"" << node_name << "\" redefined with a different output type");
-                        pcerr.AddNote(main_file, at(visited), "previously defined here");
-                        return 1;
-                    }
-                } 
-                if(stmt.type == FTK_NODE)
-                    node_set.insert(node_node);
-                else
-                    container_set.insert(node_node);
-
-                // find the first node with this name
-                auto nep = named_blocks_w.find(node_name);
-                if(nep == named_blocks.end()) {
-                    // Quick access to the block node id
-                    named_blocks_w[node_name] = std::make_pair(statement, node_node);
-                } else {
-                    // Keep in the table the node without condition but with an output type
-                    if((!condition.has(node_node) || !method_descriptor.has(nep->second.second)) && method_descriptor.has(node_node))
-                        nep->second.second = node_node;
-                }
-            } break;
-        case FTK_ENTRY: 
-            {
-                std::string method; 
-                if(compile_method(method, stmt.children[1])) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), "expected method name");
-                    return 1;
-                }
-                node_node = stmt.children[2];
-                type.put(node_node, statement);
-                if(stmt.children.size() != 3 || compile_block(node_node, {"return"}, &exp_node)) {
-                    pcerr.AddError(main_file, at(node_node), "parameter definition block expected");
-                    return 1;
-                }
-                if(exp_node == 0) {
-                    pcerr.AddError(main_file, at(node_node), "entry is missing return definition");
-                    return 1;
-                }
-                // check if method is defined in any of the protos
-                MethodDescriptor const *mdp = check_method(method, stmt.children[1]);
-                if(method_descriptor.has(exp_node)) {
-                    // TODO a redudant message type should be accepted here
-                    pcerr.AddError(main_file, at(exp_node), "return definition must omit message type");
-                    return 1;
-                }
-                method_descriptor.put(exp_node, mdp);
-                method_descriptor.copy(exp_node, node_node);
-                input_descriptor.copy(exp_node, node_node);
-                message_descriptor.copy(exp_node, node_node);
-                if(description.has(stmt.children[0]))
-                    description.update(node_node, description(stmt.children[0]));
-                if(mdp == nullptr) 
-                    return 1;
-                if(contains(named_blocks, method)) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "redefinition of \"" << method << "\"");
-                    return 1;
-                }
-                // quick access to the block node id 
-                named_blocks_w[method] = std::make_pair(statement, stmt.children[2]);
-                entry_set.insert(stmt.children[2]);
-                // all entries must have the same input type
-                if(input_dp == nullptr) {
-                    input_dp = mdp->input_type();
-                } else {
-                    if(input_dp != mdp->input_type()) { 
-                        error_count += 1;
-                        pcerr.AddError(main_file, at(stmt.children[1]), sfmt() << "input type must be the same for all entries");
-                    }
-                }
-            } break;
-        case FTK_DEFINE:
-            if(statement == "package") {
-                std::string package_name;
-                if(compile_id(package_name, stmt.children[1])) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), "expected package name id");
-                    error_count += 1;
-                }
-            } else if(statement == "repository") {
-                std::string repository;
-                if(compile_string(repository, stmt.children[1])) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), "expected repository path string");
-                    error_count += 1;
-                }
-                default_repository = repository;
-            } else if(statement == "image_pull_secret") {
-                std::string secret;
-                if(compile_string(secret, stmt.children[1])) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), "expected image pull secret name");
-                    error_count += 1;
-                }
-                image_pull_secrets.insert(secret);
-            } else if(statement == "port") {
-                if(at(stmt.children[1]).type != FTK_STRING && at(stmt.children[1]).type != FTK_INTEGER) {
-                    pcerr.AddError(main_file, at(stmt.children[1]), "port value expected");
-                    error_count += 1;
-                }
-                base_port = get_integer(stmt.children[1]);
-            }
-            break;
-        default: 
-            break;
-    }
-    
-    // If everything went well, visit the exp node
-    if(error_count == 0 && exp_node != 0 && type.has(exp_node) && (type(exp_node) == "return" || type(exp_node) == "output")) {
-        auto const *mp = method_descriptor(exp_node);
-        auto const *d = message_descriptor(exp_node);
-        if(mp != nullptr) 
-            d = type(exp_node) == "return"? mp->output_type(): mp->input_type();
-        if(d == nullptr) 
-            d = message_descriptor(node_node);
-        if(d == nullptr) {
-            pcerr.AddError(main_file, at(exp_node), "unknown return message type");
-            error_count += 1;
-        }
-        // Set the method descriptor attribute 
-        for(auto c: at(exp_node).children) switch(at(c).type) {
-            case FTK_fldm:
-                message_descriptor.put(c, d); 
-                if(d != nullptr) {
-                    this->name.put(c, get_name(d));
-                    // FIXME removed error_count += compile_fldm(c, d);
-                }
-                break;
-            case FTK_ID:
-                // This is a node reference so postpone until the second pass
-                break;
-            default:
-                break;
-        }
-    }
-    return error_count;
-}
-void flow_compiler::get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node) {
-    for(int fldd_node: at(fldm_node).children) switch(atc(fldd_node, 1).type) {
-        case FTK_fldm:
-            get_fldm_node_refs(noset, at(fldd_node).children[1]);
-            break;
-        case FTK_fldx:
-            if(get_id(atc(fldd_node, 1).children[0]) != input_label) 
-                noset[named_blocks.find(get_id(atc(fldd_node, 1).children[0]))->second.second].insert(get_dotted_id(at(fldd_node).children[1], 1));
-            else
-                noset[0].insert(get_dotted_id(at(fldd_node).children[1], 1));
-            break;
-        default:
-            break;
-    }
-}
-/**
- * Return a map node->[field-set] referenced by the conditional expression of node bexp_node
- */
-
-void flow_compiler::get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node) {
-    switch(at(bexp_node).type) {
-        case FTK_fldx:
-            if(get_id(at(bexp_node).children[0]) != input_label) 
-                noset[named_blocks.find(get_id(at(bexp_node).children[0]))->second.second].insert(get_dotted_id(bexp_node, 1));
-            else 
-                noset[0].insert(get_dotted_id(bexp_node, 1));
-            break;
-        default:
-            for(auto c: at(bexp_node).children) 
-                get_bexp_node_refs(noset, c);
-            break;
-    }
-}
-/*
-// Get all the nodes of the same name 
-std::vector<int> flow_compiler::all_nodes(std::string const &node_name) const {
-    std::vector<int> all;
-    for(auto n: node_set) if(name(n) == node_name && condition.has(n))
-        all.push_back(n);
-    for(auto n: node_set) if(name(n) == node_name && !condition.has(n))
-        all.push_back(n);
-    MASSERT(all.size() > 0) << "\"" << node_name << "\" is not a node name\n";
-    return all;
-}
-// Get all the nodes of the same name
-std::vector<int> flow_compiler::all_nodes(int node) const {
-    MASSERT(contains(node_set, node)) << node << " is not a node\n";
-    return all_nodes(name(node));
-}
-*/
-// Grab the nodes referenced by <blck_node>. 
-// <type> can be either 1 for references in the condition, 2 for references in the node body or 0 for both.
-// The input node will also be added.
-/*
-std::map<int, std::set<std::string>> &flow_compiler::get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type) {
-    if(blck_node == 0) 
-        return noset;
-
-    // condition expression references
-    if((type == 0 || type == 1) && this->type(blck_node) == "node") {
-        // add the conditions of all previous nodes
-        for(auto n: all_nodes(blck_node)) if(condition.has(n) && n <= blck_node) 
-            get_bexp_node_refs(noset, condition(n));
-    }
-    // references in the body
-    if(type == 0 || type == 2) {
-        for(auto p = begin(blck_node), e = end(); p != e; ++p) {
-            int n = *p;
-            if(at(n).type == FTK_OUTPUT || at(n).type == FTK_RETURN || at(n).type == FTK_HEADERS) 
-                get_bexp_node_refs(noset, n);
-        }
-    }
-    return noset;
-}
-*/
 int flow_compiler::build_flow_graph(int blk_node) {
     int error_count = 0;
 
-    //std::cerr << "ENTER with " << blk_node << "\n";
     // All the nodes reachable from the entry, including the entry itself
     std::set<int> used_nodes; 
 
@@ -1464,14 +1160,12 @@ int flow_compiler::build_flow_graph(int blk_node) {
         }
         // also push all the nodes referenced by the current node in the stack
         std::map<int, std::set<std::string>> noset;
-        for(int n: get_referenced_nodes(cur_node))
+        for(int n: get_referenced_node_types(cur_node))
             if(at(n).type != FTK_ENTRY && !contains(used_nodes, n))
                 todo.push_back(n);
-        //std::cerr << "Q: " << todo << " C: " << cur_node << " REF: " << get_referenced_nodes(cur_node) << " USED: " << used_nodes<< "\n";
     }
 
     auto node_count = used_nodes.size();
-    //std::cerr << "AMAX with " << node_count << " NODES: "<< used_nodes << "\n";
 
     // Adjacency matrix for the graph
     std::vector<std::vector<bool>> adjmat(node_count, std::vector<bool>(node_count, false));
@@ -1486,7 +1180,7 @@ int flow_compiler::build_flow_graph(int blk_node) {
         for(auto const &nx: ntox) {
             //std::map<int, std::set<std::string>> noset;
             //get_node_refs(noset, nx.first, 0);
-            for(int nsf: get_referenced_nodes(nx.first)) {
+            for(int nsf: get_referenced_node_types(nx.first)) {
                 adjmat[nx.second][ntox[nsf]] = true;
                 if(nsf != 0 && at(nsf).type != FTK_ENTRY) 
                     for(auto n: get_all_nodes(nsf))
@@ -1640,6 +1334,13 @@ struct lrv_descriptor {
         return fp->enum_type();
     }
 };
+static std::ostream &operator <<(std::ostream &out, lrv_descriptor const &lrv) {
+    out << "<lrv " << lrv.type_name();
+    if(lrv.dp != nullptr) out << ", (" << lrv.dp->full_name() << ")";
+    if(lrv.fp != nullptr) out << ", [" << lrv.fp->full_name() << "]";
+    out << ">";
+    return out;
+}
 /**
  * Returns: 
  * 1 if right can be assigned to left without conversion, 
@@ -1835,8 +1536,8 @@ int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_
  */
 std::string flow_compiler::fldx_mname(int fldx_node, int context_dim) const {
     auto const &fields = at(fldx_node).children;
-    int rvn = get_id(fields[0]) == input_label? 0: named_blocks.find(get_id(fields[0]))->second.second;
-    auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name("RS", name(rvn));
+    int rvn = get_id(fields[0]) == input_label? 0: get_first_node(get_id(fields[0]));
+    auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name_s("RS", type(rvn));
     std::string fa_name = rv_name;
     int xc = context_dim;
     for(auto i = 0, e = dimension(fields[0]); i < e; ++i) {
@@ -1872,7 +1573,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                         icode.push_back(fop(CLLS, a));
                     int evt = abs(funp->second.arg_type[a]);
                     error_count += encode_expression(fields[a+1], (evt == FTK_ACCEPT? 0: evt), funp->second.dim);
-                    // FIXME: needs review 
+                    // TODO: needs review 
                     if(funp->second.arg_type[a] < 0) 
                         icode.push_back(fop(DACC, funp->second.dim));
                 }
@@ -2016,17 +1717,15 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
 /**
  * Generate code to set up the all the fields in the input grpc messsage 
  *
- * lv_name: the left-value 
+ * lv_name: the left-value name
  *     1 - either the name of a message reference that is the input to a node call
- *     2 - the name of reference to a message that is the return value for a node
+ *     2 - the name of a message reference that is the return value for a node
  *     3 - one of the above followed by a list of field names
  *     5 - the name of a temporary variable of a basic type (integer, float or string)
- * lvd: descriptor associated with the left value: 
- *      either the input for a node 
- *      or the output for an entry
+ * lvd: message descriptor associated with the left value
  * lvfd: descriptor associated with the case number 3 of lv_name
  * arg_node: current node
- * node_ip: node to icode address 
+ * node_ip: node to icode-address 
  *
  */
 int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip, int loop_level) {
@@ -2040,8 +1739,8 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
 
         for(auto p: refs) {
             auto const &fields = at(p.first).children;
-            int rvn = get_id(fields[0]) == input_label? 0: named_blocks.find(get_id(fields[0]))->second.second;
-            auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name("RS", name(rvn));
+            int rvn = get_id(fields[0]) == input_label? 0: get_first_node(get_id(fields[0]));
+            auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name_s("RS", type(rvn));
 
             int xc = dimension(arg_node);
             if(xc > p.second)
@@ -2105,9 +1804,8 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
         } break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;
-            // TODO improve name generation
-            int rvn = get_id(fields[0]) == input_label? 0: named_blocks.find(get_id(fields[0]))->second.second;
-            auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name("RS", name(rvn));
+            int rvn = get_id(fields[0]) == input_label? 0: get_first_node(get_id(fields[0]));
+            auto const rv_name = get_id(fields[0]) == input_label? cs_name("", 0): cs_name_s("RS", type(rvn));
             auto const rvd = message_descriptor(rvn);
 
             std::string fa_name = rv_name+std::string(dimension(fields[0]), ':');
@@ -2163,7 +1861,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
         } break;
         case FTK_ID: {
             // Single id reference this is a particular case of fldx but the left value will always be a message
-            int rvn = get_id(arg_node) == input_label? 0: named_blocks.find(get_id(arg_node))->second.second;
+            int rvn = get_id(arg_node) == input_label? 0: get_first_node(get_id(arg_node));
             auto const rvd = message_descriptor(rvn);
             error_count += check_assign(arg_node, lvd.dp, lrv_descriptor(rvd))? 0: 1;
 
@@ -2282,7 +1980,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
     return error_count;
 }
 
-int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &fg, std::set<int> const &node_set) {
+int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set) {
     int error_count = 0;
     DEBUG_ENTER;
 
@@ -2291,45 +1989,16 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     auto emd = method_descriptor(entry_blck_node);
     std::string return_name = cs_name("RS", entry_blck_node);
 
-    std::vector<std::set<int>> node_stages(fg);
-
     // MTHD marks the beggining of a method implementation.
     // The list of all nodes that can be visited by this method is stored in the args (in source order).
     icode.push_back(fop(MTHD, cs_name("", 0), return_name, emd, emd->input_type(), emd->output_type()));
-    std::set<int> method_set;
-    for(auto const &stage_set: node_stages) 
-        for(auto n: stage_set) method_set.insert(n);
-    for(auto n: method_set) icode.back().arg.push_back(n);      // MTHD arg 1... nodes used by this entry
 
-    DEBUG_CHECK(1);
-
-    // Reorder nodes and label them accordingly
-    std::map<std::string, int> node_order;
-    for(auto const &stage_set: node_stages) 
-        for(int n: stage_set) {
-            auto &ni = referenced_nodes.find(n)->second;
-            if(condition.has(n)) {
-                if(contains(node_order, name(n))) {
-                    ++node_order[name(n)];
-                } else {
-                    node_order[name(n)] = 1;
-                }
-                ni.order = node_order[name(n)];
-            }
-
-            if(ni.id.empty() && ni.order == 0) 
-                ni.xname = name(ni.node);
-            else if(ni.id.empty()) 
-                ni.xname = sfmt() << name(ni.node) << "-" << ni.order;
-            else 
-                ni.xname = sfmt() << name(ni.node) << "-" << ni.id;
-        }
+    DEBUG_CHECK("generating " << node_stages.size() << " stages");
 
     // Keep track of node sets 
     std::set<std::string> foak;
     // Keep track of nodes with output
     std::set<std::string> foak_wo;
-    DEBUG_CHECK("generating " << node_stages.size() << " stages");
 
     int stage = 0;
     for(auto const &stage_set: node_stages) {
@@ -2349,34 +2018,27 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         DEBUG_CHECK("begin stage " << stage);
 
         std::vector<std::string> stage_set_names;
-        std::set<std::string> distinct_names;    
-
         for(int n: stage_set) {
             icode[stage_idx].arg.push_back(n);   // BSTG arg 4... nodes in this stage
-            std::string nn(name(n));             // default name for this node
-
-            auto &mni = referenced_nodes.find(n)->second;
-            stage_set_names.push_back(mni.xname);
-
-            distinct_names.insert(nn);
+            stage_set_names.push_back(name(n));
         }
-        
         icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
+
         DEBUG_CHECK("generating nodes " << stage_set);
       
         for(int pass = 0; pass < 2; ++pass) for(int node: stage_set) if((pass == 0 && method_descriptor(node) == nullptr && dimension(node) >= 0) || (pass == 1 && method_descriptor(node) != nullptr) || (pass == 1 && dimension(node) < 0)) {
             DEBUG_CHECK("generating node " << node << " pass " << pass);
             auto md = method_descriptor(node);
             auto output_type = message_descriptor(node);
-            auto input_type = input_descriptor(node, output_type);
+            auto input_type = input_descriptor(node);
 
-            std::string rs_name;
-            if(output_type != nullptr) rs_name = cs_name("RS", name(node));
-            std::string rq_name;
-            if(input_type != nullptr) rq_name = cs_name("RQ", node);
+            std::string rs_name = cs_name("RS", node);
+            std::string rq_name = cs_name("RQ", node);
 
             int node_idx = icode.size();
             node_ip[node] = node_idx;
+
+            DEBUG_CHECK("rs_name: '" << rs_name << "', rq_name: '" << rq_name);
 
             icode.push_back(fop(BNOD, rs_name, rq_name, output_type, input_type));
             icode.back().arg.push_back(dimension(node));
@@ -2400,35 +2062,35 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             }
 
             int cc = 0;
-            if(condition.has(node)) {
-                error_count += encode_expression(condition(node), FTK_INTEGER, 0);
+            if(get_ne_condition(node) != 0) {
+                error_count += encode_expression(get_ne_condition(node), FTK_INTEGER, 0);
                 ++cc;
             }
             // Add all the conditions for the nodes with the same name that haven't been compiled yet 
             // but appear before in source order
             for(auto n: get_all_nodes(node)) {
                 if(!contains(node_ip, n)) {
-                    if(condition.has(n)) {
-                        error_count += encode_expression(condition(n), FTK_INTEGER, 0);
+                    int cn = get_ne_condition(n);
+                    if(cn != 0) {
+                        error_count += encode_expression(cn, FTK_INTEGER, 0);
                         icode.push_back(fop(IOP, "!", 1, 0));
                         if(cc > 0) {
                             icode.push_back(fop(IOP, "&&", 2, 14));
                         }
                         ++cc;
                     }
-                } 
+                }
                 if(n == node) // stop at the current node
                     break;
             }
             icode.push_back(fop(IFNC, name(node), node, cc)); 
+                
+            int an = get_ne_action_fldm(node);
+            if(an == 0) get_ne_action_fldx(node);
 
-            if(output_type != nullptr) {
+            if(an != 0) {
                 // Populate the request 
-                int an = find_first(node, [this](int n)->bool { return at(n).type == FTK_RETURN || at(n).type == FTK_OUTPUT; });
-                error_count += populate_message(rq_name, lrv_descriptor(input_type), 
-                        at(an).children[at(an).type == FTK_RETURN? 0: 1],
-                        node_ip, 0);
-
+                error_count += populate_message(rq_name, lrv_descriptor(input_type), an, node_ip, 0);
                 if(md != nullptr) {
                     icode.push_back(fop(CALL, rq_name, rs_name, md));
                 } else {
@@ -2436,12 +2098,6 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
                     icode.push_back(fop(RVF, rq_name, 0));
                     icode.push_back(fop(COPY, rs_name));
                 }
-
-            } else {
-                // This is either an empty or an error node
-                int errm_node = find_first(node, type, "error");
-                if(errm_node != 0) 
-                    icode.push_back(fop(ERR, get_string(errm_node)));
             }
 
             icode.back().arg.push_back(node);
@@ -2449,15 +2105,15 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             stage_dim = std::max(stage_dim, dimension(node));
 
             // set the foak arg
-            if(!contains(foak, name(node))) {
-                foak.insert(name(node));
+            if(!contains(foak, type(node))) {
+                foak.insert(type(node));
                 icode[node_idx].arg.push_back(node);
             } else {
                 icode[node_idx].arg.push_back(0);
             }
             // set the foak with output arg
-            if(output_type != nullptr &&  !contains(foak_wo, name(node))) {
-                foak_wo.insert(name(node));
+            if(output_type != nullptr &&  !contains(foak_wo, type(node))) {
+                foak_wo.insert(type(node));
                 icode[node_idx].arg.push_back(node);
             } else {
                 icode[node_idx].arg.push_back(0);
@@ -2468,7 +2124,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             // check that previous nodes of the same name have the same dimension
             if(dimension(node) >= 0)
                 for(auto nip: node_ip) 
-                    if(nip.first != node && name(nip.first) == name(node) && icode[nip.second].arg[0] >= 0 && icode[nip.second].arg[0] != dimension(node)) {
+                    if(nip.first != node && type(nip.first) == type(node) && icode[nip.second].arg[0] >= 0 && icode[nip.second].arg[0] != dimension(node)) {
                         pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
                         pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
                         ++error_count;
@@ -2484,35 +2140,21 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     icode.back().d1 = emd->output_type();
     icode.back().m1 = emd;
 
-    int entry_arg_node = at(find_first(entry_blck_node, [this](int n)->bool { return at(n).type == FTK_RETURN; })).children[0];
-    if(trace_on) print_ast(std::cerr, at(entry_arg_node).children[0]);
+    int ean = get_ne_action_fldm(entry_blck_node);
+    if(ean == 0) ean = get_ne_action_fldx(entry_blck_node);
 
-    if(0 != dimension(entry_arg_node)) {
+    if(0 != dimension(entry_blck_node)) {
         ++error_count;
-        pcerr.AddError(main_file, at(entry_arg_node), sfmt() << "in entry \"" << emd->full_name() << "\" the return expression has a higher dimension \""
-                << dimension(entry_arg_node) << "\" than expected");
+        pcerr.AddError(main_file, at(ean), sfmt() << "in entry \"" << emd->full_name() << "\" the return expression has a higher dimension \""
+                << dimension(entry_blck_node) << "\" than expected");
     }
 
-    DEBUG_CHECK("pop message");
-    error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), entry_arg_node, node_ip, 0);
+    error_count += populate_message(return_name, lrv_descriptor(emd->output_type()), ean, node_ip, 0);
     icode.push_back(fop(EPRP));
     icode.push_back(fop(END));
 
     DEBUG_LEAVE;
     return error_count;
-}
-void flow_compiler::print_pseudocode(std::ostream &out) const {
-    int error_count = 0;
-    DEBUG_ENTER;    
-    int digits = log10(icode.size())+1;
-    int l = 0;
-    for(auto const &s: icode) {
-        l += 1;
-        char lbuf[digits+1];
-        snprintf(lbuf, digits+1, "%*d", digits, l);
-        out << lbuf << " "  << s << "\n";
-    }
-    DEBUG_LEAVE;
 }
 /**
  * Make sure that all nodes have only one id declared and they don't clash
@@ -2726,7 +2368,7 @@ int flow_compiler::fixup_proto_refs() {
 }
 int flow_compiler::compile_expressions(int node) {
     int error_count = 0;
-    // First compile fldms
+    // action nodes
     for(int n: *this) switch(at(n).type) {
         case FTK_NODE:
             error_count += compile_fldm(get_ne_action_fldm(n), input_descriptor(n));
@@ -2739,12 +2381,36 @@ int flow_compiler::compile_expressions(int node) {
         default:
             break;
     }
+    // constional nodes 
     for(int n: *this) switch(at(n).type) {
         case FTK_NODE:
         case FTK_ERROR:
             error_count += compile_fldr(get_ne_condition(n));
         default:
             break;
+    }
+    // update ref-counts
+    for(int n: *this) {
+        int acn;
+        switch(at(n).type) {
+            case FTK_ERROR:
+                acn = get_ne_condition(n);
+                break;
+            case FTK_ENTRY:
+                acn = get_ne_action(n);
+                break;
+            default:
+                acn = 0;
+                break;
+        }
+        if(acn != 0) for(int n: subtree(acn)) if(at(n).type == FTK_fldx) {
+            std::string label = get_id(at(n).children[0]);
+            if(label == input_label) 
+                refcount.update(0, refcount(0)+1);
+            else 
+                for(int r: get_all_nodes(label))
+                    refcount.update(r, refcount(r)+1);
+        }
     }
     return error_count;
 }
@@ -2813,12 +2479,11 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
 
     if(error_count > 0) return error_count;
     for(auto const &gv: flow_graph) {
-        std::set<int> graph_referenced_nodes;
-        for(auto &s: gv.second) graph_referenced_nodes.insert(s.begin(), s.end());
+        std::set<int> gnodes;
+        for(auto &s: gv.second) gnodes.insert(s.begin(), s.end());
         // Mark the entry point 
         entry_ip[gv.first] = icode.size();
-        std::cerr << "gen icode for: " << graph_referenced_nodes << "\n";
-        error_count += compile_flow_graph(gv.first, gv.second, graph_referenced_nodes);
+        error_count += compile_flow_graph(gv.first, gv.second, gnodes);
     }
     return error_count;
 }
@@ -2866,6 +2531,7 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
         ++s;
         if(n.size()  > 0) {
             out << "{ rank = same;\n";
+            /*
             for(auto nn: n) {
                 auto const &inf = referenced_nodes.find(nn)->second;
                 if(condition.has(nn))
@@ -2873,10 +2539,11 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
                 else
                     out << c_escape(inf.xname) << "[label=<" << name(nn) << ">]; ";
             }
+            */
             out << s << ";\n};\n";
         }
         for(auto nn: n) {
-            std::string dot_node(c_escape(referenced_nodes.find(nn)->second.xname));
+            std::string dot_node(c_escape(name(nn)));
             // Get all incoming edges
             incoming.clear();
             /*
@@ -2914,3 +2581,16 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
     out << "}\n";
 }
 
+void flow_compiler::print_pseudocode(std::ostream &out) const {
+    int error_count = 0;
+    DEBUG_ENTER;    
+    int digits = log10(icode.size())+1;
+    int l = 0;
+    for(auto const &s: icode) {
+        l += 1;
+        char lbuf[digits+1];
+        snprintf(lbuf, digits+1, "%*d", digits, l);
+        out << lbuf << " "  << s << "\n";
+    }
+    DEBUG_LEAVE;
+}
