@@ -248,7 +248,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     if(n.type == FTK_fldr) sout << ANSI_RESET;
     if(n.type == FTK_fldd) sout << "|" << ANSI_RED << ANSI_BOLD << n.token.integer_value << ANSI_RESET;
     sout << "[" << ANSI_BOLD;
-    if(condition.has_value(node)) sout << ANSI_RED;
+    if(refcount(node) == 0) sout << ANSI_RED;
     sout << node << ANSI_RESET <<  "-" << n.type << " " << n.token.line << ":" << n.token.column << "]";
 
     if(n.token.text.length() > 0) sout << " " << n.token.text;
@@ -258,7 +258,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         sout << " {";
         if(description.has(node)) sout << ANSI_CYAN << " " << description(node) << "" << ANSI_RESET;
         if(type.has(node)) sout << " node type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
-        if(condition.has(node)) sout << " condition: " << ANSI_RED << ANSI_BOLD << condition(node) << ANSI_RESET;
+        if(refcount.has(node)) sout << " refc: " << ANSI_RED << ANSI_BOLD << refcount(node) << ANSI_RESET;
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
         if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_BOLD << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
         if(method_descriptor.has(node) && method_descriptor(node) != nullptr) sout << " method: " << ANSI_BLUE << *method_descriptor(node) << ANSI_RESET;

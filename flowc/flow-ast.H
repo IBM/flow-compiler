@@ -68,8 +68,7 @@ struct flow_ast {
     ast::attribute<std::string> type;
     // description extracted from leading comments
     ast::attribute<std::string> description;
-    // node value for the condition expression associated with this node
-    ast::attribute<int> condition;
+    ast::attribute<int> refcount;
     // if this node can be evaluated to a constant, one of FTK_INETEGR, FTK_STRING, FTK_FLOAT
     ast::attribute<int> value_type;
     // dimension of the data at this node
@@ -235,14 +234,14 @@ struct flow_ast {
         return e;
     }
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
-            name(""), type(""), description(""), condition(0), value_type(0), dimension(0)  {
+            name(""), type(""), description(""), refcount(0), value_type(0), dimension(0)  {
             }
 
     bool has_attributes(int n) const {
-        return has_attr(n, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
+        return has_attr(n, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
     }
     void copy_attributes(int from, int to) {
-        copy_attr(from, to, name, type, description, condition, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
+        copy_attr(from, to, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
     }
     int mk_node(flow_token const &token) {
         store.push_back(flow_ast_node());
@@ -438,7 +437,7 @@ struct flow_ast {
      * Get the node pointing to the properties hash for entry or node node n.
      */
     int get_ne_block_node(int n) const {
-        return  find_first(n, [this](int x) -> bool {
+        return find_first(n, [this](int x) -> bool {
             return at(x).type == FTK_blck;
         });
     }
@@ -508,30 +507,27 @@ struct flow_ast {
     std::vector<int> get_all_nodes(int nn) const {
         return get_all_nodes(type(nn));
     }
-    std::set<int> get_referenced_nodes(int nn) const {
+    std::set<int> get_all_referenced_nodes() const {
         std::set<int> rns;
-        for(auto p = begin(nn), e = end(); p != e; ++p)
-            if(at(*p).type == FTK_fldx)
-                rns.insert(get_first_node(get_id(at(*p).children[0])));
+        for(int n: *this) 
+            if(at(n).type == FTK_NODE && refcount(n) > 0) {
+                rns.insert(n);
+            }
         return rns;
     }
-    std::set<int> get_referenced_nodes_action(int nn) const {
+    std::set<int> get_referenced_node_types(int nn) const {
         std::set<int> rns;
-        int anode = get_ne_action(nn);
-        if(anode != 0)  for(int n: subtree(anode)) {
+        if(nn != 0) for(int n: subtree(nn)) {
             if(at(n).type == FTK_fldx)
                 rns.insert(get_first_node(get_id(at(n).children[0])));
         }
         return rns;
     }
-    std::set<int> get_referenced_nodes_condition(int nn) const {
-        std::set<int> rns;
-        int anode = get_ne_condition(nn);
-        if(anode != 0)  for(int n: subtree(anode)) {
-            if(at(n).type == FTK_fldx)
-                rns.insert(get_first_node(get_id(at(n).children[0])));
-        }
-        return rns;
+    std::set<int> get_action_referenced_node_types(int nn) const {
+        return get_referenced_node_types(get_ne_action(nn));
+    }
+    std::set<int> get_condition_referenced_node_types(int nn) const {
+        return get_referenced_node_types(get_ne_condition(nn));
     }
 };
 std::ostream &operator << (std::ostream &out, class flow_ast::ast_iterator const &p);
