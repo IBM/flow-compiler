@@ -805,7 +805,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "bool abort_stage = false;\n";
                     OUT << "::grpc::Status abort_status;\n";
                     for(auto nnj: stage_node_ids) if(method_descriptor(nnj) != nullptr) {
-                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
+                        std::string nn(to_lower(to_identifier(name(nnj))));
 
                             OUT << "auto " << nn << "_maxcc = (int)" << nn << "_ConP->count();\n";
                             OUT << "if(!abort_stage && " << LN_END_X(nn) <<  " > " << LN_BEGIN(nn) << " && " << nn << "_maxcc == 0) {\n";
@@ -860,7 +860,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     int call_nodes = 0;
                     for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) ++call_nodes;
                     for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) {
-                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nni)->second.xname)));
+                        std::string nn(to_lower(to_identifier(name(nni))));
                         // Find out what node this index belongs to by comparing with the EX_xxxx markers
                         if(nc > 0) OUT << "else ";
                         if(++nc == call_nodes)
@@ -914,7 +914,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     ++indenter;
 
                     for(auto nnj: stage_node_ids) {
-                        std::string nn(to_lower(to_identifier(referenced_nodes.find(nnj)->second.xname)));
+                        std::string nn(to_lower(to_identifier(name(nnj))));
                         OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
                     }
                     OUT << "return abort_status;\n";
@@ -935,7 +935,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 node_dim = op.arg[0];
                 cur_input_name = op.arg2; 
                 cur_output_name = op.arg1;
-                cur_node_name = to_lower(to_identifier(referenced_nodes.find(cur_node = op.arg[1])->second.xname));
+                cur_node_name = to_lower(to_identifier(name(cur_node = op.arg[1])));
                 node_has_calls = method_descriptor(cur_node) != nullptr;
 
                 if(node_has_calls)
@@ -1322,8 +1322,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     int error_count = 0;
     std::set<int> entry_node_set;
     // Sort the entries in source order
-    for(auto const &ne: named_blocks) if(ne.second.first == "entry")
-        entry_node_set.insert(ne.second.second);
+    for(int n: *this) if(at(n).type == FTK_ENTRY)  
+        entry_node_set.insert(n);
     
     ServiceDescriptor const *sdp = nullptr;
     int entry_count = 0;
@@ -1405,8 +1405,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     set(vars, "ENTRY_COUNT", sfmt() << entry_count);
     set(vars, "ALT_ENTRY_COUNT", sfmt() << entry_count-1);
     set(vars, "ENTRIES_PROTO", gen_proto(entry_mdps));
-    for(auto &rn: referenced_nodes) {
-        MethodDescriptor const *mdp = method_descriptor(rn.first);
+    for(int rn: get_all_referenced_nodes()) {
+        MethodDescriptor const *mdp = method_descriptor(rn);
         if(mdp != nullptr)
             all_mdps.insert(mdp);
     }
@@ -1448,9 +1448,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
 }
 int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
     int error_count = 0;
-    auto rn = referenced_nodes.find(cli_node);
-    assert(rn != referenced_nodes.end());
-    std::string const &node_name = rn->second.xname;
+    assert(refcount(cli_node) > 0);
+    std::string const &node_name = name(cli_node);
 
     clear(global_vars, "ALT_ENTRY_NAME");
 
@@ -1473,19 +1472,16 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     int error_count = 0, node_count = 0, cli_count = 0;
     std::set<std::string> all_nodes;
-    for(auto &rn: referenced_nodes) {
-        auto cli_node = rn.first;
-        if(type(cli_node) == "container")
-            continue;
+    for(int rn: get_all_referenced_nodes()) {
         ++node_count;
-        std::string const &node_name = rn.second.xname;
-        all_nodes.insert(to_upper(to_identifier(node_name)));
-        append(vars, "NODE_NAME", node_name);
-        if(method_descriptor(cli_node) == nullptr) 
+        all_nodes.insert(to_upper(to_identifier(name(rn))));
+        append(vars, "NODE_NAME", name(rn));
+        if(method_descriptor(rn) == nullptr) 
             continue;
         ++cli_count;
 
         std::string set_metadata;
+        /* FIXME
         if(rn.second.headers.size() > 0) {
             std::vector<std::string> metadata;
             for(auto const &hnv: rn.second.headers) {
@@ -1497,31 +1493,33 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
             
             set_metadata = join(metadata, " ", " ", "{", "", "", "}");
         }
+        */
         append(vars, "CLI_NODE_METADATA", set_metadata);
-        append(vars, "CLI_NODE_LINE", sfmt() << at(cli_node).token.line);
-        append(vars, "CLI_NODE_DESCRIPTION", description(cli_node));
-        append(vars, "CLI_NODE_NAME", node_name);
-        append(vars, "CLI_NODE", name(cli_node));
+        append(vars, "CLI_NODE_LINE", sfmt() << at(rn).token.line);
+        append(vars, "CLI_NODE_DESCRIPTION", description(rn));
+        append(vars, "CLI_NODE_NAME", name(rn));
+        append(vars, "CLI_NODE", name(rn));
         append(vars, "CLI_NODE_URL", sfmt() << "/-node/" << node_name);
-        auto mdp = method_descriptor(cli_node);
+        auto mdp = method_descriptor(rn);
         append(vars, "CLI_SERVICE_NAME", get_full_name(mdp->service()));
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
         append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, false);
+        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(rn), true, false);
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
-        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), node_name, description(cli_node), true, false);
+        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), name(rn), description(rn), true, false);
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "CLI_PROTO", gen_proto(mdp));
         append(vars, "CLI_METHOD_NAME", mdp->name());
-        append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
-        append(vars, "CLI_NODE_GROUP", rn.second.group);
-        append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
+        append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(rn, default_node_timeout)));
+        // FIXME
+        //append(vars, "CLI_NODE_GROUP", rn.second.group);
+        //append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
         int cc_value = 0;
-        error_count += get_block_value(cc_value, cli_node, "replicas", false, {FTK_INTEGER});
+        error_count += get_block_value(cc_value, rn, "replicas", false, {FTK_INTEGER});
         cc_value = cc_value == 0? default_maxcc: get_integer(cc_value);
         if(cc_value <= 0)
-            pcerr.AddWarning(main_file, at(cli_node), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
+            pcerr.AddWarning(main_file, at(rn), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
         append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
     if(cli_count > 0) 
@@ -1545,8 +1543,8 @@ int flow_compiler::genc_server_source(std::string const &server_src) {
 
     std::set<int> entry_node_set;
     // Sort the entries in source order
-    for(auto const &ne: named_blocks) if(ne.second.first == "entry") 
-        entry_node_set.insert(ne.second.second);
+    for(int n: *this) if(at(n).type == FTK_ENTRY)  
+        entry_node_set.insert(n);
 
     for(int entry_node: entry_node_set) {
         std::stringstream sbuf;

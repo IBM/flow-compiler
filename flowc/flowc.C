@@ -149,7 +149,7 @@ char const *get_default_runtime();
 std::set<std::string> available_runtimes();
 #define FLOWC_NAME "flowc"
 
-flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr), named_blocks(named_blocks_w) {
+flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
     input_label = "input";
     rest_port = -1;
     base_port = 53135;                  // the lowest it can be is 49152
@@ -188,6 +188,7 @@ int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_bloc
             continue;
         }
         // Grab all name value pairs 
+        /* FIXME
         auto ebp = block_store.find(v);
         assert(ebp != block_store.end());
         for(auto const &nv: ebp->second) {
@@ -200,6 +201,7 @@ int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_bloc
             }
             nvs[nv.first] = nv.second; 
         }
+        */
         old_value = v;
     }
     return error_count;
@@ -300,9 +302,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(opts.have("print-graph")) {
         std::string entry(opts.opt("print-graph", ""));
         int en = 0;
-        for(auto ei: named_blocks) if(ei.second.first == "entry") {
-            if(ei.first == entry || ends_with(ei.first, std::string(".") + entry)) {
-                en = ei.second.second;
+        for(int n: *this) if(at(n).type == FTK_ENTRY) { 
+            if(name(n) == entry || ends_with(name(n), std::string(".") + entry)) {
+                en = n;
                 break;
             }
         }
@@ -336,6 +338,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
         set(global_vars, "HAVE_DEFN", "");
     }
+
+    auto referenced_nodes = get_all_referenced_nodes();
 
     /*******************************************************************
      * Override some of the vars set at compile time
@@ -404,8 +408,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * set as many of values that control code generation as possible
      */
     if(contains(targets, "driver")) {
-        for(auto const &nc: named_blocks) if(nc.second.first == "container") 
-            referenced_nodes.emplace(nc.second.second, node_info(nc.second.second, nc.first));
+        /*
+        for(int n: *this) if(at(n).type == FTK_CONTAINER) {
+            referenced_nodes.emplace(name(n), node_info(name(n), n));
+        }
+        */
     }
     /********************************************************************
      * Generate C files for proto and grpc
@@ -461,37 +468,32 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     // Set a value to trigger node generation
     clear(global_vars, "HAVE_NODES");
-    if(referenced_nodes.size() > 0) 
+    if(get_all_referenced_nodes().size() > 0)
         set(global_vars, "HAVE_NODES", ""); 
 
-    for(auto &rn: referenced_nodes) {
-        int cli_node = rn.first;
-        if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
-            continue;
-
-        auto &ni = rn.second;
-        std::string const &nn = ni.xname;
-        append(global_vars, "XCLI_NODE_NAME", nn);
-
+    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+        append(global_vars, "XCLI_NODE_NAME", name(n));
+        // FIXME
+        node_info ni;
         int value = 0;
-        error_count += get_block_value(value, cli_node, "endpoint", false, {FTK_STRING});
+        error_count += get_block_value(value, n, "endpoint", false, {FTK_STRING});
         if(value > 0) 
             ni.external_endpoint = get_string(value);
     }
     // Grab all the image names, image ports and volume names 
     if(contains(targets, "driver")) {
         // Make a first pass to collect the declared ports and groups
-        for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
-            int blck = rn.first;
-            auto &ni = rn.second;
-            std::string const &nn = rn.second.xname;
+        for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+            int blck = get_ne_block_node(n);
+            // FIXME
+            node_info ni;
 
             int value = 0, pv = 0;
             error_count += get_block_value(value, blck, "port", false, {FTK_INTEGER});
             if(value > 0) {
                 pv = (int) get_integer(value);
                 if(pv <= 0) {
-                    pcerr.AddWarning(main_file, at(value), sfmt() << "invalid \"port\" value: \"" << pv << "\" for node \"" << nn << "\", a default value will be assigned");
+                    pcerr.AddWarning(main_file, at(value), sfmt() << "invalid \"port\" value: \"" << pv << "\" for node \"" << name(n) << "\", a default value will be assigned");
                     pv = 0;
                 }
             }
@@ -499,6 +501,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             // opts.have("single-pod") needs to be used when kube stuff is generated
         }
         // Allocate port values for the nodes that have not declared one
+        /* FIXME
         while(true) {
             int nn = 0; 
             for(auto np: referenced_nodes) if(np.second.port == 0 && !np.second.no_call) {
@@ -520,52 +523,54 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 pcerr.AddError(main_file, -1, 0, sfmt() << "unable to allocate port for node \"" << name(nn) << "\"");
             }
         }
+        */
         
-        for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
-            int blck = rn.first;
-            auto &ni = rn.second;
-
-            std::string const &nn = ni.xname;
-            append(global_vars, "NODE_NAME", nn);
+        for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+            int blck = get_ne_block_node(n);
+            append(global_vars, "NODE_NAME", name(n));
+            node_info ni;
             int value = 0, pv = 0;
-
+            // FIXME
             std::string group_name = ni.group;
             append(global_vars, "NODE_GROUP", group_name);
             append(group_vars[group_name], "G_NODE_GROUP", group_name);
-            append(group_vars[group_name], "G_NODE_NAME", nn);
+            append(group_vars[group_name], "G_NODE_NAME", name(n));
 
-            pv = ni.port;
+            pv = 22222; // FIXME  ni.port;
             append(global_vars, "IMAGE_PORT", std::to_string(pv));
             append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
 
             // For kubernetes check that ports in the same pod don't clash
+            /** FIXME this should be happening kube gerenration only
             for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == group_name) {
                 pcerr.AddWarning(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.second.xname << "\" in group \"" << group_name << "\"");
                 // Only generate one port conflict message
                 break;
             }
+            */
             value = 0;
             bool external_node = false;
+            std::string endpoint, image_name;
             error_count += get_block_value(value, blck, "image", false, {FTK_STRING});
             if(value <= 0 || get_string(value).empty()) {
                 error_count += get_block_value(value, blck, "endpoint", false, {FTK_STRING});
                 if(value <= 0 || get_string(value).empty()) {
                     ++error_count;
-                    pcerr.AddError(main_file, at(blck), sfmt() << "node \"" << nn << "\" must have either an image or an endpoint defined");
+                    pcerr.AddError(main_file, at(blck), sfmt() << "node \"" << name(n) << "\" must have either an image or an endpoint defined");
                 } else {
-                    ni.external_endpoint = get_string(value);
+                    endpoint = get_string(value);
                     external_node = true;
                 }
             } else {
-                ni.image_name = get_string(value);
-                if(ni.image_name[0] == '/') 
-                    ni.image_name = path_join(default_repository, ni.image_name.substr(1));
+                image_name = get_string(value);
+                if(image_name[0] == '/') 
+                    image_name = path_join(default_repository, image_name.substr(1));
             }
 
-            append(global_vars, "NODE_IMAGE", ni.image_name);
-            append(group_vars[group_name], "G_NODE_IMAGE", ni.image_name);
-            append(global_vars, "NODE_ENDPOINT", ni.external_endpoint);
-            append(group_vars[group_name], "G_NODE_ENDPOINT", ni.external_endpoint);
+            append(global_vars, "NODE_IMAGE", image_name);
+            append(group_vars[group_name], "G_NODE_IMAGE", image_name);
+            append(global_vars, "NODE_ENDPOINT", endpoint);
+            append(group_vars[group_name], "G_NODE_ENDPOINT", endpoint);
             if(external_node) {
                 append(global_vars, "EXTERN_NODE", "#");
                 append(group_vars[group_name], "G_EXTERN_NODE", "#");
@@ -605,8 +610,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 std::string mount_name = get_id(at(v).children[0]);
                 v = at(v).children[1];
 
-                auto ebp = block_store.find(v);
-                assert(ebp != block_store.end());
                 bool read_write = false;       
                 int access_value = 0;
                 error_count += get_block_value(access_value, v, "access", false, {FTK_STRING});
@@ -616,13 +619,13 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                     bool rw = acc == "rw" || acc == "read-write" || acc == "readwrite";
                     if(ro == rw) {
                         ++error_count;
-                        pcerr.AddError(main_file, at(access_value), sfmt() << "access for \"" << mount_name << "\" in \"" << nn << "\" must be either read-only or read-write");
+                        pcerr.AddError(main_file, at(access_value), sfmt() << "access for \"" << mount_name << "\" in \"" << name(n) << "\" must be either read-only or read-write");
                         continue;
                     }
                     read_write = !ro;
                 }
 
-                auto &minf = mounts.emplace(v, mount_info(v, rn.first, mount_name, !read_write)).first->second;
+                auto &minf = mounts.emplace(v, mount_info(v, n, mount_name, !read_write)).first->second;
                 ni.mounts.push_back(v);
 
                 int s = 0;
@@ -691,9 +694,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         else 
             clear(global_vars, "HAVE_VOLUMES");
     }
-    for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
-        int blck = rn.first;
-        auto &ni = rn.second;
+    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+        int blck = get_ne_block_node(n);
+        // FIXME 
+        node_info ni;
 
         int old_value = 0;
         ni.headers.clear();
@@ -731,10 +735,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
-        for(auto ep: named_blocks) if(ep.second.first == "entry") {
-            std::string method = ep.first;
+        for(int n: *this) if(at(n).type == FTK_ENTRY) {
+            std::string method = name(n);
             auto mdp = check_method(method, 0);
-            int blck = ep.second.second, pv = 0;
+            int blck = get_ne_block_node(n), pv = 0;
             for(int p = 0, v = find_in_blck(blck, "path", &p); v != 0; v = find_in_blck(blck, "path", &p)) {
                 if(at(v).type != FTK_STRING && at(v).type != FTK_STRING) {
                     error_count += 1;
@@ -901,10 +905,9 @@ int flow_compiler::genc_graph(bool gen_svgs) {
         auto mdpe = check_method(check_entry, 0);
         // Find the node corresponding to this entry
         int node = 0;
-        for(auto ep: named_blocks) if(ep.second.first == "entry") {
-            node = ep.second.second; 
-            if(mdpe == method_descriptor(node))
-                break;
+        for(int n: *this) if(at(n).type == FTK_ENTRY && method_descriptor(n) == mdpe) {
+            node = n;
+            break;
         }
         // There must always be a node...
         assert(node != 0);
@@ -952,15 +955,10 @@ int flow_compiler::genc_www() {
         extern char const *template_index_html;
         vex::expand(outf, template_index_html, vex::make_smap(global_vars));
     }
-    for(auto &rn: referenced_nodes) {
-        auto cli_node = rn.first;
-        if(type(cli_node) == "container" || method_descriptor(cli_node) == nullptr) 
-            continue;
+    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         decltype(global_vars) local_vars;
-        set_cli_active_node_vars(local_vars, cli_node);
-        std::string const &node_name = rn.second.xname;
-
-        std::string outputfn = output_filename("www/"+node_name+"-index.html");
+        set_cli_active_node_vars(local_vars, n);
+        std::string outputfn = output_filename("www/"+stru1::to_option(name(n))+"-index.html");
         OFSTREAM_SE(outf, outputfn);
         if(DEBUG_GENC) {
             outputfn += ".json";

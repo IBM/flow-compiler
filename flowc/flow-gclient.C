@@ -15,13 +15,14 @@
 using namespace stru1;
 
 int flow_compiler::find_in_blck(int block_node, std::string const &name, int *pos) const {
-    auto blp = block_store.find(block_node);
-    if(blp == block_store.end()) return 0;
     int lpos = 0;
     if(pos == nullptr) pos = &lpos;
-    for(int e = blp->second.size(); *pos < e; ++(*pos)) 
-        if(name == blp->second[*pos].first) 
-            return blp->second[(*pos)++].second;
+    if(block_node != 0) {
+        auto const &mn = at(block_node);
+        for(int e = mn.children.size(); *pos < e; ++(*pos))
+            if(get_id(at(mn.children[*pos]).children[0]) == name)
+                return at(mn.children[(*pos)++]).children[1];
+    }
     return 0;
 }
 
@@ -32,15 +33,12 @@ int flow_compiler::genc_client_source(std::string const &client_src) {
 
     std::map<std::string, std::vector<std::string>> local_vars;
     std::vector<MethodDescriptor const *> methods;
-    for(auto const &ep: named_blocks) if(ep.second.first == "entry")  
-        methods.push_back(method_descriptor(ep.second.second));
+    for(int n: *this) if(at(n).type == FTK_ENTRY) 
+        methods.push_back(method_descriptor(n));
     
-    for(auto &rn: referenced_nodes) if(!rn.second.no_call) {
-        auto cli_node = rn.first;
-        if(type(cli_node) == "container") 
-            continue;
-        methods.push_back(method_descriptor(cli_node));
-    }
+    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) 
+        methods.push_back(method_descriptor(n));
+    
     if(methods.size() < 1) {
         pcerr.AddError(main_file, -1, 0, "no service entry or node found, cannot generate client");
         return 1;

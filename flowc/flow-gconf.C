@@ -50,7 +50,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
     extern char const *template_kubernetes_group_yaml;
     std::map<std::string, std::vector<std::string>> env_vars;
     std::set<std::string> groups;
-
+/*
     for(auto const &nn: referenced_nodes) 
         groups.insert(nn.second.group);
     for(auto const &g: groups) {
@@ -215,7 +215,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
         auto gg_smap = vex::make_smap(group_vars[g]);
         vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, global_smap));
     }
-
+*/
     return 0;
 }
 static std::string check_for_file_ref(std::string const &vv) {
@@ -229,6 +229,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
     int base_port = this->base_port;
 
     // Make a list of all nodes and containers
+    /*
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         std::string const &nn = nr.second.xname;
         int pv = nr.second.port;
@@ -244,8 +245,9 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
             }
         }
     }
+    */
     int tmp_count = 0;
-
+/*
     for(auto const &nr: referenced_nodes) if(!nr.second.no_call) {
         auto &ni = nr.second;
         std::string const &nn = ni.xname;
@@ -311,6 +313,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "HAVE_RW_VOLUMES", have_rw_mounts? "": "#");
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
+    */
 #if 0
     std::ofstream outg("dc-yaml-global.json");
     stru1::to_json(outg, global_vars);
