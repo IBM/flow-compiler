@@ -160,9 +160,9 @@ private:
     //std::set<std::string> volumes;
     // All mount records indexed by AST node
     std::map<int, mount_info> mounts;
+
     // 
     var_store_t global_vars;
-
     Descriptor const *input_dp;
     std::vector<fop> icode;
     // Entry point in icode for each entry node
@@ -245,7 +245,7 @@ public:
     int compile_fldr(int fldr_node);
     int fixup_vt(int node);
     // Compile all the filed mappings - this does not resolve fldx references
-    int compile_fldm(Descriptor const *dp, int fldm_node);
+    int compile_fldm(int fldm_node, Descriptor const *dp);
     // The following should be called on a second pass (after all nodes have been compiled)
     int compile_fldx(int node);
     // The following should be called on a second pass (after all nodes have been compiled)
@@ -255,8 +255,8 @@ public:
     // Fix up node only references
     int compile_exp_id(int node);
     // The following should be called on a second pass (after all nodes have been compiled)
-    // Fix up ID references
-    int compile_id_ref(int node);
+    // Fix up enum references
+    int compile_enum(int node, EnumDescriptor const *context=nullptr);
     // Second pass fix up for number of indices needed
     int update_dimensions(int node);
     int update_noderef_dimension(int node);
@@ -269,6 +269,7 @@ public:
     void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node);
     // Get all the node nodes referenced in this conditional expression
     void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node);
+    /*
     // Get the node referenced by either condition (1), body (2) or both (0) for this blck_node
     std::map<int, std::set<std::string>> &get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type=0);
     std::map<int, std::set<std::string>> &get_node_condition_refs(std::map<int, std::set<std::string>> &noset, int blck_node) {
@@ -277,6 +278,7 @@ public:
     std::map<int, std::set<std::string>> &get_node_body_refs(std::map<int, std::set<std::string>> &noset, int blck_node) {
         return get_node_refs(noset, blck_node, 2);
     }
+    */
     int build_flow_graph(int entry_blk_node);
 
     // Type check if the the assignment left = right
