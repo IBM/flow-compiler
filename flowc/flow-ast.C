@@ -78,8 +78,8 @@ char const *node_name(int i) {
         case FTK_RETURN: return "<RETURN>";
         case FTK_ERROR: return "<ERROR>";
 
-        case FTK_ENDPOINT: return "<ENDPOINT>";
-        case FTK_IMAGE: return "<IMAGE>";
+//        case FTK_ENDPOINT: return "<ENDPOINT>";
+//        case FTK_IMAGE: return "<IMAGE>";
         case FTK_ENVIRONMENT: return "<ENVIRONEMNT>";
         case FTK_MOUNT: return "<MOUNT>";
         case FTK_HEADERS: return "<HEADERS>";

@@ -2,7 +2,7 @@
 %name flow_parser
 %token_prefix FTK_
 
-%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OUTPUT RETURN ERROR ENDPOINT IMAGE MOUNT ENVIRONMENT INPUT HEADERS.
+%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OUTPUT RETURN ERROR MOUNT ENVIRONMENT INPUT HEADERS.
 %left SEMICOLON.
 %left DOT AT.
 %left COMMA.
@@ -95,8 +95,14 @@ list(A) ::= list(B) elem(C).                                   { A = ast->nappen
 
 // elem: any of the definitions allowed in a block
 
-elem(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_elem, B, C); }       
-elem(A) ::= ID(B) lblk(C).                                     { A = ast->node(FTK_elem, B, C); }          
+elem(A) ::= ID(B) blck(C).                                     { ast->chtype(C, ast->blck_keyw(B));
+                                                                 A = ast->node(FTK_elem, B, C);
+                                                                 ast->expect(C, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\" or \"environment\" here"); 
+                                                               }
+elem(A) ::= ID(B) lblk(C).                                     { ast->chtype(C, ast->blck_keyw(B));
+                                                                 A = ast->node(FTK_elem, B, C); 
+                                                                 ast->expect(C, {FTK_MOUNT, FTK_lblk}, "expected \"mount\" here"); 
+                                                               }
 elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) COLON valx(C) SEMICOLON.                     { A = ast->node(FTK_elem, B, C); }          

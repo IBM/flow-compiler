@@ -307,7 +307,7 @@ struct flow_ast {
         return node;
     }
     int chtype(int node, int new_type) {
-        store[node-1].type = new_type;
+        if(new_type >= 0) store[node-1].type = new_type;
         return node;
     }
     int negate(int node) {
@@ -389,10 +389,10 @@ struct flow_ast {
     /**
      * Lookup block level keyword for node 'in'
      */
-    int blck_keyw(int in) const {
-        static std::map<std::string, int> keywords = {{"header", FTK_HEADERS}, {"environment", FTK_ENVIRONMENT}, {"mount", FTK_MOUNT}, {"image", FTK_IMAGE}, {"endpoint", FTK_ENDPOINT}, {"output", FTK_OUTPUT}, {"return", FTK_RETURN} };
+    int blck_keyw(int in, int def_type=-1) const {
+        static std::map<std::string, int> keywords = {{"headers", FTK_HEADERS}, {"environment", FTK_ENVIRONMENT}, {"mount", FTK_MOUNT}, {"output", FTK_OUTPUT}, {"return", FTK_RETURN} };
         auto ki = keywords.find(get_id(in));
-        int k = ki == keywords.end()? at(in).type: ki->second;
+        int k = ki == keywords.end()? def_type: ki->second;
         return k;
     }
     /**
