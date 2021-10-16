@@ -475,9 +475,9 @@ struct flow_ast {
      * Return the fldr associated with this action node
      */
     int get_ne_condition(int n) const {
-        MASSERT(at(n).type == FTK_NODE || at(n).type == FTK_ERROR) << " node " << n << " is of type " << at(n).type << ", needs to be NODE or ERROR\n";
-        n = at(n).type == FTK_NODE? at(n).children.back(): at(n).children[0];
-        return at(n).type == FTK_fldr? n: 0;
+        auto const &node = at(n);
+        MASSERT(node.type == FTK_NODE || node.type == FTK_ERROR) << " node " << n << " is of type " << node.type << ", needs to be NODE or ERROR\n";
+        return node.type == FTK_NODE? (node.children.size() == 4? node.children[3]: 0): node.children[0];
     }
     /** 
      * Return the first node named 'namen' 

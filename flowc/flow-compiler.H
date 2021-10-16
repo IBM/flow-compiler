@@ -227,8 +227,9 @@ public:
     int compile_defines();
     int compile_expressions(int node=0);
 
-    int compile_stmt(int stmt_node);
-    // Compile function calls - fldx are not resolved 
+    // Compile any basic type, field or enum reference and fldr
+    int compile_expression(int node);
+    // Compile fldr expressions
     int compile_fldr(int fldr_node);
     int fixup_vt(int node);
     // Compile all the filed mappings - this does not resolve fldx references

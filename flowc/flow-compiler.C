@@ -477,11 +477,33 @@ void show_builtin_help(std::ostream &out) {
     }
 }
 
+int flow_compiler::compile_expression(int node) {
+    int error_count = 0;
+    if(node != 0) switch(at(node).type) {
+        case FTK_fldr:
+            error_count = compile_fldr(node);
+            break;
+        case FTK_INTEGER: case FTK_STRING: case FTK_FLOAT:
+            value_type.put(node, at(node).type);
+            break;
+        case FTK_fldx: 
+            error_count = compile_fldx(node);
+            break;
+        case FTK_enum: 
+            error_count = compile_enum(node);
+            break;
+        default:
+            MASSERT(false) << "node " << node << " was not expected to be of of type " << at(node).type << "\n";
+    }
+    return error_count;
+}
 int flow_compiler::compile_fldr(int fldr_node) {
     if(fldr_node == 0)
         return 0;
     int error_count = 0;
     auto const &fldr = at(fldr_node);
+    DEBUG_CHECK("at FLDR node " << fldr_node << " of type " << fldr.type);
+
     assert(fldr.type == FTK_fldr);
     assert(fldr.children.size() > 0);
 
@@ -701,9 +723,9 @@ int flow_compiler::update_noderef_dimension(int node) {
 int flow_compiler::update_dimensions(int node) {
     if(dimension.has(node))
         return 0;
-
     int error_count = 0;
     auto const &children = at(node).children;
+    DEBUG_CHECK(" for node " << node << ", chc: " << children.size());
 
     switch(at(node).type) {
         case FTK_fldx: {
@@ -2385,7 +2407,8 @@ int flow_compiler::compile_expressions(int node) {
     for(int n: *this) switch(at(n).type) {
         case FTK_NODE:
         case FTK_ERROR:
-            error_count += compile_fldr(get_ne_condition(n));
+            DEBUG_CHECK("for " << n << " we have condition " << get_ne_condition(n));
+            error_count += compile_expression(get_ne_condition(n));
         default:
             break;
     }
@@ -2464,15 +2487,12 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         return 1;
     } 
     icode.clear();
-
-    std::set<std::string> all_referenced_node_types;
-    for(auto &g: flow_graph) for(auto &s: g.second) for(int n: s) all_referenced_node_types.insert(type(n));
-
-    for(int n: *this) if(at(n).type == FTK_NODE && !contains(all_referenced_node_types, type(n))) 
+    for(int n: *this) if(at(n).type == FTK_NODE && refcount(n) == 0) 
         pcerr.AddWarning(main_file, at(n), sfmt() << "node \"" << type(n) << "\" is not used by any entry");
-
     // Update dimensions for each data referencing node
     if(error_count > 0) return error_count;
+    print_ast(std::cerr);
+    std::cerr << "------------\n";
     error_count += update_dimensions(root);
     print_ast(std::cerr);
     std::cerr << "++++++++++++\n";
