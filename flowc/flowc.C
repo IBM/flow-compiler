@@ -331,7 +331,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * Set global level defines
      */
     clear(global_vars, "HAVE_DEFN");
-    for(int i: find_nodes_by_type(ast_root(), {FTK_DEFINE})) {
+    for(int i: *this) if(at(i).type == FTK_DEFINE) {
         auto &defn = at(i);
         append(global_vars, "DEFN", get_id(defn.children[0]));
         append(global_vars, "DEFV", get_value(defn.children[1]));

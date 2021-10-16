@@ -484,7 +484,7 @@ struct flow_ast {
      * Return the first node named 'namen' 
      */
     int get_first_node(std::string const &namen) const {
-        for(int n: *this) 
+        for(int n: *this)
             if(at(n).type == FTK_NODE && type(n) == namen) 
                 return n;
         return 0;
@@ -495,11 +495,11 @@ struct flow_ast {
     std::vector<int> get_all_nodes(std::string const &namen) const {
         int noc_node = -1;
         std::vector<int> nns;
-        for(int n: *this) 
+        for(int n: *this)
             if(at(n).type == FTK_NODE && type(n) == namen) {
                 if(get_ne_condition(n) != 0)
                     nns.push_back(n);
-                else 
+                else
                     noc_node = n;
             }
         if(noc_node >= 0) nns.push_back(noc_node);
@@ -541,6 +541,60 @@ struct flow_ast {
     }
     std::set<int> get_condition_referenced_node_types(int nn) const {
         return get_referenced_node_types(get_ne_condition(nn));
+    }
+    struct blck_iterator {
+        flow_ast const *tree;
+        int blck_node;
+        unsigned pos;
+        std::string key;
+        blck_iterator(flow_ast const *t=nullptr, int n = 0, std::string const &k=""): tree(t), blck_node(n), pos(0), key(k) {
+            if(tree != nullptr && tree->at(blck_node).children.size() == 0) {
+                tree = nullptr; pos = 0; blck_node = 0;
+            }
+        }
+        int operator *() const {
+            return tree == nullptr? 0: tree->at(tree->at(blck_node).children[pos]).children[1];
+        }
+        blck_iterator &operator ++() {
+            if(tree != nullptr) {
+                while(true) {
+                    ++pos;
+                    if(tree->at(blck_node).children.size() == pos) {
+                        pos = 0; blck_node = 0; tree = nullptr;
+                        break;
+                    }
+                    auto const &e = tree->at(tree->at(blck_node).children[pos]);
+                    if(key.empty() || tree->get_id(e.children[0]) == key) 
+                        break;
+                }
+            }
+            return *this;
+        }
+        bool operator ==(blck_iterator const &other) {
+            if(tree != other.tree) return false;
+            if(tree == nullptr) return true;
+            if(blck_node != other.blck_node) return false;
+            return pos == other.pos;
+        }
+        bool operator !=(blck_iterator const &other) {
+            return !(*this == other);
+        }
+    };
+    blck_iterator blck_begin(int blck_node, std::string const &key) const {
+        if(at(blck_node).type != FTK_blck) return blck_iterator();
+        return blck_iterator(this, blck_node, key);
+    }
+    blck_iterator blck_end(int blck_node = 0) const {
+        return blck_iterator();
+    }
+    struct blck_range {
+        blck_iterator b, e;
+        blck_range(flow_ast const *t=nullptr, int n = 0, std::string const &k=""): b(t,n,k) {}
+        blck_iterator begin() { return b; }
+        blck_iterator end() { return e; }
+    };
+    blck_range block(int blck_node, std::string const &key="") const {
+        return blck_range(this, blck_node, key);
     }
 };
 std::ostream &operator << (std::ostream &out, class flow_ast::ast_iterator const &p);

@@ -208,10 +208,6 @@ public:
      * Must be called with a valid block node
      */
     int find_in_blck(int block_node, std::string const &name, int *pos=nullptr) const;
-    MethodDescriptor const *get_method_descriptor_for_block(int blck_node);
-    MethodDescriptor const *get_method_descriptor_for_node(std::string const &node);
-
-    int get_fldm_for_blck(int blck_node) const;
 
     int compile_string(std::string &str, int node, int node_type=FTK_STRING);
     int compile_id(std::string &str, int id_node);
@@ -251,12 +247,12 @@ public:
     int update_noderef_dimension_d(int node);
 
     // Get all the nodes of this name, in eval order
-    std::vector<int> all_nodes(std::string const &name) const;
-    std::vector<int> all_nodes(int node) const;
+    //std::vector<int> all_nodes(std::string const &name) const;
+    //std::vector<int> all_nodes(int node) const;
     // Get the node nodes referenced by the fldm node
-    void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node);
+    // void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node);
     // Get all the node nodes referenced in this conditional expression
-    void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node);
+    // void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node);
     /*
     // Get the node referenced by either condition (1), body (2) or both (0) for this blck_node
     std::map<int, std::set<std::string>> &get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type=0);
@@ -327,7 +323,30 @@ public:
             return cs_name_s("RQ", get_node_label(node), suffix);
         return cs_name_s(prefix, get_node_label(node), suffix);
     }
-
+    int get_propn(int nen, std::string const &name, bool last=true) const {
+        int f = 0;
+        for(int v: block(get_ne_block_node(nen), name)) {
+            f = v; if(!last) break;
+        }
+        return f;
+    }
+    std::string get_props(int nen, std::string const &name, std::string const &def_value="") const {
+        int f = get_propn(nen, name);
+        return f == 0? def_value: get_text(f);
+    }
+    int64_t get_propi(int nen, std::string const &name, int64_t def_value = 0) {
+        int f = get_propn(nen, name);
+        if(f == 0) return def_value;
+        switch(at(f).type) {
+            case FTK_INTEGER:
+                return get_integer(f);
+            case FTK_FLOAT:
+                return int64_t(get_float(f));
+            default:
+                pcerr.AddError(main_file, at(f), "expected numerical value");
+        }
+        return 0;
+    }
     int compile(std::set<std::string> const &targets);
 
     // AST accessors to retrieve the first encoutered value, all values in tree order or a map.

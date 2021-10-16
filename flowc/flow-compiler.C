@@ -2133,8 +2133,6 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
         pcerr.AddWarning(main_file, at(n), sfmt() << "node \"" << type(n) << "\" is not used by any entry");
     // Update dimensions for each data referencing node
     if(error_count > 0) return error_count;
-    print_ast(std::cerr);
-    std::cerr << "------------\n";
     error_count += update_dimensions(root);
     print_ast(std::cerr);
     std::cerr << "++++++++++++\n";
