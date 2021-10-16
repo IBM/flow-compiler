@@ -1,6 +1,7 @@
 #include <sstream>
 #include "grpc-helpers.H"
 #include "stru1.H"
+#include "cot.H"
 
 using namespace stru1;
 using namespace google::protobuf;
@@ -44,7 +45,7 @@ std::string gen_proto(std::set<::google::protobuf::MethodDescriptor const *> con
     }
     for(auto mdp: mdps) {
         std::string service_name = get_name(mdp->service());
-        if(contains(visited, service_name))
+        if(cot::contains(visited, service_name))
             continue;
         visited.insert(service_name);
         pbuf << "service " << service_name << " {\n";

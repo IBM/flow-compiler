@@ -53,7 +53,6 @@ std::ostream &operator << (std::ostream &s, std::set<A> const &m) {
     }
     return s << "}";
 }
-
 namespace stru1 {
 class sfmt {
     std::ostringstream os;
@@ -74,7 +73,6 @@ struct unindent {
     bool add;
     unindent(): add(false) {}
 };
-
 class indented_stream {
     int indent_value;
     int indent_level;
@@ -369,7 +367,6 @@ std::string to_unicode(unsigned long cp1, unsigned long cp2 = 0) {
     }
     return u;
 }
-    
 inline static
 std::string json_unescape(std::string const &s) {
     std::ostringstream o;
@@ -408,7 +405,6 @@ std::string json_unescape(std::string const &s) {
     }
     return o.str();
 }
-
 inline static
 std::ostream &to_json(std::ostream &out, std::string const *x) { return out << json_escape(*x); }
 inline static
@@ -549,30 +545,11 @@ std::string search_path(std::string const &bin) {
     }
     return bin;
 }
-template <class CONT, class SET> inline static
-bool disjunct(CONT const &c, SET const &s) {
-    for(auto const &v: s) if(c.find(v) != c.end()) return false;
-    return true;
-}
-template <class CONT, class SET> inline static
-bool includes(CONT const &c, SET const &s) {
-    for(auto const &v: s) if(c.find(v) == c.end()) return false;
-    return true;
-}
-template <class CONT, class VALUE> inline static
-bool contains(CONT const &c, VALUE const &v) {
-    return c.find(v) != c.end();
-}
-template <class DEST, class CONT, class SET> inline static
-bool difference(DEST &d, CONT const &a, SET const &b) {
-    for(auto const &v: a) if(b.find(v) == b.end()) d.insert(v);
-    return d.size() > 0;
-}
+inline static
 /**
  * Parse the string [timeout_str] and return the time in milliseconds.
  * Return 0 on parse error or if the time is negative. 
  */
-inline static
 int get_time_value(std::string const &timeout_str) {
     char  *eptr = nullptr;
     auto timeout = std::strtod(timeout_str.c_str(), &eptr);

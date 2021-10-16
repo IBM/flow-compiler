@@ -16,6 +16,7 @@
 #include "flow-compiler.H"
 #include "helpo.H"
 #include "stru1.H"
+#include "cot.H"
 #include "vex.H"
 #include "grpc-helpers.H"
 
@@ -192,7 +193,7 @@ int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_bloc
         auto ebp = block_store.find(v);
         assert(ebp != block_store.end());
         for(auto const &nv: ebp->second) {
-            if(!contains(accepted_types, at(nv.second).type)) {
+            if(!cot::contains(accepted_types, at(nv.second).type)) {
                 error_count += 1;
                 std::set<std::string> accepted;
                 std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name);
@@ -254,10 +255,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
 
-        if(contains(targets, "docs") || contains(targets, "graph-files")) {
+        if(cot::contains(targets, "docs") || cot::contains(targets, "graph-files")) {
             std::string docs_directory = output_filename("docs");
             mkdir(docs_directory.c_str(), 0777);
-            if(contains(targets, "docs")) {
+            if(cot::contains(targets, "docs")) {
                 // Copy the flow file into docs
                 if(realpath(output_filename(std::string("docs/")+main_file)) != realpath(real_input_filename)) 
                     cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
@@ -271,7 +272,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(global_vars, "MAIN_FILE_TS", buffer);
 
         std::string xtra_h = path_join(dirname(real_input_filename), orchestrator_name+"-xtra.H");
-        if(contains(targets, "server") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
+        if(cot::contains(targets, "server") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
             cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
             append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
         }
@@ -348,7 +349,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     rest_port = opts.opti("rest-port", rest_port);
     
     runtime = opts.opt("runtime", runtime);
-    if(!contains(available_runtimes(), runtime)) {
+    if(!cot::contains(available_runtimes(), runtime)) {
         std::cerr << "unknown runtime: " << runtime << ", available: " << stru1::join(available_runtimes(), ", ") << "\n";
         return ++error_count;
     }
@@ -407,7 +408,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * All files are compiled at this ponit so,
      * set as many of values that control code generation as possible
      */
-    if(contains(targets, "driver")) {
+    if(cot::contains(targets, "driver")) {
         /*
         for(int n: *this) if(at(n).type == FTK_CONTAINER) {
             referenced_nodes.emplace(name(n), node_info(name(n), n));
@@ -417,14 +418,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     /********************************************************************
      * Generate C files for proto and grpc
      */
-    if(error_count == 0 && contains(targets, "protobuf-files")) {
+    if(error_count == 0 && cot::contains(targets, "protobuf-files")) {
         // Add the destination directory to the proto path
         // since imports are compiled by now 
         add_to_proto_path(output_filename(".")); 
         error_count += genc_protobuf(); 
     }
 
-    if(error_count == 0 && contains(targets, "grpc-files"))
+    if(error_count == 0 && cot::contains(targets, "grpc-files"))
         error_count += genc_grpc(); 
 
     // Prepare include statements with all the grpc and pb generated headers
@@ -461,7 +462,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(global_vars, "PROTO_FULL_PATH", realpath(filename));
 
         // Copy all the proto files into docs
-        if(contains(targets, "docs")) {
+        if(cot::contains(targets, "docs")) {
             if(realpath(output_filename(std::string("docs/")+file)) != realpath(filename)) 
                 cp_p(filename, output_filename(std::string("docs/")+file));
         }
@@ -481,7 +482,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ni.external_endpoint = get_string(value);
     }
     // Grab all the image names, image ports and volume names 
-    if(contains(targets, "driver")) {
+    if(cot::contains(targets, "driver")) {
         // Make a first pass to collect the declared ports and groups
         for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
             int blck = get_ne_block_node(n);
@@ -677,7 +678,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         // Avoid group name collision
         set(global_vars, "MAIN_POD", "main");
-        for(int i = 1; i < 100 && contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
+        for(int i = 1; i < 100 && cot::contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
             set(global_vars, "MAIN_POD", sfmt() << "main" << i);
         }
         for(auto const &gv: group_vars) {
@@ -717,14 +718,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::set<std::string> volumes;
     for(auto np: mounts) volumes.insert(np.second.name);
     for(unsigned i = 1; i < 100; ++i) {
-        if(!contains(volumes, rest_volume_name))
+        if(!cot::contains(volumes, rest_volume_name))
             break;
         rest_volume_name = sfmt() << "proto-files-" << i;
     }
     set(global_vars, "REST_VOLUME_NAME", rest_volume_name);
     std::string htdocs_volume_name = "htdocs";
     for(unsigned i = 1; i < 100; ++i) {
-        if(!contains(volumes, htdocs_volume_name))
+        if(!cot::contains(volumes, htdocs_volume_name))
             break;
         htdocs_volume_name = sfmt() << "htdocs-files-" << i;
     }
@@ -732,7 +733,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     // Check/generate the entry list for the rest gateway
     // Do this if we have rest and generated config files
-    if(contains(targets, "server")) {
+    if(cot::contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
         for(int n: *this) if(at(n).type == FTK_ENTRY) {
@@ -758,14 +759,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     error_count += set_entry_vars(global_vars);
     error_count += set_cli_node_vars(global_vars);
 
-    if(error_count == 0 && contains(targets, "server")) 
+    if(error_count == 0 && cot::contains(targets, "server")) 
         error_count += genc_server_source(server_source);
     
-    if(error_count == 0 && contains(targets, "client")) 
+    if(error_count == 0 && cot::contains(targets, "client")) 
         error_count += genc_client_source(client_source);
 
     //std::cerr << "----- before ssl certificates: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "ssl-certificates")) {
+    if(error_count == 0 && cot::contains(targets, "ssl-certificates")) {
         std::string o_default_certificate = opts.opt("default-certificate", "");
         std::string o_grpc_certificate = opts.opt("grpc-certificate", o_default_certificate);
         std::string o_rest_certificate = opts.opt("rest-certificate", o_default_certificate);
@@ -809,14 +810,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "VOLUME_COMMENT", "");
         }
     }
-    if(error_count == 0 && contains(targets, "makefile")) 
+    if(error_count == 0 && cot::contains(targets, "makefile")) 
         error_count += genc_makefile(orchestrator_makefile);
 
-    if(error_count == 0 && contains(targets, "dockerfile"))
+    if(error_count == 0 && cot::contains(targets, "dockerfile"))
         error_count += genc_dockerfile(orchestrator_name);
     
     //std::cerr << "----- before build image: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "build-image")) {
+    if(error_count == 0 && cot::contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
             << (orchestrator_no_rest? " REST=no": "") 
@@ -827,14 +828,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     //std::cerr << "----- before build bins: " << error_count << "\n";
-    if(error_count == 0 && (contains(targets, "build-server") || contains(targets, "build-client"))) {
+    if(error_count == 0 && (cot::contains(targets, "build-server") || cot::contains(targets, "build-client"))) {
         std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
             << (orchestrator_no_rest? " REST=no": "") 
             << " ";
-        if(contains(targets, "build-server") && contains(targets, "build-client")) 
+        if(cot::contains(targets, "build-server") && cot::contains(targets, "build-client")) 
             makec += "-j2 all";
-        else if(contains(targets, "build-server"))
+        else if(cot::contains(targets, "build-server"))
             makec += "server";
         else 
             makec += "client";
@@ -843,11 +844,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
         }
     }
-    if(error_count == 0 && contains(targets, "python-client")) 
+    if(error_count == 0 && cot::contains(targets, "python-client")) 
         error_count += genc_python_client(client_bin);
            
     //std::cerr << "----- before driver: " << error_count << "\n";
-    if(error_count == 0 && contains(targets, "driver")) {
+    if(error_count == 0 && cot::contains(targets, "driver")) {
         std::map<std::string, std::vector<std::string>> local_vars;
         std::ostringstream buff;
         error_count += genc_composer(buff, local_vars);
@@ -874,9 +875,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
         if(error_count == 0) chmodx(outputfn);
     }
-    if(error_count == 0 && contains(targets, "graph-files")) 
-        error_count += genc_graph(contains(targets, "svg-files"));
-    if(error_count == 0 && contains(targets, "www-files") && !orchestrator_no_rest) 
+    if(error_count == 0 && cot::contains(targets, "graph-files")) 
+        error_count += genc_graph(cot::contains(targets, "svg-files"));
+    if(error_count == 0 && cot::contains(targets, "www-files") && !orchestrator_no_rest) 
         error_count += genc_www();
     
     if(error_count != 0) 
@@ -1088,7 +1089,7 @@ int main(int argc, char *argv[]) {
     for(auto kt: all_targets) 
         if(opts.have(kt.first)) {
             targets.insert(kt.first);
-            use_tempdir = use_tempdir && contains(can_use_tempdir, kt.first);
+            use_tempdir = use_tempdir && cot::contains(can_use_tempdir, kt.first);
             targets.insert(kt.second.begin(), kt.second.end());
         }
     
@@ -1097,7 +1098,7 @@ int main(int argc, char *argv[]) {
         auto stargets = targets.size();
         std::set<std::string> tmp(targets.begin(), targets.end());
         for(auto const &t: tmp) {
-            if(contains(targets, t)) {
+            if(cot::contains(targets, t)) {
                 auto dt = all_targets.find(t);
                 if(dt != all_targets.end())
                     targets.insert(dt->second.begin(), dt->second.end());

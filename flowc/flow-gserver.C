@@ -9,6 +9,7 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
+#include "cot.H"
 #include "grpc-helpers.H"
 #include "vex.H"
 
@@ -552,7 +553,7 @@ static std::set<std::string> reserved_cc = {
 
 static std::string base_name(std::string const &name) {
     std::string n = to_lower(name);
-    if(contains(reserved_cc, n)) return n + "_";
+    if(cot::contains(reserved_cc, n)) return n + "_";
     return n;
 }
 
@@ -1426,7 +1427,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "MDP_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "MDP_IS_ENTRY", "1");
     }
-    for(auto mdp: all_mdps) if(!contains(entry_mdps, mdp)) {
+    for(auto mdp: all_mdps) if(!cot::contains(entry_mdps, mdp)) {
         std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), "", true, true);
         std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), decamelize(mdp->input_type()->name()), "", true, true);
         append(vars, "MDP_PROTO", gen_proto(mdp));
@@ -1527,9 +1528,9 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     set(vars, "CLI_NODE_COUNT", sfmt() << cli_count);
     set(vars, "NODE_COUNT", sfmt() << node_count);
     std::string no_node_name = "NOTANODE";
-    if(contains(all_nodes, no_node_name))
+    if(cot::contains(all_nodes, no_node_name))
         for(int i = 0; i < 10000; ++i) 
-            if(contains(all_nodes, no_node_name))
+            if(cot::contains(all_nodes, no_node_name))
                 no_node_name = sfmt() << "NOT_A_NODE_" << i;
     set(vars, "NO_NODE_NAME", no_node_name);
     return error_count;

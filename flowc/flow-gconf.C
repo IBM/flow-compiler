@@ -9,6 +9,7 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
+#include "cot.H"
 #include "vex.H"
 #include "grpc-helpers.H"
 
@@ -18,7 +19,7 @@ int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::stri
     int error_count = 0;
 
     for(int p = 0, v = find_in_blck(blck, name, &p); v != 0; v = find_in_blck(blck, name, &p)) {
-        if(accepted_types.size() > 0 && !contains(accepted_types, at(v).type)) {
+        if(accepted_types.size() > 0 && !cot::contains(accepted_types, at(v).type)) {
             ++error_count;
             std::set<std::string> accepted;
             std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name); 
