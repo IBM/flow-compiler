@@ -14,345 +14,10 @@
 #include "stru1.H"
 #include "grpc-helpers.H"
 #include "flow-ast.H"
-#include "flow-parser.c"
 #include "massert.H"
 
 using namespace stru1;
 
-static void get_enums(std::set<EnumValueDescriptor const *> &edset, Descriptor const *dd) {
-    for(int e = 0, ec = dd->enum_type_count(); e != ec; ++e) {
-        auto ed = dd->enum_type(e);
-        for(int ev = 0, evc = ed->value_count(); ev != evc; ++ev) {
-            auto evd = ed->value(ev);
-            edset.insert(evd);
-        }
-    }
-    for(int nd = 0, ndc = dd->nested_type_count(); nd != ndc; ++nd) 
-        get_enums(edset, dd->nested_type(nd));
-}
-static void get_enums(std::set<EnumValueDescriptor const *> &edset, FileDescriptor const *fid) {
-    // Get all enums at global scope
-    for(int e = 0, ec = fid->enum_type_count(); e != ec; ++e) {
-        auto ed = fid->enum_type(e);
-        for(int ev = 0, evc = ed->value_count(); ev != evc; ++ev) {
-            auto evd = ed->value(ev);
-            edset.insert(evd);
-        }
-    }
-    for(int d = 0, dc = fid->message_type_count(); d != dc; ++d) {
-        auto dd = fid->message_type(d);
-        get_enums(edset, dd);
-    }
-}
-int flow_compiler::compile_proto(std::string const &file) {
-    auto fdp = importer.Import(file);
-    if(fdp == nullptr) {
-        pcerr.AddError(file, -1, 0, "import failed");
-        return 1;
-    }
-    if(fdp->syntax() != FileDescriptor::Syntax::SYNTAX_PROTO3) {
-        pcerr.AddError(file, -1, 0, "syntax must be proto3");
-        return 1;
-    }
-    std::set<FileDescriptor const *> included(fdps.begin(), fdps.end());
-    if(contains(included, fdp)) return 0;
-    fdps.push_back(fdp);
-    included.insert(fdp);
-    get_enums(enum_value_set, fdp);
-    // Add the dependents to our set
-    for(int i = 0, e = fdp->dependency_count(); i != e; ++i) {
-        auto fdq = fdp->dependency(i);
-        if(!contains(included, fdq)) {
-            fdps.push_back(fdq);
-            included.insert(fdq);
-            get_enums(enum_value_set, fdq);
-        }
-    }
-    return 0;
-}
-/**
- * The method can be spcified as [package.][service.]method_name
- * The package is either the label defined with the package directive or the basename of the .proto file
- */
-MethodDescriptor const *flow_compiler::find_service_method(std::string const &method_name, std::set<std::string> *matches) const {
-    MethodDescriptor const *last_match = nullptr;
-    for(auto fdp: fdps) {
-        std::string package = get_package(fdp);
-        for(int sc = fdp->service_count(), s = 0; s < sc; ++s) {
-            auto sdp = fdp->service(s);
-            for(int mc = sdp->method_count(), m = 0; m < mc; ++m) {
-                auto mdp = sdp->method(m);
-                std::string full_name = mdp->service()->name() + "." + mdp->name();
-                if(method_name == mdp->name() || 
-                        method_name == full_name || 
-                        method_name == package + "." + mdp->name() || 
-                        method_name == package + "." + full_name) {
-
-                    if(matches != nullptr) matches->insert(package+"."+full_name);
-                    last_match = mdp;
-                }
-            }
-        }
-    }
-    return last_match;
-}
-/**
- * The message can be spcified as [package.]message_type
- * The package is either the label defined with the package directive or the basename of the .proto file
- */
-Descriptor const *flow_compiler::find_message(std::string const &dotted_name, std::set<std::string> *matches) const {
-    Descriptor const *last_match = nullptr;
-    for(auto fdp: fdps) {
-        std::string package = get_package(fdp);
-        for(int mc = fdp->message_type_count(), m = 0; m < mc; ++m) {
-            auto mdp = fdp->message_type(m);
-            if(dotted_name == mdp->name() || dotted_name == package + "." + mdp->name()) {
-                if(matches != nullptr) matches->insert(package+"."+mdp->name());
-                last_match = mdp;
-            }
-        }
-    }
-    return last_match;
-}
-/**
- * Return formatted list of all messages for message display purposes
- */
-std::string flow_compiler::format_message_names(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const {
-    std::set<std::string> l_names;
-    for(auto fdp: fdps) 
-        for(int mc = fdp->message_type_count(), m = 0; m < mc; ++m) {
-             auto mdp = fdp->message_type(m);
-             l_names.insert(mdp->full_name());
-        }
-
-    return join(l_names, sep, last, begin, prefix, suffix);
-}
-/**
- * Return formatted list of all methods for message display purposes
- */
-std::string flow_compiler::format_full_name_methods(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const {
-    std::set<std::string> l_names;
-    for(auto fdp: fdps) 
-        for(int sc = fdp->service_count(), s = 0; s < sc; ++s) {
-            auto sdp = fdp->service(s);
-            for(int mc = sdp->method_count(), m = 0; m < mc; ++m) {
-                auto mdp = sdp->method(m);
-                l_names.insert(mdp->service()->name() + "." + mdp->name());
-            }
-
-        }
-    return join(l_names, sep, last, begin, prefix, suffix);
-}
-/**
- * Preserve all comments that have @text referneces in them
- */
-void flow_compiler::add_comments(std::string const &comment, int token) {
-    auto atp = comment.find_first_of("@");
-    if(atp != std::string::npos) {
-        auto eid = atp+1;
-        for(; eid < comment.length(); ++eid) 
-            if(comment[eid] != '_' && !isalnum(comment[eid]))
-                break;
-        if(eid != comment.length()) {
-            std::string text = strip(comment.substr(eid), " \t\r\b\v\f\n");
-            if(!text.empty())
-                comments[comment.substr(atp+1, eid-atp-1)].push_back(text);
-        }
-    }
-    std::string text = strip(comment, " \t\r\b\v\f\n");
-    if(token > 0 && !text.empty() && isalnum(text[0])) {
-        token_comment.push_back(std::make_pair(token, text));
-    }
-}
-static std::map<std::string, int> keywords = {
-    { "input", FTK_INPUT },
-    { "output", FTK_OUTPUT },
-    { "node", FTK_NODE },
-    { "container", FTK_CONTAINER },
-    { "entry", FTK_ENTRY },
-    { "return", FTK_RETURN },
-    { "headers", FTK_HEADERS },
-    { "environment", FTK_ENVIRONMENT },
-    { "mount", FTK_MOUNT }
-};
-int flow_compiler::parse() {
-    io::ZeroCopyInputStream *zi = source_tree.Open(main_file);
-    if(zi == nullptr) {
-        pcerr.AddError(main_file, -1, 0, "can't read file");
-        return 1;
-    }
-    int error_count = 0;
-    ErrorPrinter ep(pcerr, main_file);
-    io::Tokenizer tokenizer(zi, &ep);
-    yyParser *fpp = (yyParser *) flow_parserAlloc(malloc);
-    if(trace_on)
-        flow_parserTrace(stderr, (char *) "flow: ");
-    flow_token ftok;
-    ftok.type = 0; // In case tokenizer fails
-
-    std::string prev_trailing;
-    std::vector<std::string> detached;
-    std::string next_leading;
-    bool get_previous = false;
-    bool keep_parsing = true;
-
-    while(get_previous || keep_parsing) {
-        if(!get_previous) keep_parsing = tokenizer.NextWithComments(&prev_trailing, &detached, &next_leading);
-        auto const &token = tokenizer.current();
-        get_previous = false;
-        ftok.line = token.line;
-        ftok.column = token.column;
-        ftok.end_column = token.end_column;
-        switch(token.type) {
-            case io::Tokenizer::TokenType::TYPE_START:
-                ftok.type = 0;
-                ++error_count;
-                pcerr.AddError(main_file, ftok, "tokenizer internal error");
-                break;
-            case io::Tokenizer::TokenType::TYPE_END:
-                ftok.type = 0;
-                break;
-            case io::Tokenizer::TokenType::TYPE_IDENTIFIER:
-                ftok.type = FTK_ID;
-                ftok.text = token.text;
-                break;
-            case io::Tokenizer::TokenType::TYPE_INTEGER:
-                ftok.type = FTK_INTEGER;
-                ftok.text = token.text;
-                if(!io::Tokenizer::ParseInteger(token.text, UINT64_MAX, (uint64_t *) &ftok.integer_value)) {
-                    // Integer overflow
-                    ++error_count;
-                    pcerr.AddError(main_file, ftok, "integer value overflow");
-                }
-                break;
-            case io::Tokenizer::TokenType::TYPE_FLOAT:
-                ftok.type = FTK_FLOAT;
-                ftok.text = token.text;
-                ftok.float_value = io::Tokenizer::ParseFloat(token.text);
-                break;
-            case io::Tokenizer::TokenType::TYPE_STRING:
-                ftok.type = FTK_STRING;
-                ftok.text.clear();
-                io::Tokenizer::ParseString(token.text, &ftok.text);
-                break;
-            case io::Tokenizer::TokenType::TYPE_SYMBOL:
-                ftok.type = FTK_SYMBOL;
-                ftok.text = token.text;
-                if(token.text.length() == 1) {
-                    bool look_ahead = false;
-                    switch(token.text[0]) {
-                        case ';': ftok.type = FTK_SEMICOLON;  break;
-                        case ',': ftok.type = FTK_COMMA; break;
-                        case '.': ftok.type = FTK_DOT; break;
-                        case ':': ftok.type = FTK_COLON; break;
-                        case '#': ftok.type = FTK_HASH; break;
-                        case '@': ftok.type = FTK_AT; break;
-                        case '$': ftok.type = FTK_DOLLAR; break;
-                        case '%': ftok.type = FTK_PERCENT; break;
-                        case '?': ftok.type = FTK_QUESTION; break;
-                        case '{': ftok.type = FTK_OPENBRA; break;
-                        case '}': ftok.type = FTK_CLOSEBRA; break;
-                        case '(': ftok.type = FTK_OPENPAR; break;
-                        case ')': ftok.type = FTK_CLOSEPAR; break;
-                        case '[': ftok.type = FTK_OPENSQB; break;
-                        case ']': ftok.type = FTK_CLOSESQB; break;
-
-                        case '^': ftok.type = FTK_CARET; break;
-                        case '~': ftok.type = FTK_TILDA; break;
-                        case '-': ftok.type = FTK_MINUS; break;
-                        case '+': ftok.type = FTK_PLUS; break;
-                        case '*': ftok.type = FTK_STAR; break;
-                        case '/': ftok.type = FTK_SLASH; break;
-                                  
-                        case '=': ftok.type = FTK_EQUALS; look_ahead = true; break;
-                        case '>': ftok.type = FTK_GT; look_ahead = true;  break;
-                        case '<': ftok.type = FTK_LT; look_ahead = true; break;
-                        case '&': ftok.type = FTK_AMP; look_ahead = true; break;
-                        case '|': ftok.type = FTK_BAR; look_ahead = true; break;
-                        case '!': ftok.type = FTK_BANG; look_ahead = true; break;
-                        default: break;
-                    }
-                    
-                    while(look_ahead) {
-                        look_ahead = false;
-                        keep_parsing = tokenizer.NextWithComments(&prev_trailing, &detached, &next_leading);
-                        if(keep_parsing) {
-                            get_previous = true;
-                            auto const &next = tokenizer.current();
-                            if(next.type == io::Tokenizer::TokenType::TYPE_SYMBOL && next.text.length() == 1) switch(next.text[0]) {
-                                case '=': 
-                                    get_previous = false;
-                                    switch(ftok.type) {
-                                        case FTK_EQUALS: ftok.type = FTK_EQ; break;
-                                        case FTK_BANG: ftok.type = FTK_NE; break;
-                                        case FTK_LT: ftok.type = FTK_LE;  break;
-                                        case FTK_GT: ftok.type = FTK_GE; break;
-                                        default: get_previous = true; break;
-                                    }
-                                    break;
-                                case '&':
-                                    if(ftok.type == FTK_AMP) { ftok.type = FTK_AND; get_previous = false; }
-                                    break;
-                                case '|': 
-                                    if(ftok.type == FTK_BAR) { ftok.type = FTK_OR; get_previous = false; }
-                                    break;
-                                case '>': 
-                                    get_previous = false;
-                                    switch(ftok.type) {
-                                        case FTK_GT: ftok.type = FTK_SHR; break;
-                                        case FTK_LE: ftok.type = FTK_COMP; break;
-                                        default: get_previous = true; break;
-                                    }
-                                    break;
-                                case '<': 
-                                    get_previous = false;
-                                    switch(ftok.type) {
-                                        case FTK_LT: ftok.type = FTK_SHL; break;
-                                        default: get_previous = true; break;
-                                    }
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
-                    }
-                }
-                break;
-            default:
-                ftok.type = 0;
-                ++error_count;
-                pcerr.AddError(main_file, ftok, "unknown token type");
-        }
-        if(error_count > 0) 
-            break;
-        int ntok = mk_node(ftok);
-        std::string clean_prev_trailing = strip(prev_trailing);
-        std::string clean_next_leading = strip(next_leading); 
-        if(!clean_prev_trailing.empty() || !clean_next_leading.empty()) {
-            std::string join;
-            if(!clean_prev_trailing.empty() && !clean_next_leading.empty()) join = "\n";
-            description.put(ntok, clean_prev_trailing + join + clean_next_leading);
-        }
-
-        add_comments(prev_trailing, ntok);
-        for(auto const &s: detached) add_comments(s, ntok);
-        add_comments(next_leading, ntok);
-        flow_parser(fpp, ftok.type, ntok, this);
-        auto top = store.back().type;
-        if(top  == FTK_ACCEPT) 
-            break;
-        if(top == FTK_SYNTAX_ERROR) {
-            pcerr.AddError(main_file, ftok, "syntax error");
-            ++error_count;
-            break;
-        }
-    }
-    if(error_count == 0 && ftok.type != 0) 
-        flow_parser(fpp, 0, -1, this);
-
-    flow_parserFree(fpp, free);
-    return error_count;
-}
 int flow_compiler::compile_string(std::string &str, int node, int node_type) {
     auto const &s = at(node);
     str = s.token.text;
@@ -361,19 +26,6 @@ int flow_compiler::compile_string(std::string &str, int node, int node_type) {
 int flow_compiler::compile_id(std::string &str, int id_node) {
     return compile_string(str, id_node, FTK_ID);
 }
-int flow_compiler::compile_method(std::string &method, int mthd_node, int max_components) {
-    auto const &mthd = at(mthd_node);
-    bool error = mthd.type != FTK_dtid || mthd.children.size() == 0 || max_components > 0 && mthd.children.size() > max_components;
-    if(error) return 1;
-    for(int c: mthd.children) {
-        auto const &id = at(c);
-        assert(id.type == FTK_ID);          // syntax checked 
-        if(!method.empty()) method += '.';
-        method += id.token.text;
-    }
-    return 0;
-}
-
 static const std::map<int, int> operator_precedence = {
     {FTK_ID, 0},
     {FTK_fldx, 0},
@@ -502,7 +154,7 @@ int flow_compiler::compile_fldr(int fldr_node) {
         return 0;
     int error_count = 0;
     auto const &fldr = at(fldr_node);
-    DEBUG_CHECK("at FLDR node " << fldr_node << " of type " << fldr.type);
+    //DEBUG_CHECK("at FLDR node " << fldr_node << " of type " << fldr.type);
 
     assert(fldr.type == FTK_fldr);
     assert(fldr.children.size() > 0);
@@ -725,7 +377,6 @@ int flow_compiler::update_dimensions(int node) {
         return 0;
     int error_count = 0;
     auto const &children = at(node).children;
-    DEBUG_CHECK(" for node " << node << ", chc: " << children.size());
 
     switch(at(node).type) {
         case FTK_fldx: {
@@ -783,10 +434,8 @@ int flow_compiler::update_dimensions(int node) {
             }
             break;
         case FTK_OUTPUT: 
-            dimension.put(node, dimension(children[1]));
-            break;
         case FTK_RETURN: 
-            dimension.put(node, dimension(children[0]));
+            dimension.put(node, dimension(children.back()));
             break;
         case FTK_fldr:
             switch(at(children[0]).type) {
@@ -824,6 +473,7 @@ int flow_compiler::update_dimensions(int node) {
         default: 
             break;
     }
+    //DEBUG_CHECK(" for node " << node << "/" << children.size() << " " << node_name(at(node).type) << ": " << dimension(node));
     return error_count;
 }
 int flow_compiler::compile_fldx(int node) {
@@ -869,29 +519,6 @@ int flow_compiler::compile_fldx(int node) {
     }
     return error_count;
 }
-/*
- * 2nd pass, this should be called after all nodes are compiled 
- * Reslove attributes for rexp and oexp single node references
- */
-/*
-int flow_compiler::compile_exp_id(int node) {
-    int error_count = 0;
-    switch(at(node).type) {
-        case FTK_OUTPUT:
-            if(at(node).children.size() == 2 && atc(node, 1).type == FTK_ID)
-                error_count += compile_node_ref(at(node).children[1]);
-            break;
-        case FTK_RETURN:
-            if(at(node).children.size() == 1 && atc(node, 0).type == FTK_ID)
-                error_count += compile_node_ref(at(node).children[0]);
-            break;
-        default:
-            for(auto c: at(node).children)
-                error_count += compile_exp_id(c);
-    }
-    return error_count;
-}
-*/
 /*
  * Reslove enum references
  */
@@ -963,7 +590,7 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
                 error_count += compile_block(value_node);
                 break;
             case FTK_STRING:
-                if(elem_id == "error" && contains(output_nvn, elem_id)) {
+                if(elem_id == "error" && cot::contains(output_nvn, elem_id)) {
                     if(exp_node != nullptr) {
                         *exp_node = value_node;
                         type.put(*exp_node, elem_id);
@@ -988,7 +615,7 @@ int flow_compiler::compile_block(int blck_node, std::set<std::string> const &out
             case FTK_OUTPUT:
             case FTK_RETURN:
                 // keep count of how many return/output definitions we have seen so far in exp_node_count
-                if(exp_node_count == 0 && exp_node != nullptr && contains(output_nvn, elem_id)) {
+                if(exp_node_count == 0 && exp_node != nullptr && cot::contains(output_nvn, elem_id)) {
                     *exp_node = elem.children[1]; ++exp_node_count;
                     type.put(*exp_node, elem_id);
                     // Store, but defer compilation of output/return expression until all the blocks are compiled
@@ -1171,19 +798,19 @@ int flow_compiler::build_flow_graph(int blk_node) {
     // process each node in the buffer until the buffer is empty
     for(std::vector<int> todo(&blk_node, &blk_node+1); todo.size() > 0;) {
         int cur_node = todo.back(); todo.pop_back();
-        if(contains(used_nodes, cur_node))
+        if(cot::contains(used_nodes, cur_node))
             continue;
         // add the current node...
         used_nodes.insert(cur_node);
         // stack all the aliases unless already processed
         if(cur_node) for(auto n: get_all_nodes(cur_node)) {
-            if(!contains(used_nodes, n)) 
+            if(!cot::contains(used_nodes, n)) 
                 todo.push_back(n);
         }
         // also push all the nodes referenced by the current node in the stack
         std::map<int, std::set<std::string>> noset;
         for(int n: get_referenced_node_types(cur_node))
-            if(at(n).type != FTK_ENTRY && !contains(used_nodes, n))
+            if(at(n).type != FTK_ENTRY && !cot::contains(used_nodes, n))
                 todo.push_back(n);
     }
 
@@ -1230,10 +857,10 @@ int flow_compiler::build_flow_graph(int blk_node) {
         graph.push_back(std::set<int>());
 
         for(unsigned x = 0; x != mx; ++x) 
-            if(!contains(solved, xton[x])) {
+            if(!cot::contains(solved, xton[x])) {
                 bool s = true;
                 for(unsigned y = 0; y != mx; ++y) 
-                    if(adjmat[x][y] && !contains(solved, xton[y])) {
+                    if(adjmat[x][y] && !cot::contains(solved, xton[y])) {
                         s = false;
                         break;
                     }
@@ -1242,7 +869,7 @@ int flow_compiler::build_flow_graph(int blk_node) {
         if(graph.back().size() == 0) 
             break;
 
-        if(contains(graph.back(), blk_node)) {
+        if(cot::contains(graph.back(), blk_node)) {
             solved.insert(blk_node);
             graph.pop_back();
             // Successfully finised
@@ -1251,7 +878,7 @@ int flow_compiler::build_flow_graph(int blk_node) {
         for(auto n: graph.back()) 
             solved.insert(n);
     }
-    if(!contains(solved, blk_node)) {
+    if(!cot::contains(solved, blk_node)) {
         auto a1 = adjmat;
         std::set<int> circular;
         for(unsigned i = 0; i + 3 < node_count; ++i) {
@@ -1264,7 +891,7 @@ int flow_compiler::build_flow_graph(int blk_node) {
             std::cerr << "----------------------------------------\n";
 #endif
             for(unsigned x = 0; x < node_count; ++x) 
-                if(adjmat[x][x] && !contains(circular, xton[x])) {
+                if(adjmat[x][x] && !cot::contains(circular, xton[x])) {
                     circular.insert(xton[x]);
                     if(i == 0) 
                         pcerr.AddError(main_file, at(xton[x]), sfmt() << "node \"" << type(xton[x]) << "\" references itself");
@@ -2029,7 +1656,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         int stage_dim = 0; 
         int stage_dim2 = 0;
         // BSTG marks the beginning of an execution stage. 
-        // The stage set contains all the nodes to be processed in this stage in the order 
+        // The stage set cot::contains all the nodes to be processed in this stage in the order 
         // they were declared in the source file.
         // At this point all the inputs needed by this node set are known and calls to nodes
         // in the same stage can be made in parallel.
@@ -2091,7 +1718,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             // Add all the conditions for the nodes with the same name that haven't been compiled yet 
             // but appear before in source order
             for(auto n: get_all_nodes(node)) {
-                if(!contains(node_ip, n)) {
+                if(!cot::contains(node_ip, n)) {
                     int cn = get_ne_condition(n);
                     if(cn != 0) {
                         error_count += encode_expression(cn, FTK_INTEGER, 0);
@@ -2127,14 +1754,14 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             stage_dim = std::max(stage_dim, dimension(node));
 
             // set the foak arg
-            if(!contains(foak, type(node))) {
+            if(!cot::contains(foak, type(node))) {
                 foak.insert(type(node));
                 icode[node_idx].arg.push_back(node);
             } else {
                 icode[node_idx].arg.push_back(0);
             }
             // set the foak with output arg
-            if(output_type != nullptr &&  !contains(foak_wo, type(node))) {
+            if(output_type != nullptr &&  !cot::contains(foak_wo, type(node))) {
                 foak_wo.insert(type(node));
                 icode[node_idx].arg.push_back(node);
             } else {
@@ -2189,7 +1816,7 @@ int flow_compiler::fixup_node_ids() {
     // make a first pass to make sure ids don't clash and arenot redefined
     for(int n: *this) if(at(n).type == FTK_NODE) {
         ++node_count;
-        if(contains(node_counts, type(n)))
+        if(cot::contains(node_counts, type(n)))
             node_counts[type(n)] += 1;
         else
             node_counts[type(n)] = 1;
@@ -2215,7 +1842,7 @@ int flow_compiler::fixup_node_ids() {
         if(!have_id)
             continue;
 
-        if(contains(node_xnames, name(n))) {
+        if(cot::contains(node_xnames, name(n))) {
             ++error_count;
             pcerr.AddError(main_file, at(n), sfmt() << "illegal reuse of id for node \"" << type(n) << "\"");
             pcerr.AddNote(main_file, at(node_xnames[name(n)]), "first defined here");
@@ -2227,7 +1854,7 @@ int flow_compiler::fixup_node_ids() {
     for(int n: *this) if(at(n).type == FTK_NODE && name(n) == type(n) && node_counts[type(n)] > 1) {
         for(int i = 1; i <= node_count; ++i) {
             std::string nid = sfmt() << type(n) << "." << i;
-            if(!contains(node_xnames, nid)) {
+            if(!cot::contains(node_xnames, nid)) {
                 name.update(n, nid);
                 node_xnames[nid] = n;
                 break;
@@ -2315,7 +1942,7 @@ int flow_compiler::fixup_proto_refs() {
     Descriptor const *input_dp = nullptr;
     int first_entry = 0;
     for(int n: *this) if(at(n).type == FTK_ENTRY) {
-        if(contains(mds, method_descriptor(n))) {
+        if(cot::contains(mds, method_descriptor(n))) {
             ++error_count;
             pcerr.AddError(main_file, at(n), sfmt() << "redefinition of rpc method is not allowed (\"" << method_descriptor(n) << "\")");
             pcerr.AddNote(main_file, at(mds[method_descriptor(n)]), sfmt() << "first declared here");
@@ -2334,7 +1961,7 @@ int flow_compiler::fixup_proto_refs() {
         }
         // check that any declared return type agrees with the method's
         int rn =  find_first(n, [this](int x) -> bool {
-            return contains(std::set<int>({FTK_OUTPUT, FTK_RETURN}), at(x).type);
+            return cot::contains(std::set<int>({FTK_OUTPUT, FTK_RETURN}), at(x).type);
         });
         if(rn == 0) {
             ++error_count;
@@ -2353,7 +1980,7 @@ int flow_compiler::fixup_proto_refs() {
 
     std::map<std::string, int> nodefams;
     // propagate the output types from the nodes with declared output to the ones without
-    for(int n: *this) if(at(n).type == FTK_NODE && message_descriptor(n) != nullptr && !contains(nodefams, type(n))) {
+    for(int n: *this) if(at(n).type == FTK_NODE && message_descriptor(n) != nullptr && !cot::contains(nodefams, type(n))) {
         // n is the first node with a method in its family
         std::string namen = type(n);
         nodefams[namen] = n;
@@ -2412,6 +2039,7 @@ int flow_compiler::compile_expressions(int node) {
         default:
             break;
     }
+    std::set<int> visited; std::vector<int> queue;
     // update ref-counts
     for(int n: *this) {
         int acn;
@@ -2426,13 +2054,27 @@ int flow_compiler::compile_expressions(int node) {
                 acn = 0;
                 break;
         }
-        if(acn != 0) for(int n: subtree(acn)) if(at(n).type == FTK_fldx) {
+        if(acn != 0)
+            queue.push_back(acn); 
+    }
+    while(queue.size() > 0) {
+        int acn = queue.back(); queue.pop_back();
+        if(cot::contains(visited, acn))
+            continue;
+        visited.insert(acn);
+        for(int n: subtree(acn)) if(at(n).type == FTK_fldx) {
             std::string label = get_id(at(n).children[0]);
-            if(label == input_label) 
+            if(label == input_label) {
                 refcount.update(0, refcount(0)+1);
-            else 
-                for(int r: get_all_nodes(label))
+            } else {
+                for(int r: get_all_nodes(label)) {
                     refcount.update(r, refcount(r)+1);
+                    int a = get_ne_action(r);
+                    if(a != 0) queue.push_back(a);
+                    int c = get_ne_condition(r);
+                    if(a != 0) queue.push_back(c);
+                }
+            }
         }
     }
     return error_count;
@@ -2512,7 +2154,7 @@ static std::pair<std::string, std::string> make_labels(std::set<std::string> con
     if(d != nullptr) {
         std::vector<std::string> all_fieldsv = get_field_names(d, ".");
         std::set<std::string> all_fields(all_fieldsv.begin(), all_fieldsv.end()); 
-        if(includes(fields, all_fields)) 
+        if(cot::includes(fields, all_fields)) 
             return std::make_pair(std::string(), ftip);
     }
     return std::make_pair(join(fields, ",\\n"), ftip);

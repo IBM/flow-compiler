@@ -12,6 +12,7 @@
 #include "massert.H"
 #include "ast-attrs.H"
 #include "stru1.H"
+#include "cot.H"
 
 // AST node types used
 enum {
@@ -424,7 +425,7 @@ struct flow_ast {
         syntax_errors.push_back(std::make_pair(node, message));
     }
     void expect(int node, std::set<int> const &types, std::string const &errm) {
-        if(!stru1::contains(types, at(node).type)) 
+        if(!cot::contains(types, at(node).type)) 
             error(node, errm);
     }
     void expect(int node, int type, std::string const &errm) {
@@ -489,7 +490,7 @@ struct flow_ast {
         return 0;
     }
     /** 
-     * Return all nodes in eval order (all nodes with condition in source order followed by the node without
+     * Return all nodes in eval order: all nodes with condition in source order followed by the node without
      */
     std::vector<int> get_all_nodes(std::string const &namen) const {
         int noc_node = -1;
@@ -515,12 +516,24 @@ struct flow_ast {
             }
         return rns;
     }
+    /**
+     * Returns the set of node references in the current subtree.
+     * Only one node is returned for each node type.
+     * If <nn> is a node, references are returned for all conditions of the nodes that
+     * need to be evaluated before.
+     */
     std::set<int> get_referenced_node_types(int nn) const {
         std::set<int> rns;
         if(nn != 0) for(int n: subtree(nn)) {
             if(at(n).type == FTK_fldx)
                 rns.insert(get_first_node(get_id(at(n).children[0])));
         }
+        if(at(nn).type == FTK_NODE) 
+            for(int pn: get_all_nodes(nn)) {
+                if(pn == nn) break;
+                auto ns = get_referenced_node_types(get_ne_condition(pn));
+                rns.insert(ns.begin(), ns.end());
+            }
         return rns;
     }
     std::set<int> get_action_referenced_node_types(int nn) const {
