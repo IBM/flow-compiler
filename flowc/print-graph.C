@@ -33,7 +33,8 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
     if(fgp == flow_graph.end()) return;
 
     std::string ename(stru1::c_escape(std::string("<")+method_descriptor(entry)->name()+">"));
-    std::map<int, std::set<std::string>> incoming;
+    std::set<std::pair<int, int>> incoming;
+    std::map<std::string, std::set<std::string>> edges;
 
     out << "digraph " << stru1::c_escape(method_descriptor(entry)->full_name()) << " {\n";
     out << "{ node [shape=invtriangle]; \"" << input_label << "\"; node [shape=plaintext];\n";
@@ -45,58 +46,59 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
     out << "}\n";
     out << "{ rank = same; \"" << input_label << "\"; \"[i]\"; };\n";
     out << "node [shape=ellipse];\n";
-    int s = 0;
+    int s = 0, order = 0;
     for(auto const &n: fgp->second) {
         ++s;
         if(n.size()  > 0) {
             out << "{ rank = same;\n";
-            /*
-            for(auto nn: n) {
-                auto const &inf = referenced_nodes.find(nn)->second;
-                if(condition.has(nn))
-                    out << c_escape(inf.xname) << "[label=<" << name(nn) << "<sup><font point-size=\"7\">" << inf.order << "</font></sup><br/><font point-size=\"7\" face=\"Courier\">" << html_escape(to_text(condition(nn))) << "</font>>]; ";
+            for(int nn: n) {
+                ++order;
+                int cono = get_ne_condition(nn);
+                if(cono != 0)
+                    out << stru1::c_escape(name(nn)) << "[label=<" << name(nn) << "<sup><font point-size=\"7\">" << order << "</font></sup><br/><font point-size=\"7\" face=\"Courier\">" << stru1::html_escape(to_text(cono)) << "</font>>]; ";
                 else
-                    out << c_escape(inf.xname) << "[label=<" << name(nn) << ">]; ";
+                    out << stru1::c_escape(name(nn)) << "[label=<" << name(nn) << ">]; ";
             }
-            */
             out << s << ";\n};\n";
         }
+
+        //int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const 
+        
         for(auto nn: n) {
             std::string dot_node(stru1::c_escape(name(nn)));
             // Get all incoming edges
-            incoming.clear();
-            /*
-            for(auto i: get_referenced_nodes_action(incoming, nn))
-                if(i.first == 0) {
-                    out << input_label << " -> " << dot_node << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
-                } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
-                    std::string dot_i(c_escape(j.second.xname)); 
-                    out << dot_i << " -> " << dot_node << " [fontsize=9,style=bold,label=\"" << make_label(i.second, message_descriptor(i.first)) << "\"];\n";
-                }
+            incoming.clear(); edges.clear();
+            if(get_ne_action(nn) != 0) 
+                get_field_refs(incoming, get_ne_action(nn), 0);
+            for(auto i: incoming)
+                edges[get_dotted_id(i.first, 0, 1)].insert(get_dotted_id(i.first, 1));
+            for(auto e: edges) {
+                std::string dot_i = stru1::join(e.second, ",\\n");
+                out << e.first << " -> " << dot_node << " [fontsize=9,style=bold"<<(e.first == input_label?",color=forestgreen":"")<< ",label=\"" << dot_i << "\"];\n";
+            }
             
-            incoming.clear();
-            for(auto i: get_node_condition_refs(incoming, nn)) 
-                if(i.first == 0) {
-                    out << input_label << " -> " << dot_node << " [fontsize=9,style=dashed,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
-                } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
-                    std::string dot_i(c_escape(j.second.xname)); 
-                    out << dot_i << " -> " << dot_node << " [fontsize=9,style=dashed,label=\"" << make_label(i.second, message_descriptor(i.first)) << "\"];\n";
-                }
-                */
+            incoming.clear(); edges.clear();
+            if(get_ne_condition(nn) != 0) 
+                get_field_refs(incoming, get_ne_condition(nn), 0);
+            for(auto i: incoming)
+                edges[get_dotted_id(i.first, 0, 1)].insert(get_dotted_id(i.first, 1));
+            for(auto e: edges) {
+                std::string dot_i = stru1::join(e.second, ",\\n");
+                out << e.first << " -> " << dot_node << " [fontsize=9,style=dashed"<<(e.first == input_label?",color=forestgreen":"")<< ",label=\"" << dot_i << "\"];\n";
+            }
         }
     }
     out << "node [shape=invtriangle];\n";
     out << "{ rank = same; " << ename << "[label=" << stru1::c_escape(method_descriptor(entry)->name()) << "]; \"[o]\"; };\n";
-    incoming.clear();
-    /*
-    for(auto i: get_node_body_refs(incoming, entry)) 
-        if(i.first == 0) {
-            out << input_label << " -> " << ename << " [fontsize=9,style=bold,color=forestgreen,label=\"" << make_label(i.second, input_dp) << "\"];\n";
-        } else for(auto j: referenced_nodes) if(name(i.first) == name(j.first)) {
-            std::string dot_i(c_escape(j.second.xname)); 
-            out << dot_i << " -> " << ename << " [fontsize=9,style=bold,color=dodgerblue2,label=\"" << make_label(i.second, message_descriptor(i.first)) << "\"];\n";
-        }
-        */
+    incoming.clear(); edges.clear();
+    get_field_refs(incoming, get_ne_action(entry), 0); 
+    for(auto i: incoming)
+        edges[get_dotted_id(i.first, 0, 1)].insert(get_dotted_id(i.first, 1));
+    for(auto e: edges) {
+        std::string dot_i = stru1::join(e.second, ",\\n");
+        out << e.first << " -> " << ename << " [fontsize=9,style=bold"<<(e.first == input_label?",color=forestgreen":",color=dodgerblue2")<< ",label=\"" << dot_i << "\"];\n";
+    }
+        
     out << "}\n";
 }
 
