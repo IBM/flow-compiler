@@ -48,3 +48,12 @@ int flow_compiler::genc_client_source(std::string const &client_src) {
     DEBUG_LEAVE;
     return error_count;
 }
+int flow_compiler::genc_python_client(std::string const &client_fn) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    OFSTREAM_SE(outf, client_fn);
+    extern char const *template_client_py;
+    vex::expand(outf, template_client_py, vex::make_smap(global_vars));
+    DEBUG_LEAVE;
+    return error_count;
+}

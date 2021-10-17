@@ -97,3 +97,27 @@ int flow_compiler::get_block_i(int &value, int blck, std::string const &name, in
         value = def;
     return r;
 }
+int flow_compiler::get_blck_timeout(int blck, int default_timeout) {
+    int timeout_value = 0;
+    get_block_value(timeout_value, blck, "timeout", false, {});
+    if(timeout_value == 0) return default_timeout;
+    int timeout = 0;
+    switch(at(timeout_value).type) {
+        case FTK_FLOAT:
+            timeout = int(get_float(timeout_value)*1000);
+            break;
+        case FTK_INTEGER:
+            timeout = get_integer(timeout_value)*1000;
+            break;
+        case FTK_STRING:
+            timeout = stru1::get_time_value(get_string(timeout_value));
+            break;
+        default:
+            break;
+    }
+    if(timeout <= 0) {
+        pcerr.AddWarning(main_file, at(timeout_value), stru1::sfmt() << "ignoring invalid value for \"timeout\", using the default of \""<<default_timeout<<"ms\"");
+        return default_timeout;
+    }
+    return timeout;
+}

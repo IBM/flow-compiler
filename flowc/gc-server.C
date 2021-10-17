@@ -1295,30 +1295,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     }
     return 0;
 }
-int flow_compiler::get_blck_timeout(int blck, int default_timeout) {
-    int timeout_value = 0;
-    get_block_value(timeout_value, blck, "timeout", false, {});
-    if(timeout_value == 0) return default_timeout;
-    int timeout = 0;
-    switch(at(timeout_value).type) {
-        case FTK_FLOAT:
-            timeout = int(get_float(timeout_value)*1000);
-            break;
-        case FTK_INTEGER:
-            timeout = get_integer(timeout_value)*1000;
-            break;
-        case FTK_STRING:
-            timeout = get_time_value(get_string(timeout_value));
-            break;
-        default:
-            break;
-    }
-    if(timeout <= 0) {
-        pcerr.AddWarning(main_file, at(timeout_value), sfmt() << "ignoring invalid value for \"timeout\", using the default of \""<<default_timeout<<"ms\"");
-        return default_timeout;
-    }
-    return timeout;
-}
 int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     int error_count = 0;
     std::set<int> entry_node_set;

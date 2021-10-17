@@ -727,7 +727,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "REST_CERTIFICATE", rest_certificate);
         }
     }
-    // Add volume information
+    // Add volume information FIXME
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
 
@@ -780,7 +780,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     if(error_count == 0 && cot::contains(targets, "python-client")) 
-        error_count += genc_python_client(client_bin);
+        error_count += genc_python_client(output_filename(client_bin + ".py"));
            
     //std::cerr << "----- before driver: " << error_count << "\n";
     if(error_count == 0 && cot::contains(targets, "driver")) {
@@ -818,16 +818,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count != 0) 
         pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
    
-    DEBUG_LEAVE;
-    return error_count;
-}
-int flow_compiler::genc_python_client(std::string const &client_bin) {
-    int error_count = 0;
-    DEBUG_ENTER;
-    std::string fn = output_filename(client_bin + ".py");
-    OFSTREAM_SE(outf, fn);
-    extern char const *template_client_py;
-    vex::expand(outf, template_client_py, vex::make_smap(global_vars));
     DEBUG_LEAVE;
     return error_count;
 }
