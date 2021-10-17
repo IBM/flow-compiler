@@ -1660,13 +1660,11 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             auto output_type = message_descriptor(node);
             auto input_type = input_descriptor(node);
 
-            std::string rs_name = cs_name("RS", node);
+            std::string rs_name = cs_name_s("RS", type(node));
             std::string rq_name = cs_name("RQ", node);
 
             int node_idx = icode.size();
             node_ip[node] = node_idx;
-
-            DEBUG_CHECK("rs_name: '" << rs_name << "', rq_name: '" << rq_name);
 
             icode.push_back(fop(BNOD, rs_name, rq_name, output_type, input_type));
             icode.back().arg.push_back(dimension(node));

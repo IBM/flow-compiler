@@ -1200,10 +1200,10 @@ namespace flowinfo {
 std::map<std::string, char const *> schema_map = {
 {I:CLI_NODE_NAME{    
 #if !defined(NO_REST) || !(NO_REST)    
-    { "/-node-output/{{CLI_NODE_NAME}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
-    { "/-node-input/{{CLI_NODE_NAME}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
+    { "/-node-output/{{CLI_NODE_NAME/option}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
+    { "/-node-input/{{CLI_NODE_NAME/option}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
 #endif
-    { "/-node-proto/{{CLI_NODE_NAME}}", {{CLI_PROTO/c}} }, 
+    { "/-node-proto/{{CLI_NODE_NAME/option}}", {{CLI_PROTO/c}} }, 
 }I}
 {I:ENTRY_NAME{    
 #if !defined(NO_REST) || !(NO_REST)    
@@ -1320,10 +1320,10 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
                "},"
         }I}
         {I:CLI_NODE_NAME{
-          <<   "\"/-node/{{CLI_NODE_NAME}}\": {"
+          <<   "\"/-node/{{CLI_NODE_NAME/id/option}}\": {"
                "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
-               "\"input-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "," 
-               "\"output-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "" 
+               "\"input-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << "," 
+               "\"output-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME/id/option}}")->second << "" 
                "},"
         }I}
         "\"/-info\": {}"
@@ -1619,7 +1619,7 @@ static int NC_{{CLI_NODE_NAME/id}}(flowc::call_info const &cif, struct mg_connec
     return cif.return_protobuf? rest::protobuf_reply(A_conn, L_outp, xtra_headers): rest::message_reply(A_conn, L_outp, xtra_headers);
 }
 static int N_{{CLI_NODE_NAME/id}}(struct mg_connection *A_conn, void *A_cbdata) {
-    flowc::call_info cif("node-{{CLI_NODE_NAME}}", rest::call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
+    flowc::call_info cif("node-{{CLI_NODE_NAME/id/option}}", rest::call_counter.fetch_add(1, std::memory_order_seq_cst), A_conn, flowc::ns_{{CLI_NODE_NAME/id}}.timeout);
     std::string input_json;
     int rc = rest::get_form_data(A_conn, input_json);
 
@@ -1708,7 +1708,7 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 	    mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-proto", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-info", get_info, 0);
-{I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME}}", rest_api::N_{{CLI_NODE_NAME/id}}, (void *) "/-node/{{CLI_NODE_NAME}}");
+{I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME/id/option}}", rest_api::N_{{CLI_NODE_NAME/id}}, (void *) "/-node/{{CLI_NODE_NAME/id/option}}");
 }I}
 	    mg_set_request_handler(ctx, "/-docs", file_handler, (void *) &docs_directory);
 	    mg_set_request_handler(ctx, "/-app", file_handler, (void *) &app_directory);
@@ -2168,17 +2168,17 @@ int main(int argc, char *argv[]) {
         for(int a = 1; a < argc; ++a) {
 {I:CLI_NODE_NAME{
 #if !defined(NO_REST) || !(NO_REST)    
-        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/lower/option}}-input") == 0) {
-            std::cout << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME}}")->second << "\n";
+        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/id/lower/option}}-input") == 0) {
+            std::cout << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << "\n";
             continue;
         }
-        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/lower/option}}-output") == 0) {
-            std::cout << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME}}")->second << "\n";
+        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/id/lower/option}}-output") == 0) {
+            std::cout << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME/id/option}}")->second << "\n";
             continue;
         }
 #endif
-        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/lower/option}}-proto") == 0) {
-            std::cout << flowinfo::schema_map.find("/-node-proto/{{CLI_NODE_NAME}}")->second << "\n";
+        if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/id/lower/option}}-proto") == 0) {
+            std::cout << flowinfo::schema_map.find("/-node-proto/{{CLI_NODE_NAME/id/option}}")->second << "\n";
             continue;
         }
 }I}

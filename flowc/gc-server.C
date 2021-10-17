@@ -711,7 +711,7 @@ static std::string stage_variable_name(std::string const &label, int stage_num) 
 #define LN_OUTPTR(n)    NODE_VN2("Out_Ptr", (n))
 #define L_OUTPTR        LN_OUTPTR(cur_node_name)
 
-#define L_VISITED       NODE_VN2("Visited", name(cur_node))
+#define L_VISITED       NODE_VN2("Visited", type(cur_node))
 
 // Generate C++ code for a given Entry Method
 int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) {
@@ -1052,8 +1052,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 loop_end = "";
                 break;
             case NLP: { // node level loop 
-                 acinf.incr_loop_level();
-                 cur_loop_tmp.push_back("");
+                acinf.incr_loop_level();
+                cur_loop_tmp.push_back("");
                 loop_c.push_back(std::set<std::string>());
                 loop_end = "";
             } break;
@@ -1562,7 +1562,7 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
     std::map<std::string, std::set<int>> gnodes;
     for(auto const &ss: g)
         for(int n: ss) if(n != blck_entry) {
-            gnodes[name(n)].insert(n);
+            gnodes[type(n)].insert(n);
         }
     out << "// Nodes: " << gnodes  << "\n";
     for(auto const &gn: gnodes) {
@@ -1613,11 +1613,11 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
         out << "// " << "::grpc::CompletionQueue cq_" << si << ";\n";
         out << "// " << "std::vector<std::unique_ptr<grpc::ClientContext>> cx_" << si << ";\n";
         out << "// " << "std::vector<grpc::Status> st_" << si << ";\n";
+        /*
         std::set<std::string> node_types;
         for(int n: ss) if(n != blck_entry) 
-            if(node_types.find(name(n)) == node_types.end()) {
-                node_types.insert(name(n));
-            }
+            node_types.insert(type(n));
+            */
     }
 
     return 0;
