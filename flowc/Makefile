@@ -99,7 +99,7 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
 
-OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o grpc-helpers.o flow-pgcc.o print-pseu.o print-graph.o
+OBJS:=flowc.o flow-templates.o flow-compiler.o flow-gclient.o flow-gconf.o flow-ast.o flow-ggrpc.o flow-gserver.o flow-version.o flow-opcodes.o grpc-helpers.o flow-pgcc.o print-pseu.o print-graph.o tree-accessors.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.

@@ -323,30 +323,6 @@ public:
             return cs_name_s("RQ", get_node_label(node), suffix);
         return cs_name_s(prefix, get_node_label(node), suffix);
     }
-    int get_propn(int nen, std::string const &name, bool last=true) const {
-        int f = 0;
-        for(int v: block(get_ne_block_node(nen), name)) {
-            f = v; if(!last) break;
-        }
-        return f;
-    }
-    std::string get_props(int nen, std::string const &name, std::string const &def_value="") const {
-        int f = get_propn(nen, name);
-        return f == 0? def_value: get_text(f);
-    }
-    int64_t get_propi(int nen, std::string const &name, int64_t def_value = 0) {
-        int f = get_propn(nen, name);
-        if(f == 0) return def_value;
-        switch(at(f).type) {
-            case FTK_INTEGER:
-                return get_integer(f);
-            case FTK_FLOAT:
-                return int64_t(get_float(f));
-            default:
-                pcerr.AddError(main_file, at(f), "expected numerical value");
-        }
-        return 0;
-    }
     int compile(std::set<std::string> const &targets);
 
     // AST accessors to retrieve the first encoutered value, all values in tree order or a map.
@@ -355,7 +331,14 @@ public:
     int get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types);
     int get_nv_block(std::map<std::string, int> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types);
-
+    // get block value as string -- required
+    int get_block_s(std::string &value, int blck, std::string const &name, std::set<int> const &accepted_types);
+    // get block value as string -- optional
+    int get_block_s(std::string &value, int blck, std::string const &name, std::set<int> const &accepted_types, std::string const &def);
+    // get block value as int -- required
+    int get_block_i(int &value, int blck, std::string const &name);
+    // get block value as int -- optional
+    int get_block_i(int &value, int blck, std::string const &name, int def);
     // Code generation for:
     // C++ client
     int genc_client_source(std::string const &client_src);

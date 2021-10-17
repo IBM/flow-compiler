@@ -1336,10 +1336,11 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             error_count += 1;
             pcerr.AddError(main_file, -1, 0, "all entries must be methods of the same service");
         }
+        int block = get_ne_block_node(entry_node);
         sdp = mdp->service();
         std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node), true, true);
         std::map<std::string, int> defsn;
-        error_count += get_nv_block(defsn, entry_node, "defaults", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+        error_count += get_nv_block(defsn, block, "defaults", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
         std::map<std::string, std::string> defs;
         for(auto d: defsn)
             defs[d.first] = get_value(d.second);
@@ -1355,19 +1356,19 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "ENTRY_INPUT_SHORT_TYPE", get_name(mdp->input_type()));
         append(vars, "ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-        append(vars, "ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
+        append(vars, "ENTRY_TIMEOUT", std::to_string(get_blck_timeout(block, default_entry_timeout)));
         append(vars, "ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "ENTRY_DESCRIPTION", description(entry_node));
         append(vars, "ENTRY_ORDER", sfmt() << entry_count);
         std::vector<int> values;
         std::string hidden_fields;
-        error_count += get_block_value(values, entry_node, "hide", false, {FTK_STRING});
+        error_count += get_block_value(values, block, "hide", false, {FTK_STRING});
         for(int n: values) hidden_fields = hidden_fields + (hidden_fields.empty()? "": ", ") + get_string(n);
         append(vars, "ENTRY_HIDDEN_FIELDS", hidden_fields);
         values.clear();
         std::string hidden_labels;
-        error_count += get_block_value(values, entry_node, "hide_label", false, {FTK_STRING});
+        error_count += get_block_value(values, block, "hide_label", false, {FTK_STRING});
         for(int n: values) hidden_labels = hidden_labels + (hidden_labels.empty()? "": ", ") + get_string(n);
         append(vars, "ENTRY_HIDDEN_LABELS", hidden_labels);
 
@@ -1379,7 +1380,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "MAIN_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
             append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
             append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-            append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
+            append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(block, default_entry_timeout)));
             append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
             append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "MAIN_ENTRY_DESCRIPTION", description(entry_node));
@@ -1393,7 +1394,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "ALT_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
             append(vars, "ALT_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
             append(vars, "ALT_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-            append(vars, "ALT_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(entry_node, default_entry_timeout)));
+            append(vars, "ALT_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(block, default_entry_timeout)));
             append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
             append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "ALT_ENTRY_DESCRIPTION", description(entry_node));
@@ -1471,8 +1472,9 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     return error_count;
 }
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
-    int error_count = 0, node_count = 0, cli_count = 0;
+    int error_count = 0, node_count = 0, cli_count = 0, cc_value = 0;
     std::set<std::string> all_nodes;
+    std::map<std::string, int> headers;
     for(int rn: get_all_referenced_nodes()) {
         ++node_count;
         all_nodes.insert(to_upper(to_identifier(name(rn))));
@@ -1480,21 +1482,21 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         if(method_descriptor(rn) == nullptr) 
             continue;
         ++cli_count;
+        int block = get_ne_block_node(rn);
 
         std::string set_metadata;
-        /* FIXME
-        if(rn.second.headers.size() > 0) {
+        headers.clear();
+        error_count += get_nv_block(headers, block, "headers", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+        if(headers.size() > 0) {
             std::vector<std::string> metadata;
-            for(auto const &hnv: rn.second.headers) {
+            for(auto const &hnv: headers) {
                 if(name.has(hnv.second)) 
                     metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", flowdef::" << name(hnv.second) << ");");
                 else
                     metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", " << c_escape(get_string(hnv.second)) << ");");
             }
-            
             set_metadata = join(metadata, " ", " ", "{", "", "", "}");
         }
-        */
         append(vars, "CLI_NODE_METADATA", set_metadata);
         append(vars, "CLI_NODE_LINE", sfmt() << at(rn).token.line);
         append(vars, "CLI_NODE_DESCRIPTION", description(rn));
@@ -1513,14 +1515,17 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_PROTO", gen_proto(mdp));
         append(vars, "CLI_METHOD_NAME", mdp->name());
         append(vars, "CLI_NODE_TIMEOUT", std::to_string(get_blck_timeout(rn, default_node_timeout)));
-        // FIXME
-        //append(vars, "CLI_NODE_GROUP", rn.second.group);
-        //append(vars, "CLI_NODE_ENDPOINT", rn.second.external_endpoint);
-        int cc_value = 0;
-        error_count += get_block_value(cc_value, rn, "replicas", false, {FTK_INTEGER});
-        cc_value = cc_value == 0? default_maxcc: get_integer(cc_value);
-        if(cc_value <= 0)
-            pcerr.AddWarning(main_file, at(rn), sfmt() << "ignoring invalid value for the number of concurrent clients: \""<<cc_value<<"\"");
+        std::string svalue;
+        error_count += get_block_s(svalue, block, "endpoint", {FTK_STRING}, "");
+        append(vars, "CLI_NODE_ENDPOINT", svalue);
+        error_count += get_block_s(svalue, block, "group", {FTK_STRING, FTK_INTEGER}, "");
+        append(vars, "CLI_NODE_GROUP", svalue);
+        cc_value = 0;
+        error_count += get_block_i(cc_value, block, "replicas", default_maxcc);
+        if(cc_value <= 0) {
+            pcerr.AddWarning(main_file, at(rn), sfmt() << "ignoring invalid value for the number of concurrent clients: \"" << cc_value <<"\"");
+            cc_value = default_maxcc;
+        }
         append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
     if(cli_count > 0) 

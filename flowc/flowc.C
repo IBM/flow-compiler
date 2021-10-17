@@ -143,7 +143,6 @@ int write_file(std::string const &fn, std::string const &source_fn, char const *
     return outf.write(default_content, strlen(default_content))? 0: 1;
 }
 
-
 char const *get_version();
 char const *get_build_id();
 char const *get_default_runtime();
@@ -178,34 +177,6 @@ int flow_compiler::add_to_proto_path(std::string const &directory) {
     grpccc += "-I"; grpccc += directory; grpccc += " ";
     protocc += "-I"; protocc += directory; protocc += " ";
     return 0;
-}
-int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
-    int error_count = 0;
-    int old_value = 0;
-    for(int p = 0, v = find_in_blck(parent_block, block_label, &p); v != 0; v = find_in_blck(parent_block, block_label, &p)) {
-        if(at(v).type != FTK_blck) {
-            error_count += 1;
-            pcerr.AddError(main_file, at(v), sfmt() << block_label << " must be a name/value pair block");
-            continue;
-        }
-        // Grab all name value pairs 
-        /* FIXME
-        auto ebp = block_store.find(v);
-        assert(ebp != block_store.end());
-        for(auto const &nv: ebp->second) {
-            if(!cot::contains(accepted_types, at(nv.second).type)) {
-                error_count += 1;
-                std::set<std::string> accepted;
-                std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name);
-                pcerr.AddError(main_file, at(nv.second), sfmt() << "value for \"" << nv.first << "\" must be of type " << join(accepted, ", ", " or "));
-                continue;
-            }
-            nvs[nv.first] = nv.second; 
-        }
-        */
-        old_value = v;
-    }
-    return error_count;
 }
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
@@ -474,21 +445,19 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         append(global_vars, "XCLI_NODE_NAME", name(n));
-        // FIXME
+        /*
         node_info ni;
         int value = 0;
         error_count += get_block_value(value, n, "endpoint", false, {FTK_STRING});
         if(value > 0) 
             ni.external_endpoint = get_string(value);
+            */
     }
     // Grab all the image names, image ports and volume names 
     if(cot::contains(targets, "driver")) {
         // Make a first pass to collect the declared ports and groups
         for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
             int blck = get_ne_block_node(n);
-            // FIXME
-            node_info ni;
-
             int value = 0, pv = 0;
             error_count += get_block_value(value, blck, "port", false, {FTK_INTEGER});
             if(value > 0) {
@@ -498,33 +467,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                     pv = 0;
                 }
             }
-            ni.port = pv;
             // opts.have("single-pod") needs to be used when kube stuff is generated
         }
-        // Allocate port values for the nodes that have not declared one
-        /* FIXME
-        while(true) {
-            int nn = 0; 
-            for(auto np: referenced_nodes) if(np.second.port == 0 && !np.second.no_call) {
-                nn = np.first;
-                break;
-            }
-            if(nn == 0) break;
-            bool free = false;
-            for(int p = base_port + 1; !free && p < 65534; ++p) {
-                free = true;
-                for(auto np: referenced_nodes) if(np.second.port == p) {
-                    free = false;
-                    break;
-                }
-                if(free) referenced_nodes[nn].port = p;
-            }
-            if(!free) {
-                ++error_count;
-                pcerr.AddError(main_file, -1, 0, sfmt() << "unable to allocate port for node \"" << name(nn) << "\"");
-            }
-        }
-        */
         
         for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
             int blck = get_ne_block_node(n);
@@ -694,15 +638,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             set(global_vars, "HAVE_VOLUMES", "");
         else 
             clear(global_vars, "HAVE_VOLUMES");
-    }
-    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
-        int blck = get_ne_block_node(n);
-        // FIXME 
-        node_info ni;
-
-        int old_value = 0;
-        ni.headers.clear();
-        error_count += get_nv_block(ni.headers, blck, "headers", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
     }
     bool have_cos = false;
     for(auto const &m: mounts) {

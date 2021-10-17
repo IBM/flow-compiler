@@ -14,18 +14,6 @@
 
 using namespace stru1;
 
-int flow_compiler::find_in_blck(int block_node, std::string const &name, int *pos) const {
-    int lpos = 0;
-    if(pos == nullptr) pos = &lpos;
-    if(block_node != 0) {
-        auto const &mn = at(block_node);
-        for(int e = mn.children.size(); *pos < e; ++(*pos))
-            if(get_id(at(mn.children[*pos]).children[0]) == name)
-                return at(mn.children[(*pos)++]).children[1];
-    }
-    return 0;
-}
-
 int flow_compiler::genc_client_source(std::string const &client_src) {
     int error_count = 0;
     DEBUG_ENTER;

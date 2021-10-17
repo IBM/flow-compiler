@@ -15,36 +15,6 @@
 
 using namespace stru1;
 
-int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types) {
-    int error_count = 0;
-
-    for(int p = 0, v = find_in_blck(blck, name, &p); v != 0; v = find_in_blck(blck, name, &p)) {
-        if(accepted_types.size() > 0 && !cot::contains(accepted_types, at(v).type)) {
-            ++error_count;
-            std::set<std::string> accepted;
-            std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name); 
-            pcerr.AddError(main_file, at(v), sfmt() << "\"" << name << "\" must be of type " << join(accepted, ", ", " or "));
-            continue;
-        }
-        values.push_back(v);
-    }
-    if(required && values.size() == 0) {
-        ++error_count;
-        pcerr.AddError(main_file, at(blck), sfmt() << "at least one \"" << name << "\" value must be set"); 
-    }
-    return error_count;
-}
-int flow_compiler::get_block_value(int &value, int blck, std::string const &name, bool required, std::set<int> const &accepted_types) {
-    std::vector<int> values;
-    value = 0;
-    int error_count = get_block_value(values, blck, name, required, accepted_types);
-    if(error_count == 0 && values.size() > 0) {
-        if(values.size() != 1) for(unsigned i = 0; i + 1 < values.size(); ++i)
-            pcerr.AddWarning(main_file, at(values[i]), sfmt() << "ignoring previously set \"" << name << "\" value");
-        value = values.back();
-    }
-    return error_count;
-}
 int flow_compiler::genc_kube(std::ostream &out) {
     int error_count = 0;
     extern char const *template_kubernetes_yaml;
