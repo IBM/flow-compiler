@@ -48,40 +48,6 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
     vars[name].assign(begin, end);
     return vars;
 }
-
-struct node_info {
-    int node;               // AST pointer
-    std::string xname;      // Node or container name, derived from but not always the same as name(node)
-    std::string id;         // Node id as decalred in the flow stanza
-    int port;               // Assigned port for this service
-    std::string group;      // Group label for this node
-    std::string runtime;    // Runtime label for Docker
-    int order;              // Order in which the nodes are evaluated, 0 is last
-    bool no_call;           // If true, there is no gRPC service associated with this node
-                            // Extra headers to be set as metadata 
-    std::map<std::string, int> headers;
-                            // External endpoint for this service 
-    std::string external_endpoint;
-    std::string image_name; // Docker tag for the image
-    std::vector<int> mounts;
-    std::map<std::string, std::string> environment;
-    int scale;              // Number of images or groups to run at the same time
-
-    int min_cpus, max_cpus; // CPU limits 
-    int min_gpus, max_gpus; // GPU limits 
-    string min_memory, max_memory; // memory limits 
-
-    node_info(int no=0, std::string const &na="", bool nc=false):node(no), xname(na), port(0), order(0), no_call(nc), scale(0), min_cpus(0), max_cpus(0), min_gpus(0), max_gpus(0) {
-    }
-    std::string label() const {
-        return stru1::to_lower(stru1::to_identifier(xname));
-    }
-};
-inline static std::ostream &operator<< (std::ostream &out, node_info const &n) {
-    out << "(@" << n.node << ": " << n.xname << " id: " << n.id << " group: " << n.group << " port: " << n.port << " order: " << n.order << " grpc: " << (n.no_call? "no": "yes") << ")";
-    return out;
-};
-
 struct mount_info {
     int node;               // AST pointer        
     int node_node;          // Node (parent) AST pointer
@@ -139,8 +105,6 @@ private:
     // Block ast-node flow graph by entry block ast-node
     // for each entry a list of sets of overlapping nodes
     std::map<int, std::vector<std::set<int>>> flow_graph;
-    // All the referenced (used) nodes and the corresponding data
-    //std::map<int, node_info> referenced_nodes;
     // local vars for each group
     std::map<std::string, var_store_t> group_vars;
     // volume for each group
