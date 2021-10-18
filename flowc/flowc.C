@@ -443,202 +443,188 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(get_all_referenced_nodes().size() > 0)
         set(global_vars, "HAVE_NODES", ""); 
 
+    std::map<std::string, std::set<int>> ports;
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+        std::string group_name;
+        error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
         append(global_vars, "XCLI_NODE_NAME", name(n));
-        /*
-        node_info ni;
-        int value = 0;
-        error_count += get_block_value(value, n, "endpoint", false, {FTK_STRING});
-        if(value > 0) 
-            ni.external_endpoint = get_string(value);
-            */
-    }
-    // Grab all the image names, image ports and volume names 
-    if(cot::contains(targets, "driver")) {
-        // Make a first pass to collect the declared ports and groups
-        for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
-            int blck = get_ne_block_node(n);
-            int value = 0, pv = 0;
-            error_count += get_block_value(value, blck, "port", false, {FTK_INTEGER});
-            if(value > 0) {
-                pv = (int) get_integer(value);
-                if(pv <= 0) {
-                    pcerr.AddWarning(main_file, at(value), sfmt() << "invalid \"port\" value: \"" << pv << "\" for node \"" << name(n) << "\", a default value will be assigned");
-                    pv = 0;
-                }
+        append(global_vars, "NODE_NAME", name(n));
+        append(global_vars, "NODE_GROUP", group_name);
+        append(group_vars[group_name], "G_NODE_GROUP", group_name);
+        append(group_vars[group_name], "G_NODE_NAME", name(n));
+        int pv = 0;
+        error_count += get_block_i(pv, n, "port", 0);
+        if(pv != 0) {
+            if(cot::contains(targets, "driver") && cot::contains(ports[group_name], pv)) {
+                pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(n) << "\" in group \"" << group_name << "\"");
             }
-            // opts.have("single-pod") needs to be used when kube stuff is generated
+            ports[group_name].insert(pv);
         }
-        
-        for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
-            int blck = get_ne_block_node(n);
-            append(global_vars, "NODE_NAME", name(n));
-            node_info ni;
-            int value = 0, pv = 0;
-            // FIXME
-            std::string group_name = ni.group;
-            append(global_vars, "NODE_GROUP", group_name);
-            append(group_vars[group_name], "G_NODE_GROUP", group_name);
-            append(group_vars[group_name], "G_NODE_NAME", name(n));
 
-            pv = 22222; // FIXME  ni.port;
-            append(global_vars, "IMAGE_PORT", std::to_string(pv));
-            append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
-
-            // For kubernetes check that ports in the same pod don't clash
-            /** FIXME this should be happening kube gerenration only
-            for(auto const &np: referenced_nodes) if(np.second.port == pv && np.first != blck && np.second.group == group_name) {
-                pcerr.AddWarning(main_file, at(blck), sfmt() << "port value \"" << pv << "\" for \"" << nn << "\" already used by \"" << np.second.xname << "\" in group \"" << group_name << "\"");
-                // Only generate one port conflict message
-                break;
-            }
-            */
-            value = 0;
-            bool external_node = false;
-            std::string endpoint, image_name;
-            error_count += get_block_value(value, blck, "image", false, {FTK_STRING});
+        int value = 0;
+        bool external_node = false;
+        std::string endpoint, image_name;
+        error_count += get_block_value(value, n, "image", false, {FTK_STRING});
+        if(value <= 0 || get_string(value).empty()) {
+            error_count += get_block_value(value, n, "endpoint", false, {FTK_STRING});
             if(value <= 0 || get_string(value).empty()) {
-                error_count += get_block_value(value, blck, "endpoint", false, {FTK_STRING});
-                if(value <= 0 || get_string(value).empty()) {
+                ++error_count;
+                pcerr.AddError(main_file, at(n), sfmt() << "node \"" << name(n) << "\" must have either an image or an endpoint defined");
+            } else {
+                endpoint = get_string(value);
+                external_node = true;
+            }
+        } else {
+            image_name = get_string(value);
+            if(image_name[0] == '/') 
+                image_name = path_join(default_repository, image_name.substr(1));
+        }
+
+        append(global_vars, "NODE_IMAGE", image_name);
+        append(group_vars[group_name], "G_NODE_IMAGE", image_name);
+        append(global_vars, "NODE_ENDPOINT", endpoint);
+        append(group_vars[group_name], "G_NODE_ENDPOINT", endpoint);
+        if(external_node) {
+            append(global_vars, "EXTERN_NODE", "#");
+            append(group_vars[group_name], "G_EXTERN_NODE", "#");
+        } else {
+            append(global_vars, "EXTERN_NODE", "");
+            append(group_vars[group_name], "G_EXTERN_NODE", "");
+        }
+
+        value = 0;
+        get_block_value(value, n, "runtime", false, {FTK_STRING});
+        //if(value > 0) ni.runtime = get_string(value);
+        value = 0;
+        get_block_value(value, n, "scale", false, {FTK_FLOAT, FTK_INTEGER});
+        //if(value > 0) ni.scale = (int) get_numberf(value);
+
+        get_block_value(value, n, "min_cpus", false, {FTK_FLOAT, FTK_INTEGER});
+        //if(value > 0) ni.min_cpus = (int) get_numberf(value);
+
+        get_block_value(value, n, "max_cpus", false, {FTK_FLOAT, FTK_INTEGER});
+        //if(value > 0) ni.max_cpus = (int) get_numberf(value);
+
+        get_block_value(value, n, "max_memory", false, {FTK_STRING});
+        //if(value > 0) ni.max_memory = get_string(value);
+
+        get_block_value(value, n, "min_memory", false, {FTK_STRING});
+        //if(value > 0) ni.min_memory = get_string(value);
+
+        // Volume mounts
+        int old_value = 0;
+        //ni.mounts.clear();
+        int blck = get_ne_block_node(n);
+        if(!external_node) for(int p = 0, v = find_in_blck(blck, "mount", &p); v != 0; v = find_in_blck(blck, "mount", &p)) {
+            if(at(v).type != FTK_lblk) {
+                error_count += 1;
+                pcerr.AddError(main_file, at(v), "mount must be a labeled name/value pair block");
+                continue;
+            }
+            std::string mount_name = get_id(at(v).children[0]);
+            v = at(v).children[1];
+
+            bool read_write = false;       
+            int access_value = 0;
+            error_count += get_block_value(access_value, v, "access", false, {FTK_STRING});
+            if(access_value > 0) {
+                auto acc = to_lower(get_string(access_value));
+                bool ro = acc == "ro" || acc == "read-only"  || acc == "readonly";
+                bool rw = acc == "rw" || acc == "read-write" || acc == "readwrite";
+                if(ro == rw) {
                     ++error_count;
-                    pcerr.AddError(main_file, at(blck), sfmt() << "node \"" << name(n) << "\" must have either an image or an endpoint defined");
-                } else {
-                    endpoint = get_string(value);
-                    external_node = true;
-                }
-            } else {
-                image_name = get_string(value);
-                if(image_name[0] == '/') 
-                    image_name = path_join(default_repository, image_name.substr(1));
-            }
-
-            append(global_vars, "NODE_IMAGE", image_name);
-            append(group_vars[group_name], "G_NODE_IMAGE", image_name);
-            append(global_vars, "NODE_ENDPOINT", endpoint);
-            append(group_vars[group_name], "G_NODE_ENDPOINT", endpoint);
-            if(external_node) {
-                append(global_vars, "EXTERN_NODE", "#");
-                append(group_vars[group_name], "G_EXTERN_NODE", "#");
-            } else {
-                append(global_vars, "EXTERN_NODE", "");
-                append(group_vars[group_name], "G_EXTERN_NODE", "");
-            }
-
-            value = 0;
-            get_block_value(value, blck, "runtime", false, {FTK_STRING});
-            if(value > 0) ni.runtime = get_string(value);
-            value = 0;
-            get_block_value(value, blck, "scale", false, {FTK_FLOAT, FTK_INTEGER});
-            if(value > 0) ni.scale = (int) get_numberf(value);
-
-            get_block_value(value, blck, "min_cpus", false, {FTK_FLOAT, FTK_INTEGER});
-            if(value > 0) ni.min_cpus = (int) get_numberf(value);
-
-            get_block_value(value, blck, "max_cpus", false, {FTK_FLOAT, FTK_INTEGER});
-            if(value > 0) ni.max_cpus = (int) get_numberf(value);
-
-            get_block_value(value, blck, "max_memory", false, {FTK_STRING});
-            if(value > 0) ni.max_memory = get_string(value);
-
-            get_block_value(value, blck, "min_memory", false, {FTK_STRING});
-            if(value > 0) ni.min_memory = get_string(value);
-
-            // Volume mounts
-            int old_value = 0;
-            ni.mounts.clear();
-            if(!external_node) for(int p = 0, v = find_in_blck(blck, "mount", &p); v != 0; v = find_in_blck(blck, "mount", &p)) {
-                if(at(v).type != FTK_lblk) {
-                    error_count += 1;
-                    pcerr.AddError(main_file, at(v), "mount must be a labeled name/value pair block");
+                    pcerr.AddError(main_file, at(access_value), sfmt() << "access for \"" << mount_name << "\" in \"" << name(n) << "\" must be either read-only or read-write");
                     continue;
                 }
-                std::string mount_name = get_id(at(v).children[0]);
-                v = at(v).children[1];
-
-                bool read_write = false;       
-                int access_value = 0;
-                error_count += get_block_value(access_value, v, "access", false, {FTK_STRING});
-                if(access_value > 0) {
-                    auto acc = to_lower(get_string(access_value));
-                    bool ro = acc == "ro" || acc == "read-only"  || acc == "readonly";
-                    bool rw = acc == "rw" || acc == "read-write" || acc == "readwrite";
-                    if(ro == rw) {
-                        ++error_count;
-                        pcerr.AddError(main_file, at(access_value), sfmt() << "access for \"" << mount_name << "\" in \"" << name(n) << "\" must be either read-only or read-write");
-                        continue;
-                    }
-                    read_write = !ro;
-                }
-
-                auto &minf = mounts.emplace(v, mount_info(v, n, mount_name, !read_write)).first->second;
-                ni.mounts.push_back(v);
-
-                int s = 0;
-                error_count += get_block_value(s, v, "url", false, {FTK_STRING});
-                if(s > 0) 
-                    minf.cos = get_string(s);
-
-                error_count += get_block_value(s, v, "cos", false, {FTK_STRING});
-                if(s > 0) 
-                    if(minf.cos.empty()) minf.cos = get_string(s);
-
-                error_count += get_block_value(s, v, "artifactory", false, {FTK_STRING});
-                if(s > 0) 
-                    if(minf.cos.empty()) minf.cos = get_string(s);
-                error_count += get_block_value(s, v, "remote", false, {FTK_STRING});
-                if(s > 0) 
-                    if(minf.cos.empty()) minf.cos = get_string(s);
-
-                error_count += get_block_value(s, v, "secret", false, {FTK_STRING});
-                if(s > 0) 
-                    minf.secret = get_string(s);
-                error_count += get_block_value(s, v, "pvc", false, {FTK_STRING});
-                if(s > 0) 
-                    minf.pvc = get_string(s);
-                error_count += get_block_value(s, v, "local", false, {FTK_STRING});
-                if(s > 0) 
-                    minf.local = get_string(s);
-                
-                std::vector<int> paths; 
-                error_count += get_block_value(paths, v, "path", true, {FTK_STRING});
-                for(auto v: paths) {
-                    std::string path = get_string(v);
-                    if(path.empty()) 
-                        pcerr.AddWarning(main_file, at(v), "empty \"path\" value");
-                    group_volumes[group_name].insert(mount_name);
-                    //ni.mounts.push_back(std::make_tuple(mount_name, path, read_write));
-                    minf.paths.push_back(path);
-                }
-                old_value = v;
+                read_write = !ro;
             }
-            old_value = 0;
-            ni.environment.clear();
-            if(!external_node) {
-                std::map<std::string, int> env;
-                error_count += get_nv_block(env, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
-                for(auto a: env)
-                    ni.environment[a.first] = get_value(a.second);
+
+            auto &minf = mounts.emplace(v, mount_info(v, n, mount_name, !read_write)).first->second;
+            //ni.mounts.push_back(v);
+
+            int s = 0;
+            error_count += get_block_value(s, v, "url", false, {FTK_STRING});
+            if(s > 0) 
+                minf.cos = get_string(s);
+
+            error_count += get_block_value(s, v, "cos", false, {FTK_STRING});
+            if(s > 0) 
+                if(minf.cos.empty()) minf.cos = get_string(s);
+
+            error_count += get_block_value(s, v, "artifactory", false, {FTK_STRING});
+            if(s > 0) 
+                if(minf.cos.empty()) minf.cos = get_string(s);
+            error_count += get_block_value(s, v, "remote", false, {FTK_STRING});
+            if(s > 0) 
+                if(minf.cos.empty()) minf.cos = get_string(s);
+
+            error_count += get_block_value(s, v, "secret", false, {FTK_STRING});
+            if(s > 0) 
+                minf.secret = get_string(s);
+            error_count += get_block_value(s, v, "pvc", false, {FTK_STRING});
+            if(s > 0) 
+                minf.pvc = get_string(s);
+            error_count += get_block_value(s, v, "local", false, {FTK_STRING});
+            if(s > 0) 
+                minf.local = get_string(s);
+            
+            std::vector<int> paths; 
+            error_count += get_block_value(paths, v, "path", true, {FTK_STRING});
+            for(auto v: paths) {
+                std::string path = get_string(v);
+                if(path.empty()) 
+                    pcerr.AddWarning(main_file, at(v), "empty \"path\" value");
+                group_volumes[group_name].insert(mount_name);
+                //ni.mounts.push_back(std::make_tuple(mount_name, path, read_write));
+                minf.paths.push_back(path);
             }
+            old_value = v;
         }
-        // Avoid group name collision
-        set(global_vars, "MAIN_POD", "main");
-        for(int i = 1; i < 100 && cot::contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
-            set(global_vars, "MAIN_POD", sfmt() << "main" << i);
+        old_value = 0;
+        //ni.environment.clear();
+        if(!external_node) {
+            std::map<std::string, int> env;
+            error_count += get_nv_block(env, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
+            /*
+            for(auto a: env)
+                ni.environment[a.first] = get_value(a.second);
+                */
         }
-        for(auto const &gv: group_vars) {
-            clear(group_vars[gv.first], "G_HAVE_NODES");
-            if(group_vars[gv.first]["G_NODE_NAME"].size() > 0) 
-                set(group_vars[gv.first], "G_HAVE_NODES", "");
-            clear(group_vars[gv.first], "G_HAVE_VOLUMES");
-            if(group_volumes[gv.first].size() > 0)
-                set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
-        }
-        set(global_vars, "HAVE_NODES", ""); 
-        if(mounts.size() > 0) 
-            set(global_vars, "HAVE_VOLUMES", "");
-        else 
-            clear(global_vars, "HAVE_VOLUMES");
     }
+    // Make sure port values are allocated when needed
+    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+        int block = get_ne_block_node(n);
+        std::string group_name;
+        error_count += get_block_s(group_name, block, "group", {FTK_STRING, FTK_INTEGER}, "");
+        int pv = 0;
+        error_count += get_block_i(pv, block, "port", 0);
+        if(pv == 0) {
+            pv = base_port+2; 
+            while(cot::contains(ports[group_name], pv)) ++pv;
+        }
+        append(global_vars, "IMAGE_PORT", std::to_string(pv));
+        append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
+        ports[group_name].insert(pv);
+    }
+    // Avoid group name collision
+    set(global_vars, "MAIN_POD", "main");
+    for(int i = 1; i < 100 && cot::contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
+        set(global_vars, "MAIN_POD", sfmt() << "main" << i);
+    }
+    for(auto const &gv: group_vars) {
+        clear(group_vars[gv.first], "G_HAVE_NODES");
+        if(group_vars[gv.first]["G_NODE_NAME"].size() > 0) 
+            set(group_vars[gv.first], "G_HAVE_NODES", "");
+        clear(group_vars[gv.first], "G_HAVE_VOLUMES");
+        if(group_volumes[gv.first].size() > 0)
+            set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
+    }
+    set(global_vars, "HAVE_NODES", ""); 
+    if(mounts.size() > 0) 
+        set(global_vars, "HAVE_VOLUMES", "");
+    else 
+        clear(global_vars, "HAVE_VOLUMES");
+
     bool have_cos = false;
     for(auto const &m: mounts) {
         have_cos = have_cos || !m.second.cos.empty();
@@ -884,7 +870,7 @@ int flow_compiler::genc_www() {
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         decltype(global_vars) local_vars;
         set_cli_active_node_vars(local_vars, n);
-        std::string outputfn = output_filename("www/"+stru1::to_option(name(n))+"-index.html");
+        std::string outputfn = output_filename("www/"+stru1::to_identifier(stru1::to_option(name(n)))+"-index.html");
         OFSTREAM_SE(outf, outputfn);
         if(DEBUG_GENC) {
             outputfn += ".json";

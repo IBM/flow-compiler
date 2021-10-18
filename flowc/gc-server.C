@@ -1454,7 +1454,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     for(int rn: get_all_referenced_nodes()) {
         ++node_count;
         all_nodes.insert(to_upper(to_identifier(name(rn))));
-        append(vars, "NODE_NAME", name(rn));
+        append(vars, "A_NODE_NAME", name(rn));
         if(method_descriptor(rn) == nullptr) 
             continue;
         ++cli_count;
