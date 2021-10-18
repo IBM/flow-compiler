@@ -443,6 +443,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(get_all_referenced_nodes().size() > 0)
         set(global_vars, "HAVE_NODES", ""); 
 
+    // Generate lists for all client node + containers with:
+    // name, group, port, image, endpoint, runtime, extern-node 
     std::map<std::string, std::set<int>> ports;
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         std::string group_name;

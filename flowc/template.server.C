@@ -494,7 +494,7 @@ enum cli_nodes {
     cn_{{NO_NODE_NAME/id/upper-NO_NODE}} = 0 {I:CLI_NODE_NAME{, cn_{{CLI_NODE_NAME/id/upper}}}I}
 };
 enum nodes {
-    n_{{NO_NODE_NAME/id/upper-NO_NODE}} = 0 {I:NODE_NAME{, n_{{NODE_NAME/id/upper}}}I}
+    n_{{NO_NODE_NAME/id/upper-NO_NODE}} = 0 {I:A_NODE_NAME{, n_{{A_NODE_NAME/id/upper}}}I}
 };
 struct node_cfg {
     cli_nodes eid;
