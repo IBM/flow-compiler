@@ -498,7 +498,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         //ni.mounts.clear();
         int blck = get_ne_block_node(n);
         if(!external_node) for(int p = 0, v = find_in_blck(blck, "mount", &p); v != 0; v = find_in_blck(blck, "mount", &p)) {
-            if(at(v).type != FTK_lblk) {
+            if(at(v).type != FTK_MOUNT) {
                 error_count += 1;
                 pcerr.AddError(main_file, at(v), "mount must be a labeled name/value pair block");
                 continue;
