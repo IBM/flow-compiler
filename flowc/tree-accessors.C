@@ -13,8 +13,10 @@ int flow_compiler::find_in_blck(int block_node, std::string const &name, int *po
 }
 int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types) {
     int error_count = 0;
-    if(at(blck).type == FTK_NODE || at(blck).type == FTK_ENTRY) 
+    if(at(blck).type == FTK_NODE || at(blck).type == FTK_ENTRY || at(blck).type == FTK_CONTAINER)
         blck = get_ne_block_node(blck);
+
+    MASSERT(at(blck).type == FTK_blck) << "node " << blck << " is " << node_name(blck) << ", expected to be " << node_name(FTK_blck) << "\n";
 
     for(int p = 0, v = find_in_blck(blck, name, &p); v != 0; v = find_in_blck(blck, name, &p)) {
         if(accepted_types.size() > 0 && !cot::contains(accepted_types, at(v).type)) {
@@ -45,6 +47,9 @@ int flow_compiler::get_block_value(int &value, int blck, std::string const &name
 }
 int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types) {
     int error_count = 0;
+    if(at(parent_block).type == FTK_NODE || at(parent_block).type == FTK_ENTRY || at(parent_block).type == FTK_CONTAINER)
+        parent_block = get_ne_block_node(parent_block);
+
     for(int p = 0, v = find_in_blck(parent_block, block_label, &p); v != 0; v = find_in_blck(parent_block, block_label, &p)) {
         if(at(v).type != FTK_blck && at(v).type != FTK_HEADERS && at(v).type != FTK_MOUNT && at(v).type != FTK_ENVIRONMENT) {
             error_count += 1;

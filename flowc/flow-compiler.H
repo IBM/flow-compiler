@@ -323,6 +323,9 @@ public:
     int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
     // Grab all deployment related  node information
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
+    // Create environment for node <n>
+    int get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port,  bool group_mode = false);
+
     
     // Webapp interface
     int genc_www();

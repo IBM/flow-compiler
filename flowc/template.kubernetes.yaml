@@ -21,46 +21,6 @@ spec:
 {S:IMAGE_PULL_SECRET{
       - name: "{{IMAGE_PULL_SECRET}}"
 }S}
-      initContainers:
-{I:G_INIT_CONTAINER{
-      - {{G_INIT_CONTAINER}}
-}I}
-{W:VOLUME_NAME{
-${{{VOLUME_NAME/id/upper}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{VOLUME_NAME/id/upper}}}' -d /etc/cos-access -u -o /to-1"]
-${{{VOLUME_NAME/id/upper}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
-        image:  "{{PUSH_REPO-}}{{IMAGE}}" 
-        securityContext: {privileged: true, runAsUser: 0} 
-        name: volumes-init-{{VOLUME_NAME/option}}
-        volumeMounts:
-${{{VOLUME_NAME/id/upper}}_PVC}        - name: {{VOLUME_NAME/option}}
-${{{VOLUME_NAME/id/upper}}_PVC}          mountPath: "/from-1"
-${{{VOLUME_NAME/id/upper}}_PVC}          readOnly: true
-${{{VOLUME_NAME/id/upper}}_ART}        - name: api-key-{{VOLUME_NAME/option}}
-${{{VOLUME_NAME/id/upper}}_ART}          mountPath: "/etc/artifactory"
-${{{VOLUME_NAME/id/upper}}_ART}          readOnly: true
-
-        - name: scratch-{{VOLUME_NAME/option}}
-          mountPath: "/to-1"
-          readOnly: false
-}W}
-$enable_htdocs$htdocs_ART      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{NAME/id/upper}}_HTDOCS}' -d /etc/cos-access -u -o /to-1"]
-$enable_htdocs$htdocs_PVC      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
-$enable_htdocs        image:  "{{PUSH_REPO-}}{{IMAGE}}" 
-$enable_htdocs        securityContext: {privileged: true, runAsUser: 0} 
-$enable_htdocs        name: volumes-init-{{HTDOCS_VOLUME_NAME}}
-$enable_htdocs        volumeMounts:
-$enable_htdocs$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}
-$enable_htdocs$htdocs_PVC          mountPath: "/from-1"
-$enable_htdocs$htdocs_PVC          readOnly: true
-$enable_htdocs$htdocs_COS        - name: cos-access-{{HTDOCS_VOLUME_NAME}}
-$enable_htdocs$htdocs_COS          mountPath: "/etc/cos-access"
-$enable_htdocs$htdocs_COS          readOnly: true
-$enable_htdocs$htdocs_ART        - name: api-key-{{HTDOCS_VOLUME_NAME}}
-$enable_htdocs$htdocs_ART          mountPath: "/etc/artifactory"
-$enable_htdocs$htdocs_ART          readOnly: true
-$enable_htdocs        - name: scratch-{{HTDOCS_VOLUME_NAME}}
-$enable_htdocs          mountPath: "/to-1"
-$enable_htdoes          readOnly: false
       containers:
       - name: {{NAME}}
         image: "{{PUSH_REPO-}}{{IMAGE}}"
@@ -74,8 +34,6 @@ $enable_htdoes          readOnly: false
         env:
           - name: {{NAME/id/upper}}_REST_PORT
             value: "{{REST_PORT}}"
-          - name: {{NAME/id/upper}}_DEBUG
-            value: "1"
           - name: {{NAME/id/upper}}_ASYNC
             value: "1"
 {K:MAIN_ENVIRONMENT_KEY{
@@ -87,20 +45,20 @@ $enable_htdocs        - name: {{HTDOCS_VOLUME_NAME}}
 $enable_htdocs          mountPath: "/home/worker/pr/htdocs"
 $enable_htdocs          readOnly: true
 
-{N:G_NODE_NAME{
-{{G_EXTERN_NODE}}      - name: {{G_NODE_NAME/option}}
-{{G_EXTERN_NODE}}        image: "$image_{{G_NODE_NAME/id/upper}}"
-{{G_EXTERN_NODE}}        {{G_NODE_ENVIRONMENT}}
-{{G_EXTERN_NODE}}        {{G_NODE_MOUNTS}}
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MAX}}        resources:
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN}}          requests:
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MEMORY}}            memory: "{{G_NODE_MIN_MEMORY}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_CPUS}}            cpu: "{{G_NODE_MIN_CPUS}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{G_NODE_MIN_GPUS}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX}}          limis:
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_MEMORY}}            memory: "{{G_NODE_MAX_MEMORY}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_CPUS}}            cpu: "{{G_NODE_MAX_CPUS}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
+{N:NODE_NAME{
+{{EXTERN_NODE}}      - name: {{NODE_NAME/id/option}}
+{{EXTERN_NODE}}        image: "$image_{{NODE_NAME/id/upper}}"
+{{EXTERN_NODE}}        {{NODE_ENVIRONMENT}}
+{{EXTERN_NODE}}        {{NODE_MOUNTS}}
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}        resources:
+{{EXTERN_NODE}}{{NODE_HAVE_MIN}}          requests:
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}            memory: "{{NODE_MIN_MEMORY}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_CPUS}}            cpu: "{{NODE_MIN_CPUS}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{NODE_MIN_GPUS}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MAX}}          limis:
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_MEMORY}}            memory: "{{NODE_MAX_MEMORY}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_CPUS}}            cpu: "{{NODE_MAX_CPUS}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{NODE_MAX_GPUS}}"
 }N}
 
 $enable_htdocs      volumes:

@@ -100,7 +100,7 @@ OPTIONS
 
        --image=IMAGE:TAG
               Set the image name and tag for the aggregator image. The default image name is the 
-              aggregator name and the default tag is "1". See --image-tag for changing only the tag.
+              aggregator name and the default tag is "v1". See --image-tag for changing only the tag.
 
        --image-pull-secret=NAME
               Add NAME to the "imagePullSecrets" section of the "kubernetes" deployments

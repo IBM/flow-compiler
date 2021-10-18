@@ -339,7 +339,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     default_maxcc = opts.opti("default-client-calls", default_maxcc);
 
-    orchestrator_tag = opts.opt("image-tag", "1");
+    orchestrator_tag = opts.opt("image-tag", "v1");
     orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
     orchestrator_debug_image = opts.optb("debug-image", false);
     orchestrator_no_rest = !opts.optb("rest-api", true);
@@ -375,7 +375,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
 
     /********************************************************************
-     * All files are compiled at this ponit so,
+     * All files are compiled at this point so,
      * set as many of values that control code generation as possible
      */
     if(cot::contains(targets, "driver")) {
@@ -445,14 +445,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // Generate lists for all client node + containers with:
     // name, group, port, image, endpoint, runtime, extern-node 
     std::map<std::string, std::set<int>> ports;
-    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
+    std::map<std::string, std::set<int>> groups;
+    for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
         std::string group_name;
         error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
         append(global_vars, "XCLI_NODE_NAME", name(n));
         append(global_vars, "NODE_NAME", name(n));
         append(global_vars, "NODE_GROUP", group_name);
-        append(group_vars[group_name], "G_NODE_GROUP", group_name);
-        append(group_vars[group_name], "G_NODE_NAME", name(n));
+        groups[group_name].insert(n);
         int pv = 0;
         error_count += get_block_i(pv, n, "port", 0);
         if(pv != 0) {
@@ -461,9 +461,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             ports[group_name].insert(pv);
         }
-
         int value = 0;
         bool external_node = false;
+        /*
         std::string endpoint, image_name;
         error_count += get_block_value(value, n, "image", false, {FTK_STRING});
         if(value <= 0 || get_string(value).empty()) {
@@ -492,26 +492,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "EXTERN_NODE", "");
             append(group_vars[group_name], "G_EXTERN_NODE", "");
         }
-
-        value = 0;
-        get_block_value(value, n, "runtime", false, {FTK_STRING});
-        //if(value > 0) ni.runtime = get_string(value);
-        value = 0;
-        get_block_value(value, n, "scale", false, {FTK_FLOAT, FTK_INTEGER});
-        //if(value > 0) ni.scale = (int) get_numberf(value);
-
-        get_block_value(value, n, "min_cpus", false, {FTK_FLOAT, FTK_INTEGER});
-        //if(value > 0) ni.min_cpus = (int) get_numberf(value);
-
-        get_block_value(value, n, "max_cpus", false, {FTK_FLOAT, FTK_INTEGER});
-        //if(value > 0) ni.max_cpus = (int) get_numberf(value);
-
-        get_block_value(value, n, "max_memory", false, {FTK_STRING});
-        //if(value > 0) ni.max_memory = get_string(value);
-
-        get_block_value(value, n, "min_memory", false, {FTK_STRING});
-        //if(value > 0) ni.min_memory = get_string(value);
-
+*/
         // Volume mounts
         int old_value = 0;
         //ni.mounts.clear();
@@ -592,7 +573,11 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 */
         }
     }
+    set(global_vars, "MAIN_POD", "main");
+    for(int i = 1, e = get_all_referenced_nodes().size()+1; i <= e && cot::contains(groups, get(global_vars, "MAIN_POD")); ++i) 
+        set(global_vars, "MAIN_POD", sfmt() << "main" << i);
     // Make sure port values are allocated when needed
+    /*
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         int block = get_ne_block_node(n);
         std::string group_name;
@@ -607,11 +592,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
         ports[group_name].insert(pv);
     }
+    */
     // Avoid group name collision
-    set(global_vars, "MAIN_POD", "main");
-    for(int i = 1; i < 100 && cot::contains(group_vars, get(global_vars, "MAIN_POD")); ++i) {
-        set(global_vars, "MAIN_POD", sfmt() << "main" << i);
-    }
+    /*
     for(auto const &gv: group_vars) {
         clear(group_vars[gv.first], "G_HAVE_NODES");
         if(group_vars[gv.first]["G_NODE_NAME"].size() > 0) 
@@ -620,6 +603,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         if(group_volumes[gv.first].size() > 0)
             set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
     }
+    */
     set(global_vars, "HAVE_NODES", ""); 
     if(mounts.size() > 0) 
         set(global_vars, "HAVE_VOLUMES", "");

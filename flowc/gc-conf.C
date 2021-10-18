@@ -235,82 +235,84 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
     return error_count;
 }
-
 int flow_compiler::genc_kube(std::ostream &out) {
     int error_count = 0;
     DEBUG_ENTER;
+
     extern char const *template_kubernetes_yaml;
     extern char const *template_kubernetes_group_yaml;
-    std::map<std::string, std::vector<std::string>> env_vars;
-    std::set<std::string> groups;
-/*
-    for(auto const &nn: referenced_nodes) 
-        groups.insert(nn.second.group);
-    for(auto const &g: groups) {
-        int group_scale = 1;
-        for(auto &nr: referenced_nodes) {
-            auto &ni = nr.second;
-            std::string const &nn = ni.xname;
-            int pv = ni.port;
-            std::string host;
-            if(ni.group == g) {
-                // If the this node is part of this group, it is accessible through localhost
-                host = "localhost";
-                group_scale = std::max(ni.scale, group_scale);
 
-            } else {
-                // This node is accessible through service in this group
-                host = std::string("@") + to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << ni.group));
-            }
-            //append(env_vars[g], nn+".host", host);
-            //append(env_vars[g], nn+".port", port);
+    std::map<std::string, std::set<int>> groups;
+    int base_port = this->base_port;
+    std::set<int> cc_nodes; // all client nodes and containers
+    std::set<int> cli_nodes; // all client
+    std::map<int, std::string> ports;
+    for(int n: *this)
+        if(at(n).type == FTK_NODE && method_descriptor(n) != nullptr)
+            cli_nodes.insert(n);
+        else if(at(n).type == FTK_CONTAINER)
+            cc_nodes.insert(n);
+    cc_nodes.insert(cli_nodes.begin(), cli_nodes.end());
+    int c = 0;
+    for(int n: cc_nodes) {
+        ++c;
+        std::string group_name, image_name;
+        error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
+        error_count += get_block_s(image_name, n, "image", "");
+        //if(!image_name.empty())
+            groups[group_name].insert(n);
 
-            if(g.empty()) {
-                append(group_vars[g], "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(nn)) << "_ENDPOINT");
-                if(ni.external_endpoint.empty()) 
-                    append(group_vars[g], "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << pv);
-                else 
-                    append(group_vars[g], "MAIN_ENVIRONMENT_VALUE", ni.external_endpoint);
-            }
-        }
-        append(group_vars[g], "GROUP_SCALE", std::to_string(group_scale));
+         int port;
+         error_count += get_block_i(port, n, "port", 0);
+         // FIXME
+         if(port == 0) port = base_port + c;
+         ports[n] = std::to_string(port);
     }
-    for(auto &nr: referenced_nodes) if(!nr.second.no_call) {
-        auto &ni = nr.second;
-        std::string const &nn = ni.xname;
-        int blck = nr.first;
-        std::vector<std::string> buf;
-
-        env_vars.clear();
-        for(auto const &er: referenced_nodes) {
-            int pv = er.second.port;
-            std::string const &en = name(er.second.node);
-            std::string const &nf = er.second.xname;
-            std::string host;
-            if(ni.group == er.second.group) {
-                // If the this node is part of this group, it is accessible through localhost
-                host = "localhost";
+    std::map<std::string, std::map<std::string, std::vector<std::string>>> g_group_vars;
+    for(auto group: groups) {
+        DEBUG_CHECK("now with group [" << group.first << "] " << group.second);
+        int group_scale = 1;
+        auto &group_vars = g_group_vars[group.first];
+        for(int n: cc_nodes) {
+            std::string host; int scale;
+            if(cot::contains(group.second, n)) {
+                host = "localhost"; 
+                error_count += get_block_i(scale, n, "scale", 0);
+                group_scale = std::max(scale, group_scale);
             } else {
-                // This node is accessible through service in this group
-                host = to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << er.second.group));
+                host = std::string("@") + to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << group.first));
             }
-            if(nf == nn || (en == nf && name(nr.second.node) != en)) {
-                append(env_vars, en+".port", std::to_string(pv));
-                append(env_vars, en+".host", host);
-                append(env_vars, en, to_lower(nf));
-            }
-        }
-        //std::cerr << "*** " << nn << "/" << ni.group << " ****** envvars: \n" << join(env_vars, "\n") << "\n";
+            if(!group.first.empty()) 
+                continue;
+    
+            std::string endpoint;
+            error_count += get_block_s(endpoint, n, "endpoint", "");
 
-        for(auto const &nv: ni.environment) {
-            std::ostringstream os;
-            vex::expand(os, nv.second, vex::make_smap(env_vars));
-            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << c_escape(os.str()) << "}");
+            append(group_vars, "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
+            if(endpoint.empty()) 
+                append(group_vars, "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << ports[n]);
+            else 
+                append(group_vars, "MAIN_ENVIRONMENT_VALUE", endpoint);
         }
-        
-        append(group_vars[ni.group], "G_NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+        append(group_vars, "GROUP_SCALE", std::to_string(group_scale));
+    }
+
+    for(auto group: groups) for(int n: group.second) {
+        std::string const &nn = name(n);
+        int blck = get_ne_block_node(n);
+        std::vector<std::string> buf;
+        std::vector<std::pair<std::string, std::string>> env;
+        error_count += get_environment(env, n, ports, true);
+        for(auto nv: env)
+            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
+
+        append(group_vars[group.first], "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+        append(group_vars[group.first], "NODE_PORT", ports[n]);
+        append(group_vars[group.first], "IMAGE_PORT", ports[n]);
+        error_count += node_info(n, group_vars[group.first]);
 
         buf.clear();
+        /*
         for(int mi: ni.mounts) {
             auto const &mt = mounts.at(mi);
             for(unsigned p = 0, pe = mt.paths.size(); p != pe; ++p) {
@@ -321,38 +323,8 @@ int flow_compiler::genc_kube(std::ostream &out) {
             }
         }
 
-        append(group_vars[ni.group], "G_NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
-
-        buf.clear();
-        int limits_blck = 0;
-        error_count += get_block_value(limits_blck, blck, "limits", false, {FTK_blck});
-        if(limits_blck != 0) for(int elem_node: at(limits_blck).children) { 
-            auto const &elem = at(elem_node);
-            if(!is_value_type(at(elem.children[1]).type)) {
-                pcerr.AddWarning(main_file, elem, sfmt() << "ignoring \"limits\" entry \"" << get_id(elem.children[0]) << "\"");
-                continue;
-            }
-            buf.push_back(sfmt() << get_id(elem.children[0]) <<  ": " << c_escape(get_value(elem.children[1])));
-        }
-        append(group_vars[ni.group], "G_NODE_MIN_MEMORY", ni.min_memory);
-        append(group_vars[ni.group], "G_NODE_MIN_CPUS", std::to_string(ni.min_cpus));
-        append(group_vars[ni.group], "G_NODE_MIN_GPUS", std::to_string(ni.min_gpus));
-        append(group_vars[ni.group], "G_NODE_MAX_MEMORY", ni.max_memory);
-        append(group_vars[ni.group], "G_NODE_MAX_CPUS", std::to_string(ni.max_cpus));
-        append(group_vars[ni.group], "G_NODE_MAX_GPUS", std::to_string(std::max(ni.max_gpus, ni.min_gpus)));
-
-        append(group_vars[ni.group], "G_NODE_HAVE_MIN_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0 
-                                             || !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MAX", !ni.max_memory.empty() || ni.max_gpus > 0 || ni.max_cpus > 0? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MIN", !ni.min_memory.empty() || ni.min_gpus > 0 || ni.min_cpus > 0? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MIN_MEMORY", !ni.min_memory.empty()? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MAX_MEMORY", !ni.max_memory.empty()? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MAX_CPUS", ni.max_cpus > 0? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MIN_CPUS", ni.min_cpus > 0? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MAX_GPUS", std::max(ni.max_gpus, ni.min_gpus) > 0? "": "#");
-        append(group_vars[ni.group], "G_NODE_HAVE_MIN_GPUS", ni.min_gpus > 0? "": "#");
-        append(group_vars[ni.group], "NODE_NAME", ni.xname);
-
+        */
+        append(group_vars[group.first], "NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
         std::vector<int> init_blcks;
         int init_count = 0;
         error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
@@ -373,11 +345,14 @@ int flow_compiler::genc_kube(std::ostream &out) {
                 buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
             buf.push_back("securityContext: {privileged: true}");
             buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
-            append(group_vars[ni.group], "G_INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
+            append(group_vars[group.first], "INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
         }
-        if(init_count > 0 || group_volumes[ni.group].size() > 0)
-            set(group_vars[ni.group], "HAVE_INIT_CONTAINERS", "");
+        DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
+        //if(init_count > 0 || group_volumes[group.first].size() > 0)
+        if(init_count > 0)
+            set(group_vars[group.first], "HAVE_INIT_CONTAINERS", "");
     }
+    /*
     for(auto const &g: groups)
         for(auto const &vn: group_volumes[g]) {
             auto cp = comments.find(vn);
@@ -387,6 +362,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
                 append(group_vars[g], "VOLUME_COMMENT", "");
             append(group_vars[g], "VOLUME_NAME", vn);
         }
+*/
 #if 0
     std::cerr << "**************** kube ******************\n";
     std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
@@ -397,7 +373,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
     auto global_smap = vex::make_smap(global_vars);
     auto gg_smap = vex::make_smap(group_vars[""]);
     vex::expand(out, template_kubernetes_yaml, vex::make_cmap(gg_smap, global_smap));
-    for(auto const &g: groups) if(!g.empty()) {
+    for(auto const &g: groups) if(!g.first.empty()) {
 #if 0
     std::cerr << "**************** kube ******************\n";
     std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
@@ -405,10 +381,10 @@ int flow_compiler::genc_kube(std::ostream &out) {
     std::cerr << "********* local: \n" << join(group_vars[g], "\n") << "\n";
     std::cerr << "****************************************\n";
 #endif
-        auto gg_smap = vex::make_smap(group_vars[g]);
+        auto gg_smap = vex::make_smap(group_vars[g.first]);
         vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, global_smap));
     }
-*/
+
     DEBUG_LEAVE;
     return 0;
 }
@@ -448,6 +424,15 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     append(local_vars, "NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
     append(local_vars, "NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
     append(local_vars, "NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
+    std::string endpoint, image_name;
+    error_count += get_block_s(endpoint, n, "endpoint", "");
+    error_count += get_block_s(image_name, n, "image", "");
+    append(local_vars, "NODE_ENDPOINT", endpoint);
+    if(!image_name.empty() && image_name[0] == '/')
+        image_name = path_join(default_repository, image_name.substr(1));
+    append(local_vars, "NODE_IMAGE", image_name);
+    append(local_vars, "EXTERN_NODE", image_name.empty()? "#": "");
+
     DEBUG_LEAVE;
     return error_count;
 }
@@ -456,10 +441,60 @@ static std::string check_for_file_ref(std::string const &vv) {
         return vv.substr(3, vv.length()-5);
     return "";
 }
-int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
+int flow_compiler::get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port, bool group_mode) {
     int error_count = 0;
     DEBUG_ENTER;
     std::map<std::string, std::vector<std::string>> env_vars;
+    std::string ngroup;
+    if(group_mode)
+        error_count += get_block_s(ngroup, n, "group", {FTK_STRING, FTK_INTEGER}, "");
+
+    for(auto np: node_port) {
+        int m = np.first;
+        std::string const en = type(m);
+        std::string const nf = name(m);
+        if((en == nf && type(n) != en) || nf == name(n)) {
+            std::string host = to_lower(to_option(to_identifier(nf)));
+            if(group_mode) {
+                std::string mgroup;
+                error_count += get_block_s(mgroup, m, "group", {FTK_STRING, FTK_INTEGER}, "");
+                if(ngroup == mgroup) {
+                    // If the this node is part of this group, it is accessible through localhost
+                    host = "localhost";
+                } else {
+                    // This node is accessible through service in this group
+                    host = to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << mgroup));
+                }
+            }
+            append(env_vars, en+".port", np.second);
+            append(env_vars, en+".host", host);
+            append(env_vars, en, host);
+        }
+    }
+    std::map<std::string, int> nvnenv;
+    error_count += get_nv_block(nvnenv, n, "environment", {FTK_STRING});
+    for(auto const &nv: nvnenv) {
+        std::string value = get_string(nv.second);
+        std::string file_ref = check_for_file_ref(value);
+        if(!file_ref.empty()) {
+            int tmp_count = 1 + global_vars["GLOBAL_TEMP_VARS"].size();
+            append(global_vars, "GLOBAL_TEMP_VARS", sfmt() << "flow_local_TMP" << tmp_count << "=\"$(cat " << file_ref << ")\"");
+            env.push_back(std::make_pair(nv.first, std::string(sfmt() << "=" << "$flow_local_TMP" << tmp_count)));
+
+            //env.push_back(c_escape(sfmt() << nv.first << "=" << "$flow_local_TMP" << tmp_count));
+        } else {
+            std::ostringstream os;
+            vex::expand(os, value, vex::make_smap(env_vars));
+            env.push_back(std::make_pair(nv.first, os.str()));
+            //env.push_back(c_escape(sfmt() << nv.first << "=" << os.str()));
+        }
+    }
+    DEBUG_LEAVE;
+    return error_count;
+}
+int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
+    int error_count = 0;
+    DEBUG_ENTER;
     int base_port = this->base_port;
     std::set<int> cc_nodes; // all client nodes and containers
     std::set<int> cli_nodes; // all client
@@ -480,6 +515,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         if(pv == 0) pv = base_port + nc;
         ports[n] = std::to_string(pv);
         append(local_vars, "NODE_PORT", std::to_string(pv));
+        append(local_vars, "IMAGE_PORT", std::to_string(pv));
         if(at(n).type != FTK_NODE)
             continue;
         append(local_vars, "MAIN_EP_ENVIRONMENT_NAME",  sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT");
@@ -498,34 +534,13 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         std::string const &nn = name(n);
         int blck = get_ne_block_node(n);
 
-        env_vars.clear();
-        for(int m: cc_nodes) {
-            std::string const en = type(n);
-            std::string const nf = name(n);
-            if((en == nf && type(n) != en) || nf == nn) {
-                std::string h = to_lower(to_option(to_identifier(nf)));
-                append(env_vars, en+".port", ports[m]);
-                append(env_vars, en+".host", h);
-                append(env_vars, en, h);
-            }
-        }
-        std::vector<std::string> env;
-        std::map<std::string, int> nvnenv;
-        error_count += get_nv_block(nvnenv, blck, "environment", {FTK_STRING});
-        for(auto const &nv: nvnenv) {
-            std::string value = get_string(nv.second);
-            std::string file_ref = check_for_file_ref(value);
-            if(!file_ref.empty()) {
-                ++tmp_count;
-                append(local_vars, "GLOBAL_TEMP_VARS", sfmt() << "flow_local_TMP" << tmp_count << "=\"$(cat " << file_ref << ")\"");
-                env.push_back(c_escape(sfmt() << nv.first << "=" << "$flow_local_TMP" << tmp_count));
-            } else {
-                std::ostringstream os;
-                vex::expand(os, value, vex::make_smap(env_vars));
-                env.push_back(c_escape(sfmt() << nv.first << "=" << os.str()));
-            }
-        }
-        append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
+        std::vector<std::string> buf;
+        std::vector<std::pair<std::string, std::string>> env;
+        error_count += get_environment(env, n, ports);
+        for(auto nv: env)
+            buf.push_back(json_escape(sfmt() << nv.first << "=" << nv.second));
+        append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "environment: [", "", "", "]"));
+
         error_count += node_info(n, local_vars);
 
         std::vector<std::string> mts;

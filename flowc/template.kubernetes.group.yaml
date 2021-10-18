@@ -2,19 +2,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{NAME}}-{{G_NODE_GROUP}}
+  name: {{NAME}}-{{NODE_GROUP}}
   labels:
-    app: {{NAME}}-{{G_NODE_GROUP}}
+    app: {{NAME}}-{{NODE_GROUP}}
     flow-group: {{NAME}}
 spec:
-  replicas: ${replicas_{{NAME/id/upper}}_{{G_NODE_GROUP/id/upper}}}
+  replicas: ${replicas_{{NAME/id/upper}}_{{NODE_GROUP/id/upper}}}
   selector:
     matchLabels:
-      app: {{NAME}}-{{G_NODE_GROUP}}
+      app: {{NAME}}-{{NODE_GROUP}}
   template:
     metadata:
       labels:
-        app: {{NAME}}-{{G_NODE_GROUP}}
+        app: {{NAME}}-{{NODE_GROUP}}
         flow-group: {{NAME}}
     spec:
 {X:HAVE_IMAGE_PULL_SECRETS{
@@ -24,8 +24,8 @@ spec:
 }S}
 {X:HAVE_INIT_CONTAINERS{
       initContainers:{{HAVE_INIT_CONTAINERS}}}X}
-{I:G_INIT_CONTAINER{
-      - {{G_INIT_CONTAINER}}
+{I:INIT_CONTAINER{
+      - {{INIT_CONTAINER}}
 }I}
 {W:VOLUME_NAME{
 ${{{VOLUME_NAME/id/upper}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{VOLUME_NAME/id/upper}}}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
@@ -50,20 +50,20 @@ ${{{VOLUME_NAME/id/upper}}_ART}          readOnly: true
           readOnly: false
 }W}
       containers:
-{N:G_NODE_NAME{
-{{G_EXTERN_NODE}}      - name: {{G_NODE_OPTION}}
-{{G_EXTERN_NODE}}        image: "$image_{{G_NODE_NAME/id/upper}}"
-{{G_EXTERN_NODE}}        {{G_NODE_ENVIRONMENT}}
-{{G_EXTERN_NODE}}        {{G_NODE_MOUNTS}}
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MAX}}        resources:
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN}}          requests:
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_MEMORY}}            memory: "{{G_NODE_MIN_MEMORY}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_CPUS}}            cpu: "{{G_NODE_MIN_CPUS}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{G_NODE_MIN_GPUS}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX}}          limis:
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_MEMORY}}            memory: "{{G_NODE_MAX_MEMORY}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_CPUS}}            cpu: "{{G_NODE_MAX_CPUS}}"
-{{G_EXTERN_NODE}}{{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
+{N:NODE_NAME{
+{{EXTERN_NODE}}      - name: {{NODE_NAME/id/option}}
+{{EXTERN_NODE}}        image: "$image_{{NODE_NAME/id/upper}}"
+{{EXTERN_NODE}}        {{NODE_ENVIRONMENT}}
+{{EXTERN_NODE}}        {{NODE_MOUNTS}}
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}        resources:
+{{EXTERN_NODE}}{{NODE_HAVE_MIN}}          requests:
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}            memory: "{{NODE_MIN_MEMORY}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_CPUS}}            cpu: "{{NODE_MIN_CPUS}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{NODE_MIN_GPUS}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MAX}}          limis:
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_MEMORY}}            memory: "{{NODE_MAX_MEMORY}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_CPUS}}            cpu: "{{NODE_MAX_CPUS}}"
+{{EXTERN_NODE}}{{NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{NODE_MAX_GPUS}}"
 }N}
 {V:HAVE_VOLUMES{
       volumes:{{HAVE_VOLUMES}}
@@ -85,16 +85,16 @@ ${{{VOLUME_NAME/id/upper}}_ART}            secretName: ${{{VOLUME_NAME/id/upper}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{NAME}}-{{G_NODE_GROUP}}
+  name: {{NAME}}-{{NODE_GROUP}}
   labels:
-    app: {{NAME}}-{{G_NODE_GROUP}}
+    app: {{NAME}}-{{NODE_GROUP}}
     flow-group: {{NAME}}
 spec:
   ports:
-{N:G_NODE_NAME{
-{{G_EXTERN_NODE}}  - port: {{G_IMAGE_PORT}}
-{{G_EXTERN_NODE}}    protocol: TCP
-{{G_EXTERN_NODE}}    name: {{G_NODE_OPTION}}-port
+{N:NODE_NAME{
+{{EXTERN_NODE}}  - port: {{NODE_PORT}}
+{{EXTERN_NODE}}    protocol: TCP
+{{EXTERN_NODE}}    name: {{NODE_NAME/id/option/lower}}-port
 }N}
   selector:
-    app: {{NAME}}-{{G_NODE_GROUP}}
+    app: {{NAME}}-{{NODE_GROUP}}
