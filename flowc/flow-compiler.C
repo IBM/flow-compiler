@@ -2011,7 +2011,6 @@ int flow_compiler::compile_expressions(int node) {
     for(int n: *this) switch(at(n).type) {
         case FTK_NODE:
         case FTK_ERROR:
-            DEBUG_CHECK("for " << n << " we have condition " << get_ne_condition(n));
             error_count += compile_expression(get_ne_condition(n));
         default:
             break;

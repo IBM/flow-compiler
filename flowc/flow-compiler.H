@@ -170,6 +170,7 @@ public:
     int add_to_proto_path(std::string const &directory);
     int compile_proto(std::string const &file);
 
+    std::string output_filename(std::string const &filename);
     /**
      * Generate protobuf and grpc support code, by invoking protoc
      */
