@@ -333,8 +333,14 @@ public:
     int get_nv_block(std::map<std::string, int> &nvs, int parent_block, std::string const &block_label, std::set<int> const &accepted_types);
     // get block value as string -- required
     int get_block_s(std::string &value, int blck, std::string const &name, std::set<int> const &accepted_types);
+    int get_block_s(std::string &value, int blck, std::string const &name) {
+        return get_block_s(value, blck, name, std::set<int>({FTK_STRING}));
+    }
     // get block value as string -- optional
     int get_block_s(std::string &value, int blck, std::string const &name, std::set<int> const &accepted_types, std::string const &def);
+    int get_block_s(std::string &value, int blck, std::string const &name,std::string const &def) {
+        return get_block_s(value, blck, name, std::set<int>({FTK_STRING}), def);
+    }
     // get block value as int -- required
     int get_block_i(int &value, int blck, std::string const &name);
     // get block value as int -- optional
