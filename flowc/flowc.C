@@ -39,8 +39,7 @@ bool flow_compiler::debug_enable = false;
 
 static std::string install_directory;
 static std::string output_directory;
-static 
-std::string output_filename(std::string const &filename) {
+std::string flow_compiler::output_filename(std::string const &filename) {
     if(output_directory.empty())
             return filename;
     if(*output_directory.rbegin() == '/') 
