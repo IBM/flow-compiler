@@ -472,9 +472,9 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
         }
     }
     std::map<std::string, int> nvnenv;
-    error_count += get_nv_block(nvnenv, n, "environment", {FTK_STRING});
+    error_count += get_nv_block(nvnenv, n, "environment", {FTK_STRING, FTK_INTEGER, FTK_FLOAT});
     for(auto const &nv: nvnenv) {
-        std::string value = get_string(nv.second);
+        std::string value = get_text(nv.second);
         std::string file_ref = check_for_file_ref(value);
         if(!file_ref.empty()) {
             int tmp_count = 1 + global_vars["GLOBAL_TEMP_VARS"].size();
