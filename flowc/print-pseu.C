@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include "flow-compiler.H"
 
 void flow_compiler::print_pseudocode(std::ostream &out) const {
