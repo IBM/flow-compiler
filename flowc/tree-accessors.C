@@ -85,14 +85,14 @@ int flow_compiler::get_block_i(int &value, int blck, std::string const &name) {
     int v = 0;
     int r = get_block_value(v, blck, name, true, {FTK_INTEGER, FTK_FLOAT});
     if(v != 0) 
-        value = at(v).type == FTK_STRING? get_integer(v): int(get_float(v));
+        value = at(v).type == FTK_INTEGER? get_integer(v): int(get_float(v));
     return r;
 }
 int flow_compiler::get_block_i(int &value, int blck, std::string const &name, int def) {
     int v = 0;
     int r = get_block_value(v, blck, name, false, {FTK_INTEGER, FTK_FLOAT});
     if(v != 0) 
-        value = at(v).type == FTK_STRING? get_integer(v): int(get_float(v));
+        value = at(v).type == FTK_INTEGER? get_integer(v): int(get_float(v));
     else
         value = def;
     return r;
