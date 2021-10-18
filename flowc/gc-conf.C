@@ -280,7 +280,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
                 error_count += get_block_i(scale, n, "scale", 0);
                 group_scale = std::max(scale, group_scale);
             } else {
-                host = std::string("@") + to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << group.first));
+                host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << group.first)));
             }
             if(!group.first.empty()) 
                 continue;
@@ -479,7 +479,7 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
         if(!file_ref.empty()) {
             int tmp_count = 1 + global_vars["GLOBAL_TEMP_VARS"].size();
             append(global_vars, "GLOBAL_TEMP_VARS", sfmt() << "flow_local_TMP" << tmp_count << "=\"$(cat " << file_ref << ")\"");
-            env.push_back(std::make_pair(nv.first, std::string(sfmt() << "=" << "$flow_local_TMP" << tmp_count)));
+            env.push_back(std::make_pair(nv.first, std::string(sfmt()  << "$flow_local_TMP" << tmp_count)));
 
             //env.push_back(c_escape(sfmt() << nv.first << "=" << "$flow_local_TMP" << tmp_count));
         } else {
@@ -523,7 +523,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         error_count += get_block_s(ep, n, "endpoint", "");
         if(ep.empty()) {
             append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << "$"  << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT_DN:" << pv);
-            append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", sfmt() << to_lower(nn));
+            append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", sfmt() << to_lower(to_option(to_identifier(nn))));
         } else {
             append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << ep);
             append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", "");
