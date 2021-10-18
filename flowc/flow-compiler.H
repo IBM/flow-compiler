@@ -321,6 +321,9 @@ public:
     int genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
     // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
     int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
+    // Grab all deployment related  node information
+    int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
+    
     // Webapp interface
     int genc_www();
     // DOT and SVG files

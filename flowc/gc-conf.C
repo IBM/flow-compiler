@@ -238,6 +238,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
 
 int flow_compiler::genc_kube(std::ostream &out) {
     int error_count = 0;
+    DEBUG_ENTER;
     extern char const *template_kubernetes_yaml;
     extern char const *template_kubernetes_group_yaml;
     std::map<std::string, std::vector<std::string>> env_vars;
@@ -408,7 +409,47 @@ int flow_compiler::genc_kube(std::ostream &out) {
         vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, global_smap));
     }
 */
+    DEBUG_LEAVE;
     return 0;
+}
+int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::string>> &local_vars) {
+    int error_count = 0;
+    DEBUG_ENTER;    
+    std::string runtime; 
+    error_count += get_block_s(runtime, n, "runtime", "");
+    append(local_vars, "SET_NODE_RUNTIME", runtime.empty()? "#": "");
+    append(local_vars, "NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
+    int scale, min_cpus, max_cpus, min_gpus, max_gpus;
+    std::string min_memory, max_memory;
+    error_count += get_block_s(min_memory, n, "min_memory", "");
+    error_count += get_block_s(max_memory, n, "max_memory", "");
+    error_count += get_block_i(min_cpus, n, "min_cpu", 0);
+    error_count += get_block_i(min_gpus, n, "min_gpu", 0);
+    error_count += get_block_i(max_cpus, n, "max_cpu", 0);
+    error_count += get_block_i(max_gpus, n, "max_gpu", 0);
+    error_count += get_block_i(scale, n, "scale", 0);
+
+    append(local_vars, "NODE_SCALE", std::to_string(scale <= 0? 1: scale));
+    append(local_vars, "NODE_MIN_CPUS", std::to_string(min_cpus <= 0? 0: min_cpus));
+    append(local_vars, "NODE_MAX_CPUS", std::to_string(max_cpus <= 0? 0: max_cpus));
+    append(local_vars, "NODE_MIN_GPUS", std::to_string(min_gpus <= 0? 0: min_gpus));
+    append(local_vars, "NODE_MAX_GPUS", std::to_string(max_gpus <= 0? 0: max_gpus));
+    append(local_vars, "NODE_MIN_MEMORY", min_memory);
+    append(local_vars, "NODE_MAX_MEMORY", max_memory);
+
+    append(local_vars, "NODE_HAVE_MIN_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0 
+            || !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
+    append(local_vars, "NODE_HAVE_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0? "": "#");
+    append(local_vars, "NODE_HAVE_MIN", !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
+    append(local_vars, "NODE_HAVE_MIN_MEMORY", !min_memory.empty()? "": "#");
+    append(local_vars, "NODE_HAVE_MAX_MEMORY", !max_memory.empty()? "": "#");
+    append(local_vars, "NODE_HAVE_MAX_CPUS", max_cpus > 0? "": "#");
+    append(local_vars, "NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
+    append(local_vars, "NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
+    append(local_vars, "NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
+    append(local_vars, "NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
+    DEBUG_LEAVE;
+    return error_count;
 }
 static std::string check_for_file_ref(std::string const &vv) {
     if(starts_with(vv, "{{@") && ends_with(vv, "}}"))
@@ -485,40 +526,7 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
             }
         }
         append(local_vars, "NODE_ENVIRONMENT", join(env, ", ", "", "environment: [", "", "", "]"));
-
-        std::string runtime; 
-        error_count += get_block_s(runtime, n, "runtime", "");
-        append(local_vars, "SET_NODE_RUNTIME", runtime.empty()? "#": "");
-        append(local_vars, "NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
-        int scale, min_cpus, max_cpus, min_gpus, max_gpus;
-        std::string min_memory, max_memory;
-        error_count += get_block_s(min_memory, n, "min_memory", "");
-        error_count += get_block_s(max_memory, n, "max_memory", "");
-        error_count += get_block_i(min_cpus, n, "min_cpu", 0);
-        error_count += get_block_i(min_gpus, n, "min_gpu", 0);
-        error_count += get_block_i(max_cpus, n, "max_cpu", 0);
-        error_count += get_block_i(max_gpus, n, "max_gpu", 0);
-        error_count += get_block_i(scale, n, "scale", 0);
-
-        append(local_vars, "NODE_SCALE", std::to_string(scale <= 0? 1: scale));
-        append(local_vars, "NODE_MIN_CPUS", std::to_string(min_cpus <= 0? 0: min_cpus));
-        append(local_vars, "NODE_MAX_CPUS", std::to_string(max_cpus <= 0? 0: max_cpus));
-        append(local_vars, "NODE_MIN_GPUS", std::to_string(min_gpus <= 0? 0: min_gpus));
-        append(local_vars, "NODE_MAX_GPUS", std::to_string(max_gpus <= 0? 0: max_gpus));
-        append(local_vars, "NODE_MIN_MEMORY", min_memory);
-        append(local_vars, "NODE_MAX_MEMORY", max_memory);
-
-        append(local_vars, "NODE_HAVE_MIN_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0 
-                                             || !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
-        append(local_vars, "NODE_HAVE_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0? "": "#");
-        append(local_vars, "NODE_HAVE_MIN", !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
-        append(local_vars, "NODE_HAVE_MIN_MEMORY", !min_memory.empty()? "": "#");
-        append(local_vars, "NODE_HAVE_MAX_MEMORY", !max_memory.empty()? "": "#");
-        append(local_vars, "NODE_HAVE_MAX_CPUS", max_cpus > 0? "": "#");
-        append(local_vars, "NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
-        append(local_vars, "NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
-        append(local_vars, "NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
-        append(local_vars, "NODE_NAME", to_lower(to_option(to_identifier(nn))));
+        error_count += node_info(n, local_vars);
 
         std::vector<std::string> mts;
         bool have_rw_mounts = false;
