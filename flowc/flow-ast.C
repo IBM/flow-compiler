@@ -91,20 +91,20 @@ char const *node_name(int i) {
     }
 }
 int64_t flow_ast::get_integer(int node) const {
-    MASSERT(at(node).type == FTK_INTEGER) << "node " << node << " is of type " << at(node).type << ", not INTEGER\n";
+    MASSERT(at(node).type == FTK_INTEGER) << "node " << node << " is of type " << node_name(at(node).type) << ", expected INTEGER\n";
     return at(node).token.integer_value;
 }
 double flow_ast::get_float(int node) const {
-    MASSERT(at(node).type == FTK_FLOAT) << "node " << node << " is of type " << at(node).type << ", not FLOAT\n";
+    MASSERT(at(node).type == FTK_FLOAT) << "node " << node << " is of type " << node_name(at(node).type) << ", expected FLOAT\n";
     return at(node).token.float_value;
 }
 double flow_ast::get_numberf(int node) const {
-    MASSERT(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER) << "node " << node << " is of type " << at(node).type << ", not FLOAT or INTEGER\n";
+    MASSERT(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER) << "node " << node << " is of type " << node_name(at(node).type) << ", expected FLOAT or INTEGER\n";
     return at(node).type == FTK_FLOAT? at(node).token.float_value: at(node).token.integer_value;
 }
 std::string flow_ast::get_number(int node, int grpc_type) const {
     auto const &n = at(node);
-    MASSERT(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER) << "node " << node << " is of type " << at(node).type << ", not FLOAT or INTEGER\n";
+    MASSERT(at(node).type == FTK_FLOAT || at(node).type == FTK_INTEGER) << "node " << node << " is of type " << node_name(at(node).type) << ", expected FLOAT or INTEGER\n";
     switch(grpc_type) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             return n.type == FTK_INTEGER? std::to_string((double) n.token.integer_value): std::to_string(n.token.float_value);
@@ -191,16 +191,16 @@ std::string const flow_ast::get_value(int node) const {
         case FTK_INTEGER: return sfmt() << at(node).token.integer_value;
         case FTK_FLOAT: return sfmt() << at(node).token.float_value;
         default:
-            MASSERT(false) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected value type\n";
+            MASSERT(false) << " node " << node << " [" << at(node).token.text << "] is of type " << node_name(at(node).type) << ", expected value type\n";
     }
     return "";
 }
 std::string const &flow_ast::get_string(int node) const {
-    MASSERT(at(node).type == FTK_STRING) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected type: " << FTK_STRING << "\n";
+    MASSERT(at(node).type == FTK_STRING) << " node " << node << " [" << at(node).token.text << "] is of type " << node_name(at(node).type) << ", expected STRING\n";
     return at(node).token.text;
 }
 std::string const &flow_ast::get_id(int node) const {
-    MASSERT(at(node).type == FTK_ID) << " node: " << node << " text: " << at(node).token.text << " type: " << at(node).type << " expected type: " << FTK_ID << "\n";
+    MASSERT(at(node).type == FTK_ID) << " node " << node << " [" << at(node).token.text << "] is of type " << node_name(at(node).type) << ", expected ID\n";
     return at(node).token.text;
 }
 std::string flow_ast::get_joined_id(int node, int start_pos, int end_pos, std::string const &j) const {

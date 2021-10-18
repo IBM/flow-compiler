@@ -436,6 +436,7 @@ struct flow_ast {
      */
     /**
      * Get the node pointing to the properties hash for entry or node node n.
+     * The first subnode of type blck
      */
     int get_ne_block_node(int n) const {
         return find_first(n, [this](int x) -> bool {
@@ -448,7 +449,7 @@ struct flow_ast {
     int get_ne_action(int n) const {
         assert(at(n).type == FTK_NODE || at(n).type == FTK_ENTRY);
         int bn = get_ne_block_node(n);
-        return  find_first(bn, [this](int x) -> bool {
+        return find_first(bn, [this](int x) -> bool {
             return at(x).type == FTK_RETURN || at(x).type == FTK_OUTPUT;
         });
     }
