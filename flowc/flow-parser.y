@@ -58,7 +58,7 @@ stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(a
 // node, entry or container                                                   
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
                                                                  ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here");
-                                                                 if(ast->at(A).type == FTK_NODE) {
+                                                                 if(ast->at(A).type == FTK_NODE || ast->at(A).type == FTK_CONTAINER) {
                                                                      ast->name.put(A, ast->get_dotted_id(C));
                                                                      ast->type.put(A, ast->get_dotted_id(C, 0, 1)); 
                                                                  } else {

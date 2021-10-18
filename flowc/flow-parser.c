@@ -1305,7 +1305,7 @@ static YYACTIONTYPE yy_reduce(
 #line 59 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(ast->stmt_keyw(yymsp[-2].minor.yy0), yymsp[-2].minor.yy0, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); 
                                                                  ast->expect(yylhsminor.yy0, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here");
-                                                                 if(ast->at(yylhsminor.yy0).type == FTK_NODE) {
+                                                                 if(ast->at(yylhsminor.yy0).type == FTK_NODE || ast->at(yylhsminor.yy0).type == FTK_CONTAINER) {
                                                                      ast->name.put(yylhsminor.yy0, ast->get_dotted_id(yymsp[-1].minor.yy0));
                                                                      ast->type.put(yylhsminor.yy0, ast->get_dotted_id(yymsp[-1].minor.yy0, 0, 1)); 
                                                                  } else {
