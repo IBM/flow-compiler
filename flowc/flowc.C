@@ -446,8 +446,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     // Generate lists for all client node + containers with:
     // name, group, port, image, endpoint, runtime, extern-node 
-    std::map<std::string, std::set<int>> ports;
     std::map<std::string, std::set<int>> groups;
+    std::map<std::string, std::map<int, int>> ports;
     for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
         std::string group_name;
         error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
@@ -457,12 +457,17 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         groups[group_name].insert(n);
         int pv = 0;
         error_count += get_block_i(pv, n, "port", 0);
-        if(pv != 0) {
-            if(cot::contains(targets, "driver") && cot::contains(ports[group_name], pv)) {
-                pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(n) << "\" in group \"" << group_name << "\"");
+        if(pv != 0 && cot::contains(targets, "driver")) {
+            
+            if(cot::contains(ports[group_name], pv)) {
+                pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group_name][pv]) << "\" in the same group");
+                pcerr.AddNote(main_file, at(get_first_value_node(get_ne_block_node(ports[group_name][pv]), "port")), "declared here");
+            } else {
+                ports[group_name][pv] = n; 
             }
-            ports[group_name].insert(pv);
+                
         }
+        
         int value = 0;
         bool external_node = false;
         /*

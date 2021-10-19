@@ -396,14 +396,12 @@ struct flow_ast {
         return k;
     }
     /**
-     * Return the first value that matches 'key'. 
+     * Return the first value that matches 'key' from a blck compatible node
      */
-    int blck_first_value_node(int blck_node, std::string const &key) const {
+    int get_first_value_node(int blck_node, std::string const &key) const {
         auto const &blck = at(blck_node);
-        assert(blck.type == FTK_blck);
         for(int p: blck.children) {
             auto const &elem = at(p);
-            assert(elem.type == FTK_elem);
             if(get_id(elem.children[0]) == key) 
                 return elem.children[1];
         }
