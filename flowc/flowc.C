@@ -163,7 +163,13 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
     set(global_vars, "BASE_IMAGE", runtime);
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
 }
-
+int flow_compiler::get_unna(std::string &name) {
+    int c = 0;
+    while(cot::contains(glunna, name) && c < 1999) 
+        name = sfmt() << name << "-" << ++c; 
+    glunna[name] = 0;
+    return c < 1999? 0: 1;
+}
 /**
  * Add the directory to the proto path
  * Return 0 on success or 1 if can't access directory
@@ -437,10 +443,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 cp_p(filename, output_filename(std::string("docs/")+file));
         }
     }
-    // Set a value to trigger node generation
-    clear(global_vars, "HAVE_NODES");
-    if(get_all_referenced_nodes().size() > 0)
-        set(global_vars, "HAVE_NODES", ""); 
 
     // Generate lists for all client node + containers with:
     // name, group, port, image, endpoint, runtime, extern-node 
@@ -573,9 +575,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 */
         }
     }
-    set(global_vars, "MAIN_POD", "main");
-    for(int i = 1, e = get_all_referenced_nodes().size()+1; i <= e && cot::contains(groups, get(global_vars, "MAIN_POD")); ++i) 
-        set(global_vars, "MAIN_POD", sfmt() << "main" << i);
+    // Make sure pod names don't clash
+    for(auto gs: groups) {
+        std::string pod_name(gs.first);
+        if(!pod_name.empty()) 
+            MASSERT(get_unna(pod_name) == 0) << "Failed to generate name " << pod_name << "\n";
+    }
+    std::string pod_name("main"); 
+    MASSERT(get_unna(pod_name) == 0) << "Failed to generate name " << pod_name << "\n";
+    set(global_vars, "MAIN_POD", pod_name);
     // Make sure port values are allocated when needed
     /*
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
@@ -604,7 +612,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
     }
     */
-    set(global_vars, "HAVE_NODES", ""); 
     if(mounts.size() > 0) 
         set(global_vars, "HAVE_VOLUMES", "");
     else 

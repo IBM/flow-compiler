@@ -118,6 +118,9 @@ private:
     std::vector<fop> icode;
     // Entry point in icode for each entry node
     std::map<int, int> entry_ip;
+
+    // Global table of names that have to be unique
+    std::map<std::string, int> glunna;
 public: 
     bool trace_on, verbose;
     flow_compiler();
@@ -346,7 +349,11 @@ public:
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);
 
     static bool debug_enable;
+
+    int get_unna(std::string &name);
 };
+
+
 
 #ifndef DEBUG_GENC
 #define DEBUG_GENC flow_compiler::debug_enable
