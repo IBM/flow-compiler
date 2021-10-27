@@ -163,10 +163,14 @@ flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr)
     set(global_vars, "BASE_IMAGE", runtime);
     set(global_vars, "FLOWC_NAME", FLOWC_NAME);
 }
-int flow_compiler::get_unna(std::string &name) {
+int flow_compiler::get_unna(std::string &name, int hint) {
+    std::string nroot(name);
     int c = 0;
-    while(cot::contains(glunna, name) && c < 1999) 
-        name = sfmt() << name << "-" << ++c; 
+    if(cot::contains(glunna, name)) {
+        name = sfmt() << nroot << hint;
+        while(cot::contains(glunna, name) && c < 1999) 
+            name = sfmt() << nroot << ++c; 
+    }
     glunna[name] = 0;
     return c < 1999? 0: 1;
 }
@@ -292,6 +296,44 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             print_graph(std::cout, en);
         }
     }
+    // Set the name attribute for all volume mounts
+    std::map<std::string, int> mns;
+    for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) 
+        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT)  if(name.has(m)) {
+            if(cot::contains(mns, name(m))) {
+                pcerr.AddWarning(main_file, at(m), sfmt() << "reuse of volume mount name \"" << name(m) << "\"");
+            }
+            mns[name(m)] = m;
+        }
+    for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) 
+        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
+            std::string von;
+            if(!name.has(m)) do {
+                von = "vo";
+                get_unna(von, m);
+                name.update(m, von);
+            } while(cot::contains(mns, von));
+            mns[name(m)] = m;
+        }
+    // Set the group attribute
+    for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
+        std::string group_name;
+        error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
+        if(!group_name.empty()) {
+            group.put(n, group_name);
+            if(!cot::contains(glunna, group_name))
+                glunna[group_name] = n;
+        }
+    }
+    main_group_name = "main"; 
+    MASSERT(get_unna(main_group_name) == 0) << "Failed to generate name " << main_group_name << "\n";
+    set(global_vars, "MAIN_POD", main_group_name);
+    set(global_vars, "MAIN_GROUP", main_group_name);
+    for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
+        if(!group.has(n))
+            group.put(n, main_group_name);
+    }
+
     if(opts.have("print-ast"))  
         print_ast(std::cout);
     if(opts.have("print-pseudocode"))
@@ -461,7 +503,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             
             if(cot::contains(ports[group_name], pv)) {
                 pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group_name][pv]) << "\" in the same group");
-                pcerr.AddNote(main_file, at(get_first_value_node(get_ne_block_node(ports[group_name][pv]), "port")), "declared here");
+                pcerr.AddNote(main_file, at(get_first_value_node(get_ne_block_node(ports[group_name][pv]), "port")), "first used here");
             } else {
                 ports[group_name][pv] = n; 
             }
@@ -504,6 +546,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         int old_value = 0;
         //ni.mounts.clear();
         int blck = get_ne_block_node(n);
+        /*
         if(!external_node) for(int p = 0, v = find_in_blck(blck, "mount", &p); v != 0; v = find_in_blck(blck, "mount", &p)) {
             if(at(v).type != FTK_MOUNT) {
                 error_count += 1;
@@ -569,6 +612,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             old_value = v;
         }
+        */
         old_value = 0;
         //ni.environment.clear();
         if(!external_node) {
@@ -580,15 +624,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 */
         }
     }
-    // Make sure pod names don't clash
-    for(auto gs: groups) {
-        std::string pod_name(gs.first);
-        if(!pod_name.empty()) 
-            MASSERT(get_unna(pod_name) == 0) << "Failed to generate name " << pod_name << "\n";
-    }
-    std::string pod_name("main"); 
-    MASSERT(get_unna(pod_name) == 0) << "Failed to generate name " << pod_name << "\n";
-    set(global_vars, "MAIN_POD", pod_name);
+
     // Make sure port values are allocated when needed
     /*
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
@@ -617,30 +653,24 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
     }
     */
-    if(mounts.size() > 0) 
+    if(mns.size() > 0) 
         set(global_vars, "HAVE_VOLUMES", "");
     else 
         clear(global_vars, "HAVE_VOLUMES");
 
     bool have_cos = false;
+    /*
     for(auto const &m: mounts) {
         have_cos = have_cos || !m.second.cos.empty();
         if(have_cos) break;
     }
+    */
     if(have_cos)
         set(global_vars, "HAVE_COS", "");
     else
         clear(global_vars, "HAVE_COS");
     // Make sure the rest volume name doesn't collide with any other volume name
-    std::string rest_volume_name = "proto-files";
     std::set<std::string> volumes;
-    for(auto np: mounts) volumes.insert(np.second.name);
-    for(unsigned i = 1; i < 100; ++i) {
-        if(!cot::contains(volumes, rest_volume_name))
-            break;
-        rest_volume_name = sfmt() << "proto-files-" << i;
-    }
-    set(global_vars, "REST_VOLUME_NAME", rest_volume_name);
     std::string htdocs_volume_name = "htdocs";
     for(unsigned i = 1; i < 100; ++i) {
         if(!cot::contains(volumes, htdocs_volume_name))
@@ -711,6 +741,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     // Add volume information FIXME
+    /* 
     for(auto const &mip: mounts) {
         std::string const &vn = mip.second.name;
 
@@ -728,6 +759,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "VOLUME_COMMENT", "");
         }
     }
+    */
     if(error_count == 0 && cot::contains(targets, "makefile")) 
         error_count += genc_makefile(orchestrator_makefile);
 
@@ -831,7 +863,7 @@ int flow_compiler::genc_graph(bool gen_svgs) {
             std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
             std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
             if(system(dotc.c_str()) != 0)  {
-                pcerr.AddWarning(outputfn, -1, 0, "failed to gerenate graph svg, is dot available?");
+                pcerr.AddWarning(outputfn, -1, 0, "failed to generate graph svg, is dot available?");
                 append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(""));
             } else {
                 std::ifstream svgf(svg_filename.c_str());

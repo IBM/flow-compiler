@@ -48,6 +48,7 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
     vars[name].assign(begin, end);
     return vars;
 }
+/*
 struct mount_info {
     int node;               // AST pointer        
     int node_node;          // Node (parent) AST pointer
@@ -62,7 +63,7 @@ struct mount_info {
     mount_info(int n=0, int nn=0, std::string const &na="", bool ro=true): node(n), node_node(nn), name(na), read_only(ro) {
     }
 };
-
+*/
 class flow_compiler: public flow_ast {
 private:    
     FErrorPrinter pcerr;
@@ -79,6 +80,7 @@ private:
     bool orchestrator_debug_image;
     bool orchestrator_no_rest;
     std::string main_name;
+    std::string main_group_name;
     // Main description, gleaned from comments
     std::string main_description;
     // Orchestrator image name with repository (as it appears in composer or kube config)
@@ -110,7 +112,7 @@ private:
     // volume for each group
     std::map<std::string, std::set<std::string>> group_volumes;
     // All mount records indexed by AST node
-    std::map<int, mount_info> mounts;
+    //std::map<int, mount_info> mounts;
 
     // 
     var_store_t global_vars;
@@ -328,7 +330,6 @@ public:
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
     // Create environment for node <n>
     int get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port,  bool group_mode = false);
-
     
     // Webapp interface
     int genc_www();
@@ -350,7 +351,7 @@ public:
 
     static bool debug_enable;
 
-    int get_unna(std::string &name);
+    int get_unna(std::string &name, int hint=1);
 };
 
 

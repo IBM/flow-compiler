@@ -84,8 +84,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         std::string svalue;
         error_count += get_block_s(svalue, block, "endpoint", {FTK_STRING}, "");
         append(vars, "CLI_NODE_ENDPOINT", svalue);
-        error_count += get_block_s(svalue, block, "group", {FTK_STRING, FTK_INTEGER}, "");
-        append(vars, "CLI_NODE_GROUP", svalue);
+        append(vars, "CLI_NODE_GROUP", group(rn));
         cc_value = 0;
         error_count += get_block_i(cc_value, block, "replicas", default_maxcc);
         if(cc_value <= 0) {
@@ -256,8 +255,7 @@ int flow_compiler::genc_kube(std::ostream &out) {
     int c = 0;
     for(int n: cc_nodes) {
         ++c;
-        std::string group_name, image_name;
-        error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
+        std::string group_name = group(n), image_name;
         error_count += get_block_s(image_name, n, "image", "");
         //if(!image_name.empty())
             groups[group_name].insert(n);
@@ -492,6 +490,19 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
     DEBUG_LEAVE;
     return error_count;
 }
+
+struct mount_info {
+    std::string name;       // label 
+    std::string paths;      // container path
+    std::string local;      // local path
+    std::string pvc;        // private volume claim
+    std::string cos;        // cloud object store URL
+    std::string secret;     // secret name for COS or Artifactory credentials
+    bool read_only;         // Mount read only 
+
+    mount_info(std::string const &label):name(label), read_only(true) {
+    }
+};
 int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
     int error_count = 0;
     DEBUG_ENTER;
