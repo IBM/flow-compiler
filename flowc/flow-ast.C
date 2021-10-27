@@ -257,7 +257,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     if(has_attributes(node)) {
         sout << " {";
         if(description.has(node)) sout << ANSI_CYAN << " " << description(node) << "" << ANSI_RESET;
-        if(type.has(node)) sout << " node type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
+        if(type.has(node)) sout << " node-type: " << ANSI_BLUE << ANSI_BOLD << type(node) << ANSI_RESET;
         if(refcount.has(node)) sout << " refc: " << ANSI_RED << ANSI_BOLD << refcount(node) << ANSI_RESET;
         if(name.has(node)) sout << " name: " << ANSI_GREEN << ANSI_BOLD << name(node) << ANSI_RESET;
         if(message_descriptor.has(node) && message_descriptor(node) != nullptr) sout << " message: " << ANSI_BOLD << ANSI_MAGENTA << *message_descriptor(node) << ANSI_RESET;
@@ -270,6 +270,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         }
         if(enum_descriptor.has(node)) sout << " enum: " << ANSI_MAGENTA << *enum_descriptor(node) << ANSI_RESET;
         if(value_type.has(node)) sout << " type: " << ANSI_MAGENTA << node_name(value_type(node)) << ANSI_RESET;
+        if(group.has(node)) sout << " group: " << ANSI_BLUE << ANSI_BOLD << group(node) << ANSI_RESET;
         if(dimension.has(node)) sout << " dim: " << ANSI_RED << ANSI_BOLD << dimension(node) << ANSI_RESET;
         sout << " }";
     }

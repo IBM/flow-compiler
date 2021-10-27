@@ -74,6 +74,8 @@ struct flow_ast {
     ast::attribute<int> value_type;
     // dimension of the data at this node
     ast::attribute<int> dimension;
+    // group id for nodes deployment
+    ast::attribute<std::string> group;
 
     /** Symbol table 
      */
@@ -235,14 +237,14 @@ struct flow_ast {
         return e;
     }
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
-            name(""), type(""), description(""), refcount(0), value_type(0), dimension(0)  {
+            name(""), type(""), description(""), refcount(0), value_type(0), dimension(0), group("")  {
             }
 
     bool has_attributes(int n) const {
-        return has_attr(n, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
+        return has_attr(n, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension, group);
     }
     void copy_attributes(int from, int to) {
-        copy_attr(from, to, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension);
+        copy_attr(from, to, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension, group);
     }
     int mk_node(flow_token const &token) {
         store.push_back(flow_ast_node());
