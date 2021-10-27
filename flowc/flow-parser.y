@@ -97,7 +97,7 @@ list(A) ::= list(B) elem(C).                                   { A = ast->nappen
 
 elem(A) ::= ID(B) blck(C).                                     { ast->chtype(C, ast->blck_keyw(B));
                                                                  A = ast->node(FTK_elem, B, C);
-                                                                 ast->expect(C, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\" or \"environment\" here"); 
+                                                                 ast->expect(C, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\", \"environment\", or \"mount\" here"); 
                                                                }
 elem(A) ::= ID(B) lblk(C).                                     { ast->chtype(C, ast->blck_keyw(B));
                                                                  A = ast->node(FTK_elem, B, C); 
@@ -121,7 +121,7 @@ oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(F
 
 elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
-lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); }
+lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); ast->name.put(A, ast->get_id(B)); }
 
 // valn: any numeric literal
 

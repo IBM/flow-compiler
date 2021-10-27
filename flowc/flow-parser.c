@@ -1373,7 +1373,7 @@ static YYACTIONTYPE yy_reduce(
 #line 98 "flow-parser.y"
 { ast->chtype(yymsp[0].minor.yy0, ast->blck_keyw(yymsp[-1].minor.yy0));
                                                                  yylhsminor.yy0 = ast->node(FTK_elem, yymsp[-1].minor.yy0, yymsp[0].minor.yy0);
-                                                                 ast->expect(yymsp[0].minor.yy0, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\" or \"environment\" here"); 
+                                                                 ast->expect(yymsp[0].minor.yy0, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\", \"environment\", or \"mount\" here"); 
                                                                }
 #line 1378 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
@@ -1437,7 +1437,7 @@ static YYACTIONTYPE yy_reduce(
         break;
       case 26: /* lblk ::= ID blck */
 #line 124 "flow-parser.y"
-{ yylhsminor.yy0 = ast->node(FTK_lblk, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
+{ yylhsminor.yy0 = ast->node(FTK_lblk, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); ast->name.put(yylhsminor.yy0, ast->get_id(yymsp[-1].minor.yy0)); }
 #line 1441 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
