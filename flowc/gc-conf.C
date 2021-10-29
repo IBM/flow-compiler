@@ -14,6 +14,68 @@
 #include "grpc-helpers.H"
 
 using namespace stru1;
+    
+int flow_compiler::get_mount_info(std::map<std::string, std::string> &info, int mntn) {
+    int error_count = 0;
+    MASSERT(at(mntn).type == FTK_MOUNT) << "node " << mntn << " is not a mount hash\n";
+    info["name"] = name(mntn);
+    int dsc = 0, vn = 0; std::string value = "ro";
+    error_count += get_block_value(vn, mntn, "access", false, {FTK_STRING});
+    if(vn > 0) {
+        value = to_lower(get_string(vn));
+        bool ro = value == "ro" || value == "read-only"  || value == "readonly";
+        bool rw = value == "rw" || value == "read-write" || value == "readwrite";
+        if(ro == rw) {
+            ++error_count;
+            pcerr.AddError(main_file, at(vn), sfmt() << "access for \"" << name(mntn) << "\" must be either 'read-only' or 'read-write'");
+        }
+        value = ro? "ro": "rw";
+    }
+    info["access"] = value;
+    vn = 0;
+    error_count += get_block_value(vn, mntn, "url", false, {FTK_STRING});
+    if(vn == 0)
+        error_count += get_block_value(vn, mntn, "cos", false, {FTK_STRING});
+    if(vn == 0)
+        error_count += get_block_value(vn, mntn, "artifactory", false, {FTK_STRING});
+    if(vn > 0) {
+        info["url"] = get_string(vn);
+        ++dsc;
+    }
+    vn = 0;
+    error_count += get_block_value(vn, mntn, "secret", false, {FTK_STRING});
+    info["secret"] = vn > 0? get_string(vn): std::string();
+    vn = 0;
+    error_count += get_block_value(vn, mntn, "pvc", false, {FTK_STRING});
+    if(vn > 0) {
+        ++dsc;
+        info["pvc"] = get_string(vn);
+    }
+    vn = 0;
+    error_count += get_block_value(vn, mntn, "path", false, {FTK_STRING});
+
+    info["path"] = vn > 0? get_string(vn): std::string();
+    if(info["path"].empty()) 
+        pcerr.AddError(main_file, at(mntn), sfmt() << "undefined or empty path for \"" << name(mntn) << "\"");
+    vn = 0;
+    error_count += get_block_value(vn, mntn, "local", false, {FTK_STRING});
+    if(vn > 0) {
+        info["local"] =  get_string(vn);
+        ++dsc;
+    } 
+    std::cerr << ">>>>>>>>>>>>>>>>> " << info << "\n";
+    /* TODO: allow for multiple paths?
+       std::vector<int> paths; 
+       error_count += get_block_value(paths, v, "path", true, {FTK_STRING});
+       for(auto v: paths) {
+        std::string path = get_string(v);
+        if(path.empty()) 
+        pcerr.AddWarning(main_file, at(v), "empty \"path\" value");
+        }
+    */
+    return error_count;
+}
+
 int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
     int error_count = 0;
     assert(refcount(cli_node) > 0);
@@ -491,32 +553,16 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
     return error_count;
 }
 
-struct mount_info {
-    std::string name;       // label 
-    std::string paths;      // container path
-    std::string local;      // local path
-    std::string pvc;        // private volume claim
-    std::string cos;        // cloud object store URL
-    std::string secret;     // secret name for COS or Artifactory credentials
-    bool read_only;         // Mount read only 
-
-    mount_info(std::string const &label):name(label), read_only(true) {
-    }
-};
 int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
     int error_count = 0;
     DEBUG_ENTER;
     int base_port = this->base_port;
     std::set<int> cc_nodes; // all client nodes and containers
-    std::set<int> cli_nodes; // all client
 
     for(int n: *this)
-        if(at(n).type == FTK_NODE && method_descriptor(n) != nullptr)
-            cli_nodes.insert(n);
-        else if(at(n).type == FTK_CONTAINER)
+        if((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER)
             cc_nodes.insert(n);
-    cc_nodes.insert(cli_nodes.begin(), cli_nodes.end());
-    
+
     std::map<int, std::string> ports;
     int nc = 0, pv;
     for(int n: cc_nodes) {
@@ -551,20 +597,16 @@ int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::v
         for(auto nv: env)
             buf.push_back(json_escape(sfmt() << nv.first << "=" << nv.second));
         append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "environment: [", "", "", "]"));
-
         error_count += node_info(n, local_vars);
-
         std::vector<std::string> mts;
         bool have_rw_mounts = false;
-        /*
-        for(int t: ni.mounts) {
-            auto const &minf = mounts.at(t);
-            for(auto const &path: minf.paths) {
-                mts.push_back(sfmt() << minf.name << ":" << path << ":" << (minf.read_only? "ro" : "rw"));
-                have_rw_mounts = have_rw_mounts | !minf.read_only;
-            }
+        std::map<std::string, std::string> minfo;
+        for(int mn: subtree(n)) if(at(mn).type == FTK_MOUNT) {
+            minfo.clear();
+            error_count += get_mount_info(minfo, mn);
+            mts.push_back(sfmt() << minfo["name"] << ":" << minfo["path"] << ":" << minfo["access"]);
+            have_rw_mounts = have_rw_mounts | minfo["access"] == "rw";
         }
-        */
         append(local_vars, "HAVE_RW_VOLUMES", have_rw_mounts? "": "#");
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }

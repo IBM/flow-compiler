@@ -110,17 +110,12 @@ private:
     // local vars for each group
     std::map<std::string, var_store_t> group_vars;
     // volume for each group
-    std::map<std::string, std::set<std::string>> group_volumes;
-    // All mount records indexed by AST node
-    //std::map<int, mount_info> mounts;
-
-    // 
+    //std::map<std::string, std::set<std::string>> group_volumes;
     var_store_t global_vars;
     Descriptor const *input_dp;
     std::vector<fop> icode;
     // Entry point in icode for each entry node
     std::map<int, int> entry_ip;
-
     // Global table of names that have to be unique
     std::map<std::string, int> glunna;
 public: 
@@ -249,6 +244,7 @@ public:
     void print_pseudocode(std::ostream &out) const;
     void print_graph(std::ostream &out, int entry=-1);
     int get_blck_timeout(int blck, int default_timeout);
+    int get_mount_info(std::map<std::string, std::string> &info, int mntn);
 
     int gc_server_method(std::ostream &out, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry);
     int gc_server(std::ostream &out);

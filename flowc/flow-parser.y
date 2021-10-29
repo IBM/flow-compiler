@@ -96,8 +96,14 @@ list(A) ::= list(B) elem(C).                                   { A = ast->nappen
 // elem: any of the definitions allowed in a block
 
 elem(A) ::= ID(B) blck(C).                                     { ast->chtype(C, ast->blck_keyw(B));
-                                                                 A = ast->node(FTK_elem, B, C);
+                                                                 if(ast->at(C).type == FTK_MOUNT) {
+                                                                    A = ast->node(FTK_elem, B, ast->node(FTK_MOUNT, C));
+                                                                    ast->chtype(C, FTK_blck);
+                                                                 } else {
+                                                                    A = ast->node(FTK_elem, B, C);
+                                                                 }
                                                                  ast->expect(C, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\", \"environment\", or \"mount\" here"); 
+
                                                                }
 elem(A) ::= ID(B) lblk(C).                                     { ast->chtype(C, ast->blck_keyw(B));
                                                                  A = ast->node(FTK_elem, B, C); 

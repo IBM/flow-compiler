@@ -13,8 +13,10 @@ int flow_compiler::find_in_blck(int block_node, std::string const &name, int *po
 }
 int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::string const &name, bool required, std::set<int> const &accepted_types) {
     int error_count = 0;
-    if(at(blck).type == FTK_NODE || at(blck).type == FTK_ENTRY || at(blck).type == FTK_CONTAINER)
+    if(blck == 0) return 0;
+    if(at(blck).type == FTK_NODE || at(blck).type == FTK_ENTRY || at(blck).type == FTK_CONTAINER || at(blck).type == FTK_MOUNT || at(blck).type == FTK_ENVIRONMENT)
         blck = get_ne_block_node(blck);
+    if(blck == 0) return 0;
 
     MASSERT(at(blck).type == FTK_blck) << "node " << blck << " is " << node_name(blck) << ", expected to be " << node_name(FTK_blck) << "\n";
 
