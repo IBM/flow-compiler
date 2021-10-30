@@ -211,11 +211,6 @@ std::string dirname(std::string const &filename) {
     return dn;
 }
 inline static 
-std::string gwd() {
-    auto d = std::getenv("PWD");
-    return d? std::string(d): std::string();
-}
-inline static 
 std::string path_join(std::string const &base_path, std::string const &path) {
     if(path.empty()) return base_path;
     if(base_path.empty() || path[0] == '/') return path;

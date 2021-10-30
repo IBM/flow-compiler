@@ -317,11 +317,12 @@ public:
     // C++ server
     int genc_server_source(std::string const &server_src);
     // Kubernetes deployment yaml (pods and services).
-    int genc_kube(std::ostream &out);
+    int genc_k8s_conf(std::ostream &out);
     // Docker Composer and Swarm yaml
-    int genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
+    int genc_dcs_conf(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
     // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
     int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
+    int genc_deployment_driver(std::string const &deployment_script); 
     // Grab all deployment related  node information
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
     // Create environment for node <n>

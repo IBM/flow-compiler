@@ -9,6 +9,7 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
+#include "filu.H"
 #include "cot.H"
 #include "vex.H"
 #include "grpc-helpers.H"
@@ -296,7 +297,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
     return error_count;
 }
-int flow_compiler::genc_kube(std::ostream &out) {
+int flow_compiler::genc_k8s_conf(std::ostream &out) {
     int error_count = 0;
     DEBUG_ENTER;
 
@@ -553,7 +554,7 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
     return error_count;
 }
 
-int flow_compiler::genc_composer(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
+int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars) {
     int error_count = 0;
     DEBUG_ENTER;
     int base_port = this->base_port;
@@ -637,5 +638,47 @@ int flow_compiler::genc_deployment_driver(std::ostream &outs, std::map<std::stri
     auto local_smap = vex::make_smap(local_vars);
     auto global_smap = vex::make_smap(global_vars);
     vex::expand(outs, template_driver_sh, vex::make_cmap(local_smap, global_smap));
+    return error_count;
+}
+
+int flow_compiler::genc_deployment_driver(std::string const &deployment_script) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    OFSTREAM_SE(out, deployment_script);
+    decltype(global_vars) local_vars;
+
+    std::ostringstream yaml;
+    error_count += genc_dcs_conf(yaml, local_vars);
+    set(local_vars, "DOCKER_COMPOSE_YAML",  yaml.str());
+    extern char const *rr_keys_sh;
+    set(local_vars, "RR_KEYS_SH", rr_keys_sh);
+    extern char const *rr_get_sh;
+    yaml.str("");
+    vex::expand(yaml, rr_get_sh, vex::make_smap(local_vars));
+    set(local_vars, "RR_GET_SH",  yaml.str());
+    yaml.str("");
+    error_count += genc_k8s_conf(yaml);
+    set(local_vars, "KUBERNETES_YAML", yaml.str());
+
+    if(DEBUG_GENC) {
+        std::string ofj = deployment_script + "-g.json";
+        OFSTREAM_SE(outj, ofj);
+        stru1::to_json(outj, global_vars);
+    }
+    if(DEBUG_GENC) {
+        std::string ofj = deployment_script + "-l.json";
+        OFSTREAM_SE(outj, ofj);
+        stru1::to_json(outj, local_vars);
+    }
+    extern char const *template_driver_sh; 
+    auto local_smap = vex::make_smap(local_vars);
+    auto global_smap = vex::make_smap(global_vars);
+    vex::expand(out, template_driver_sh, vex::make_cmap(local_smap, global_smap));
+
+    if(error_count == 0) {
+        out.close();
+        filu::chmodx(deployment_script);
+    }
+    DEBUG_LEAVE;
     return error_count;
 }

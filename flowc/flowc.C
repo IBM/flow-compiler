@@ -5,31 +5,30 @@
 #include <map>
 #include <algorithm>
 #include <ctime>
-#include <cstdio>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/time.h>
 #include <fcntl.h>
 
 #include <grpcpp/grpcpp.h>
+
 #include "ansi-escapes.H"
 #include "flow-compiler.H"
 #include "helpo.H"
 #include "stru1.H"
+#include "filu.H"
 #include "cot.H"
 #include "vex.H"
 #include "grpc-helpers.H"
 
-#include <stdio.h>
 #if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>
 #endif
 #include <signal.h>
+/*
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ftw.h>
 #include <errno.h>
-
+*/
 using namespace stru1;
 /** 
  * Set this to false to turn off ANSI coloring 
@@ -87,60 +86,6 @@ void handler(int sig) {
     exit(1);
 }
 
-bool is_dir(char const *fn) {
-	struct stat sb;
-    if(stat(fn, &sb) == -1) 
-		return false;	
-    return (sb.st_mode & S_IFMT) == S_IFDIR;
-}
-
-void chmodx(std::string const &fn) {
-	struct stat sb;
-    char const *fpath = fn.c_str();
-    if(stat(fpath, &sb) == -1) 
-		return;	
-
-	mode_t chm = sb.st_mode;
-    if(chm & S_IRUSR) chm = chm | S_IXUSR;
-    if(chm & S_IRGRP) chm = chm | S_IXGRP;
-    if(chm & S_IROTH) chm = chm | S_IXOTH;
-    if(chm != sb.st_mode)
-        chmod(fpath, chm);
-}
-std::string realpath(std::string const &f) {
-    if(f.empty()) return "";
-    char actualpath[PATH_MAX+1];
-    auto r = realpath(f.c_str(), actualpath);
-    return (r == nullptr) ? "" : r;
-}
-int cp_p(std::string const &source, std::string const &dest) {
-    struct stat a_file_stat, b_file_stat;
-    if(stat(source.c_str(), &a_file_stat) != 0 || S_ISDIR(a_file_stat.st_mode)) 
-        return 1;
-    if(stat(dest.c_str(), &b_file_stat) == 0 && a_file_stat.st_dev == b_file_stat.st_dev && a_file_stat.st_ino == b_file_stat.st_ino)
-        return 0;
-    bool ok = true;
-    char buf[16384];
-    size_t size;
-    int sd = open(source.c_str(), O_RDONLY, 0);
-    int dd = open(dest.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    while((size = read(sd, buf, sizeof(buf))) > 0) 
-        ok = write(dd, buf, size) == size && ok;
-    close(sd); close(dd);
-    struct timeval tv[2];
-    tv[0].tv_sec = a_file_stat.st_atime; tv[0].tv_usec = 0;
-    tv[1].tv_sec = a_file_stat.st_mtime; tv[1].tv_usec = 0;
-    utimes(dest.c_str(), &tv[0]);
-    return ok? 0: 1;
-}
-int write_file(std::string const &fn, std::string const &source_fn, char const *default_content) {
-    if(!source_fn.empty()) 
-        return cp_p(source_fn, fn);
-    std::ofstream outf(fn.c_str());
-    if(!outf.is_open()) 
-        return 1;
-    return outf.write(default_content, strlen(default_content))? 0: 1;
-}
 
 char const *get_version();
 char const *get_build_id();
@@ -240,11 +185,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             mkdir(docs_directory.c_str(), 0777);
             if(cot::contains(targets, "docs")) {
                 // Copy the flow file into docs
-                if(realpath(output_filename(std::string("docs/")+main_file)) != realpath(real_input_filename)) 
-                    cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
+                if(filu::realpath(output_filename(std::string("docs/")+main_file)) != filu::realpath(real_input_filename)) 
+                    filu::cp_p(real_input_filename, output_filename(std::string("docs/")+main_file));
             }
         }
-        
         struct stat a_file_stat;
         stat(real_input_filename.c_str(), &a_file_stat);
         char buffer[2048];
@@ -253,16 +197,15 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
         std::string xtra_h = path_join(dirname(real_input_filename), orchestrator_name+"-xtra.H");
         if(cot::contains(targets, "server") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
-            cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
+            filu::cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
             append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
         }
     }
     if(opts.have("htdocs")) {
-        std::string htdocs_path(path_join(gwd(), opts.opt("htdocs")));
+        std::string htdocs_path(path_join(filu::gwd(), opts.opt("htdocs")));
         set(global_vars, "HTDOCS_PATH", htdocs_path);
     }
-
-    set(global_vars, "PROTO_FILES_PATH", path_join(gwd(), output_filename(".")));
+    set(global_vars, "PROTO_FILES_PATH", path_join(filu::gwd(), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
     /****************************************************************
      * file names
@@ -334,7 +277,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         if(!group.has(n))
             group.put(n, main_group_name);
     }
-
     if(opts.have("print-ast"))  
         print_ast(std::cout);
     if(opts.have("print-pseudocode"))
@@ -345,7 +287,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         if(!main_description.empty())
             set(global_vars, "MAIN_DESCRIPTION", main_description);
     }
-
     /*******************************************************************
      * Set global level defines
      */
@@ -358,7 +299,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
         set(global_vars, "HAVE_DEFN", "");
     }
-
     auto referenced_nodes = get_all_referenced_nodes();
 
     /*******************************************************************
@@ -395,7 +335,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     set(global_vars, "DEBUG_IMAGE", orchestrator_debug_image? "yes":"no");
     set(global_vars, "REST_API", orchestrator_no_rest? "no":"yes");
-
     set(global_vars, "IMAGE_TAG", orchestrator_tag);
 
     if(!orchestrator_image.empty()) {
@@ -423,17 +362,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(global_vars, "HAVE_IMAGE_PULL_SECRETS", "");
     }
 
-    /********************************************************************
-     * All files are compiled at this point so,
-     * set as many of values that control code generation as possible
-     */
-    if(cot::contains(targets, "driver")) {
-        /*
-        for(int n: *this) if(at(n).type == FTK_CONTAINER) {
-            referenced_nodes.emplace(name(n), node_info(name(n), n));
-        }
-        */
-    }
     /********************************************************************
      * Generate C files for proto and grpc
      */
@@ -478,15 +406,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::stringstream buf;
         buf << protof.rdbuf();
         append(global_vars, "PROTO_FILE_YAMLSTR", c_escape(buf.str()));
-        append(global_vars, "PROTO_FULL_PATH", realpath(filename));
+        append(global_vars, "PROTO_FULL_PATH", filu::realpath(filename));
 
         // Copy all the proto files into docs
         if(cot::contains(targets, "docs")) {
-            if(realpath(output_filename(std::string("docs/")+file)) != realpath(filename)) 
-                cp_p(filename, output_filename(std::string("docs/")+file));
+            if(filu::realpath(output_filename(std::string("docs/")+file)) != filu::realpath(filename)) 
+                filu::cp_p(filename, output_filename(std::string("docs/")+file));
         }
     }
-
     // Generate lists for all client node + containers with:
     // name, group, port, image, endpoint, runtime, extern-node 
     std::map<std::string, std::set<int>> groups;
@@ -580,23 +507,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(have_cos)
         set(global_vars, "HAVE_COS", "");
 
-    // Make sure port values are allocated when needed
-    /*
-    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
-        int block = get_ne_block_node(n);
-        std::string group_name;
-        error_count += get_block_s(group_name, block, "group", {FTK_STRING, FTK_INTEGER}, "");
-        int pv = 0;
-        error_count += get_block_i(pv, block, "port", 0);
-        if(pv == 0) {
-            pv = base_port+2; 
-            while(cot::contains(ports[group_name], pv)) ++pv;
-        }
-        append(global_vars, "IMAGE_PORT", std::to_string(pv));
-        append(group_vars[group_name], "G_IMAGE_PORT", std::to_string(pv));
-        ports[group_name].insert(pv);
-    }
-    */
     // Make sure the rest volume name doesn't collide with any other volume name
     std::string htdocs_volume_name = "htdocs";
     get_unna(htdocs_volume_name);
@@ -636,7 +546,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count == 0 && cot::contains(targets, "client")) 
         error_count += genc_client_source(client_source);
 
-    //std::cerr << "----- before ssl certificates: " << error_count << "\n";
     if(error_count == 0 && cot::contains(targets, "ssl-certificates")) {
         std::string o_default_certificate = opts.opt("default-certificate", "");
         std::string o_grpc_certificate = opts.opt("grpc-certificate", o_default_certificate);
@@ -644,18 +553,18 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         extern char const *template_server_pem;
 
         if(o_grpc_certificate == o_rest_certificate) {
-            if(write_file(output_filename(default_certificate), o_grpc_certificate, template_server_pem)) {
+            if(filu::write_file(output_filename(default_certificate), o_grpc_certificate, template_server_pem)) {
                 ++error_count;
                 pcerr.AddError(output_filename(default_certificate), -1, 0, "failed to write ssl certificate file");
             }
             append(global_vars, "GRPC_CERTIFICATE", default_certificate);
             append(global_vars, "REST_CERTIFICATE", default_certificate);
         } else {
-            if(write_file(output_filename(grpc_certificate), o_grpc_certificate, template_server_pem)) {
+            if(filu::write_file(output_filename(grpc_certificate), o_grpc_certificate, template_server_pem)) {
                 ++error_count;
                 pcerr.AddError(output_filename(grpc_certificate), -1, 0, "failed to write grpc ssl certificate file");
             }
-            if(write_file(output_filename(rest_certificate), o_rest_certificate, template_server_pem)) {
+            if(filu::write_file(output_filename(rest_certificate), o_rest_certificate, template_server_pem)) {
                 ++error_count;
                 pcerr.AddError(output_filename(rest_certificate), -1, 0, "failed to write rest ssl certificate file");
             }
@@ -669,7 +578,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count == 0 && cot::contains(targets, "dockerfile"))
         error_count += genc_dockerfile(orchestrator_name);
     
-    //std::cerr << "----- before build image: " << error_count << "\n";
     if(error_count == 0 && cot::contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
@@ -680,7 +588,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
         }
     }
-    //std::cerr << "----- before build bins: " << error_count << "\n";
     if(error_count == 0 && (cot::contains(targets, "build-server") || cot::contains(targets, "build-client"))) {
         std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
@@ -699,35 +606,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     if(error_count == 0 && cot::contains(targets, "python-client")) 
         error_count += genc_python_client(output_filename(client_bin + ".py"));
-           
-    //std::cerr << "----- before driver: " << error_count << "\n";
-    if(error_count == 0 && cot::contains(targets, "driver")) {
-        std::map<std::string, std::vector<std::string>> local_vars;
-        std::ostringstream buff;
-        error_count += genc_composer(buff, local_vars);
-        set(local_vars, "DOCKER_COMPOSE_YAML",  buff.str());
-        extern char const *rr_keys_sh;
-        set(local_vars, "RR_KEYS_SH", rr_keys_sh);
-        extern char const *rr_get_sh;
-        buff.str("");
-        vex::expand(buff, rr_get_sh, vex::make_smap(local_vars));
-        set(local_vars, "RR_GET_SH",  buff.str());
-        std::ostringstream yaml;
-        error_count += genc_kube(yaml);
-        set(local_vars, "KUBERNETES_YAML", yaml.str());
-
-        std::string outputfn = output_filename(orchestrator_name + "-dd.sh");
-        if(error_count == 0) {
-            std::ofstream outs(outputfn.c_str());
-            if(!outs.is_open()) {
-                ++error_count;
-                pcerr.AddError(outputfn, -1, 0, "failed to write deployment driver");
-            } else {
-                error_count += genc_deployment_driver(outs, local_vars);
-            }
-        }
-        if(error_count == 0) chmodx(outputfn);
-    }
+    if(error_count == 0 && cot::contains(targets, "driver")) 
+        error_count += genc_deployment_driver(output_filename(orchestrator_name + "-dd.sh"));
     if(error_count == 0 && cot::contains(targets, "graph-files")) 
         error_count += genc_graph(cot::contains(targets, "svg-files"));
     if(error_count == 0 && cot::contains(targets, "www-files") && !orchestrator_no_rest) 
@@ -972,7 +852,7 @@ int main(int argc, char *argv[]) {
         } else {
             strcpy(path, "/tmp");
         }
-        if(is_dir(path)) {
+        if(filu::is_dir(path)) {
             unsigned dirlen = strlen(path);
             if(path[0] && path[dirlen-1] != '/') {
                 path[dirlen] = '/'; path[++dirlen] = '\0';
