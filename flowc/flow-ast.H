@@ -379,6 +379,37 @@ struct flow_ast {
         }
         return found;
     }
+    int get_parent(int node) const {
+        for(int n: *this) 
+            if(cot::contains(at(n).children, node))
+                return n;
+        return 0;
+    }
+    int get_next_sibling(int node) const {
+        int p = get_parent(node);
+        if(p != 0) 
+            for(unsigned i = 0, e = at(p).children.size(); i < e; ++i) 
+                if(at(p).children[i] == node) {
+                    if(i + 1 < e) 
+                        return at(p).children[i+1];
+                    else
+                        return 0;
+                }
+        return 0;
+    }
+    int get_previous_sibling(int node) const {
+        int p = get_parent(node);
+        if(p != 0) 
+            for(unsigned i = 0, e = at(p).children.size(); i < e; ++i) 
+                if(at(p).children[i] == node) {
+                    if(i != 0) 
+                        return at(p).children[i-1];
+                    else
+                        return 0;
+                }
+        return 0;
+    }
+
     /**
      * Lookup statement level keyword for node 'in'
      */

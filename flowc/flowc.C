@@ -297,13 +297,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     // Set the name attribute for all volume mounts
-    std::map<std::string, int> mns;
+    std::map<std::string, int> mounts;
     for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) 
         for(int m: subtree(n)) if(at(m).type == FTK_MOUNT)  if(name.has(m)) {
-            if(cot::contains(mns, name(m))) {
+            if(cot::contains(mounts, name(m))) {
                 pcerr.AddWarning(main_file, at(m), sfmt() << "reuse of volume mount name \"" << name(m) << "\"");
+                pcerr.AddNote(main_file, at(mounts[name(m)]), "first used here");
             }
-            mns[name(m)] = m;
+            mounts[name(m)] = m;
         }
     for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) 
         for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
@@ -312,8 +313,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 von = "vo";
                 get_unna(von, m);
                 name.update(m, von);
-            } while(cot::contains(mns, von));
-            mns[name(m)] = m;
+            } while(cot::contains(mounts, von));
+            mounts[name(m)] = m;
         }
     // Set the group attribute
     for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
@@ -490,25 +491,47 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // name, group, port, image, endpoint, runtime, extern-node 
     std::map<std::string, std::set<int>> groups;
     std::map<std::string, std::map<int, int>> ports;
+    clear(global_vars, "HAVE_COS");
+    clear(global_vars, "HAVE_VOLUMES");
+    bool have_cos = false, have_volumes = false;
     for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
-        std::string group_name;
-        error_count += get_block_s(group_name, n, "group", {FTK_STRING, FTK_INTEGER}, "");
         append(global_vars, "XCLI_NODE_NAME", name(n));
         append(global_vars, "NODE_NAME", name(n));
-        append(global_vars, "NODE_GROUP", group_name);
-        groups[group_name].insert(n);
+        append(global_vars, "NODE_GROUP", group(n));
+        groups[group(n)].insert(n);
         int pv = 0;
         error_count += get_block_i(pv, n, "port", 0);
         if(pv != 0 && cot::contains(targets, "driver")) {
             
-            if(cot::contains(ports[group_name], pv)) {
-                pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group_name][pv]) << "\" in the same group");
-                pcerr.AddNote(main_file, at(get_first_value_node(get_ne_block_node(ports[group_name][pv]), "port")), "first used here");
+            if(cot::contains(ports[group(n)], pv)) {
+                pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group(n)][pv]) << "\" in the same group");
+                pcerr.AddNote(main_file, at(get_first_value_node(get_ne_block_node(ports[group(n)][pv]), "port")), "first used here");
             } else {
-                ports[group_name][pv] = n; 
+                ports[group(n)][pv] = n;
             }
-                
         }
+
+        std::map<std::string, std::string> minfo;
+        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
+            minfo.clear();
+            error_count += get_mount_info(minfo, m);
+            have_volumes = true;
+            append(global_vars, "VOLUME_NAME", minfo["name"]);
+            append(global_vars, "VOLUME_LOCAL", minfo["local"]);
+            append(global_vars, "VOLUME_COS", minfo["url"]);
+            if(!minfo["url"].empty())
+                have_cos = true;
+            append(global_vars, "VOLUME_SECRET", minfo["secret"]);
+            append(global_vars, "VOLUME_PVC", minfo["pvc"]);
+            append(global_vars, "VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
+            append(global_vars, "VOLUME_ACCESS", minfo["access"]);
+            if(description.has(get_previous_sibling(n))) {
+                append(global_vars, "VOLUME_COMMENT", description(get_previous_sibling(n)));
+            } else {
+                append(global_vars, "VOLUME_COMMENT", "");
+            }
+        }
+
         
         int value = 0;
         bool external_node = false;
@@ -542,88 +565,20 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(group_vars[group_name], "G_EXTERN_NODE", "");
         }
 */
-        // Volume mounts
-        int old_value = 0;
-        //ni.mounts.clear();
-        int blck = get_ne_block_node(n);
-        /*
-        if(!external_node) for(int p = 0, v = find_in_blck(blck, "mount", &p); v != 0; v = find_in_blck(blck, "mount", &p)) {
-            if(at(v).type != FTK_MOUNT) {
-                error_count += 1;
-                pcerr.AddError(main_file, at(v), "mount must be a labeled name/value pair block");
-                continue;
-            }
-            std::string mount_name = get_id(at(v).children[0]);
-            v = at(v).children[1];
-
-            bool read_write = false;       
-            int access_value = 0;
-            error_count += get_block_value(access_value, v, "access", false, {FTK_STRING});
-            if(access_value > 0) {
-                auto acc = to_lower(get_string(access_value));
-                bool ro = acc == "ro" || acc == "read-only"  || acc == "readonly";
-                bool rw = acc == "rw" || acc == "read-write" || acc == "readwrite";
-                if(ro == rw) {
-                    ++error_count;
-                    pcerr.AddError(main_file, at(access_value), sfmt() << "access for \"" << mount_name << "\" in \"" << name(n) << "\" must be either read-only or read-write");
-                    continue;
-                }
-                read_write = !ro;
-            }
-
-            auto &minf = mounts.emplace(v, mount_info(v, n, mount_name, !read_write)).first->second;
-            //ni.mounts.push_back(v);
-
-            int s = 0;
-            error_count += get_block_value(s, v, "url", false, {FTK_STRING});
-            if(s > 0) 
-                minf.cos = get_string(s);
-
-            error_count += get_block_value(s, v, "cos", false, {FTK_STRING});
-            if(s > 0) 
-                if(minf.cos.empty()) minf.cos = get_string(s);
-
-            error_count += get_block_value(s, v, "artifactory", false, {FTK_STRING});
-            if(s > 0) 
-                if(minf.cos.empty()) minf.cos = get_string(s);
-            error_count += get_block_value(s, v, "remote", false, {FTK_STRING});
-            if(s > 0) 
-                if(minf.cos.empty()) minf.cos = get_string(s);
-
-            error_count += get_block_value(s, v, "secret", false, {FTK_STRING});
-            if(s > 0) 
-                minf.secret = get_string(s);
-            error_count += get_block_value(s, v, "pvc", false, {FTK_STRING});
-            if(s > 0) 
-                minf.pvc = get_string(s);
-            error_count += get_block_value(s, v, "local", false, {FTK_STRING});
-            if(s > 0) 
-                minf.local = get_string(s);
-            
-            std::vector<int> paths; 
-            error_count += get_block_value(paths, v, "path", true, {FTK_STRING});
-            for(auto v: paths) {
-                std::string path = get_string(v);
-                if(path.empty()) 
-                    pcerr.AddWarning(main_file, at(v), "empty \"path\" value");
-                group_volumes[group_name].insert(mount_name);
-                //ni.mounts.push_back(std::make_tuple(mount_name, path, read_write));
-                minf.paths.push_back(path);
-            }
-            old_value = v;
-        }
-        */
-        old_value = 0;
         //ni.environment.clear();
+            /*
         if(!external_node) {
             std::map<std::string, int> env;
             error_count += get_nv_block(env, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
-            /*
             for(auto a: env)
                 ni.environment[a.first] = get_value(a.second);
-                */
         }
+                */
     }
+    if(have_volumes) 
+        set(global_vars, "HAVE_VOLUMES", "");
+    if(have_cos)
+        set(global_vars, "HAVE_COS", "");
 
     // Make sure port values are allocated when needed
     /*
@@ -642,41 +597,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         ports[group_name].insert(pv);
     }
     */
-    // Avoid group name collision
-    /*
-    for(auto const &gv: group_vars) {
-        clear(group_vars[gv.first], "G_HAVE_NODES");
-        if(group_vars[gv.first]["G_NODE_NAME"].size() > 0) 
-            set(group_vars[gv.first], "G_HAVE_NODES", "");
-        clear(group_vars[gv.first], "G_HAVE_VOLUMES");
-        if(group_volumes[gv.first].size() > 0)
-            set(group_vars[gv.first], "G_HAVE_VOLUMES", "");
-    }
-    */
-    if(mns.size() > 0) 
-        set(global_vars, "HAVE_VOLUMES", "");
-    else 
-        clear(global_vars, "HAVE_VOLUMES");
-
-    bool have_cos = false;
-    /*
-    for(auto const &m: mounts) {
-        have_cos = have_cos || !m.second.cos.empty();
-        if(have_cos) break;
-    }
-    */
-    if(have_cos)
-        set(global_vars, "HAVE_COS", "");
-    else
-        clear(global_vars, "HAVE_COS");
     // Make sure the rest volume name doesn't collide with any other volume name
-    std::set<std::string> volumes;
     std::string htdocs_volume_name = "htdocs";
-    for(unsigned i = 1; i < 100; ++i) {
-        if(!cot::contains(volumes, htdocs_volume_name))
-            break;
-        htdocs_volume_name = sfmt() << "htdocs-files-" << i;
-    }
+    get_unna(htdocs_volume_name);
     set(global_vars, "HTDOCS_VOLUME_NAME", htdocs_volume_name);
 
     // Check/generate the entry list for the rest gateway
@@ -740,26 +663,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             append(global_vars, "REST_CERTIFICATE", rest_certificate);
         }
     }
-    // Add volume information FIXME
-    /* 
-    for(auto const &mip: mounts) {
-        std::string const &vn = mip.second.name;
-
-        append(global_vars, "VOLUME_NAME", vn);
-        append(global_vars, "VOLUME_LOCAL", mip.second.local);
-        append(global_vars, "VOLUME_COS", mip.second.cos);
-        append(global_vars, "VOLUME_SECRET", mip.second.secret);
-        append(global_vars, "VOLUME_PVC", mip.second.pvc);
-        append(global_vars, "VOLUME_ISRO", mip.second.read_only? "1": "0");
-
-        auto cp = comments.find(vn);
-        if(cp != comments.end()) {
-            append(global_vars, "VOLUME_COMMENT", join(cp->second, " "));
-        } else {
-            append(global_vars, "VOLUME_COMMENT", "");
-        }
-    }
-    */
     if(error_count == 0 && cot::contains(targets, "makefile")) 
         error_count += genc_makefile(orchestrator_makefile);
 
