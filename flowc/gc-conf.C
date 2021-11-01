@@ -617,22 +617,6 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
     DEBUG_LEAVE;
     return error_count;
 }
-int flow_compiler::genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars) {
-    int error_count = 0;
-    extern char const *template_driver_sh; 
-
-#if 0
-    std::ofstream outg("driver-global.json");
-    stru1::to_json(outg, global_vars);
-    std::ofstream outj("driver-local.json");
-    stru1::to_json(outj, local_vars);
-#endif
-
-    auto local_smap = vex::make_smap(local_vars);
-    auto global_smap = vex::make_smap(global_vars);
-    vex::expand(outs, template_driver_sh, vex::make_cmap(local_smap, global_smap));
-    return error_count;
-}
 
 int flow_compiler::genc_deployment_driver(std::string const &deployment_script) {
     int error_count = 0;

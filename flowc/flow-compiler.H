@@ -321,7 +321,6 @@ public:
     // Docker Composer and Swarm yaml
     int genc_dcs_conf(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
     // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
-    int genc_deployment_driver(std::ostream &outs, std::map<std::string, std::vector<std::string>> &local_vars);
     int genc_deployment_driver(std::string const &deployment_script); 
     // Grab all deployment related  node information
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
