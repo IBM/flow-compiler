@@ -22,12 +22,9 @@ fi
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
 {G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
-{A:VOLUME_NAME{flow_{{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_LOCAL}}}"
-export {{VOLUME_NAME/id/upper}}="$flow_{{VOLUME_NAME/id/upper}}"
-flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
-export {{VOLUME_NAME/id/upper}}_SECRET_NAME=$flow_{{VOLUME_NAME/id/upper}}_SECRET_NAME
-flow_{{VOLUME_NAME/id/upper}}_URL=${{{VOLUME_NAME/id/upper}}_URL-{{VOLUME_COS}}}
-export {{VOLUME_NAME/id/upper}}_URL=$flow_{{VOLUME_NAME/id/upper}}_URL
+{A:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_LOCAL}}}"
+export {{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
+export {{VOLUME_NAME/id/upper}}_URL=${{{VOLUME_NAME/id/upper}}_URL-{{VOLUME_COS}}}
 }A}
 export use_MODE=compose
 export use_COMPOSE=
@@ -101,6 +98,14 @@ echo "    --htdocs DIRECTORY (or set {{NAME/id/upper}}_HTDOCS)"
 echo "        Mount local DIRECTORY inside the container to use as a custom application (Docker compose mode)."
 [ ! -z "${{NAME/id/upper}}_HTDOCS" ] && echo "       Currently set to \"${{NAME/id/upper}}_HTDOCS\""
 echo ""
+echo "    --htdocs-remote <URL>  (or set {{NAME/id/upper}}_HTDOCS_URL)"
+echo "        Secret URL pointing to htdocs data."
+[ ! -z "${{NAME/id/upper}}_HTDOCS_URL" ] && echo "        Currently set to \"${{NAME/id/upper}}_HTDOCS_URL\""
+echo ""
+echo "    --htdocs-secret-name <SECRET-NAME>  (or set {{NAME/id/upper}}_HTDOCS_SECRET_NAME)"
+echo "        Secret name for COS access for the custom application files, if a COS URL was given."
+[ ! -z "${{NAME/id/upper}}_HTDOCS_SECRET_NAME" ] && echo "        Currently set to \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\""
+echo ""
 {O:VOLUME_NAME{
 echo "    --mount-{{VOLUME_NAME/option-}} <DIRECTORY>  (or set {{VOLUME_NAME/id/upper}})"
 echo "        Override the path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}})"
@@ -113,10 +118,6 @@ echo "    --remote-{{VOLUME_NAME/option-}} <URL> (or set {{VOLUME_NAME/id/upper}
 echo "        Set the URL to the remote resource for {{VOLUME_NAME}}, default is \"${{VOLUME_NAME/id/upper}}_URL\""
 echo ""
 }O}
-echo "    --htdocs-secret-name <SECRET-NAME>  (or set {{NAME/id/upper}}_HTDOCS_SECRET_NAME)"
-echo "        Secret name for COS access for the custom application files, if a COS URL was given."
-[ ! -z "${{NAME/id/upper}}_HTDOCS_SECRET_NAME" ] && echo "        Currently set to \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\""
-echo ""
 echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"
 echo "        Number of replicas for the main pod [{{MAIN_POD}}]. The default is $replicas_{{NAME/id/upper}}."
 echo ""
@@ -337,6 +338,13 @@ then
         export enable_custom_app=
     fi
 fi
+export enable_main_pod_volumes="{{HAVE_MAIN_GROUP_VOLUMES-#}}"
+if [ -z "$enable_custom_app" ]
+then
+   export enable_main_pod_volumes=
+fi
+
+
 if [ $# -eq 0 \
     -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
     -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  \

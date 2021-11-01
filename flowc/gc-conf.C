@@ -64,7 +64,6 @@ int flow_compiler::get_mount_info(std::map<std::string, std::string> &info, int 
         info["local"] =  get_string(vn);
         ++dsc;
     } 
-    std::cerr << ">>>>>>>>>>>>>>>>> " << info << "\n";
     /* TODO: allow for multiple paths?
        std::vector<int> paths; 
        error_count += get_block_value(paths, v, "path", true, {FTK_STRING});
@@ -303,47 +302,46 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
 
     extern char const *template_kubernetes_yaml;
     extern char const *template_kubernetes_group_yaml;
-
-    std::map<std::string, std::set<int>> groups;
-    int base_port = this->base_port;
     std::set<int> cc_nodes; // all client nodes and containers
-    std::set<int> cli_nodes; // all client
-    std::map<int, std::string> ports;
+    std::map<std::string, std::set<int>> groups;
     for(int n: *this)
-        if(at(n).type == FTK_NODE && method_descriptor(n) != nullptr)
-            cli_nodes.insert(n);
-        else if(at(n).type == FTK_CONTAINER)
+        if((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER) {
             cc_nodes.insert(n);
-    cc_nodes.insert(cli_nodes.begin(), cli_nodes.end());
-    int c = 0;
-    for(int n: cc_nodes) {
-        ++c;
-        std::string group_name = group(n), image_name;
-        error_count += get_block_s(image_name, n, "image", "");
-        //if(!image_name.empty())
-            groups[group_name].insert(n);
+            groups[group(n)].insert(n);
+        }
 
-         int port;
-         error_count += get_block_i(port, n, "port", 0);
-         // FIXME
-         if(port == 0) port = base_port + c;
-         ports[n] = std::to_string(port);
+    std::map<int, std::string> ports;
+    // grab all pre-defined ports
+    for(int n: cc_nodes) {
+        int port = 0;
+        error_count += get_block_i(port, n, "port", 0);
+        if(port != 0)
+            ports[n] = std::to_string(port);
+    }
+    // allocate ports for nodes without one
+    int c = 0;
+    for(int n: cc_nodes) if(!cot::contains(ports, n)) {
+        std::string image_name;
+        error_count += get_block_s(image_name, n, "image", "");
+        if(!image_name.empty()) {
+            while(cot::has_value(ports, std::to_string(base_port + ++c)));
+            ports[n] = std::to_string(base_port + c);
+        }
     }
     std::map<std::string, std::map<std::string, std::vector<std::string>>> g_group_vars;
-    for(auto group: groups) {
-        DEBUG_CHECK("now with group [" << group.first << "] " << group.second);
+    for(auto gp: groups) {
         int group_scale = 1;
-        auto &group_vars = g_group_vars[group.first];
+        auto &group_vars = g_group_vars[gp.first];
         for(int n: cc_nodes) {
             std::string host; int scale;
-            if(cot::contains(group.second, n)) {
+            if(cot::contains(gp.second, n)) {
                 host = "localhost"; 
                 error_count += get_block_i(scale, n, "scale", 0);
                 group_scale = std::max(scale, group_scale);
             } else {
-                host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << group.first)));
+                host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
             }
-            if(!group.first.empty()) 
+            if(gp.first != main_group_name) 
                 continue;
     
             std::string endpoint;
@@ -357,35 +355,41 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
         }
         append(group_vars, "GROUP_SCALE", std::to_string(group_scale));
     }
-
     for(auto group: groups) for(int n: group.second) {
         std::string const &nn = name(n);
         int blck = get_ne_block_node(n);
         std::vector<std::string> buf;
         std::vector<std::pair<std::string, std::string>> env;
+        auto &local_vars = group_vars[group.first];
         error_count += get_environment(env, n, ports, true);
         for(auto nv: env)
             buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
 
-        append(group_vars[group.first], "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
-        append(group_vars[group.first], "NODE_PORT", ports[n]);
-        append(group_vars[group.first], "IMAGE_PORT", ports[n]);
-        error_count += node_info(n, group_vars[group.first]);
+        append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+        append(local_vars, "NODE_PORT", ports[n]);
+        append(local_vars, "IMAGE_PORT", ports[n]);
+        error_count += node_info(n, local_vars);
 
         buf.clear();
-        /*
-        for(int mi: ni.mounts) {
-            auto const &mt = mounts.at(mi);
-            for(unsigned p = 0, pe = mt.paths.size(); p != pe; ++p) {
-                if(p == 0)
-                    buf.push_back(sfmt() << "{name: scratch-" << to_option(mt.name) << ", mountPath: " << c_escape(mt.paths[p]) << ", readOnly: " << (mt.read_only? "true": "false") << "}");
-                else 
-                    buf.push_back(sfmt() << "{name: scratch" << p << "-" << to_option(mt.name) << ", mountPath: " << c_escape(mt.paths[p]) << ", readOnly: " << (mt.read_only? "true": "false") << "}");
+        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
+            std::map<std::string, std::string> minfo;
+            error_count += get_mount_info(minfo, m);
+            buf.push_back(sfmt() << "{name: scratch-" << to_option(minfo["name"]) << ", mountPath: " << c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
+            append(local_vars, "VOLUME_NAME", minfo["name"]);
+            append(local_vars, "VOLUME_LOCAL", minfo["local"]);
+            append(local_vars, "VOLUME_COS", minfo["url"]);
+            append(local_vars, "VOLUME_SECRET", minfo["secret"]);
+            append(local_vars, "VOLUME_PVC", minfo["pvc"]);
+            append(local_vars, "VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
+            append(local_vars, "VOLUME_ACCESS", minfo["access"]);
+            if(description.has(get_previous_sibling(n))) {
+                append(local_vars, "VOLUME_COMMENT", description(get_previous_sibling(n)));
+            } else {
+                append(local_vars, "VOLUME_COMMENT", "");
             }
         }
+        append(local_vars, "NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
 
-        */
-        append(group_vars[group.first], "NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
         std::vector<int> init_blcks;
         int init_count = 0;
         error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
@@ -406,42 +410,26 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
                 buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
             buf.push_back("securityContext: {privileged: true}");
             buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
-            append(group_vars[group.first], "INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
+            append(local_vars, "INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
         }
         DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
-        //if(init_count > 0 || group_volumes[group.first].size() > 0)
         if(init_count > 0)
-            set(group_vars[group.first], "HAVE_INIT_CONTAINERS", "");
+            set(local_vars, "HAVE_INIT_CONTAINERS", "");
     }
-    /*
-    for(auto const &g: groups)
-        for(auto const &vn: group_volumes[g]) {
-            auto cp = comments.find(vn);
-            if(cp != comments.end()) 
-                append(group_vars[g], "VOLUME_COMMENT", join(cp->second, " "));
-            else 
-                append(group_vars[g], "VOLUME_COMMENT", "");
-            append(group_vars[g], "VOLUME_NAME", vn);
-        }
-*/
-#if 0
-    std::cerr << "**************** kube ******************\n";
-    std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
-    std::cerr << "********* local: \n" << join(group_vars[""], "\n") << "\n";
-    std::cerr << "****************************************\n";
-#endif
     auto global_smap = vex::make_smap(global_vars);
-    auto gg_smap = vex::make_smap(group_vars[""]);
+    auto gg_smap = vex::make_smap(group_vars[main_group_name]);
     vex::expand(out, template_kubernetes_yaml, vex::make_cmap(gg_smap, global_smap));
-    for(auto const &g: groups) if(!g.first.empty()) {
-#if 0
-    std::cerr << "**************** kube ******************\n";
-    std::cerr << "********* global: \n" << join(global_vars, "\n") << "\n";
-    std::cerr << "****************************************\n";
-    std::cerr << "********* local: \n" << join(group_vars[g], "\n") << "\n";
-    std::cerr << "****************************************\n";
-#endif
+    if(DEBUG_GENC) {
+        std::ofstream outg(output_filename("k8s-yaml-global.json"));
+        stru1::to_json(outg, global_vars);
+        std::ofstream outj(output_filename("k8s-yaml-local.json"));
+        stru1::to_json(outj, group_vars[main_group_name]);
+    }
+    for(auto const &g: groups) if(g.first != main_group_name) {
+        if(DEBUG_GENC) {
+            std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
+            stru1::to_json(outj, group_vars[g.first]);
+        }
         auto gg_smap = vex::make_smap(group_vars[g.first]);
         vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, global_smap));
     }
@@ -538,16 +526,21 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
         std::string value = get_text(nv.second);
         std::string file_ref = check_for_file_ref(value);
         if(!file_ref.empty()) {
-            int tmp_count = 1 + global_vars["GLOBAL_TEMP_VARS"].size();
-            append(global_vars, "GLOBAL_TEMP_VARS", sfmt() << "flow_local_TMP" << tmp_count << "=\"$(cat " << file_ref << ")\"");
-            env.push_back(std::make_pair(nv.first, std::string(sfmt()  << "$flow_local_TMP" << tmp_count)));
-
-            //env.push_back(c_escape(sfmt() << nv.first << "=" << "$flow_local_TMP" << tmp_count));
+            std::string name;
+            std::string value = sfmt() << "=\"$(cat " << file_ref << ")\"";
+            for(auto gv: global_vars["GLOBAL_TEMP_VARS"]) if(stru1::ends_with(gv, value)) {
+                name = stru1::remove_suffix(gv, value);
+                break;
+            }
+            if(name.empty()) {
+                name =  sfmt() << "flow_local_TMP" << (1 + global_vars["GLOBAL_TEMP_VARS"].size());
+                append(global_vars, "GLOBAL_TEMP_VARS", name+value);
+            }
+            env.push_back(std::make_pair(nv.first, std::string(sfmt() << "$" << name)));
         } else {
             std::ostringstream os;
             vex::expand(os, value, vex::make_smap(env_vars));
             env.push_back(std::make_pair(nv.first, os.str()));
-            //env.push_back(c_escape(sfmt() << nv.first << "=" << os.str()));
         }
     }
     DEBUG_LEAVE;
@@ -659,6 +652,14 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     yaml.str("");
     error_count += genc_k8s_conf(yaml);
     set(local_vars, "KUBERNETES_YAML", yaml.str());
+
+    bool have_volumes = false;
+    for(int n: *this)
+        if(((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER) && group(n) == main_group_name) 
+            for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) 
+                have_volumes = true;
+    if(have_volumes)
+        set(local_vars, "HAVE_MAIN_GROUP_VOLUMES", "");
 
     if(DEBUG_GENC) {
         std::string ofj = deployment_script + "-g.json";

@@ -28,7 +28,6 @@ spec:
       - {{INIT_CONTAINER}}
 }I}
 {W:VOLUME_NAME{
-${{{VOLUME_NAME/id/upper}}_ART}      - command: ["/bin/sh", "-c", "/usr/local/bin/artiget.sh '${{{VOLUME_NAME/id/upper}}}' --api-key-file /etc/artifactory/api-key -u -o /to-1"]
 ${{{VOLUME_NAME/id/upper}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{VOLUME_NAME/id/upper}}}' -d /etc/cos-access -u -o /to-1"]
 ${{{VOLUME_NAME/id/upper}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
         image:  "{{PUSH_REPO-}}{{IMAGE}}" 
@@ -41,9 +40,6 @@ ${{{VOLUME_NAME/id/upper}}_PVC}          readOnly: true
 ${{{VOLUME_NAME/id/upper}}_COS}        - name: cos-access-{{VOLUME_NAME/option}}
 ${{{VOLUME_NAME/id/upper}}_COS}          mountPath: "/etc/cos-access"
 ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
-${{{VOLUME_NAME/id/upper}}_ART}        - name: api-key-{{VOLUME_NAME/option}}
-${{{VOLUME_NAME/id/upper}}_ART}          mountPath: "/etc/artifactory"
-${{{VOLUME_NAME/id/upper}}_ART}          readOnly: true
 
         - name: scratch-{{VOLUME_NAME/option}}
           mountPath: "/to-1"
@@ -75,9 +71,6 @@ ${{{VOLUME_NAME/id/upper}}_PVC}            claimName: ${{{VOLUME_NAME/id/upper}}
 ${{{VOLUME_NAME/id/upper}}_COS}        - name: cos-access-{{VOLUME_NAME/option}}
 ${{{VOLUME_NAME/id/upper}}_COS}          secret:
 ${{{VOLUME_NAME/id/upper}}_COS}            secretName: ${{{VOLUME_NAME/id/upper}}_SECRET_NAME}
-${{{VOLUME_NAME/id/upper}}_ART}        - name: api-key-{{VOLUME_NAME/option}}
-${{{VOLUME_NAME/id/upper}}_ART}          secret:
-${{{VOLUME_NAME/id/upper}}_ART}            secretName: ${{{VOLUME_NAME/id/upper}}_SECRET_NAME}
         - name: scratch-{{VOLUME_NAME/option}}
           emptyDir: {}
 }W}

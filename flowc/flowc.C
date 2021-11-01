@@ -454,49 +454,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 append(global_vars, "VOLUME_COMMENT", "");
             }
         }
-
         
         int value = 0;
         bool external_node = false;
-        /*
-        std::string endpoint, image_name;
-        error_count += get_block_value(value, n, "image", false, {FTK_STRING});
-        if(value <= 0 || get_string(value).empty()) {
-            error_count += get_block_value(value, n, "endpoint", false, {FTK_STRING});
-            if(value <= 0 || get_string(value).empty()) {
-                ++error_count;
-                pcerr.AddError(main_file, at(n), sfmt() << "node \"" << name(n) << "\" must have either an image or an endpoint defined");
-            } else {
-                endpoint = get_string(value);
-                external_node = true;
-            }
-        } else {
-            image_name = get_string(value);
-            if(image_name[0] == '/') 
-                image_name = path_join(default_repository, image_name.substr(1));
-        }
-
-        append(global_vars, "NODE_IMAGE", image_name);
-        append(group_vars[group_name], "G_NODE_IMAGE", image_name);
-        append(global_vars, "NODE_ENDPOINT", endpoint);
-        append(group_vars[group_name], "G_NODE_ENDPOINT", endpoint);
-        if(external_node) {
-            append(global_vars, "EXTERN_NODE", "#");
-            append(group_vars[group_name], "G_EXTERN_NODE", "#");
-        } else {
-            append(global_vars, "EXTERN_NODE", "");
-            append(group_vars[group_name], "G_EXTERN_NODE", "");
-        }
-*/
-        //ni.environment.clear();
-            /*
-        if(!external_node) {
-            std::map<std::string, int> env;
-            error_count += get_nv_block(env, blck, "environment", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
-            for(auto a: env)
-                ni.environment[a.first] = get_value(a.second);
-        }
-                */
     }
     if(have_volumes) 
         set(global_vars, "HAVE_VOLUMES", "");
