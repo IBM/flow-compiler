@@ -1,34 +1,30 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <set>
-#include <map>
 #include <algorithm>
+#include <cstring>
 #include <ctime>
 #include <fcntl.h>
+#include <fstream>
+#include <ftw.h>
+#include <iostream>
+#include <map>
+#include <set>
+#include <signal.h>
+#include <vector>
 
 #include <grpcpp/grpcpp.h>
 
 #include "ansi-escapes.H"
+#include "cot.H"
+#include "filu.H"
 #include "flow-compiler.H"
+#include "grpc-helpers.H"
 #include "helpo.H"
 #include "stru1.H"
-#include "filu.H"
-#include "cot.H"
 #include "vex.H"
-#include "grpc-helpers.H"
 
 #if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>
 #endif
-#include <signal.h>
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <ftw.h>
-#include <errno.h>
-*/
+
 using namespace stru1;
 /** 
  * Set this to false to turn off ANSI coloring 
@@ -615,14 +611,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     
     if(error_count != 0) 
         pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
-   
     DEBUG_LEAVE;
     return error_count;
 }
 int flow_compiler::genc_graph(bool gen_svgs) {
     int error_count = 0;
     DEBUG_ENTER;
-
     for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
         // Copy the entry name into a writable string because check_entry might overwrite it
         std::string check_entry(entry_name);
@@ -674,7 +668,6 @@ int flow_compiler::genc_www() {
         OFSTREAM_SE(outj, outputfn);
         stru1::to_json(outj, global_vars);
     }
-
     if(error_count == 0) {
         extern char const *template_index_html;
         vex::expand(outf, template_index_html, vex::make_smap(global_vars));
@@ -706,7 +699,6 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
         extern char const *template_Makefile;
         vex::expand(makf, template_Makefile, vex::make_smap(global_vars));
     }
-
     // Create a link to this makefile if Makefile isn't in the way
     std::string mp = output_filename("Makefile");
     std::string od = output_filename(".");
@@ -740,7 +732,6 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     DEBUG_LEAVE;
     return error_count;
 }
-
 extern char const *template_help, *template_syntax;
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
@@ -759,11 +750,9 @@ static std::map<std::string, std::vector<std::string>> all_targets = {
     {"www-files",         {"docs"}},
     {"graph-files",       {}},
 };
-
 static std::set<std::string> can_use_tempdir = {
     "build-image" /*, "build-server", "build_client"*/
 };
-
 static int remove_callback(const char *pathname, const struct stat *, int, struct FTW *) {
     return remove(pathname);
 } 
@@ -806,7 +795,6 @@ int main(int argc, char *argv[]) {
     ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stderr)) && isatty(fileno(stdout)));
     // Debug flag
     flow_compiler::debug_enable = opts.optb("debug", flow_compiler::debug_enable);
-
     std::set<std::string> targets;
     bool use_tempdir = true;
     for(auto kt: all_targets) 
@@ -815,7 +803,6 @@ int main(int argc, char *argv[]) {
             use_tempdir = use_tempdir && cot::contains(can_use_tempdir, kt.first);
             targets.insert(kt.second.begin(), kt.second.end());
         }
-    
     // Add all the dependent targets to the target list
     while(true) {
         auto stargets = targets.size();
@@ -830,7 +817,6 @@ int main(int argc, char *argv[]) {
         if(stargets == targets.size()) 
             break;
     }
-
     flow_compiler gfc;
     gfc.trace_on = opts.have("trace");
 
@@ -843,7 +829,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     use_tempdir = use_tempdir && targets.size() > 0;
-
     if(use_tempdir) {
         char path[4096];
         char const *tmpdir = getenv("TMPDIR");

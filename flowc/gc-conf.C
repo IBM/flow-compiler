@@ -1,18 +1,18 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <set>
-#include <map>
 #include <algorithm>
 #include <ctime>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <set>
 #include <sys/stat.h>
+#include <vector>
 
-#include "flow-compiler.H"
-#include "stru1.H"
-#include "filu.H"
 #include "cot.H"
-#include "vex.H"
+#include "filu.H"
+#include "flow-compiler.H"
 #include "grpc-helpers.H"
+#include "stru1.H"
+#include "vex.H"
 
 using namespace stru1;
     
