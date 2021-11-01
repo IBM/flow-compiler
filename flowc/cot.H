@@ -27,5 +27,12 @@ bool includes(CONT const &c, SET const &s) {
     for(auto const v: s) if(!contains(c, v)) return false;
     return true;
 }
+template <class CONT, class VALUE> inline static 
+bool has_value(CONT const &c, VALUE const &v) {
+    for(auto const p: c) 
+        if(p.second == v)
+            return true;
+    return false;
+}
 }
 #endif
