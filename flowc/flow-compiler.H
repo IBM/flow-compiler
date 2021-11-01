@@ -48,22 +48,6 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
     vars[name].assign(begin, end);
     return vars;
 }
-/*
-struct mount_info {
-    int node;               // AST pointer        
-    int node_node;          // Node (parent) AST pointer
-    std::string name;       // Mount label 
-    std::vector<std::string> paths;
-    std::string local;      // Local path
-    std::string pvc;        // Private volume claim
-    std::string cos;        // Cloud object store URL
-    std::string secret;     // Secret name for COS or Artifactory credentials
-    bool read_only;         // Mount read only 
-
-    mount_info(int n=0, int nn=0, std::string const &na="", bool ro=true): node(n), node_node(nn), name(na), read_only(ro) {
-    }
-};
-*/
 class flow_compiler: public flow_ast {
 private:    
     FErrorPrinter pcerr;
