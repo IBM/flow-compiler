@@ -2,6 +2,7 @@
 #define H_AST_ATTRS_H
 
 #include <type_traits>
+#include "massert.H"
 
 namespace ast {
 template<class V> struct attribute {
@@ -10,7 +11,7 @@ template<class V> struct attribute {
     V no_value;
 
     bool put(int n, value_t const v) {
-        assert(value.find(n) == value.end());
+        MASSERT(value.find(n) == value.end()) << "Node " << n << " already has " << value.find(n)->second << "\n";
         value[n] = v;
         return true;
     }
