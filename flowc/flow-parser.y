@@ -77,8 +77,9 @@ stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(a
 stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valx(D).            { A = ast->node(ast->stmt_keyw(B), C, D);
                                                                  ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
                                                                }
-stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valx(D) COMMA valx(E). { A = ast->node(ast->stmt_keyw(B), C, D, E);
+stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valc(D) COMMA valx(E). { A = ast->node(ast->stmt_keyw(B), C, D, E);
                                                                  ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
+                                                                 ast->expect(D, {FTK_INTEGER, FTK_ID}, "expected integer or label");
                                                                }
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
@@ -129,6 +130,9 @@ elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }       
 
 lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); ast->name.put(A, ast->get_id(B)); }
 
+// valc: any integer or id
+valc(A) ::= INTEGER(B).                                        { A = B; } 
+valc(A) ::= ID(B).                                             { A = B; }
 // valn: any numeric literal
 
 valn(A) ::= INTEGER(B).                                        { A = B; }
