@@ -11,7 +11,7 @@ template<class V> struct attribute {
     V no_value;
 
     bool put(int n, value_t const v) {
-        MASSERT(value.find(n) == value.end()) << "Node " << n << " already has " << value.find(n)->second << "\n";
+        MASSERT(value.find(n) == value.end() || value.find(n)->second == v) << __func__ <<  " attempting to set attr to " << v << " but node " << n << " already has " << value.find(n)->second << "\n";
         value[n] = v;
         return true;
     }

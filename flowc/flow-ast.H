@@ -495,17 +495,17 @@ struct flow_ast {
         return at(an).type == FTK_fldm? an: 0;
     }
     /**
-     * Return the fldm associated with this action node
+     * Return the fldx associated with this action node
      */
     int get_ne_action_fldx(int n) const {
         int an = get_ne_action(n);
-        if(an == 0) 
+        if(an == 0)
             return 0;
         an = at(an).children.back();
         return at(an).type == FTK_fldx? an: 0;
     }
     /**
-     * Return the fldr associated with this action node
+     * Return the fldr associated with the condition of this node
      */
     int get_ne_condition(int n) const {
         auto const &node = at(n);
