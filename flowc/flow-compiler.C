@@ -1694,7 +1694,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             errnc.insert(n);
             icode.push_back(fop(BERC));
             icode.back().arg.push_back(dimension(n));
-            icode.back().arg.push_back(n);
+            icode.back().arg.push_back(errnc.size());
             icode.back().arg.push_back(stage);
 
             std::set<std::pair<int, int>> refs;

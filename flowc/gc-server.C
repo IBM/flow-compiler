@@ -749,7 +749,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
    
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
-        //OUT << "// " << i+1 << " " << op << "\n";
+        std::cerr << "// " << i+1 << " " << op << "\n";
         switch(op.code) {
             case MTHD:
                 input_name = op.arg1;
@@ -932,6 +932,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "\n";
                 break;
             case BERC:
+                node_dim = op.arg[0];
+                cur_node_name = sfmt() << "ERR_" << op.arg[1];
                 break;
             case BNOD:
                 node_cg_done = false;
@@ -1024,6 +1026,20 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 tvl.pop_back(); tvl.pop_back();
                 break;
             case EERC:
+                /*
+                --indenter;
+                OUT << "}\n";
+                while(acinf.loop_level() > 0) {
+                    acinf.decr_loop_level();
+                    --indenter; 
+                    OUT << "}\n";
+                    cur_loop_tmp.pop_back();
+                }
+                for(int i = 0; i < op.arg[0]; ++i) 
+                    loop_c.pop_back();
+
+                cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
+                */
                 break;
             case ENOD:
                 // if visited
