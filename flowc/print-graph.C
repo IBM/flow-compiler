@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <map>
 
@@ -62,24 +64,21 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
             out << s << ";\n};\n";
         }
 
-        //int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const 
-        
         for(auto nn: n) {
             std::string dot_node(stru1::c_escape(name(nn)));
             // Get all incoming edges
             incoming.clear(); edges.clear();
             if(get_ne_action(nn) != 0) 
-                get_field_refs(incoming, get_ne_action(nn), 0);
+                get_field_refs(incoming, get_ne_action(nn));
             for(auto i: incoming)
                 edges[get_dotted_id(i.first, 0, 1)].insert(get_dotted_id(i.first, 1));
             for(auto e: edges) {
                 std::string dot_i = stru1::join(e.second, ",\\n");
                 out << e.first << " -> " << dot_node << " [fontsize=9,style=bold"<<(e.first == input_label?",color=forestgreen":"")<< ",label=\"" << dot_i << "\"];\n";
             }
-            
             incoming.clear(); edges.clear();
             if(get_ne_condition(nn) != 0) 
-                get_field_refs(incoming, get_ne_condition(nn), 0);
+                get_field_refs(incoming, get_ne_condition(nn));
             for(auto i: incoming)
                 edges[get_dotted_id(i.first, 0, 1)].insert(get_dotted_id(i.first, 1));
             for(auto e: edges) {
@@ -91,14 +90,51 @@ void flow_compiler::print_graph(std::ostream &out, int entry) {
     out << "node [shape=invtriangle];\n";
     out << "{ rank = same; " << ename << "[label=" << stru1::c_escape(method_descriptor(entry)->name()) << "]; \"[o]\"; };\n";
     incoming.clear(); edges.clear();
-    get_field_refs(incoming, get_ne_action(entry), 0); 
+    get_field_refs(incoming, get_ne_action(entry)); 
     for(auto i: incoming)
         edges[get_dotted_id(i.first, 0, 1)].insert(get_dotted_id(i.first, 1));
     for(auto e: edges) {
         std::string dot_i = stru1::join(e.second, ",\\n");
         out << e.first << " -> " << ename << " [fontsize=9,style=bold"<<(e.first == input_label?",color=forestgreen":",color=dodgerblue2")<< ",label=\"" << dot_i << "\"];\n";
     }
-        
     out << "}\n";
 }
-
+int flow_compiler::genc_graph(bool gen_svgs) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
+        // Copy the entry name into a writable string because check_entry might overwrite it
+        std::string check_entry(entry_name);
+        auto mdpe = check_method(check_entry, 0);
+        // Find the node corresponding to this entry
+        int node = 0;
+        for(int n: *this) if(at(n).type == FTK_ENTRY && method_descriptor(n) == mdpe) {
+            node = n;
+            break;
+        }
+        // There must always be a node...
+        assert(node != 0);
+        std::string entry(mdpe->name());
+        std::string outputfn = output_filename(std::string("docs/") + entry + ".dot");
+        {
+            OFSTREAM_SE(outf, outputfn);
+            if(error_count == 0)
+                print_graph(outf, node);
+        }
+        if(gen_svgs) {
+            std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
+            std::string dotc(stru1::sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
+            if(system(dotc.c_str()) != 0)  {
+                pcerr.AddWarning(outputfn, -1, 0, "failed to generate graph svg, is dot available?");
+                append(global_vars, "ENTRY_SVG_YAMLSTR", stru1::c_escape(""));
+            } else {
+                std::ifstream svgf(svg_filename.c_str());
+                std::stringstream buf;
+                buf << svgf.rdbuf();
+                append(global_vars, "ENTRY_SVG_YAMLSTR", stru1::c_escape(buf.str()));
+            }
+        }
+    }
+    DEBUG_LEAVE;
+    return error_count;
+}
