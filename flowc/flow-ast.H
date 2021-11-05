@@ -485,6 +485,13 @@ struct flow_ast {
         });
     }
     /**
+     * Get the message expression for an error node
+     */
+    int get_errnode_action(int n) const {
+        assert(at(n).type == FTK_ERROR);
+        return at(n).children.back();
+    }
+    /**
      * Return the fldm associated with this action node
      */
     int get_ne_action_fldm(int n) const {
@@ -513,22 +520,22 @@ struct flow_ast {
         return node.type == FTK_NODE? (node.children.size() == 4? node.children[3]: 0): node.children[0];
     }
     /** 
-     * Return the first node named 'namen' 
+     * Return the first node of type 'nt' 
      */
-    int get_first_node(std::string const &namen) const {
+    int get_first_node(std::string const &nt) const {
         for(int n: *this)
-            if(at(n).type == FTK_NODE && type(n) == namen) 
+            if(at(n).type == FTK_NODE && type(n) == nt) 
                 return n;
         return 0;
     }
     /** 
-     * Return all nodes in eval order: all nodes with condition in source order followed by the node without
+     * Return all nodes in eval order: first nodes with condition in source order followed by the node without
      */
-    std::vector<int> get_all_nodes(std::string const &namen) const {
+    std::vector<int> get_all_nodes(std::string const &nt) const {
         int noc_node = -1;
         std::vector<int> nns;
         for(int n: *this)
-            if(at(n).type == FTK_NODE && type(n) == namen) {
+            if(at(n).type == FTK_NODE && type(n) == nt) {
                 if(get_ne_condition(n) != 0)
                     nns.push_back(n);
                 else

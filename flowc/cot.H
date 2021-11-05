@@ -34,5 +34,10 @@ bool has_value(CONT const &c, VALUE const &v) {
             return true;
     return false;
 }
+template <class CONT> inline static
+CONT join(CONT const &c, CONT const &d) {
+    CONT r; r.insert(c.begin(), c.end()); r.insert(d.begin(), d.end());
+    return r;
+}
 }
 #endif

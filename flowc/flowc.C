@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <signal.h>
+#include <sstream>
 #include <unistd.h>
 #include <vector>
 
@@ -572,45 +573,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     
     if(error_count != 0) 
         pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
-    DEBUG_LEAVE;
-    return error_count;
-}
-int flow_compiler::genc_graph(bool gen_svgs) {
-    int error_count = 0;
-    DEBUG_ENTER;
-    for(auto const &entry_name: all(global_vars, "REST_ENTRY")) {
-        // Copy the entry name into a writable string because check_entry might overwrite it
-        std::string check_entry(entry_name);
-        auto mdpe = check_method(check_entry, 0);
-        // Find the node corresponding to this entry
-        int node = 0;
-        for(int n: *this) if(at(n).type == FTK_ENTRY && method_descriptor(n) == mdpe) {
-            node = n;
-            break;
-        }
-        // There must always be a node...
-        assert(node != 0);
-        std::string entry(mdpe->name());
-        std::string outputfn = output_filename(std::string("docs/") + entry + ".dot");
-        {
-            OFSTREAM_SE(outf, outputfn);
-            if(error_count == 0)
-                print_graph(outf, node);
-        }
-        if(gen_svgs) {
-            std::string svg_filename = output_filename(std::string("docs/") + entry + ".svg");
-            std::string dotc(sfmt() << "dot -Tsvg " << outputfn << " -o " << svg_filename);
-            if(system(dotc.c_str()) != 0)  {
-                pcerr.AddWarning(outputfn, -1, 0, "failed to generate graph svg, is dot available?");
-                append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(""));
-            } else {
-                std::ifstream svgf(svg_filename.c_str());
-                std::stringstream buf;
-                buf << svgf.rdbuf();
-                append(global_vars, "ENTRY_SVG_YAMLSTR", c_escape(buf.str()));
-            }
-        }
-    }
     DEBUG_LEAVE;
     return error_count;
 }
