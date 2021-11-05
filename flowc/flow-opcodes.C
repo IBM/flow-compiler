@@ -26,6 +26,8 @@ char const *op_name(op o) {
         case ESTG:  return "ESTG";
 
         case ERR:   return "ERR ";
+        case BERC:  return "BERC";
+        case EERC:  return "EERC";
 
         case SETF: return "SETF";      
         case IOP:  return "IOP";
@@ -125,9 +127,10 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     }
     bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
 
-    if(fop.code == MTHD || fop.code == BPRP) out << ansi::escape(ANSI_BOLD, use_ansi);
+    if(fop.code == MTHD || fop.code == BPRP || fop.code == ERR) out << ansi::escape(ANSI_BOLD, use_ansi);
+    if(fop.code == ERR) out << ansi::escape(ANSI_RED, use_ansi);
     out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BPRP) out << ansi::escape(ANSI_RESET, use_ansi);
+    if(fop.code == MTHD || fop.code == BPRP || fop.code == ERR) out << ansi::escape(ANSI_RESET, use_ansi);
 
     bool escape_string1 = fop.code == RVC && fop.arg.size() > 1 && fop.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     bool escape_string2 = fop.code == RVC && fop.arg.size() > 2 && fop.arg[2] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;

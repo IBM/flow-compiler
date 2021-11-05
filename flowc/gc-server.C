@@ -931,6 +931,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
                 OUT << "\n";
                 break;
+            case BERC:
+                break;
             case BNOD:
                 node_cg_done = false;
                 node_dim = op.arg[0];
@@ -1009,6 +1011,19 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 ++indenter;
                 if(alternate_nodes)
                     OUT << "FLOGC(CIF.trace_call) << CIF << \"condition triggered for node " << cur_node_name << "\\n\";\n";
+                break;
+            case ERR:
+                assert(tvl.size() > 1);
+                OUT << "// ERROR CHECK!!\n";
+                OUT << "if(" << tvl[tvl.size()-2].first << ") {" << "\n";
+                ++indenter;
+                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") return error: \" << (" << tvl.back().first << ") << \"\\n\";\n";
+                OUT << "return ::grpc::Status(::grpc::StatusCode::" << op.arg1 << ", " << tvl.back().first << ");\n";
+                --indenter;
+                OUT << "}\n";
+                tvl.pop_back(); tvl.pop_back();
+                break;
+            case EERC:
                 break;
             case ENOD:
                 // if visited
@@ -1206,12 +1221,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << unindent() << "}\n";
                 break;
 
-            case ERR:
-                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): node error\\n\";\n";
-                OUT << "return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, " << c_escape(op.arg1) << ");\n";
-                // Prevent generating unreachable code
-                node_cg_done = true;
-                break;
 
             case NOP: case CON1: case CON2:
                 if(!op.arg1.empty())

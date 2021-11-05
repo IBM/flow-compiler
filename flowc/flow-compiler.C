@@ -64,14 +64,15 @@ struct function_info {
     int return_type;
     std::vector<int> arg_type;
     unsigned required_argc;
-    int dim;        // Number of dimensions added or removed
+    int dim;      
     char const *help;
 };
 /** 
  * function signature table:
- *      return_type: Either a basic grpc compiler type or the negative of the index into the argument list.
- *      arg_type: Either a basic grpc compiler type or FTK_ACCEPT for any type. Negative values means the argument must be arepeated field.
- *      required_argc: The number of required arguments. The number of accepted arguments is the size of arg_type
+ *      return_type: Either a basic grpc compiler type, or FTK_ACCEPT for a type that is deduced from the argument types. A negative value denotes a repeated field.
+ *      arg_type: Either a basic grpc compiler type or FTK_ACCEPT for any type. A negative value means the argument *must* be a repeated field.
+ *      required_argc: The number of required arguments. The number of accepted arguments is the size of arg_type.
+ *      dim: The change in dimension when compared to the argument dimension.
  */
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
@@ -97,7 +98,7 @@ static const std::map<std::string, function_info> function_table = {
     { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Returns the value of the environment variable named by the first argument. If the environment variable is missing, the value of the second argument is returned.\n"}},
     // string join(elements, separator, last_separator)
     { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, -1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
-    { "split",    { -FTK_STRING, { FTK_STRING, FTK_STRING }, 1, 1, "Splits the first argument by any characters in the second argument\n"}},
+    { "split",    { -FTK_STRING, { FTK_STRING, FTK_STRING }, 1, 1, "Splits the first argument by any character in the second argument. By default it splits on ASCII whitespace.\n"}},
     { "slice",    { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
 };
 
@@ -111,7 +112,6 @@ static std::string ftk2s(int ftk) {
     }
     return "?";
 }
-
 void show_builtin_help(std::ostream &out) {
     for(auto const &fe: function_table) {
         out << ftk2s(fe.second.return_type) << " \"~" << fe.first << "\"(";
@@ -128,7 +128,6 @@ void show_builtin_help(std::ostream &out) {
         out << fe.second.help << "\n";
     }
 }
-
 int flow_compiler::compile_expression(int node) {
     int error_count = 0;
     if(node != 0) switch(at(node).type) {
@@ -1123,18 +1122,48 @@ op get_conv_op(int r_type, int l_type, int r_grpc_type, int l_grpc_type) {
     return NOP;
 }
 /**
- * Return all fldx ast nodes that are referenced from expr_node and their final dimension
+ * Return all fldx ast nodes that are referenced from expr_node, and their final dimension
  */
-int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const {
+std::set<std::pair<std::string, int>> flow_compiler::get_referenced_fields(int neen) const {
+    std::set<std::pair<int, int>> fnr;
+    int ec =  get_field_refs_r(fnr, neen, 0);
+    std::set<std::pair<std::string, int>> fns;
+    if(ec == 0) for(auto nd: fnr) 
+        fns.insert(std::make_pair(get_dotted_id(nd.first, 0, 1)+"@"+get_dotted_id(nd.first, 1), nd.second));
+    return fns;
+}
+std::set<std::pair<std::string, int>> flow_compiler::get_provided_fields(int nodex) const {
+    std::set<std::pair<std::string, int>> fns;
+    std::string nn("input");
+    auto d = message_descriptor(nodex);
+    if(nodex != 0) {
+        nn = type(nodex);
+        if(d == nullptr) for(int nx: get_all_nodes(nodex)) 
+            if((d = message_descriptor(nx)) != nullptr)
+                break;
+    }
+    MASSERT(d != nullptr) << "Cannot find return type for node " << nodex << "\n";
+    auto fv = get_fields(d, dimension(nodex));
+    for(auto f: get_fields(d, dimension(nodex)))
+        fns.insert(std::make_pair(nn+"@"+f.first, f.second));
+    //std::cerr << "$$$ " << nodex << " $$$ " << fns << "\n";
+    return fns;
+}
+int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node) const {
+    int ec =  get_field_refs_r(refs, expr_node, 0);
+    //std::cerr << "@@@ " << expr_node << " @@@ " << refs << "\n";
+    //std::cerr << "+++ " << expr_node << " +++ " << get_referenced_fields(expr_node) << "\n";
+    return ec;
+}
+int flow_compiler::get_field_refs_r(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const {
     int error_count = 0;
     auto const &node = at(expr_node);
     switch(node.type) {
         case FTK_fldr: {
             switch(at(node.children[0]).type) {
-                case FTK_ID: {  // function call
-                    if(get_id(node.children[0]) == "join")
-                        ++lv_dim;
-                } break;
+                case FTK_ID: // function call
+                    lv_dim -= function_table.find(get_id(node.children[0]))->second.dim;
+                    break;
                 case FTK_HASH:
                     ++lv_dim;         
                     break;
@@ -1142,11 +1171,11 @@ int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_
                     break;
             }
             for(unsigned a = 1; a < node.children.size(); ++a) 
-                error_count += get_field_refs(refs, node.children[a], lv_dim);
+                error_count += get_field_refs_r(refs, node.children[a], lv_dim);
         } break;
         case FTK_fldm: {
             for(int fldd_node: node.children) 
-                error_count += get_field_refs(refs, at(fldd_node).children[1], lv_dim + (field_descriptor(fldd_node)->is_repeated()? 1: 0));
+                error_count += get_field_refs_r(refs, at(fldd_node).children[1], lv_dim + (field_descriptor(fldd_node)->is_repeated()? 1: 0));
             
         } break;
         case FTK_fldx: {
@@ -1154,7 +1183,7 @@ int flow_compiler::get_field_refs(std::set<std::pair<int, int>> &refs, int expr_
         } break;
         default:
             for(auto n: node.children) 
-                error_count += get_field_refs(refs, n, lv_dim);
+                error_count += get_field_refs_r(refs, n, lv_dim);
           break;
     }
     return error_count;
@@ -1360,7 +1389,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
     int error_count = 0;
     if(lvd.is_repeated()) {
         std::set<std::pair<int, int>> refs;
-        get_field_refs(refs, arg_node, 0);
+        get_field_refs(refs, arg_node);
         std::set<std::pair<std::string, int>> inds;
         if(dimension(arg_node) == 0)
             inds.insert(std::make_pair(std::string("1"), 0));
@@ -1627,7 +1656,11 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
     std::set<std::string> foak;
     // Keep track of nodes with output
     std::set<std::string> foak_wo;
-
+    // Fields available at the begining of a stage
+    std::set<std::pair<std::string, int>> fava = get_provided_fields(0);
+    // Keep track of compiled error nodes
+    std::set<int> errnc;
+    
     int stage = 0;
     for(auto const &stage_set: node_stages) {
         ++stage;
@@ -1651,6 +1684,51 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             stage_set_names.push_back(name(n));
         }
         icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
+        DEBUG_CHECK("generating error checks " << stage_set);
+
+        for(int n: *this) if(at(n).type == FTK_ERROR && !cot::contains(errnc, n)) {
+            std::set<std::pair<std::string, int>> needed_fields = get_referenced_fields(get_ne_condition(n));
+            //needed_fields = cot.join(needed_fields, get_referenced_fields(get_ne_action(n)));
+            if(!cot::includes(fava, needed_fields)) 
+                continue;
+            errnc.insert(n);
+            icode.push_back(fop(BERC));
+            icode.back().arg.push_back(dimension(n));
+            icode.back().arg.push_back(n);
+            icode.back().arg.push_back(stage);
+
+            std::set<std::pair<int, int>> refs;
+            get_field_refs(refs, n);
+
+            for(int i = 0, e = dimension(n); e > 0 && i != e; ++i) {
+                // Grab all distinct right value references in this node
+                std::set<std::pair<std::string, int>> r;
+                for(auto p: refs) if(p.second > i) 
+                    r.insert(std::make_pair(fldx_mname(p.first, i+1), dimension(at(p.first).children[0])));
+            
+                icode.push_back(fop(NLP, i+1, r.size())); 
+                for(auto nc: r) {
+                    icode.push_back(fop(LPC, nc.first, nc.second, i+1));
+                }
+                icode.push_back(fop(BNL, i+1)); 
+            }
+            int cc = 0;
+            if(get_ne_condition(n) != 0) {
+                error_count += encode_expression(get_ne_condition(n), FTK_INTEGER, 0);
+                ++cc;
+            }
+            error_count += encode_expression(get_errnode_action(n), FTK_STRING, 0);
+            std::string error_code = "INVALID_ARGUMENT";
+            if(at(n).children.size() == 3) {
+                int cn = at(n).children[1];
+                if(at(cn).type == FTK_INTEGER) 
+                    error_code = grpc_error_code(get_integer(cn));
+                else if(at(cn).type == FTK_ID)
+                    error_code = grpc_error_code(get_id(cn));
+            }
+            icode.push_back(fop(ERR, error_code, cc)); 
+            icode.push_back(fop(EERC, dimension(n)));
+        }
 
         DEBUG_CHECK("generating nodes " << stage_set);
       
@@ -1672,7 +1750,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             icode.back().arg.push_back(stage);
 
             std::set<std::pair<int, int>> refs;
-            get_field_refs(refs, node, 0);
+            get_field_refs(refs, node);
 
             for(int i = 0, e = dimension(node); e > 0 && i != e; ++i) {
                 // Grab all distinct right value references in this node
@@ -1758,7 +1836,20 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
         }
         DEBUG_CHECK("end stage " << stage);
         icode.push_back(fop(ESTG, icode[stage_idx].arg1, stage));
-        icode[stage_idx].arg[2] =  stage_dim;                 // BSTG arg 3: max node dimension 
+        icode[stage_idx].arg[2] =  stage_dim;  // BSTG arg 3: max node dimension 
+        // update available fields
+        for(int node: stage_set) {
+            // add all fields for any node type that is not present in subsequent stages
+            bool final = true;
+            for(int s = stage, e = node_stages.size(); s < e; ++s)
+                if(final) for(int fn: node_stages[s])
+                    if(type(fn) == type(node)) {
+                        final = false;
+                        break;
+                    }
+            if(final) 
+                fava = cot::join(fava, get_provided_fields(node));
+        }
     }
 
     // Generate code to populate the Response 
@@ -2007,11 +2098,14 @@ int flow_compiler::compile_expressions(int node) {
         default:
             break;
     }
-    // constional nodes 
+    // conditional nodes 
     for(int n: *this) switch(at(n).type) {
         case FTK_NODE:
+            error_count += compile_expression(get_ne_condition(n));
+            break;
         case FTK_ERROR:
             error_count += compile_expression(get_ne_condition(n));
+            error_count += compile_expression(get_errnode_action(n));
         default:
             break;
     }
@@ -2035,9 +2129,8 @@ int flow_compiler::compile_expressions(int node) {
     }
     while(queue.size() > 0) {
         int acn = queue.back(); queue.pop_back();
-        if(cot::contains(visited, acn))
+        if(!visited.insert(acn).second)
             continue;
-        visited.insert(acn);
         for(int n: subtree(acn)) if(at(n).type == FTK_fldx) {
             std::string label = get_id(at(n).children[0]);
             if(label == input_label) {
@@ -2089,10 +2182,26 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     error_count += fixup_proto_refs();
     if(error_count != 0) return error_count;
 
-
+//    print_ast(std::cout);
     error_count += compile_expressions();
     // Fixup value_type for fldr
     error_count += fixup_vt(root);
+
+    for(int en: *this) if(at(en).type == FTK_ERROR && at(en).children.size() == 3) {
+        int cn = at(en).children[1];
+        if(at(cn).type == FTK_ID) {
+            if(grpc_error_code(get_id(cn)).empty()) {
+                ++error_count;
+                pcerr.AddError(main_file, at(cn), sfmt() << "unknown grpc error code \"" << get_id(cn) << "\"");
+            }
+        }
+        if(at(cn).type == FTK_INTEGER) {
+            if(grpc_error_code(get_integer(cn)).empty()) {
+                ++error_count;
+                pcerr.AddError(main_file, at(cn), sfmt() << "invalid grpc error code \"" << get_integer(cn) << "\", must be in the rage 1 to 16 ");
+            }
+        }
+    }
 
     // Build a flow graph for each entry 
     for(int e: *this) if(at(e).type == FTK_ENTRY) 

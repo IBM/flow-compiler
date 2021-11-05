@@ -193,25 +193,13 @@ public:
     // Second pass fix up for number of indices needed
     int update_dimensions(int node);
     int update_noderef_dimension(int node);
-    int update_noderef_dimension_d(int node);
+    //int update_noderef_dimension_d(int node);
 
-    // Get all the nodes of this name, in eval order
-    //std::vector<int> all_nodes(std::string const &name) const;
-    //std::vector<int> all_nodes(int node) const;
-    // Get the node nodes referenced by the fldm node
-    // void get_fldm_node_refs(std::map<int, std::set<std::string>> &noset, int fldm_node);
-    // Get all the node nodes referenced in this conditional expression
-    // void get_bexp_node_refs(std::map<int, std::set<std::string>> &noset, int bexp_node);
-    /*
-    // Get the node referenced by either condition (1), body (2) or both (0) for this blck_node
-    std::map<int, std::set<std::string>> &get_node_refs(std::map<int, std::set<std::string>> &noset, int blck_node, int type=0);
-    std::map<int, std::set<std::string>> &get_node_condition_refs(std::map<int, std::set<std::string>> &noset, int blck_node) {
-        return get_node_refs(noset, blck_node, 1);
-    }
-    std::map<int, std::set<std::string>> &get_node_body_refs(std::map<int, std::set<std::string>> &noset, int blck_node) {
-        return get_node_refs(noset, blck_node, 2);
-    }
-    */
+    std::set<std::pair<std::string, int>> get_provided_fields(int neen) const;
+    std::set<std::pair<std::string, int>> get_referenced_fields(int neen) const;
+    int get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node) const;
+    int get_field_refs_r(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const;
+
     int build_flow_graph(int entry_blk_node);
 
     // Type check if the the assignment left = right
@@ -221,7 +209,6 @@ public:
     int encode_expression(int fldr_node, int expected_type, int dim_change);
     int populate_message(std::string const &lv_name, struct lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip, int loop_level);
 
-    int get_field_refs(std::set<std::pair<int, int>> &refs, int expr_node, int lv_dim) const;
 
     int compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set);
     int fop_compare(fop const &left, fop const &right) const;

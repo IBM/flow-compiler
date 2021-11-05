@@ -110,6 +110,7 @@ enum op {
     /**
      *      arg1    error message
      */
+    BERC, EERC,     // begin and end error pseudo node
     ERR,            // generate a grpc error
     /**
      * arg1 function name or operand
