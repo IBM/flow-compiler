@@ -4,7 +4,8 @@
 
 %nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OUTPUT RETURN ERROR MOUNT ENVIRONMENT INPUT HEADERS.
 %left SEMICOLON.
-%left DOT AT.
+%left DOT.
+%left AT.
 %left COMMA.
 %nonassoc EQUALS COLON.
 %right QUESTION.
@@ -73,11 +74,11 @@ stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(a
                                                                  ast->name.put(A, ast->get_dotted_id(C));
                                                                  ast->type.put(D, ast->get_id(B));
                                                                } 
-// error productions
-stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valx(D).            { A = ast->node(ast->stmt_keyw(B), C, D);
+// error check 
+stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR fldr(D).            { A = ast->node(ast->stmt_keyw(B), C, D);
                                                                  ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
                                                                }
-stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valc(D) COMMA valx(E). { A = ast->node(ast->stmt_keyw(B), C, D, E);
+stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valc(D) COMMA fldr(E). { A = ast->node(ast->stmt_keyw(B), C, D, E);
                                                                  ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
                                                                  ast->expect(D, {FTK_INTEGER, FTK_ID}, "expected integer or label");
                                                                }
@@ -164,6 +165,7 @@ fldd(A) ::= ID(B) eqsc(D) fldr(C).                             { A = ast->node(F
 
 fldr(A) ::= vall(B).                                           { A = B; }                                  // The right side can be a literal, 
 fldr(A) ::= fldx(B).                                           { A = B; }                                  // a field expression
+
 fldr(A) ::= OPENPAR fldr(B) CLOSEPAR.                          { A = B; }                                 
 fldr(A) ::= TILDA ID(B) OPENPAR CLOSEPAR.                      { A = ast->node(FTK_fldr, B); }             // or an internal function call
 fldr(A) ::= TILDA ID(B) OPENPAR fldra(C) CLOSEPAR.             { A = ast->nprepend(C, B); }                
@@ -190,13 +192,15 @@ fldra(A) ::= fldra(B) COMMA fldr(C).                           { A = ast->nappen
 
 // fldx: field expression node@[field[.field]]
 
-fldx(A) ::= fldn(B).                                           { A = B; }
+//fldx(A) ::= fldn(B).                                           { A = B; }
 fldx(A) ::= fldn(B) dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
 
 // fldn: node reference (node@)
 
 fldn(A) ::= ID(B) AT.                                          { A = B; }
 
+//fldx(A) ::= ID(B) AT.                                           { A = B; }
+//fldx(A) ::= ID(B) AT dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
 // dtid: dotted id id[.id]*
 
 dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B); }
