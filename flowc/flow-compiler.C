@@ -1688,7 +1688,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
         for(int n: *this) if(at(n).type == FTK_ERROR && !cot::contains(errnc, n)) {
             std::set<std::pair<std::string, int>> needed_fields = get_referenced_fields(get_ne_condition(n));
-            //needed_fields = cot.join(needed_fields, get_referenced_fields(get_ne_action(n)));
+            needed_fields = cot::join(needed_fields, get_referenced_fields(get_errnode_action(n)));
             if(!cot::includes(fava, needed_fields)) 
                 continue;
             errnc.insert(n);
@@ -2202,6 +2202,11 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
             }
         }
     }
+    for(int en: *this) if(at(en).type == FTK_ERROR) 
+        if(dimension(at(en).children[0]) < dimension(at(en).children.back())) {
+            ++error_count;
+            pcerr.AddError(main_file, at(en), sfmt() << "cannot construct error message");
+        }
 
     // Build a flow graph for each entry 
     for(int e: *this) if(at(e).type == FTK_ENTRY) 
