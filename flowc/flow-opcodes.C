@@ -66,7 +66,7 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
     bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
     switch(fop.code) {
         case BNOD: 
-            out << ansi::escape(ANSI_CYAN, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            out << ansi::escape(ANSI_CYAN, use_ansi) <<  ansi::escape(ANSI_BOLD, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
             if(fop.arg[0] != 0) 
                 out << ansi::escape(ANSI_YELLOW, use_ansi) << fop.arg[0] << "x"<<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
             if(fop.d1 != nullptr)
@@ -74,11 +74,18 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
             if(fop.d2 != nullptr)
                 out << " <- " << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d2->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi);
             out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[1] << "/" << fop.arg[2] << ansi::escape(ANSI_RESET, use_ansi);
-            if(fop.arg[2] != 0) out << " first";
+            if(fop.arg[3] != 0) out << " first";
             if(fop.arg[3] != 0 && fop.arg[4] != 0) out << ", ";
             if(fop.arg[4] != 0) out << " output";
             if(fop.arg[5] != 0) out << " alt " << fop.arg[5];
-
+            break;
+        case BERC: 
+            out << ansi::escape(ANSI_CYAN, use_ansi) << ansi::escape(ANSI_BOLD, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            if(fop.arg[0] != 0) 
+                out << ansi::escape(ANSI_YELLOW, use_ansi) << fop.arg[0] << "x"<<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            
+            out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[1] << "/" << fop.arg[2] << ansi::escape(ANSI_RESET, use_ansi);
+            out << ", " << fop.arg[3];
             break;
         case IFNC:
             out << op_name(fop.code) << "  " << fop.arg1 << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[0] << ansi::escape(ANSI_RESET, use_ansi);;
@@ -118,6 +125,7 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     switch(fop.code) {
         case LOOP:
         case BNOD:
+        case BERC:
         case IFNC:
         case BSTG:
         case RVF:

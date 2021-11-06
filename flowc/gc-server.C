@@ -741,6 +741,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     bool node_has_calls = false;    // whether this node makes grpc calls
     bool first_with_output = false; // whether this node is the first in an alias set that has output
     bool node_cg_done = false;      // done generating code for the node
+    bool is_node = false;           // whether this is node or an error check loop/point
     int alternate_nodes = 0;        // count of alternate nodes 
     EnumDescriptor const *ledp, *redp;   // left and right enum descriptor needed for conversion check
     int error_count = 0;
@@ -749,7 +750,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
    
     for(int i = eipp->second, e = icode.size(), done = 0; i != e && !done; ++i) {
         fop const &op = icode[i];
-        std::cerr << "// " << i+1 << " " << op << "\n";
+        // std::cerr << "// " << i+1 << " " << op << "\n";
         switch(op.code) {
             case MTHD:
                 input_name = op.arg1;
@@ -932,10 +933,20 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << "\n";
                 break;
             case BERC:
+                is_node = false;
                 node_dim = op.arg[0];
-                cur_node_name = sfmt() << "ERR_" << op.arg[1];
+                cur_node_name = sfmt() << "Errck" << op.arg[3];
+                cur_input_name = ""; 
+                cur_output_name = "";
+                node_has_calls = false;
+                first_node = false;
+                first_with_output = false;
+                OUT << "/*\n";
+                OUT << " * Error check " << op.arg[3] << "\n";
+                OUT << " */\n";
                 break;
             case BNOD:
+                is_node = true;
                 node_cg_done = false;
                 node_dim = op.arg[0];
                 cur_input_name = op.arg2; 
@@ -990,16 +1001,19 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
                 OUT << "auto " << loop_size_varname << " = " << loop_end << ";\n";
 
-                OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< loop_size_varname << ");\n";
+                if(!cur_input_name.empty()) 
+                    OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< loop_size_varname << ");\n";
                 if(first_with_output) 
                     OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< loop_size_varname << ");\n";
                 if(first_node) 
                     OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< loop_size_varname << (node_dim-loop_c.size()==0? (std::string(", ") + no_node_id): std::string()) << ");\n";
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0; " << cpp_index_prefix << loop_c.size() << " < NS_" << cur_node_name << "_"  << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
-
-                OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_input_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_input_name << "[" << cpp_index_prefix << loop_c.size() <<  "];\n";
-                OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_output_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_output_name << "[" << cpp_index_prefix << loop_c.size() << "];\n";
-                OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << L_VISITED << " = " <<  std::string(node_dim-loop_c.size()+1, 'v') << L_VISITED << "[" << cpp_index_prefix << loop_c.size() << "];\n";
+                if(!cur_input_name.empty())
+                    OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_input_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_input_name << "[" << cpp_index_prefix << loop_c.size() <<  "];\n";
+                if(!cur_output_name.empty())
+                    OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_output_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_output_name << "[" << cpp_index_prefix << loop_c.size() << "];\n";
+                if(is_node)
+                    OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << L_VISITED << " = " <<  std::string(node_dim-loop_c.size()+1, 'v') << L_VISITED << "[" << cpp_index_prefix << loop_c.size() << "];\n";
 
             } break;
             case IFNC:
@@ -1016,7 +1030,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
             case ERR:
                 assert(tvl.size() > 1);
-                OUT << "// ERROR CHECK!!\n";
                 OUT << "if(" << tvl[tvl.size()-2].first << ") {" << "\n";
                 ++indenter;
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") return error: \" << (" << tvl.back().first << ") << \"\\n\";\n";
@@ -1026,9 +1039,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 tvl.pop_back(); tvl.pop_back();
                 break;
             case EERC:
-                /*
-                --indenter;
-                OUT << "}\n";
                 while(acinf.loop_level() > 0) {
                     acinf.decr_loop_level();
                     --indenter; 
@@ -1037,9 +1047,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 }
                 for(int i = 0; i < op.arg[0]; ++i) 
                     loop_c.pop_back();
-
-                cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
-                */
+                cur_node = node_dim = 0; 
                 break;
             case ENOD:
                 // if visited
