@@ -13,5 +13,5 @@
 
 ### Conditional Paths Example
 
-[cond-paths](cond-path/README.md). is a demonstration of how to implement conditional paths in the flow-graph.
+[cond-path](cond-path/README.md). is a demonstration of how to implement conditional paths in the flow-graph.
 
