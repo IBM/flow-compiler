@@ -110,6 +110,8 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} 
+	@echo "====================================================================="
+	@./flowc --version
 
 flow-version.o:
 	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
@@ -189,7 +191,9 @@ image-info: image-info-$(HOST_OS)
 
 flowc-image: image-info-$(HOST_OS)
 	@$(MAKE) -s flow-base-image-info.json
-	@echo Image $(IMAGE)  is up to date
+	@echo "--------------- $(IMAGE) -------------------------"
+	@docker run --rm $(IMAGE) --version
+	@echo "--------------------------------------------------------------------"
 
 image:
 	@rm -f flow-templates.C
