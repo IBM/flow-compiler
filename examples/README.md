@@ -3,7 +3,7 @@
 
 ### Gateway Example
 
-(gateway)[gateway] is a simple application that acts as a *REST* gatweay and a *Web* portal for a *gRPC* service.
+[gateway](gateway/README.md) is a simple application that acts as a *REST* gatweay and a *Web* portal for a *gRPC* service.
 
 
 ### Three Nodes Example
