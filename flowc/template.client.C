@@ -10,6 +10,7 @@
 #include <ctime>
 #include <forward_list>
 #include <fstream>
+#include <getopt.h>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -18,7 +19,8 @@
 #include <string>
 #include <vector>
 
-#include <getopt.h>
+#include <unistd.h>
+
 #include <grpc++/grpc++.h>
 #include <google/protobuf/util/json_util.h>
 #include <ares.h>
