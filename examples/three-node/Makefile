@@ -18,21 +18,11 @@ nodes-image: $(GRPC_GENERATED) nodes.py nodes.Dockerfile
 nodes: $(GRPC_GENERATED) nodes.py
 	@echo "to run: python3 nodes.py"
 
-outd/three-node-client: three-node.flow three-node.proto
-	mkdir -p outd
-	flowc -o outd $< -c
-
-outd/three-node-server: three-node.flow three-node.proto
-	mkdir -p outd
-	flowc -o outd $< -s
-
 image: three-node.flow three-node.proto
-	mkdir -p outd
-	flowc -o outd $< -kdic
+	flowc -i $< 
 
-drivers: three-node.flow three-node.proto
-	mkdir -p outd
-	flowc -o outd $< -kd
+driver: three-node.flow three-node.proto
+	flowc -o . $< -d
 
 server: outd/three-node-server
 
