@@ -8,7 +8,7 @@
 
 ### Three Nodes Example
 
-[three-node](three-node/READNE.md) is a toy application that combines three services that run in three separate **Docker** containers.
+[three-nodes](three-nodes/READNE.md) is a toy application that combines three services that run in three separate **Docker** containers.
 
 
 ### Conditional Paths Example
