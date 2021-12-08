@@ -6,29 +6,35 @@ aws_credentials() {
 
 	[ -r "$AWS_FILE" ] && cat "$AWS_FILE" | awk -v "profile=$PROFILE" '
 		BEGIN {FS="="; OFS="\t"; in_profile = 0; id = ""; key = "";}
-		!in_profile && $1 == "["profile"]" { in_profile = 1; next; }
+        !in_profile && tolower($1) == tolower("["profile"]") { in_profile = 1; next; }
 		!in_profile { next; }
 		$1 ~ "[[].*" { in_profile = 0; next; }
-		$1 == "aws_access_key_id" { id = $2; next; }
-		$1 == "aws_secret_access_key" { key = $2; next; }
+        tolower($1) == "aws_access_key_id" { id = $2; next; }
+        tolower($1) == "aws_secret_access_key" { key = $2; next; }
 		END { print id, key; }
 	'
 }
 
 flat_credentials() {
-	local FLAT_FILE="$1"
-	local PROFILE="$2"
-	while read PROF CREDS
-	do
-		[ "$PROFILE" == "$PROF" ] && cut -d: -f1,2 <<< "$CREDS" | tr : $'\t' && break
-		[ -z "$CREDS" -a "$PROFILE" == "default" ] && cut -d: -f1,2 <<< "$PROF" | tr : $'\t' && break
-	done < "$FLAT_FILE"
+    local FLAT_FILE="$1"
+    local PROFILE="$(echo "$2" | tr '[:upper:]' '[:lower:]')"
+    while read PROF CREDS
+    do
+        CPROF="$(echo "$PROF" | tr '[:upper:]' '[:lower:]')"
+		[ "$PROFILE" == "$CPROF" ] && cat <<< "$CREDS" | cut -d: --output-delimiter=$'\t' -f1,2 && break
+		[ -z "$CREDS" -a "$PROFILE" == "default" ] && cat <<< "$PROF" | cut -d: --output-delimiter=$'\t' -f1,2 && break
+    done < "$FLAT_FILE"
 }
 
 SEARCH_FILES=
 SEARCH_PROFILES=
 SEARCH_DEFAULT=default
-ALL_AWS_SEARCH_FILES="-a.aws/credentials"$'\n'"-a$HOME/.aws/credentials"
+if [ ! -z "$AWS_SHARED_CREDENTIALS_FILE" ]
+then
+    ALL_AWS_SEARCH_FILES="-a$AWS_SHARED_CREDENTIALS_FILE"
+else
+    ALL_AWS_SEARCH_FILES="-a.aws/credentials"$'\n'"-a$HOME/.aws/credentials"
+fi
 ALL_FLAT_FILES="-f.api-key"$'\n'"-f.api-keys"$'\n'"-f.api_key"$'\n'"-f.api_keys"$'\n'"-f.s3-key"$'\n'"-f.s3-keys"$'\n'"-f.s3_key"$'\n'"-f.s3_keys"
 ALL_FLAT_SEARCH_FILES="$ALL_FLAT_FILES"$'\n'"$(while IFS=$'\n' read FO
 do
@@ -38,36 +44,36 @@ done <<< "$ALL_FLAT_FILES")"
 args=()
 while [ $# -gt 0 ]
 do
-	case "$1" in
-		-A|--all-aws)
+    case "$1" in
+        -A|--all-aws)
             SEARCH_FILES="$SEARCH_FILES"$'\n'"$ALL_AWS_SEARCH_FILES"
-			shift
-			;;
-		-F|--all-files)
+            shift
+            ;;
+        -F|--all-files)
             SEARCH_FILES="$SEARCH_FILES"$'\n'"$ALL_FLAT_SEARCH_FILES"
-			shift
-			;;
-		-a|--aws)
+            shift
+            ;;
+        -a|--aws)
             SEARCH_FILES="$SEARCH_FILES"$'\n'"-a$2"
-			shift; shift
-			;;
-		-f|--file)
+            shift; shift
+            ;;
+        -f|--file)
             SEARCH_FILES="$SEARCH_FILES"$'\n'"-f$2"
-			shift; shift
-			;;
-		-p|--profile)
+            shift; shift
+            ;;
+        -p|--profile)
             SEARCH_PROFILES="$SEARCH_PROFILES $2"
-			shift; shift
-			;;
-		-n|--no-default)
+            shift; shift
+            ;;
+        -n|--no-default)
             SEARCH_DEFAULT=
-			shift
-			;;
-		*)
-			args+=("$1")
-			shift
-			;;
-	esac
+            shift
+            ;;
+        *)
+            args+=("$1")
+            shift
+            ;;
+    esac
 done
 set -- "${args[@]}"
 
@@ -78,20 +84,20 @@ fi
 
 if [ $# -ne 0 ]
 then
-	echo "usage $0 [options]"
-	echo ""
-	echo "options:"
+    echo "usage $0 [options]"
+    echo ""
+    echo "options:"
     echo "  -A, --all-aws           Search all the aws files"
     echo "  -a, --aws-file FILE     Search FILE for aws style credentials"
-	echo "  -f, --file FILE         Search FILE for [[profile ]user:]keys"
+    echo "  -f, --file FILE         Search FILE for [[profile ]user:]keys"
     echo "  -F, --all-files         Search all the flat files"
     echo "  -p, --profile PROFILE   Search for PROFILE first, then for default credentials"
     echo "  -n, --no-default        Search only the given profile(s)"
-	echo ""
-	echo "notes:"
+    echo ""
+    echo "notes:"
     echo "  If no file option is given, all files will be searched, as with -F -A"
-	echo ""
-	exit 1
+    echo ""
+    exit 1
 fi
 
 CHECKED_FILES="$(while IFS=$'\n' read FO
