@@ -1383,8 +1383,6 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
         google::protobuf::Descriptor const *od = nullptr, *id = nullptr;
         std::map<google::protobuf::Descriptor const *, std::string> declared;
         for(int n: gn.second) {
-            if(method_descriptor(n) == nullptr)
-                continue;
             if(od == nullptr) od = message_descriptor(n);
             if(id == nullptr) id = input_descriptor(n);
             ids.insert(input_descriptor(n));
@@ -1409,13 +1407,14 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
                 out << "// " << "auto &" << declared_id << " = " << df->second << ";\n";
             } 
         }
-        if(od != nullptr) 
+        if(od != nullptr) {
             out << "// " << reps("std::vector<", dim) << od->full_name() << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "rs") << ";\n";
-        out << "// " << reps("std::vector<", dim) << "int" << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "vi") << ";\n";
-        out << "// " << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << od->full_name() << "> " << node_type_id(*gn.second.begin(), "ar") << ";\n";
-        out << "// " << "std::vector<" << "int" << "> " << node_type_id(*gn.second.begin(), "cn") << ";\n";
-        out << "// " << "std::vector<" << "void *" << "> " << node_type_id(*gn.second.begin(), "ip") << ";\n";
-        out << "// " << "std::vector<" << od->full_name() << "*> " << node_type_id(*gn.second.begin(), "op") << ";\n";
+            out << "// " << reps("std::vector<", dim) << "int" << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "vi") << ";\n";
+            out << "// " << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << od->full_name() << "> " << node_type_id(*gn.second.begin(), "ar") << ";\n";
+            out << "// " << "std::vector<" << "int" << "> " << node_type_id(*gn.second.begin(), "cn") << ";\n";
+            out << "// " << "std::vector<" << "void *" << "> " << node_type_id(*gn.second.begin(), "ip") << ";\n";
+            out << "// " << "std::vector<" << od->full_name() << "*> " << node_type_id(*gn.second.begin(), "op") << ";\n";
+        }
     }
     out << "// Stages: \n";
     int si = 0;
@@ -1425,11 +1424,6 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
         out << "// " << "::grpc::CompletionQueue cq_" << si << ";\n";
         out << "// " << "std::vector<std::unique_ptr<grpc::ClientContext>> cx_" << si << ";\n";
         out << "// " << "std::vector<grpc::Status> st_" << si << ";\n";
-        /*
-        std::set<std::string> node_types;
-        for(int n: ss) if(n != blck_entry) 
-            node_types.insert(type(n));
-            */
     }
 
     return 0;
