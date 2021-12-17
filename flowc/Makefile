@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-3.12 
 -include makefile.local
 
-BUILD_VERSION?=0.17.0
+BUILD_VERSION?=0.17.1
 
 ifndef BUILD_ID
 
