@@ -739,6 +739,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::map<std::string, std::string> nodes_rv;
     bool first_node = false;        // whether the current node is the first in an alias set
     bool node_has_calls = false;    // whether this node makes grpc calls
+    bool stage_has_calls = false;   // whether this stage has any node with calls
     bool first_with_output = false; // whether this node is the first in an alias set that has output
     bool node_cg_done = false;      // done generating code for the node
     bool is_node = false;           // whether this is node or an error check loop/point
@@ -782,15 +783,22 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 cur_stage = op.arg[0];
                 stage_nodes = op.arg[1];
                 cur_stage_name = op.arg1;
+                stage_has_calls = false;
 
                 OUT << "/*\n";
                 OUT << " * stage: " << cur_stage << "\n";
                 OUT << " * stage nodes: " << stage_nodes << "\n";
                 OUT << " * stage name: " << cur_stage_name << "\n";
+                for(unsigned i = 3, e = op.arg.size(); i < e; ++i) {
+                    //OUT << " * stage node: " << op.arg[i] << "\n";
+                    stage_has_calls = stage_has_calls || method_descriptor(op.arg[i]) != nullptr;
+                }
+                OUT << " * stage has calls: " << (stage_has_calls? "yes": "no")  << "\n";
                 OUT << " */\n";
 
                 OUT << "auto " << L_STAGE_START << " = std::chrono::steady_clock::now();\n";
-                OUT << "int " << L_STAGE_CALLS << " = 0;\n";
+                if(stage_has_calls) {
+                    OUT << "int " << L_STAGE_CALLS << " = 0;\n";
                     // The completion queue is shared between all the nodes in a stage
                     OUT << "::grpc::CompletionQueue " << L_QUEUE << ";\n";
                     // All the Status and ClientContext objects for the stage are kept in one vector
@@ -798,10 +806,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     // Additionally the number of calls currently sent (i.e. active, in the queue) is kept in SENT_xxxx
                     OUT << "std::vector<std::unique_ptr<grpc::ClientContext>> " << L_CONTEXT << ";\n";
                     OUT << "std::vector<grpc::Status> " << L_STATUS << ";\n";
+                }
                 stage_node_ids.clear();
                 break;
             case ESTG:
-                {
+                if(stage_has_calls) {
                     OUT << "if(CIF.async_calls && 0 < " << L_STAGE_CALLS << ") {\n";
                     ++indenter;
                     OUT << "bool abort_stage = false;\n";
@@ -927,9 +936,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << L_STATUS << ".clear();\n";
                     --indenter;
                     OUT << "}\n";
+                    OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
+                    OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
+                } else {
+                    OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", 0);\n";
                 }
-                OUT << "Total_calls += " << L_STAGE_CALLS << ";\n";
-                OUT << "PRINT_TIME(CIF, "<< cur_stage << ", \""<< cur_stage_name << "\", "<<L_STAGE_START<<" - ST, std::chrono::steady_clock::now() - "<< L_STAGE_START <<", "<< L_STAGE_CALLS<<");\n";
                 OUT << "\n";
                 break;
             case BERC:
@@ -953,7 +964,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 cur_output_name = op.arg1;
                 cur_node_name = to_lower(to_identifier(name(cur_node = op.arg[1])));
                 node_has_calls = method_descriptor(cur_node) != nullptr;
-
                 if(node_has_calls)
                     stage_node_ids.push_back(cur_node);
 
@@ -972,6 +982,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << " * is first with output: " << (first_with_output? "yes": "no") << "\n";
                     OUT << " * alternate nodes: " << alternate_nodes << "\n";
                 }
+                OUT << " * node has calls: " << (node_has_calls? "yes": "no") << "\n";
                 OUT << " */\n";
                 // input is not needed for no-call nodes
                 if(op.d2 != nullptr) 
@@ -984,7 +995,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(first_node) 
                     OUT << reps("std::vector<", node_dim) << "flowc::nodes"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? (std::string(" = ") + no_node_id): std::string()) << ";\n";
                 
-                if(node_has_calls) 
+                if(node_has_calls) {
                     OUT << "auto " << cur_node_name << "_ConP = " << cur_node_name << "_get_connector();\n";
 
                     // Each node has a vector of response readers, input message poiners and output message pointers
@@ -995,7 +1006,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         OUT << "std::vector<" << get_full_name(op.d1) << " *> " << L_OUTPTR <<  ";\n";
                     }
                     OUT << "int " << L_BEGIN << " = " << L_STAGE_CALLS << ", " << L_SENT << " = 0;\n";
-
+                }
                 break;
             case BNL: { // node level loop begin
                 std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
@@ -1063,8 +1074,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 }
                 for(int i = 0; i < op.arg[0]; ++i) 
                     loop_c.pop_back();
-
-                OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
+                if(node_has_calls)
+                    OUT << "int " << L_END_X  << " = " << L_STAGE_CALLS << ";\n";
                 acinf.add_rs(cur_output_name, node_dim);
                 cur_node = node_dim = 0; cur_input_name.clear(); cur_output_name.clear();
                 first_node = false;
