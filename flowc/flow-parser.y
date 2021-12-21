@@ -154,6 +154,7 @@ vall(A) ::= dtid(B).                                           { A = ast->chtype
 
 
 fldm(A) ::= fldd(B).                                           { A = ast->node(FTK_fldm, B); }             // fldm is a list of field definitions fldd
+fldm(A) ::= fldm(B) COMMA.                                     { A = B; }
 fldm(A) ::= fldm(B) COMMA fldd(C).                             { A = ast->nappend(B, C); }
 
 // fldd: field definition (assignment)
