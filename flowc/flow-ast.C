@@ -73,6 +73,7 @@ char const *node_name(int i) {
         case FTK_ENTRY: return "<ENTRY>";
         case FTK_IMPORT: return "<IMPORT>";
         case FTK_DEFINE: return "<DEFINE>";
+        case FTK_OPTION: return "<OPTION>";
         
         case FTK_OUTPUT: return "<OUTPUT>";
         case FTK_RETURN: return "<RETURN>";
