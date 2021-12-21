@@ -73,40 +73,14 @@ std::string getenv(std::string const &name, std::string const &default_v="") {
 }
 }
 {H:HAVE_DEFN{namespace flowdef {
-template <flowrt::flow_type FT> struct var;
-template <class T, flowrt::flow_type FT> bool operator == (T x, var<FT> const &y) { return x == T(y); }
-template <> 
-struct var<flowrt::INTEGER> {
-    long value;
-    void set(char const *c) { if(c != nullptr) value = std::atol(c); }
-    operator long () const { return value; }
-    operator std::string () const { return std::to_string(value); }
-    operator double () const { return value; }
-    operator bool () const { return value != 0; }
-    var(std::string const &d) { set(d.c_str()); }
-};
-template  <>
-struct var<flowrt::FLOAT> {
-    double value;
-    void set(char const *c) { if(c != nullptr) value = std::strtod(c, nullptr); }
-    operator long () const { return (long) value; }
-    operator std::string () const { return std::to_string(value); }
-    operator double () const { return value; }
-    operator bool () const { return value != 0; }
-    var(std::string const &d) { set(d.c_str()); }
-};
-template <> 
-struct var<flowrt::STRING> {
-    std::string value;
-    void set(char const *c) { if(c != nullptr) value = c; }
-    operator long () const { return std::atol(value.c_str()); }
-    operator std::string () const { return value; }
-    operator double () const { return std::strtod(value.c_str(), nullptr); }
-    operator bool () const { return flowc::stringtobool(value); }
-    var(std::string const &d) { set(d.c_str()); }
-};
+typedef long vt_INTEGER;
+typedef std::string vt_STRING;
+typedef double vt_FLOAT;
+static inline vt_STRING to_vt_STRING(std::string const &s) { return s; }
+static inline vt_FLOAT to_vt_FLOAT(std::string const &s) { return std::strtod(s.c_str(), nullptr); }
+static inline vt_INTEGER to_vt_INTEGER(std::string const &s) { return std::atol(s.c_str()); }
 {I:DEFN{{{DEFD/ccom}}
-var<flowrt::{{DEFT}}> {{DEFN}}(flowrt::getenv("{{NAME/id/upper}}_FD_{{DEFN/upper}}", {{DEFV/string}}));
+vt_{{DEFT}} v{{DEFN}}(to_vt_{{DEFT}}(flowrt::getenv("{{NAME/id/upper}}_FD_{{DEFN/upper}}", {{DEFV/string}})));
 }I}
 }
 }H}
@@ -2151,7 +2125,7 @@ int main(int argc, char *argv[]) {
 {H:HAVE_DEFN{
         "GLOBAL DEFINES\n"
 {I:DEFN{   
-        "\t`--fd-{{DEFN/option}}` {{DEFT}}\n\t\tOverride the value of variable '{{DEFN}}' ('" << flowdef::{{DEFN}}.value << "')\n\n"
+        "\t`--fd-{{DEFN/option}}` {{DEFT}}\n\t\tOverride the value of variable '{{DEFN}}' ('" << flowdef::v{{DEFN}} << "')\n\n"
 }I}
 }H}
         "Note `*`\n"
@@ -2207,7 +2181,7 @@ int main(int argc, char *argv[]) {
     flowc::print_banner(std::cout);
 
 {I:DEFN{   
-    flowdef::{{DEFN}}.set(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
+    flowdef::v{{DEFN}} = flowdef::to_vt_{{DEFT}}(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
 }I}
     // Use the default grpc health checking service
 	//grpc::EnableDefaultHealthCheckService(true);
@@ -2305,7 +2279,7 @@ int main(int argc, char *argv[]) {
     std::cout << "rpc [{{ENTRY_NAME}}] timeout " << flowc::entry_{{ENTRY_NAME}}_timeout << "\n";
 }I}
 {I:DEFN{
-    std::cout << "{{DEFN}}=" << std::string(flowdef::{{DEFN}}) << "\n";
+    std::cout << "{{DEFN}}=" << flowdef::v{{DEFN}} << "\n";
 }I}
 
     flowc::global_node_ID = flowc::strtostring(flowc::get_cfg(cfg, "server_id"), flowc::server_id());

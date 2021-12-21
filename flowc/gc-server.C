@@ -1188,13 +1188,13 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
             case RVC: 
                 if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
-                else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  c_escape(op.arg1); 
+                else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  sfmt() << "std::string(" << c_escape(op.arg1) << ")"; 
                 else rvl = op.arg1;
                 tvl.push_back(std::make_pair(rvl, 0));
                 break;
 
             case RVV: 
-                tvl.push_back(std::make_pair("flowdef::"+op.arg1, 0));
+                tvl.push_back(std::make_pair("flowdef::v"+op.arg1, 0));
                 break;
 
             case SVF:
@@ -1339,7 +1339,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     }
     return 0;
 }
-int flow_compiler::genc_server_source(std::string const &server_src) {
+int flow_compiler::genc_cc_server(std::string const &server_src) {
     int error_count = 0;
     DEBUG_ENTER;
     OFSTREAM_SE(out, server_src);
