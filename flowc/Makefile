@@ -99,7 +99,7 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
 
-OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flow-version.o flowc.o gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o print-graph.o print-pseu.o tree-accessors.o 
+OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flowc.o gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o print-graph.o print-pseu.o tree-accessors.o version.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
@@ -113,8 +113,8 @@ flowc: $(OBJS)
 	@echo "====================================================================="
 	@./flowc --version
 
-flow-version.o:
-	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ flow-version.C
+version.o:
+	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ version.C
 
 flow-compiler.o: flow-parser.c
 
