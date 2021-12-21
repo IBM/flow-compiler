@@ -1220,6 +1220,8 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
     int error_count = 0;
     auto const &fields = at(fldr_node).children;
     auto coop = get_pconv_op(expected_type, value_type(fldr_node));
+    //if(expected_type == 0 || value_type(fldr_node) == 0)
+    //    std::cerr << "CONV from "<< node_name(value_type(fldr_node)) <<" to "<<node_name(expected_type)<< ", at " << fldr_node << ": " << coop<< "\n";
     int op_precedence = -1;
     switch(at(fldr_node).type) {
         case FTK_fldr: 

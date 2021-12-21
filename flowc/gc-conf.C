@@ -119,7 +119,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
             std::vector<std::string> metadata;
             for(auto const &hnv: headers) {
                 if(name.has(hnv.second)) 
-                    metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", flowdef::" << name(hnv.second) << ");");
+                    metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", flowdef::v" << name(hnv.second) << ");");
                 else
                     metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", " << c_escape(get_string(hnv.second)) << ");");
             }

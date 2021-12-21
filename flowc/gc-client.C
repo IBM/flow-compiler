@@ -14,10 +14,10 @@
 
 using namespace stru1;
 
-int flow_compiler::genc_client_source(std::string const &client_src) {
+int flow_compiler::genc_cc_client(std::string const &ccfn) {
     int error_count = 0;
     DEBUG_ENTER;
-    OFSTREAM_SE(out, client_src);
+    OFSTREAM_SE(out, ccfn);
 
     std::map<std::string, std::vector<std::string>> local_vars;
     std::vector<MethodDescriptor const *> methods;
@@ -32,12 +32,12 @@ int flow_compiler::genc_client_source(std::string const &client_src) {
         return 1;
     }
     if(DEBUG_GENC) {
-        std::string ofn = client_src + "-global.json";
+        std::string ofn = ccfn + "-global.json";
         OFSTREAM_SE(outj, ofn);
         stru1::to_json(outj, global_vars);
     }
     if(DEBUG_GENC) {
-        std::string ofn = client_src + "-local.json";
+        std::string ofn = ccfn + "-local.json";
         OFSTREAM_SE(outj, ofn);
         stru1::to_json(outj, local_vars);
     }
@@ -48,10 +48,10 @@ int flow_compiler::genc_client_source(std::string const &client_src) {
     DEBUG_LEAVE;
     return error_count;
 }
-int flow_compiler::genc_python_client(std::string const &client_fn) {
+int flow_compiler::genc_py_client(std::string const &pyfn) {
     int error_count = 0;
     DEBUG_ENTER;
-    OFSTREAM_SE(outf, client_fn);
+    OFSTREAM_SE(outf, pyfn);
     extern char const *template_client_py;
     vex::expand(outf, template_client_py, vex::make_smap(global_vars));
     DEBUG_LEAVE;

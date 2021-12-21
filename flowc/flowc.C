@@ -499,10 +499,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     error_count += set_cli_node_vars(global_vars);
 
     if(error_count == 0 && cot::contains(targets, "server")) 
-        error_count += genc_server_source(server_source);
+        error_count += genc_cc_server(server_source);
     
     if(error_count == 0 && cot::contains(targets, "client")) 
-        error_count += genc_client_source(client_source);
+        error_count += genc_cc_client(client_source);
 
     if(error_count == 0 && cot::contains(targets, "ssl-certificates")) {
         std::string o_default_certificate = opts.opt("default-certificate", "");
@@ -563,7 +563,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     if(error_count == 0 && cot::contains(targets, "python-client")) 
-        error_count += genc_python_client(output_filename(client_bin + ".py"));
+        error_count += genc_py_client(output_filename(client_bin + ".py"));
     if(error_count == 0 && cot::contains(targets, "driver")) 
         error_count += genc_deployment_driver(output_filename(orchestrator_name + "-dd.sh"));
     if(error_count == 0 && cot::contains(targets, "graph-files")) 

@@ -284,15 +284,17 @@ public:
     int get_block_i(int &value, int blck, std::string const &name, int def);
     // Code generation for:
     // C++ client
-    int genc_client_source(std::string const &client_src);
+    int genc_cc_client(std::string const &filename);
     // C++ server
-    int genc_server_source(std::string const &server_src);
+    int genc_cc_server(std::string const &filename);
+    // Python client
+    int genc_py_client(std::string const &filename);
     // Kubernetes deployment yaml (pods and services).
     int genc_k8s_conf(std::ostream &out);
     // Docker Composer and Swarm yaml
     int genc_dcs_conf(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
     // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
-    int genc_deployment_driver(std::string const &deployment_script); 
+    int genc_deployment_driver(std::string const &filename); 
     // Grab all deployment related  node information
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
     // Create environment for node <n>
@@ -305,7 +307,6 @@ public:
     // Makefile
     int genc_makefile(std::string const &filename);
     int genc_dockerfile(std::string const &orchestrator_name);
-    int genc_python_client(std::string const &client_bin);
 
     // Set code generation variables - all return the number of errors generated
     // Entry related info
