@@ -27,7 +27,7 @@ else
 endif
 GIT_GUID:=$(shell git show -s --format=%h)
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
-GIT_BRANCH:=$(shell git branch --show-current 2> /dev/null || git branch | grep -E '^\*')
+GIT_BRANCH:=$(shell git branch --show-current 2> /dev/null || git branch | grep -E '^\*' | sed -E 's/^[*] *//')
 ## if not on the master branch, prepend the branch name
 ifneq ($(GIT_BRANCH), master)
 	GIT_GUID:=$(GIT_BRANCH)-$(GIT_GUID)
