@@ -249,7 +249,7 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
     if(n.type == FTK_fldr) sout << ANSI_RESET;
     if(n.type == FTK_fldd) sout << "|" << ANSI_RED << ANSI_BOLD << n.token.integer_value << ANSI_RESET;
     sout << "[" << ANSI_BOLD;
-    if(refcount(node) == 0) sout << ANSI_RED;
+    if(refcount(node) == 0) sout << ANSI_CYAN;
     sout << node << ANSI_RESET <<  "-" << n.type << " " << n.token.line << ":" << n.token.column << "]";
 
     if(n.token.text.length() > 0) sout << " " << n.token.text;
@@ -267,9 +267,13 @@ int flow_ast::print_ast(std::ostream &sout, int node, int indent) const {
         if(field_descriptor.has(node)) {
             sout << " field: " << ANSI_GREEN << *field_descriptor(node);
             if(field_descriptor(node)->is_repeated()) sout << "*";
-            sout << ANSI_RESET;
+            sout << ANSI_RESET
+                 << " grpc-type: " << ANSI_MAGENTA << get_grpc_type_name(field_descriptor(node))
+                 << ANSI_RESET;
         }
-        if(enum_descriptor.has(node)) sout << " enum: " << ANSI_MAGENTA << *enum_descriptor(node) << ANSI_RESET;
+        if(enum_descriptor.has(node)) 
+            sout << " enum: " << ANSI_MAGENTA << *enum_descriptor(node) << "=" << enum_descriptor(node)->number() << ANSI_RESET
+                 << " grpc-type: " << ANSI_MAGENTA << get_full_name(enum_descriptor(node)->type()) << ANSI_RESET;
         if(value_type.has(node)) sout << " type: " << ANSI_MAGENTA << node_name(value_type(node)) << ANSI_RESET;
         if(group.has(node)) sout << " group: " << ANSI_BLUE << ANSI_BOLD << group(node) << ANSI_RESET;
         if(dimension.has(node)) sout << " dim: " << ANSI_RED << ANSI_BOLD << dimension(node) << ANSI_RESET;
