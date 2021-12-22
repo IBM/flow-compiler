@@ -515,6 +515,7 @@ int flow_compiler::compile_fldx(int node) {
         int ftkt = grpc_type_to_ftk(fdp->type());
         if(ftkt == FTK_STRING || ftkt == FTK_INTEGER || ftkt == FTK_FLOAT)
             value_type.put(node, ftkt);
+        field_descriptor.put(node, fdp);
     }
     return error_count;
 }
@@ -1216,12 +1217,10 @@ std::string flow_compiler::fldx_mname(int fldx_node, int context_dim) const {
     }
     return fa_name;
 }
-int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_change) {
+int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_change, int et_node) {
     int error_count = 0;
     auto const &fields = at(fldr_node).children;
     auto coop = get_pconv_op(expected_type, value_type(fldr_node));
-    //if(expected_type == 0 || value_type(fldr_node) == 0)
-    //    std::cerr << "CONV from "<< node_name(value_type(fldr_node)) <<" to "<<node_name(expected_type)<< ", at " << fldr_node << ": " << coop<< "\n";
     int op_precedence = -1;
     switch(at(fldr_node).type) {
         case FTK_fldr: 
@@ -1232,7 +1231,6 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                         icode.push_back(fop(CLLS, a));
                     int evt = abs(funp->second.arg_type[a]);
                     error_count += encode_expression(fields[a+1], (evt == FTK_ACCEPT? 0: evt), funp->second.dim);
-                    // TODO: needs review 
                     if(funp->second.arg_type[a] < 0) 
                         icode.push_back(fop(DACC, funp->second.dim));
                 }
@@ -1257,22 +1255,22 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                     break;
                 case FTK_PLUS: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "+", 2, op_precedence));
                     break;
                 case FTK_MINUS: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "-", 2, op_precedence));
                     break;
                 case FTK_SLASH: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "/", 2, op_precedence));
                     break;
                 case FTK_STAR: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "*", 2, op_precedence));
                     break;
                 case FTK_PERCENT: 
@@ -1282,37 +1280,37 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                     break;
                 case FTK_COMP:
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "<=>", 2, op_precedence));
                     break;
                 case FTK_EQ: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "==", 2, op_precedence));
                     break;
                 case FTK_NE: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "!=", 2, op_precedence));
                     break;
                 case FTK_LE: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "<=", 2, op_precedence));
                     break;
                 case FTK_GE: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, ">=", 2, op_precedence));
                     break;
                 case FTK_LT: 
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, "<", 2, op_precedence));
                     break;
                 case FTK_GT:
                     error_count += encode_expression(fields[1], 0, dim_change);
-                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change);
+                    error_count += encode_expression(fields[2], value_type(fields[1]), dim_change, fields[1]);
                     icode.push_back(fop(IOP, ">", 2, op_precedence));
                     break;
                 case FTK_AND: 
@@ -1328,7 +1326,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                 case FTK_QUESTION:
                     error_count += encode_expression(fields[1], FTK_INTEGER, dim_change);
                     error_count += encode_expression(fields[2], 0, dim_change);
-                    error_count += encode_expression(fields[3], value_type(fields[2]), dim_change);
+                    error_count += encode_expression(fields[3], value_type(fields[2]), dim_change, fields[2]);
                     icode.push_back(fop(IOP, "?:", 3, op_precedence));
                     break;
                 break;
@@ -1363,8 +1361,17 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
             if(expected_type == FTK_STRING) {
                 icode.push_back(COES);
             } else {
-        std::cerr << "CONV from "<< node_name(value_type(fldr_node)) <<" to "<<node_name(expected_type)<< ", at " << fldr_node << ": " << coop<< "\n";
-                icode.push_back(COEI);
+                // convert to int if enum types are not the same
+                auto cevt = enum_descriptor(fldr_node)->type();
+
+                if(enum_descriptor.has(et_node) && cevt == enum_descriptor(et_node)->type()) 
+                    icode.push_back(NOP);
+                else if(field_descriptor.has(et_node) 
+                        && field_descriptor(et_node)->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM 
+                        && field_descriptor(et_node)->enum_type() == cevt)
+                    icode.push_back(NOP);
+                else 
+                    icode.push_back(COEI);
             }
             icode.back().er = enum_descriptor(fldr_node)->type();
             coop = NOP;
@@ -1459,8 +1466,20 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
             op coop = get_conv_op(value_type(arg_node), lvd.type(), 0, lvd.grpc_type());
             if(coop != NOP)
                 icode.push_back(coop);
-                */
-            icode.push_back(fop(SETF, lv_name));
+            */
+            if(lvd.grpc_type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM) {
+                pcerr.AddWarning(main_file, at(arg_node), sfmt() << "assigning expression to field of type \"" << lvd.enum_descriptor()->name() << "\"");
+                auto ext = value_type(arg_node);
+                if(ext == FTK_FLOAT) {
+                    icode.push_back(fop(COFI));
+                    ext = FTK_INTEGER;
+                }
+                icode.push_back(fop(SETE, lv_name));
+                icode.back().el = lvd.enum_descriptor();
+                icode.back().ext = ext;
+            } else {
+                icode.push_back(fop(SETF, lv_name));
+            }
         } break;
         case FTK_fldx: {
             auto const &fields = at(arg_node).children;

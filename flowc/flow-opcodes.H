@@ -62,6 +62,7 @@ enum op {
      */
 
     SETF,           // Set field 
+    SETE,           // Check and set enum field
     RVF,            // Right value field
     SVF,            // Right value repeated field size
     RVC,            // Right value constant
@@ -129,6 +130,7 @@ struct fop {
     EnumDescriptor const *el = nullptr;
     EnumDescriptor const *er = nullptr;
     EnumValueDescriptor const *ev1 = nullptr;
+    int ext = 0;
     fop(op c=NOP): code(c) {}
     fop(op c, std::string const &a1, std::string const &a2=""): code(c), arg1(a1), arg2(a2) {}
     fop(op c, std::string const &a1, std::string const &a2, Descriptor const *ad1, Descriptor const *ad2=nullptr): code(c), arg1(a1), arg2(a2), d1(ad1), d2(ad2) {}

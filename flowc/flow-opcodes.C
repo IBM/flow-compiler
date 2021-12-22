@@ -30,6 +30,7 @@ char const *op_name(op o) {
         case EERC:  return "EERC";
 
         case SETF: return "SETF";      
+        case SETE: return "SETE";
         case IOP:  return "IOP";
         case FUNC: return "FUNC";
         case RVF:  return "RVF ";      
@@ -114,7 +115,31 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
                 out << fop.arg[i]; 
             }
             break;
-
+        case COFI:           // Convert right value from float to int    arg[0]: grpc type to
+        case COFS:           // Convert right value from float to string
+        case COFB:           // Convert right value from float to bool
+        case COFF:           // Convert float to float                   argp[0]: grpc type to, arg[1] grpc type from
+        case COIF:           // Convert right value from int to float    arg[0]: grpc type to 
+        case COIS:           // Convert right value from int to string
+        case COIB:           // Convert right value from int to bool
+        case COII:           // Convert intger to integer                arg[0]: grpc type to, arg[1]: grpc type from
+        case COSF:           // Convert right value from string to float arg[0]: grpc type to
+        case COSI:           // Convert right value from string to int   arg[0]: grpc type to
+        case COSB:           // Convert right value from string to bool
+        case COEI:           // Convert right value from enum to int     arg[0] grpc type to
+        case COEB:           // Convert right value from enum to int     arg[0] grpc type to
+        case COEF:           // Convert right value from enum to float   arg[0] grpc type to    
+        case COES:           // Convert right value from enum to string
+        case COEE:           // Convert right value from enum to another enum
+            out << ansi::escape(ANSI_GREEN, use_ansi) << ansi::escape(ANSI_BOLD, use_ansi)
+                << op_name(fop.code)  << ansi::escape(ANSI_RESET, use_ansi) << "  ";
+            if(fop.arg.size() > 0) 
+                out << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+            if(fop.arg.size() > 1)
+                out << "<- " << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+            break;
+            if(fop.er != nullptr) 
+                out << "er: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.er) << ansi::escape(ANSI_RESET, use_ansi) << " ";
         default:
             break;
     }
@@ -129,6 +154,22 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
         case IFNC:
         case BSTG:
         case RVF:
+        case COFI:           // Convert right value from float to int    arg[0]: grpc type to
+        case COFS:           // Convert right value from float to string
+        case COFB:           // Convert right value from float to bool
+        case COFF:           // Convert float to float                   argp[0]: grpc type to, arg[1] grpc type from
+        case COIF:           // Convert right value from int to float    arg[0]: grpc type to 
+        case COIS:           // Convert right value from int to string
+        case COIB:           // Convert right value from int to bool
+        case COII:           // Convert intger to integer                arg[0]: grpc type to, arg[1]: grpc type from
+        case COSF:           // Convert right value from string to float arg[0]: grpc type to
+        case COSI:           // Convert right value from string to int   arg[0]: grpc type to
+        case COSB:           // Convert right value from string to bool
+        case COEI:           // Convert right value from enum to int     arg[0] grpc type to
+        case COEB:           // Convert right value from enum to int     arg[0] grpc type to
+        case COEF:           // Convert right value from enum to float   arg[0] grpc type to    
+        case COES:           // Convert right value from enum to string
+        case COEE:           // Convert right value from enum to another enum
             return propc(out, fop);
         default:
             break;
@@ -169,6 +210,8 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
         out << "er: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.er) << ansi::escape(ANSI_RESET, use_ansi) << " ";
     if(fop.ev1 != nullptr) 
         out << "ev1: " << ansi::escape(ANSI_RED, use_ansi) << fop.ev1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
+    if(fop.ext != 0) 
+        out << "ext: " << ansi::escape(ANSI_RED, use_ansi) << node_name(fop.ext) << ansi::escape(ANSI_RESET, use_ansi) << " ";
     bool first = true;
     for(auto a: fop.arg) { 
         if(!first) out << ", ";

@@ -1043,8 +1043,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 assert(tvl.size() > 1);
                 OUT << "if(" << tvl[tvl.size()-2].first << ") {" << "\n";
                 ++indenter;
-                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") return error: \" << (" << tvl.back().first << ") << \"\\n\";\n";
-                OUT << "return ::grpc::Status(::grpc::StatusCode::" << op.arg1 << ", " << tvl.back().first << ");\n";
+                OUT << "std::string ERR_message(" << tvl.back().first << ");\n";
+                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") return error: \" << ERR_message << \"\\n\";\n";
+                OUT << "return ::grpc::Status(::grpc::StatusCode::" << op.arg1 << ", ERR_message);\n";
                 --indenter;
                 OUT << "}\n";
                 tvl.pop_back(); tvl.pop_back();
@@ -1186,6 +1187,31 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 tvl.pop_back();
                 break;
 
+            case SETE:
+                OUT << "// check for valid value in " << get_full_name(op.el) << "\n";
+                OUT << "{\n" << indent();
+                if(op.ext == FTK_STRING) {
+                    OUT << "std::string TS(" << tvl.back().first << ");\n";
+                    OUT << "auto TE = ::google::protobuf::GetEnumDescriptor<"<<get_full_name(op.el)<<">()->FindValueByName(TS);\n";
+                } else {
+                    OUT << "auto TI = " << tvl.back().first << ";\n";
+                    OUT << "auto TE = ::google::protobuf::GetEnumDescriptor<"<<get_full_name(op.el)<<">()->FindValueByNumber(TI);\n";
+                }
+                OUT << "if(TE != nullptr) {\n" << indent();
+                OUT << cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << "static_cast<" << get_full_name(op.el) << ">(TE->number()));\n";
+                OUT << unindent() << "} else {\n" << indent();
+                if(op.ext == FTK_STRING) {
+                    OUT << "std::string ERR_message(\"attempting to assign invalid value '\" + TS + \"' to field of type " << get_name(op.el) << "\");\n";
+                } else {
+                    OUT << "std::string ERR_message(\"attempting to assign invalid value \" + std::to_string(TI) + \" to field of type " << get_name(op.el) << "\");\n";
+                }
+                OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") return error: \" << ERR_message << \"\\n\";\n";
+                OUT << "return ::grpc::Status(::grpc::StatusCode::OUT_OF_RANGE, ERR_message);\n";
+                OUT << unindent() << "}\n";
+                OUT << unindent() << "}\n";
+                tvl.pop_back();
+                break;
+
             case RVC: 
                 if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
                 else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  sfmt() << "std::string(" << c_escape(op.arg1) << ")"; 
@@ -1263,6 +1289,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(!op.arg2.empty())
                     OUT << "// " << op.arg2 << "\n";
                 break;
+
 
             case COFB: 
             case COIB: 
