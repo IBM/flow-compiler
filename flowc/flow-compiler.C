@@ -1363,6 +1363,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
             if(expected_type == FTK_STRING) {
                 icode.push_back(COES);
             } else {
+        std::cerr << "CONV from "<< node_name(value_type(fldr_node)) <<" to "<<node_name(expected_type)<< ", at " << fldr_node << ": " << coop<< "\n";
                 icode.push_back(COEI);
             }
             icode.back().er = enum_descriptor(fldr_node)->type();
@@ -1572,7 +1573,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             icode.back().ev1 = evd;
                         } else {
                             ++error_count;
-                            pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value not found: '" << get_value(arg_node) << "' in '" << lvd.enum_descriptor()->name() << "'" );
+                            pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value not found: \"" << get_value(arg_node) << "\" in \"" << lvd.enum_descriptor()->name() << "\"" );
                         }
 
                     } else {
@@ -1584,7 +1585,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             icode.back().ev1 = evd;
                         } else {
                             ++error_count;
-                            pcerr.AddError(main_file, at(arg_node), sfmt() << "no enum with value '" << number << "' was found in '"<< lvd.enum_descriptor()->name() << "'");
+                            pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value \"" << number << "\" was not found in \""<< lvd.enum_descriptor()->name() << "\"");
                         }
                     }
                 break;
