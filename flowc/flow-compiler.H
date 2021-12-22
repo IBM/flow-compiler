@@ -206,7 +206,7 @@ public:
     int check_assign(int error_node, struct lrv_descriptor const &left, struct lrv_descriptor const &right);
 
     std::string fldx_mname(int fldx_node, int context_dim) const;
-    int encode_expression(int fldr_node, int expected_type, int dim_change);
+    int encode_expression(int fldr_node, int expected_type, int dim_change, int et_node=0);
     int populate_message(std::string const &lv_name, struct lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip, int loop_level);
 
 
