@@ -721,7 +721,7 @@ Descriptor const *flow_compiler::check_message(std::string &dotted_id, int error
     }
     return mdp;
 }
-int flow_compiler::compile_if_import(int stmt_node) {
+int flow_compiler::compile_if_import(int stmt_node, bool ignore_imports) {
     auto const &stmt = at(stmt_node);
     // Ignore unless an import statement
     if(stmt.type != FTK_IMPORT)
@@ -734,6 +734,8 @@ int flow_compiler::compile_if_import(int stmt_node) {
         pcerr.AddError(main_file, at(stmt.children[0]), "expected filename string");
         return 1;
     }
+    if(ignore_imports) 
+        return 0;
     int ec = compile_proto(filename);
     if(ec > 0) 
         pcerr.AddError(main_file, stmt.token, sfmt() << "failed to import \"" << filename << "\"");
@@ -2172,7 +2174,7 @@ int flow_compiler::compile_expressions(int node) {
     }
     return error_count;
 }
-int flow_compiler::compile(std::set<std::string> const &targets) {
+int flow_compiler::compile(std::set<std::string> const &targets, bool ignore_imports) {
     int root = ast_root();
     if(at(root).type != FTK_ACCEPT || at(root).children.size() != 1)
         return 1;
@@ -2191,7 +2193,7 @@ int flow_compiler::compile(std::set<std::string> const &targets) {
     // The main file parsed correctly, now
     // import all the nedded proto files before anything else.
     for(int n: at(root).children)
-        error_count += compile_if_import(n);
+        error_count += compile_if_import(n, ignore_imports);
 
     // Some import errors might be inconsequential but for now,
     // give up in case of import errors. 

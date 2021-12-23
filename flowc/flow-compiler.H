@@ -168,7 +168,7 @@ public:
 
     int fixup_node_ids();
     int fixup_proto_refs();
-    int compile_if_import(int stmt_node);
+    int compile_if_import(int stmt_node, bool ignore_imports);
     int compile_defines();
     int compile_expressions(int node=0);
 
@@ -260,7 +260,7 @@ public:
             return cs_name_s("RQ", get_node_label(node), suffix);
         return cs_name_s(prefix, get_node_label(node), suffix);
     }
-    int compile(std::set<std::string> const &targets);
+    int compile(std::set<std::string> const &targets, bool ignore_imports);
 
     // AST accessors to retrieve the first encoutered value, all values in tree order or a map.
     // <required> triggers error when no value is found. An error is also generated if the encoutered values 

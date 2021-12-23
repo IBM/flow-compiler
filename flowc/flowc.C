@@ -218,8 +218,13 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string rest_certificate = orchestrator_name + "-rest.pem";
 
     error_count += parse();
+    for(auto filename: opts["import"]) {
+        int ec = compile_proto(filename);
+        error_count += ec;
+    }
+
     if(error_count == 0)
-        error_count += compile(targets);
+        error_count += compile(targets, opts.optb("ignore-imports", false));
 
     if(opts.have("print-graph")) {
         std::string entry(opts.opt("print-graph", ""));
