@@ -2180,8 +2180,8 @@ int main(int argc, char *argv[]) {
 
     flowc::print_banner(std::cout);
 
-{I:DEFN{   
-    flowdef::v{{DEFN}} = flowdef::to_vt_{{DEFT}}(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
+{I:DEFN{    if(flowc::get_cfg(cfg, "fd_{{DEFN}}") != nullptr)
+        flowdef::v{{DEFN}} = flowdef::to_vt_{{DEFT}}(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
 }I}
     // Use the default grpc health checking service
 	//grpc::EnableDefaultHealthCheckService(true);
