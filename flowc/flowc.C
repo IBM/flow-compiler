@@ -659,19 +659,17 @@ extern char const *template_help, *template_syntax;
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
     {"client",            {"grpc-files", "makefile", "dockerfile"}},
-    {"server",            {"grpc-files", "makefile", "svg-files", "dockerfile", "www-files", "ssl-certificates"}},
-    {"svg-files",         {"graph-files"}},
+    {"server",            {"grpc-files", "makefile", "dockerfile", "www-files", "ssl-certificates"}},
     {"grpc-files",        {"protobuf-files"}},
     {"build-client",      {"client"}},
     {"python-client",     {}},
     {"build-server",      {"server"}},
-    {"build-image",       {"server", "client", "dockerfile"}},
+    {"build-image",       {"server", "client", "docs"}},
     {"makefile",          {}},
     {"driver",            {}},
     {"ssl-certificates",  {}},
     {"protobuf-files",    {}},
-    {"www-files",         {"docs"}},
-    {"graph-files",       {}},
+    {"www-files",         {}},
 };
 static std::set<std::string> can_use_tempdir = {
     "build-image" /*, "build-server", "build_client"*/

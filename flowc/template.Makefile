@@ -166,11 +166,9 @@ deploy: {{NAME}}-server {{NAME}}-client
 ifneq ($(DBG), yes)
 	strip $^
 endif
-	mkdir -p ~/{{NAME}}/docs
 	mkdir -p ~/{{NAME}}/www
 	cp $^ ~/{{NAME}}
 	cp $(wildcard *.pem) ~/{{NAME}}
-	cp $(wildcard docs/*.proto) $(wildcard docs/*.svg) $(wildcard docs/*.flow) ~/{{NAME}}/docs
 ifeq ($(REST), yes)
 	cp $(wildcard www/*.html) $(wildcard www/*.css) $(wildcard www/*.js) ~/{{NAME}}/www
 endif
