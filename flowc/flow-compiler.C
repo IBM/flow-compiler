@@ -809,8 +809,9 @@ int flow_compiler::build_flow_graph(int blk_node) {
         }
         // also push all the nodes referenced by the current node in the stack
         std::map<int, std::set<std::string>> noset;
-        for(int n: get_referenced_node_types(cur_node))
-            if(at(n).type != FTK_ENTRY && !cot::contains(used_nodes, n))
+        auto rns = get_referenced_node_types(cur_node);
+        for(int n: rns) 
+            if((n == 0 || at(n).type != FTK_ENTRY) && !cot::contains(used_nodes, n))
                 todo.push_back(n);
     }
 
