@@ -277,15 +277,18 @@ struct flow_ast {
         return r;
     }
     int nprepend(int node, int child_node) {
+        assert(node > 0);
         auto &children = store[node-1].children;
         children.insert(children.begin(), child_node);
         return node;
     }
     int nappend(int node, int child_node) {
+        assert(node > 0);
         store[node-1].children.push_back(child_node);
         return node;
     }
     flow_ast_node const &at(int node) const {
+        assert(node > 0);
         return store[node-1];
     }
     flow_ast_node const &atc(int node, int child) const {
@@ -305,14 +308,17 @@ struct flow_ast {
      * override values no type check
      */
     int chinteger(int node, int64_t value) {
+        assert(node > 0);
         store[node-1].token.integer_value = value;
         return node;
     }
     int chtype(int node, int new_type) {
+        assert(node > 0);
         if(new_type >= 0) store[node-1].type = new_type;
         return node;
     }
     int negate(int node) {
+        assert(node > 0);
         auto &t = store[node-1].token;
         if(t.type == FTK_INTEGER) t.integer_value = -t.integer_value;
         if(t.type == FTK_FLOAT) t.float_value = -t.float_value;
@@ -567,7 +573,7 @@ struct flow_ast {
             if(at(n).type == FTK_fldx)
                 rns.insert(get_first_node(get_id(at(n).children[0])));
         }
-        if(at(nn).type == FTK_NODE) 
+        if(nn != 0 && at(nn).type == FTK_NODE) 
             for(int pn: get_all_nodes(nn)) {
                 if(pn == nn) break;
                 auto ns = get_referenced_node_types(get_ne_condition(pn));
