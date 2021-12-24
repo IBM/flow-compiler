@@ -100,12 +100,12 @@ int parse(char const *hlp, int &argc, char ** &argv) {
     while(ox=-1, curind=optind, (oc = getopt_long(argc, argv, short_opts.c_str(), &long_opts[0], &ox)) != -1) switch (oc) {
         case ':':
             std::cerr << "Missing argument for option ";
-            std::cerr << argv[curind+1] << "\n\n";
+            std::cerr << argv[(curind+1 < argc)? curind+1: curind] << "\n\n";
             ++errors;
             break;
         case '?':
             std::cerr << "Unrecognized option ";
-            std::cerr << argv[curind+1] << "\n\n";
+            std::cerr << argv[(curind+1 < argc)? curind+1: curind] << "\n\n";
             ++errors;
             break;
         default: 
