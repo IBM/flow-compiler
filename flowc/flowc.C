@@ -218,7 +218,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string rest_certificate = orchestrator_name + "-rest.pem";
 
     error_count += parse();
-    for(auto filename: opts["import"]) {
+    if(opts.have("import")) for(auto filename: opts["import"]) {
         int ec = compile_proto(filename);
         error_count += ec;
     }
@@ -503,6 +503,40 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     error_count += set_entry_vars(global_vars);
     error_count += set_cli_node_vars(global_vars);
 
+
+    if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
+        std::cerr << "PROTO: " << pt << ">\n";
+        if(pt == ".") {
+            vex::expand(std::cout, "# {{NAME}} -- all nodes\n{{ALL_NODES_PROTO}}\n", vex::make_smap(global_vars));
+        } else if(pt == "-") {
+            vex::expand(std::cout, "# {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", vex::make_smap(global_vars));
+        } else {
+            // look for a matching entry name
+            int en = 0;
+            for(int n: *this) if(at(n).type == FTK_ENTRY) { 
+                if(name(n) == pt || ends_with(name(n), std::string(".") + pt)) {
+                    en = n;
+                    break;
+                }
+            }
+            if(en != 0) {
+                std::cout << gen_proto(method_descriptor(en)) << "\n";
+                continue;
+            } 
+            // TODO check for matching node names
+            for(int n: *this) if(at(n).type == FTK_NODE) { 
+                if(type(n) == pt || type(n)+"."+name(n) == pt) {
+                    en = n;
+                    break;
+                }
+            }
+            ++error_count;
+            pcerr.AddError(main_file, -1, 0, sfmt() << "\"" << pt << "\" does not match any entry or node");
+            // stop at first error
+            break;
+        }
+    }
+
     if(error_count == 0 && cot::contains(targets, "server")) 
         error_count += genc_cc_server(server_source);
     
@@ -687,6 +721,7 @@ int main(int argc, char *argv[]) {
     signal(SIGABRT, handler);
     signal(SIGSEGV, handler);
     helpo::opts opts;
+    int main_argc = argc;
     if(opts.parse(template_help, argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
         if(opts.have("help-syntax")) {
@@ -713,7 +748,10 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         } else {
-            ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
+            if(opts.have("help") || main_argc == 1) 
+                ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
+            else 
+                std::cout << "Used --help to see all available options\n\n";
             return opts.have("help")? 0: 1;
         }
     }
