@@ -505,7 +505,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
 
     if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
-        std::cerr << "PROTO: " << pt << ">\n";
         if(pt == ".") {
             vex::expand(std::cout, "# {{NAME}} -- all nodes\n{{ALL_NODES_PROTO}}\n", vex::make_smap(global_vars));
         } else if(pt == "-") {
@@ -520,20 +519,35 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 }
             }
             if(en != 0) {
+                std::cout << "# " << pt << "\n";
                 std::cout << gen_proto(method_descriptor(en)) << "\n";
                 continue;
             } 
             // TODO check for matching node names
+            std::vector<int> ven;
+            std::set<MethodDescriptor const *> ms;
             for(int n: *this) if(at(n).type == FTK_NODE) { 
-                if(type(n) == pt || type(n)+"."+name(n) == pt) {
-                    en = n;
-                    break;
+                if((type(n) == pt || name(n) == pt) && method_descriptor(n) != nullptr) {
+                    ven.push_back(n);
+                    ms.insert(method_descriptor(n));
                 }
             }
-            ++error_count;
-            pcerr.AddError(main_file, -1, 0, sfmt() << "\"" << pt << "\" does not match any entry or node");
-            // stop at first error
-            break;
+            if(ven.size() == 0) {
+                ++error_count;
+                pcerr.AddError(main_file, -1, 0, sfmt() << "\"" << pt << "\" does not match any entry or node");
+                break;
+            } else if(ms.size() > 1) {
+                ++error_count;
+                pcerr.AddError(main_file, -1, 0, sfmt() << "\"" << pt << "\" matches more than one node");
+                std::vector<std::string> mids; 
+                for(int n: ven) mids.push_back(name(n));
+                pcerr.AddNote(main_file, -1, 0, sfmt() << "matches " << stru1::join(mids, ", ", " and ")); 
+                break;
+            } 
+            std::vector<std::string> mids; 
+            for(int n: ven) mids.push_back(name(n));
+            std::cout << "# " << stru1::join(mids, ", ", " and ") << "\n"; 
+            std::cout << gen_proto(*ms.begin()) << "\n";
         }
     }
 
