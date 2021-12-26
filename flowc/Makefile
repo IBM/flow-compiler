@@ -11,7 +11,8 @@
 #INSTALL_PREFIX?=/usr/local/bin
 #
 #   Base image label - Default base image for when --runtime is not used with flowc 
-#BASE_IMAGE?=alpine-3.12 
+#BASE_IMAGE?=alpine-3.15
+
 -include makefile.local
 
 BUILD_VERSION?=0.17.3
@@ -52,13 +53,13 @@ CCFLAGS?=-O3
 STACK_TRACE?=0
 endif
 
-## One of the runtimes alpine-3.14, ubuntu-18.04, ubuntu-20.04, redhat-ubi7, or redhat-ubi8. Override in 'makefile.local'
+## One of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image
-.PHONY: ubuntu-18.04 ubuntu-20.04 redhat-ubi7 redhat-ubi8 alpine-3.14
+.PHONY: ubuntu-18.04 ubuntu-20.04 redhat-ubi7 redhat-ubi8 alpine-3.15 alpine-3.14
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
@@ -198,6 +199,10 @@ flowc-image: image-info-$(HOST_OS)
 image:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
+
+alpine-3.15:
+	@rm -f flow-templates.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
 alpine-3.14:
 	@rm -f flow-templates.C
