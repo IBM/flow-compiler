@@ -506,9 +506,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
         if(pt == ".") {
-            vex::expand(std::cout, "# {{NAME}} -- all nodes\n{{ALL_NODES_PROTO}}\n", vex::make_smap(global_vars));
+            vex::expand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", vex::make_smap(global_vars));
         } else if(pt == "-") {
-            vex::expand(std::cout, "# {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", vex::make_smap(global_vars));
+            vex::expand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", vex::make_smap(global_vars));
         } else {
             // look for a matching entry name
             int en = 0;
@@ -519,11 +519,10 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 }
             }
             if(en != 0) {
-                std::cout << "# " << pt << "\n";
+                std::cout << "// " << pt << "\n";
                 std::cout << gen_proto(method_descriptor(en)) << "\n";
                 continue;
             } 
-            // TODO check for matching node names
             std::vector<int> ven;
             std::set<MethodDescriptor const *> ms;
             for(int n: *this) if(at(n).type == FTK_NODE) { 
@@ -546,7 +545,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             } 
             std::vector<std::string> mids; 
             for(int n: ven) mids.push_back(name(n));
-            std::cout << "# " << stru1::join(mids, ", ", " and ") << "\n"; 
+            std::cout << "// " << stru1::join(mids, ", ", " and ") << "\n"; 
             std::cout << gen_proto(*ms.begin()) << "\n";
         }
     }
