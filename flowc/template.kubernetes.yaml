@@ -57,8 +57,6 @@ ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
         env:
           - name: {{NAME/id/upper}}_REST_PORT
             value: "{{REST_PORT}}"
-          - name: {{NAME/id/upper}}_ASYNC
-            value: "1"
 {K:MAIN_ENVIRONMENT_KEY{
           - name: {{MAIN_ENVIRONMENT_KEY}}
             value: "{{MAIN_ENVIRONMENT_VALUE}}"
