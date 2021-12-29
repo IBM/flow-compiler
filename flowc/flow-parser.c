@@ -1324,8 +1324,8 @@ static YYACTIONTYPE yy_reduce(
       case 5: /* stmt ::= ID ID eqsc valx SEMICOLON */
 #line 59 "flow-parser.y"
 { 
-                                                                 ast->expect(yymsp[-4].minor.yy0, FTK_OPTION, "option keyword expected here");
-                                                                 yylhsminor.yy0 = ast->node(FTK_OPTION, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); 
+                                                                 yylhsminor.yy0 = ast->node(ast->stmt_keyw(yymsp[-4].minor.yy0), yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); 
+                                                                 ast->expect(yylhsminor.yy0, FTK_OPTION, "option keyword expected here");
                                                                }
 #line 1330 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;

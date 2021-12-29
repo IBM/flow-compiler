@@ -57,8 +57,8 @@ stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(a
                                                                  ast->define_var(ast->get_id(B), C);
                                                                }
 stmt(A) ::= ID(B) ID(C) eqsc valx(D) SEMICOLON.                { 
-                                                                 ast->expect(B, FTK_OPTION, "option keyword expected here");
-                                                                 A = ast->node(FTK_OPTION, C, D); 
+                                                                 A = ast->node(ast->stmt_keyw(B), C, D); 
+                                                                 ast->expect(A, FTK_OPTION, "option keyword expected here");
                                                                }
 // node, entry or container                                                   
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
