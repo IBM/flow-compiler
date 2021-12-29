@@ -7,10 +7,10 @@
 #
 
 export kd_PROJECT_NAME={{NAME}}
-{N:NODE_NAME{export image_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_IMAGE-{{NODE_IMAGE}}}
-if [ ! -z "${{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG" ]
+{N:IM_NODE_NAME{export image_{{IM_NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{IM_NODE_NAME/id/upper}}_IMAGE-{{IMAGE_NAME}}}
+if [ ! -z "${{NAME/id/upper}}_{{IM_NODE_NAME/id/upper}}_TAG" ]
 then
-    export image_{{NODE_NAME/id/upper}}=${image_{{NODE_NAME/id/upper}}%:*}:${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG}
+    export image_{{IM_NODE_NAME/id/upper}}=${image_{{IM_NODE_NAME/id/upper}}%:*}:${{{NAME/id/upper}}_{{IM_NODE_NAME/id/upper}}_TAG}
 fi
 }N}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
@@ -98,7 +98,7 @@ echo "    --htdocs DIRECTORY (or set {{NAME/id/upper}}_HTDOCS)"
 echo "        Mount local DIRECTORY inside the container to use as a custom application (Docker compose mode)."
 [ ! -z "${{NAME/id/upper}}_HTDOCS" ] && echo "       Currently set to \"${{NAME/id/upper}}_HTDOCS\""
 echo ""
-echo "    --htdocs-remote <URL>  (or set {{NAME/id/upper}}_HTDOCS_URL)"
+echo "    --htdocs-remote <URL> (or set {{NAME/id/upper}}_HTDOCS_URL)"
 echo "        Secret URL pointing to htdocs data."
 [ ! -z "${{NAME/id/upper}}_HTDOCS_URL" ] && echo "        Currently set to \"${{NAME/id/upper}}_HTDOCS_URL\""
 echo ""
@@ -128,7 +128,7 @@ echo ""
 }G}
 echo "    --tag, --image  <NODE-NAME=STRING>"
 echo "       Force the image name or tag for node NODE_NAME to STRING. The changes are applied in the order given in the commans line."
-echo "       The valid node names are: {N:NODE_NAME{{{NODE_NAME/option/lower}} }N}."
+echo "       The valid node names are:{N:IM_NODE_NAME{ {{IM_NODE_NAME/id/option/lower}}}N}."
 echo "" 
 echo "Note: To access the Artifactory or Cloud Object Store $(basename $0) looks for the environment variable API_KEY."
 echo "If not found, it looks for a file named .api-key in the current directory and then in the home directory."
@@ -252,9 +252,9 @@ case "$1" in
     ;;
     --image)
         case "${2%=*}" in
-{N:NODE_NAME{
-            {{NODE_NAME/option/lower}})
-                export image_{{NODE_NAME/id/upper}}=${2#*=}
+{N:IM_NODE_NAME{
+            {{IM_NODE_NAME/id/option/lower}})
+                export image_{{IM_NODE_NAME/id/upper}}=${2#*=}
                 ;;
 }N}
             *)
@@ -267,9 +267,9 @@ case "$1" in
     ;;
     --tag)
         case "${2%=*}" in
-{N:NODE_NAME{
-            {{NODE_NAME/option/lower}})
-                export image_{{NODE_NAME/id/upper}}=${image_{{NODE_NAME/id/upper}}%:*}:${2#*=}
+{N:IM_NODE_NAME{
+            {{IM_NODE_NAME/id/option/lower}})
+                export image_{{IM_NODE_NAME/id/upper}}=${image_{{IM_NODE_NAME/id/upper}}%:*}:${2#*=}
                 ;;
 }N}
             *)

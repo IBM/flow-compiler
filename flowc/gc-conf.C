@@ -437,13 +437,13 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
     DEBUG_LEAVE;
     return 0;
 }
-int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::string>> &local_vars) {
+int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::string>> &vars) {
     int error_count = 0;
     DEBUG_ENTER;    
     std::string runtime; 
     error_count += get_block_s(runtime, n, "runtime", "");
-    append(local_vars, "SET_NODE_RUNTIME", runtime.empty()? "#": "");
-    append(local_vars, "NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
+    append(vars, "SET_NODE_RUNTIME", runtime.empty()? "#": "");
+    append(vars, "NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
     int scale, min_cpus, max_cpus, min_gpus, max_gpus;
     std::string min_memory, max_memory;
     error_count += get_block_s(min_memory, n, "min_memory", "");
@@ -454,33 +454,37 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     error_count += get_block_i(max_gpus, n, "max_gpu", 0);
     error_count += get_block_i(scale, n, "scale", 0);
 
-    append(local_vars, "NODE_SCALE", std::to_string(scale <= 0? 1: scale));
-    append(local_vars, "NODE_MIN_CPUS", std::to_string(min_cpus <= 0? 0: min_cpus));
-    append(local_vars, "NODE_MAX_CPUS", std::to_string(max_cpus <= 0? 0: max_cpus));
-    append(local_vars, "NODE_MIN_GPUS", std::to_string(min_gpus <= 0? 0: min_gpus));
-    append(local_vars, "NODE_MAX_GPUS", std::to_string(max_gpus <= 0? 0: max_gpus));
-    append(local_vars, "NODE_MIN_MEMORY", min_memory);
-    append(local_vars, "NODE_MAX_MEMORY", max_memory);
+    append(vars, "NODE_SCALE", std::to_string(scale <= 0? 1: scale));
+    append(vars, "NODE_MIN_CPUS", std::to_string(min_cpus <= 0? 0: min_cpus));
+    append(vars, "NODE_MAX_CPUS", std::to_string(max_cpus <= 0? 0: max_cpus));
+    append(vars, "NODE_MIN_GPUS", std::to_string(min_gpus <= 0? 0: min_gpus));
+    append(vars, "NODE_MAX_GPUS", std::to_string(max_gpus <= 0? 0: max_gpus));
+    append(vars, "NODE_MIN_MEMORY", min_memory);
+    append(vars, "NODE_MAX_MEMORY", max_memory);
 
-    append(local_vars, "NODE_HAVE_MIN_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0 
+    append(vars, "NODE_HAVE_MIN_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0 
             || !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
-    append(local_vars, "NODE_HAVE_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0? "": "#");
-    append(local_vars, "NODE_HAVE_MIN", !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
-    append(local_vars, "NODE_HAVE_MIN_MEMORY", !min_memory.empty()? "": "#");
-    append(local_vars, "NODE_HAVE_MAX_MEMORY", !max_memory.empty()? "": "#");
-    append(local_vars, "NODE_HAVE_MAX_CPUS", max_cpus > 0? "": "#");
-    append(local_vars, "NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
-    append(local_vars, "NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
-    append(local_vars, "NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
-    append(local_vars, "NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
+    append(vars, "NODE_HAVE_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0? "": "#");
+    append(vars, "NODE_HAVE_MIN", !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
+    append(vars, "NODE_HAVE_MIN_MEMORY", !min_memory.empty()? "": "#");
+    append(vars, "NODE_HAVE_MAX_MEMORY", !max_memory.empty()? "": "#");
+    append(vars, "NODE_HAVE_MAX_CPUS", max_cpus > 0? "": "#");
+    append(vars, "NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
+    append(vars, "NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
+    append(vars, "NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
+    append(vars, "NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
     std::string endpoint, image_name;
     error_count += get_block_s(endpoint, n, "endpoint", "");
     error_count += get_block_s(image_name, n, "image", "");
-    append(local_vars, "NODE_ENDPOINT", endpoint);
+    append(vars, "NODE_ENDPOINT", endpoint);
     if(!image_name.empty() && image_name[0] == '/')
         image_name = path_join(default_repository, image_name.substr(1));
-    append(local_vars, "NODE_IMAGE", image_name);
-    append(local_vars, "EXTERN_NODE", image_name.empty()? "#": "");
+    append(vars, "NODE_IMAGE", image_name);
+    append(vars, "EXTERN_NODE", image_name.empty()? "#": "");
+    if(!image_name.empty()) {
+        append(vars, "IMAGE_NAME", image_name);
+        append(vars, "IM_NODE_NAME", name(n));
+    }
 
     DEBUG_LEAVE;
     return error_count;
