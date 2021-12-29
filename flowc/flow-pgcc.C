@@ -12,6 +12,20 @@
 #include "flow-parser.c"
 #include "massert.H"
 
+/**
+ * Add the directory to the proto path
+ * Return 0 on success or 1 if can't access directory
+ */
+int flow_compiler::add_to_proto_path(std::string const &directory, std::string const &mapped_to) {
+    struct stat sb;
+    if(stat(directory.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) 
+        return 1;
+    source_tree.MapPath(mapped_to, directory);
+    grpccc += "-I"; grpccc += directory; grpccc += " ";
+    protocc += "-I"; protocc += directory; protocc += " ";
+    return 0;
+}
+
 static void get_enums(std::set<EnumValueDescriptor const *> &edset, Descriptor const *dd) {
     for(int e = 0, ec = dd->enum_type_count(); e != ec; ++e) {
         auto ed = dd->enum_type(e);
@@ -37,8 +51,12 @@ static void get_enums(std::set<EnumValueDescriptor const *> &edset, FileDescript
         get_enums(edset, dd);
     }
 }
-int flow_compiler::compile_proto(std::string const &file) {
+int flow_compiler::compile_proto(std::string const &file, int map_file_dir) {
     auto fdp = importer.Import(file);
+    if(fdp == nullptr && map_file_dir != 0) {
+        add_to_proto_path(stru1::dirname(file));
+        fdp = importer.Import(file);
+    }
     if(fdp == nullptr) {
         pcerr.AddError(file, -1, 0, "import failed");
         return 1;

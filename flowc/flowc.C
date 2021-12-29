@@ -117,19 +117,6 @@ int flow_compiler::get_unna(std::string &name, int hint) {
     glunna[name] = 0;
     return c < 1999? 0: 1;
 }
-/**
- * Add the directory to the proto path
- * Return 0 on success or 1 if can't access directory
- */
-int flow_compiler::add_to_proto_path(std::string const &directory) {
-    struct stat sb;
-    if(stat(directory.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) 
-        return 1;
-    source_tree.MapPath("", directory);
-    grpccc += "-I"; grpccc += directory; grpccc += " ";
-    protocc += "-I"; protocc += directory; protocc += " ";
-    return 0;
-}
 int flow_compiler::process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, helpo::opts const &opts) {
     int error_count = 0;
     DEBUG_ENTER;
@@ -218,8 +205,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string rest_certificate = orchestrator_name + "-rest.pem";
 
     error_count += parse();
+    int imports = 0;
     if(opts.have("import")) for(auto filename: opts["import"]) {
-        int ec = compile_proto(filename);
+        int ec = compile_proto(filename, ++imports);
         error_count += ec;
     }
 

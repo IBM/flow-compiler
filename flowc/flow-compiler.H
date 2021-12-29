@@ -115,8 +115,11 @@ public:
     std::string file_loc(int node) const {
         return file_loc(at(node));
     }
-    int add_to_proto_path(std::string const &directory);
-    int compile_proto(std::string const &file);
+    int add_to_proto_path(std::string const &directory, std::string const &mapped_to="");
+    /**
+     * Compile a proto file, if file not found and directory is not 0, map the file's directory to directory
+     */
+    int compile_proto(std::string const &file, int map_directory=0);
 
     std::string output_filename(std::string const &filename);
     /**
