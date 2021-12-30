@@ -748,12 +748,14 @@ int main(int argc, char *argv[]) {
                 std::cout << "available runtimes: " << stru1::join(available_runtimes(), ", ") << "\n";
             }
             return 0;
-        } else {
-            if(opts.have("help") || main_argc == 1) 
-                ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
-            else 
-                std::cout << "Used --help to see all available options\n\n";
+        } else if(opts.have("help") || main_argc == 1) {
+            ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
             return opts.have("help")? 0: 1;
+        } else {
+            if(argc != 2) 
+                std::cout << "Invalid number of arguments\n";
+            std::cout << "Use --help to see the command line usage and all available options\n\n";
+            return 1;
         }
     }
     // Make sure we use appropriate coloring for errors
