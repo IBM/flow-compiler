@@ -164,13 +164,14 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
     return o;
 }
 /** 
- * Find a mcaro reference in one of the thre forms below
+ * Scan for a macro reference in one of the three forms below
  *      
  *      1. left1 left2 name [ / transforms ]* [ + name [/ transforms]* ]* - default right1 right2
  *      2. left1 label left2 template right1 label right2
  *      3. left1 label : [-|+] left2 template right1 label right2
  *      4. left1 label : [-|+] name [+ name]* [ - integer ] left2 template right1 label right2
  *      5. left1 label : [-|+] integer left2 template right1 label right2
+ *      6. left1 label ? name [| name]* [& name]* left2 template right1 label right2
  *
  *      In case 1 the name is looked up and and applied any transforms that follow. 
  *      Subsequent names will be looked up if the first name is not found. 
@@ -178,8 +179,8 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
  *      When a default value is not given the output will be an empty string.
  *
  *      Cases 2,3,4,5 render 'template' repeatedly in a loop.
- *      In the cases 2 and 3 with - the template is repeated until one of the variables within are not found.
- *      In case 3 with + the template is repeated until all variables in template are not found.
+ *      In the cases 2, and 3 with -, the template is repeated until one of the variables referenced within are not found.
+ *      In the case 3 with +, the template is repeated until all variables in referenced in the template are not found.
  *
  *      In case 4 the number of repetitions is computed from the sizes of the named variables:
  *           when - is prepended, the minimum of the sizes chosen, missing variables will have size 0
@@ -187,6 +188,7 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
  *           when no - or + is present the first non-zero size will be used
  *
  *      In case 5 the integer value will be used as a loop counter
+ *      In case 6 are evaluated as a boolean expression: empty string, no value, 0, or false for fales, anything else for true.
  *
  * Populates a descriptor structure and returns the number of errors encountered.
  * Errors are printed to the error stream.
@@ -311,10 +313,6 @@ struct macro_parser {
                     md.name = std::string(p, e);
                     p = e;
                 }
-                /*
-                if(e == nullptr && *p == '-') 
-                    ++p;
-                    */
                 if(*p == '-') 
                     ++p;
                 if(p == templ_end) 
@@ -326,6 +324,16 @@ struct macro_parser {
                     md.count = std::atoi(value.c_str());
                     p = e;
                 }
+            } else if(*p == '?') {
+                if(++p == templ_end)
+                    continue;
+                // expect a list of ids separated by &, |, + or *
+                e = match_id_list(p, templ_end, "&|");
+                if(e == nullptr || e == templ_end)
+                    continue;
+                md.name = std::string(p, e);
+                p = e;
+                md.count = -2;
             }
             p = matchs(left2, p, templ_end);
             if(p == nullptr || p == templ_end)
@@ -460,8 +468,52 @@ struct macro_parser {
                     ++missed;
                     out << std::string(md.before, md.after);
                 }
+            } else if(md.count == -2) {
+                // conditional reference
+                std::ostringstream sout;
+                bool cond = false;
+                std::string bexp = md.name;
+                for(auto op = bexp.find_first_of('&'); op != std::string::npos; op = bexp.find_first_of('&')) {
+                    //std::cout << "BEXPa: " << op << ":"  << bexp << "\n";
+                    auto lb = bexp.substr(0, op).find_last_of('|');
+                    if(lb == std::string::npos) lb = 0;
+                    else ++lb;
+                    std::string left = bexp.substr(lb, op-lb);
+                    auto fe = bexp.find_first_of("&|", op+1);
+                    if(fe == std::string::npos) fe = bexp.length();
+                    std::string right = bexp.substr(op+1, fe-op-1);
+                    //std::cout << "CHK " << left << " & " << right << "\n";
+                    auto fv = get_value(map, left, index < 0? 0: index);
+                    if(fv.first == 1 || fv.second.empty()) {
+                        bexp = bexp.substr(0, lb) + left + bexp.substr(fe);
+                        continue;
+                    }
+                    bexp = bexp.substr(0, lb) + right + bexp.substr(fe);
+                }
+                for(auto op = bexp.find_first_of('|'); op != std::string::npos; op = bexp.find_first_of('|')) {
+                    //std::cout << "BEXPo: " << op << ":"  << bexp << "\n";
+                    std::string left = bexp.substr(0, op);
+                    auto fe = bexp.find_first_of("&|", op+1);
+                    if(fe == std::string::npos) fe = bexp.length();
+                    std::string right = bexp.substr(op+1, fe-op-1);
+                    auto fv = get_value(map, left, index < 0? 0: index);
+                    if(fv.first == 1 || fv.second.empty()) {
+                        bexp = bexp.substr(op+1);
+                        continue;
+                    }
+                    cond = true;
+                    break;
+                }
+                if(!cond) {
+                    auto fv = get_value(map, bexp, index < 0? 0: index);
+                    cond = fv.first == 0 && !fv.second.empty();
+                }
+                if(cond) {
+                    render_varsub(sout, md.begin, md.end, map, index);
+                    out << sout.str(); 
+                }
             } else {
-                // loop variable reference
+                // loop reference
                 int maxx = md.count >= 0? md.count: (md.name.empty()? -1: gets(map, md.name, md.min_max));
                 int mima = md.name.empty()? (md.min_max > 0? 1: -1) : 0;
                 std::ostringstream sout;
