@@ -296,154 +296,13 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
     return error_count;
 }
-int flow_compiler::genc_k8s_conf(std::ostream &out) {
-    int error_count = 0;
-    DEBUG_ENTER;
-
-    extern char const *template_kubernetes_yaml;
-    extern char const *template_kubernetes_group_yaml;
-    std::set<int> cc_nodes; // all client nodes and containers
-    std::map<std::string, std::set<int>> groups;
-    for(int n: *this)
-        if((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER) {
-            cc_nodes.insert(n);
-            groups[group(n)].insert(n);
-        }
-
-    std::map<int, std::string> ports;
-    // grab all pre-defined ports
-    for(int n: cc_nodes) {
-        int port = 0;
-        error_count += get_block_i(port, n, "port", 0);
-        if(port != 0)
-            ports[n] = std::to_string(port);
-    }
-    // allocate ports for nodes without one
-    int c = 0;
-    for(int n: cc_nodes) if(!cot::contains(ports, n)) {
-        std::string image_name;
-        error_count += get_block_s(image_name, n, "image", "");
-        if(!image_name.empty()) {
-            while(cot::has_value(ports, std::to_string(base_port + ++c)));
-            ports[n] = std::to_string(base_port + c);
-        }
-    }
-    std::map<std::string, std::map<std::string, std::vector<std::string>>> g_group_vars;
-    for(auto gp: groups) {
-        int group_scale = 1;
-        auto &group_vars = g_group_vars[gp.first];
-        for(int n: cc_nodes) {
-            std::string host; int scale;
-            if(cot::contains(gp.second, n)) {
-                host = "localhost"; 
-                error_count += get_block_i(scale, n, "scale", 0);
-                group_scale = std::max(scale, group_scale);
-            } else {
-                host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
-            }
-            if(gp.first != main_group_name) 
-                continue;
-    
-            std::string endpoint;
-            error_count += get_block_s(endpoint, n, "endpoint", "");
-
-            append(group_vars, "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
-            if(endpoint.empty()) 
-                append(group_vars, "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << ports[n]);
-            else 
-                append(group_vars, "MAIN_ENVIRONMENT_VALUE", endpoint);
-        }
-        append(group_vars, "GROUP_SCALE", std::to_string(group_scale));
-    }
-    for(auto group: groups) for(int n: group.second) {
-        std::string const &nn = name(n);
-        int blck = get_ne_block_node(n);
-        std::vector<std::string> buf;
-        std::vector<std::pair<std::string, std::string>> env;
-        auto &local_vars = group_vars[group.first];
-        error_count += get_environment(env, n, ports, true);
-        for(auto nv: env)
-            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
-
-        append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
-        append(local_vars, "NODE_PORT", ports[n]);
-        append(local_vars, "IMAGE_PORT", ports[n]);
-        error_count += node_info(n, local_vars);
-
-        buf.clear();
-        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
-            std::map<std::string, std::string> minfo;
-            error_count += get_mount_info(minfo, m);
-            buf.push_back(sfmt() << "{name: scratch-" << to_option(minfo["name"]) << ", mountPath: " << c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
-            append(local_vars, "VOLUME_NAME", minfo["name"]);
-            append(local_vars, "VOLUME_LOCAL", minfo["local"]);
-            append(local_vars, "VOLUME_COS", minfo["url"]);
-            append(local_vars, "VOLUME_SECRET", minfo["secret"]);
-            append(local_vars, "VOLUME_PVC", minfo["pvc"]);
-            append(local_vars, "VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
-            append(local_vars, "VOLUME_ACCESS", minfo["access"]);
-            if(description.has(get_previous_sibling(n))) {
-                append(local_vars, "VOLUME_COMMENT", description(get_previous_sibling(n)));
-            } else {
-                append(local_vars, "VOLUME_COMMENT", "");
-            }
-        }
-        append(local_vars, "NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
-
-        std::vector<int> init_blcks;
-        int init_count = 0;
-        error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
-        for(int init_blck: init_blcks) {
-            buf.clear();
-            int command_value = 0;
-            error_count += get_block_value(command_value, init_blck, "command", false, {FTK_STRING});
-            if(command_value == 0) {
-                pcerr.AddWarning(main_file, at(init_blck), sfmt() << "ignoring \"init\" block without \"command\"");
-                continue;
-            }
-            buf.push_back(sfmt() << "command: [\"/bin/sh\", \"-c\", \"" << get_string(command_value) << "\"]");
-            int image_value = 0;
-            error_count += get_block_value(image_value, init_blck, "image", false, {FTK_STRING});
-            if(image_value == 0) 
-                buf.push_back("image: \"busybox:latest\"");
-            else 
-                buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
-            buf.push_back("securityContext: {privileged: true}");
-            buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
-            append(local_vars, "INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
-        }
-        DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
-        if(init_count > 0)
-            set(local_vars, "HAVE_INIT_CONTAINERS", "");
-    }
-    auto global_smap = vex::make_smap(global_vars);
-    auto gg_smap = vex::make_smap(group_vars[main_group_name]);
-    vex::expand(out, template_kubernetes_yaml, vex::make_cmap(gg_smap, global_smap));
-    if(DEBUG_GENC) {
-        std::ofstream outg(output_filename("k8s-yaml-global.json"));
-        stru1::to_json(outg, global_vars);
-        std::ofstream outj(output_filename("k8s-yaml-local.json"));
-        stru1::to_json(outj, group_vars[main_group_name]);
-    }
-    for(auto const &g: groups) if(g.first != main_group_name) {
-        if(DEBUG_GENC) {
-            std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
-            stru1::to_json(outj, group_vars[g.first]);
-        }
-        auto gg_smap = vex::make_smap(group_vars[g.first]);
-        vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, global_smap));
-    }
-
-    DEBUG_LEAVE;
-    return 0;
-}
-int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::string>> &vars) {
+int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::string>> &vars, std::string const &prefix) {
     int error_count = 0;
     DEBUG_ENTER;    
     std::string runtime; 
     error_count += get_block_s(runtime, n, "runtime", "");
-    append(vars, "SET_NODE_RUNTIME", runtime.empty()? "#": "");
-    append(vars, "NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
+    append(vars, prefix+"SET_NODE_RUNTIME", runtime.empty()? "#": "");
+    append(vars, prefix+"NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
     int scale, min_cpus, max_cpus, min_gpus, max_gpus;
     std::string min_memory, max_memory;
     error_count += get_block_s(min_memory, n, "min_memory", "");
@@ -454,36 +313,37 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     error_count += get_block_i(max_gpus, n, "max_gpu", 0);
     error_count += get_block_i(scale, n, "scale", 0);
 
-    append(vars, "NODE_SCALE", std::to_string(scale <= 0? 1: scale));
-    append(vars, "NODE_MIN_CPUS", std::to_string(min_cpus <= 0? 0: min_cpus));
-    append(vars, "NODE_MAX_CPUS", std::to_string(max_cpus <= 0? 0: max_cpus));
-    append(vars, "NODE_MIN_GPUS", std::to_string(min_gpus <= 0? 0: min_gpus));
-    append(vars, "NODE_MAX_GPUS", std::to_string(max_gpus <= 0? 0: max_gpus));
-    append(vars, "NODE_MIN_MEMORY", min_memory);
-    append(vars, "NODE_MAX_MEMORY", max_memory);
+    append(vars, prefix+"NODE_SCALE", std::to_string(scale <= 0? 1: scale));
+    append(vars, prefix+"NODE_MIN_CPUS", std::to_string(min_cpus <= 0? 0: min_cpus));
+    append(vars, prefix+"NODE_MAX_CPUS", std::to_string(max_cpus <= 0? 0: max_cpus));
+    append(vars, prefix+"NODE_MIN_GPUS", std::to_string(min_gpus <= 0? 0: min_gpus));
+    append(vars, prefix+"NODE_MAX_GPUS", std::to_string(max_gpus <= 0? 0: max_gpus));
+    append(vars, prefix+"NODE_MIN_MEMORY", min_memory);
+    append(vars, prefix+"NODE_MAX_MEMORY", max_memory);
 
-    append(vars, "NODE_HAVE_MIN_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0 
+    append(vars, prefix+"NODE_HAVE_MIN_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0 
             || !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
-    append(vars, "NODE_HAVE_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0? "": "#");
-    append(vars, "NODE_HAVE_MIN", !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
-    append(vars, "NODE_HAVE_MIN_MEMORY", !min_memory.empty()? "": "#");
-    append(vars, "NODE_HAVE_MAX_MEMORY", !max_memory.empty()? "": "#");
-    append(vars, "NODE_HAVE_MAX_CPUS", max_cpus > 0? "": "#");
-    append(vars, "NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
-    append(vars, "NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
-    append(vars, "NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
-    append(vars, "NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
+    append(vars, prefix+"NODE_HAVE_MAX", !max_memory.empty() || max_gpus > 0 || max_cpus > 0? "": "#");
+    append(vars, prefix+"NODE_HAVE_MIN", !min_memory.empty() || min_gpus > 0 || min_cpus > 0? "": "#");
+    append(vars, prefix+"NODE_HAVE_MIN_MEMORY", !min_memory.empty()? "": "#");
+    append(vars, prefix+"NODE_HAVE_MAX_MEMORY", !max_memory.empty()? "": "#");
+    append(vars, prefix+"NODE_HAVE_MAX_CPUS", max_cpus > 0? "": "#");
+    append(vars, prefix+"NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
+    append(vars, prefix+"NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
+    append(vars, prefix+"NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
+    append(vars, prefix+"NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
+    append(vars, prefix+"NODE_GROUP", to_lower(to_option(to_identifier(group(n)))));
     std::string endpoint, image_name;
     error_count += get_block_s(endpoint, n, "endpoint", "");
     error_count += get_block_s(image_name, n, "image", "");
-    append(vars, "NODE_ENDPOINT", endpoint);
+    append(vars, prefix+"NODE_ENDPOINT", endpoint);
     if(!image_name.empty() && image_name[0] == '/')
         image_name = path_join(default_repository, image_name.substr(1));
-    append(vars, "NODE_IMAGE", image_name);
-    append(vars, "EXTERN_NODE", image_name.empty()? "#": "");
+    append(vars, prefix+"NODE_IMAGE", image_name);
+    append(vars, prefix+"EXTERN_NODE", image_name.empty()? "#": "");
     if(!image_name.empty()) {
-        append(vars, "IMAGE_NAME", image_name);
-        append(vars, "IM_NODE_NAME", name(n));
+        append(vars, prefix+"IMAGE_NAME", image_name);
+        append(vars, prefix+"IM_NODE_NAME", name(n));
     }
 
     DEBUG_LEAVE;
@@ -571,16 +431,6 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         ports[n] = std::to_string(pv);
         append(local_vars, "NODE_PORT", std::to_string(pv));
         append(local_vars, "IMAGE_PORT", std::to_string(pv));
-        if(at(n).type != FTK_NODE)
-            continue;
-        append(local_vars, "MAIN_EP_ENVIRONMENT_NAME", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT");
-        std::string ep; 
-        error_count += get_block_s(ep, n, "endpoint", "");
-        if(ep.empty()) {
-            append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << "$"  << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT_DN:" << pv);
-        } else {
-            append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << ep);
-        }
     }
     int tmp_count = 0;
     for(int n: cc_nodes) {
@@ -618,6 +468,152 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
     vex::expand(out, template_docker_compose_yaml, vex::make_cmap(local_smap, global_smap));
     DEBUG_LEAVE;
     return error_count;
+}
+int flow_compiler::genc_k8s_conf(std::ostream &out) {
+    int error_count = 0;
+    DEBUG_ENTER;
+    std::set<int> cc_nodes; // all client nodes and containers
+    std::map<std::string, std::set<int>> groups; // per group node sets
+    for(int n: *this)
+        if((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER) {
+            cc_nodes.insert(n);
+            groups[group(n)].insert(n);
+        }
+
+    extern char const *template_kubernetes_yaml;
+    extern char const *template_kubernetes_group_yaml;
+
+    std::map<int, std::string> ports;
+    // grab all pre-defined ports
+    for(int n: cc_nodes) {
+        int port = 0;
+        error_count += get_block_i(port, n, "port", 0);
+        if(port != 0)
+            ports[n] = std::to_string(port);
+    }
+    // allocate ports for nodes without one
+    int c = 0;
+    for(int n: cc_nodes) if(!cot::contains(ports, n)) {
+        std::string image_name;
+        error_count += get_block_s(image_name, n, "image", "");
+        if(!image_name.empty()) {
+            while(cot::has_value(ports, std::to_string(base_port + ++c)));
+            ports[n] = std::to_string(base_port + c);
+        }
+    }
+    std::map<std::string, std::map<std::string, std::vector<std::string>>> g_group_vars;
+    std::map<std::string, std::vector<std::string>> alln_vars;
+    for(auto gp: groups) {
+        int group_scale = 1;
+        auto &group_vars = g_group_vars[gp.first];
+        for(int n: cc_nodes) {
+            std::string host; int scale;
+            if(cot::contains(gp.second, n)) {
+                host = "localhost"; 
+                error_count += get_block_i(scale, n, "scale", 0);
+                group_scale = std::max(scale, group_scale);
+            } else {
+                host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
+            }
+            if(gp.first != main_group_name) 
+                continue;
+    
+            std::string endpoint;
+            error_count += get_block_s(endpoint, n, "endpoint", "");
+
+            append(group_vars, "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
+            if(endpoint.empty()) 
+                append(group_vars, "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << ports[n]);
+            else 
+                append(group_vars, "MAIN_ENVIRONMENT_VALUE", endpoint);
+        }
+        append(group_vars, "GROUP_SCALE", std::to_string(group_scale));
+    }
+    for(auto group: groups) for(int n: group.second) {
+        std::string const &nn = name(n);
+        int blck = get_ne_block_node(n);
+        std::vector<std::string> buf;
+        std::vector<std::pair<std::string, std::string>> env;
+        auto &local_vars = g_group_vars[group.first];
+        error_count += get_environment(env, n, ports, true);
+        for(auto nv: env)
+            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
+
+        append(alln_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+        append(local_vars, "G_NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+        append(alln_vars, "NODE_PORT", ports[n]);
+        append(local_vars, "G_NODE_PORT", ports[n]);
+        append(alln_vars, "IMAGE_PORT", ports[n]);
+        error_count += node_info(n, alln_vars);
+        error_count += node_info(n, local_vars, "G_");
+
+        buf.clear();
+        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
+            std::map<std::string, std::string> minfo;
+            error_count += get_mount_info(minfo, m);
+            buf.push_back(sfmt() << "{name: scratch-" << to_option(minfo["name"]) << ", mountPath: " << c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
+            append(local_vars, "G_VOLUME_NAME", minfo["name"]);
+            append(local_vars, "G_VOLUME_LOCAL", minfo["local"]);
+            append(local_vars, "G_VOLUME_COS", minfo["url"]);
+            append(local_vars, "G_VOLUME_SECRET", minfo["secret"]);
+            append(local_vars, "G_VOLUME_PVC", minfo["pvc"]);
+            append(local_vars, "G_VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
+            append(local_vars, "G_VOLUME_ACCESS", minfo["access"]);
+            if(description.has(get_previous_sibling(n))) {
+                append(local_vars, "G_VOLUME_COMMENT", description(get_previous_sibling(n)));
+            } else {
+                append(local_vars, "G_VOLUME_COMMENT", "");
+            }
+        }
+        append(local_vars, "G_NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
+
+        std::vector<int> init_blcks;
+        int init_count = 0;
+        error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
+        for(int init_blck: init_blcks) {
+            buf.clear();
+            int command_value = 0;
+            error_count += get_block_value(command_value, init_blck, "command", false, {FTK_STRING});
+            if(command_value == 0) {
+                pcerr.AddWarning(main_file, at(init_blck), sfmt() << "ignoring \"init\" block without \"command\"");
+                continue;
+            }
+            buf.push_back(sfmt() << "command: [\"/bin/sh\", \"-c\", \"" << get_string(command_value) << "\"]");
+            int image_value = 0;
+            error_count += get_block_value(image_value, init_blck, "image", false, {FTK_STRING});
+            if(image_value == 0) 
+                buf.push_back("image: \"busybox:latest\"");
+            else 
+                buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
+            buf.push_back("securityContext: {privileged: true}");
+            buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
+            append(local_vars, "INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
+        }
+        DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
+        if(init_count > 0)
+            set(local_vars, "HAVE_INIT_CONTAINERS", "");
+    }
+    auto global_smap = vex::make_smap(global_vars);
+    auto local_smap = vex::make_smap(alln_vars);
+    auto gg_smap = vex::make_smap(g_group_vars[main_group_name]);
+    vex::expand(out, template_kubernetes_yaml, vex::make_cmap(gg_smap, local_smap, global_smap));
+    if(DEBUG_GENC) {
+        std::ofstream outg(output_filename("k8s-yaml-global.json"));
+        stru1::to_json(outg, global_vars);
+        std::ofstream outj(output_filename("k8s-yaml-local.json"));
+        stru1::to_json(outj, g_group_vars[main_group_name]);
+    }
+    for(auto const &g: groups) if(g.first != main_group_name) {
+        if(DEBUG_GENC) {
+            std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
+            stru1::to_json(outj, g_group_vars[g.first]);
+        }
+        auto gg_smap = vex::make_smap(g_group_vars[g.first]);
+        vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, local_smap, global_smap));
+    }
+
+    DEBUG_LEAVE;
+    return 0;
 }
 
 int flow_compiler::genc_deployment_driver(std::string const &deployment_script) {

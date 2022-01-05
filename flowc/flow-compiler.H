@@ -91,10 +91,6 @@ private:
     // Block ast-node flow graph by entry block ast-node
     // for each entry a list of sets of overlapping nodes
     std::map<int, std::vector<std::set<int>>> flow_graph;
-    // local vars for each group
-    std::map<std::string, var_store_t> group_vars;
-    // volume for each group
-    //std::map<std::string, std::set<std::string>> group_volumes;
     var_store_t global_vars;
     Descriptor const *input_dp;
     std::vector<fop> icode;
@@ -299,7 +295,7 @@ public:
     // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
     int genc_deployment_driver(std::string const &filename); 
     // Grab all deployment related  node information
-    int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars);
+    int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars, std::string const &prefix="");
     // Create environment for node <n>
     int get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port,  bool group_mode = false);
     
