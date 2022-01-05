@@ -7,16 +7,15 @@
 #
 
 export kd_PROJECT_NAME={{NAME}}
-{N:IM_NODE_NAME{export image_{{IM_NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{IM_NODE_NAME/id/upper}}_IMAGE-{{IMAGE_NAME}}}
-if [ ! -z "${{NAME/id/upper}}_{{IM_NODE_NAME/id/upper}}_TAG" ]
-then
-    export image_{{IM_NODE_NAME/id/upper}}=${image_{{IM_NODE_NAME/id/upper}}%:*}:${{{NAME/id/upper}}_{{IM_NODE_NAME/id/upper}}_TAG}
-fi
-}N}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
 {O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
-export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}}I}
+export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}
+export image_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_IMAGE-{{NODE_IMAGE}}}
+if [ ! -z "${{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG" ]
+then
+    export image_{{IM_NODE_NAME/id/upper}}=${image_{{NODE_NAME/id/upper}}%:*}:${{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG
+fi}I}
 }O}
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
 {G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}

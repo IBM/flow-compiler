@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{NAME}}-{{NODE_GROUP}}
+  name: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
   labels:
-    app: {{NAME}}-{{NODE_GROUP}}
-    flow-group: {{NAME}}
+    app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
+    flow-group: {{NAME/id/option/lower}}
 spec:
-  replicas: ${replicas_{{NAME/id/upper}}_{{NODE_GROUP/id/upper}}}
+  replicas: ${replicas_{{NAME/id/upper}}_{{G_NODE_GROUP/id/upper}}}
   selector:
     matchLabels:
-      app: {{NAME}}-{{NODE_GROUP}}
+      app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
   template:
     metadata:
       labels:
-        app: {{NAME}}-{{NODE_GROUP}}
-        flow-group: {{NAME}}
+        app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
+        flow-group: {{NAME/id/option/lower}}
     spec:
 {X:HAVE_IMAGE_PULL_SECRETS{
       imagePullSecrets:{{HAVE_IMAGE_PULL_SECRETS}}}X}
@@ -46,20 +46,21 @@ ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
           readOnly: false
 }W}
       containers:
-{N:NODE_NAME{
-{{EXTERN_NODE}}      - name: {{NODE_NAME/id/option}}
-{{EXTERN_NODE}}        image: "$image_{{NODE_NAME/id/upper}}"
-{{EXTERN_NODE}}        {{NODE_ENVIRONMENT}}
-{{EXTERN_NODE}}        {{NODE_MOUNTS}}
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}        resources:
-{{EXTERN_NODE}}{{NODE_HAVE_MIN}}          requests:
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}            memory: "{{NODE_MIN_MEMORY}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_CPUS}}            cpu: "{{NODE_MIN_CPUS}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{NODE_MIN_GPUS}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MAX}}          limis:
-{{EXTERN_NODE}}{{NODE_HAVE_MAX_MEMORY}}            memory: "{{NODE_MAX_MEMORY}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MAX_CPUS}}            cpu: "{{NODE_MAX_CPUS}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{NODE_MAX_GPUS}}"
+{N:G_NODE_NAME{{I?G_NODE_IMAGE{
+      - name: {{G_NODE_NAME/id/option}}
+        image: "$image_{{G_NODE_NAME/id/upper}}"
+        {{G_NODE_ENVIRONMENT}}
+        {{G_NODE_MOUNTS}}
+{{G_NODE_HAVE_MIN_MAX}}        resources:
+{{G_NODE_HAVE_MIN}}          requests:
+{{G_NODE_HAVE_MIN_MEMORY}}            memory: "{{G_NODE_MIN_MEMORY}}"
+{{G_NODE_HAVE_MIN_CPUS}}            cpu: "{{G_NODE_MIN_CPUS}}"
+{{G_NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{G_NODE_MIN_GPUS}}"
+{{G_NODE_HAVE_MAX}}          limits:
+{{G_NODE_HAVE_MAX_MEMORY}}            memory: "{{G_NODE_MAX_MEMORY}}"
+{{G_NODE_HAVE_MAX_CPUS}}            cpu: "{{G_NODE_MAX_CPUS}}"
+{{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
+}I}
 }N}
 {V:HAVE_VOLUMES{
       volumes:{{HAVE_VOLUMES}}
@@ -78,16 +79,16 @@ ${{{VOLUME_NAME/id/upper}}_COS}            secretName: ${{{VOLUME_NAME/id/upper}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{NAME}}-{{NODE_GROUP}}
+  name: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
   labels:
-    app: {{NAME}}-{{NODE_GROUP}}
-    flow-group: {{NAME}}
+    app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
+    flow-group: {{NAME/id/option/lower}}
 spec:
   ports:
-{N:NODE_NAME{
-{{EXTERN_NODE}}  - port: {{NODE_PORT}}
-{{EXTERN_NODE}}    protocol: TCP
-{{EXTERN_NODE}}    name: {{NODE_NAME/id/option/lower}}-port
-}N}
+{N:G_NODE_NAME{{I?G_NODE_IMAGE{
+  - port: {{G_NODE_PORT}}
+    protocol: TCP
+    name: {{G_NODE_NAME/id/option/lower}}-port
+}I}}N}
   selector:
-    app: {{NAME}}-{{NODE_GROUP}}
+    app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}

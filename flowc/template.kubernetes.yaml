@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{NAME}}-{{MAIN_POD}}
+  name: {{NAME/id/option/lower}}-{{MAIN_POD/id/option/lower}}
   labels:
-    app: {{NAME}}
-    flow-group: {{NAME}}
+    app: {{NAME/id/option/lower}}
+    flow-group: {{NAME/id/option/lower}}
 spec:
   replicas: ${replicas_{{NAME/id/upper}}}
   selector:
     matchLabels:
-      app: {{NAME}}
+      app: {{NAME/id/option/lower}}
   template:
     metadata:
       labels:
-        app: {{NAME}}
-        flow-group: {{NAME}}
+        app: {{NAME/id/option/lower}}
+        flow-group: {{NAME/id/option/lower}}
     spec:
 {X:HAVE_IMAGE_PULL_SECRETS{
       imagePullSecrets:{{HAVE_IMAGE_PULL_SECRETS}}}X}
@@ -55,32 +55,37 @@ ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
           - name: rest
             containerPort: {{REST_PORT}}
         env:
-          - name: {{NAME/id/upper}}_REST_PORT
+          - name: {{NAME/id/upper}}_REST_LISTENING_PORTS
             value: "{{REST_PORT}}"
-{K:MAIN_ENVIRONMENT_KEY{
-          - name: {{MAIN_ENVIRONMENT_KEY}}
-            value: "{{MAIN_ENVIRONMENT_VALUE}}"
-}K}
+{N:NODE_NAME{{E?NODE_ENDPOINT{
+          - name: {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT
+            value: "{{NODE_ENDPOINT}}"
+}E}}N}
+{N:NODE_NAME{{E?NODE_IMAGE{
+          - name: {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT
+            value: "{{NAME/id/option/lower}}-{{NODE_GROUP/id/option/lower}}:{{NODE_PORT}}"
+}E}}N}
 $enable_custom_app        volumeMounts:
 $enable_custom_app$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}
 $enable_custom_app$htdocs_COS        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_custom_app          mountPath: "/home/worker/pr/htdocs"
 $enable_custom_app          readOnly: true
 
-{N:NODE_NAME{
-{{EXTERN_NODE}}      - name: {{NODE_NAME/id/option}}
-{{EXTERN_NODE}}        image: "$image_{{NODE_NAME/id/upper}}"
-{{EXTERN_NODE}}        {{NODE_ENVIRONMENT}}
-{{EXTERN_NODE}}        {{NODE_MOUNTS}}
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_MAX}}        resources:
-{{EXTERN_NODE}}{{NODE_HAVE_MIN}}          requests:
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_MEMORY}}            memory: "{{NODE_MIN_MEMORY}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_CPUS}}            cpu: "{{NODE_MIN_CPUS}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{NODE_MIN_GPUS}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MAX}}          limis:
-{{EXTERN_NODE}}{{NODE_HAVE_MAX_MEMORY}}            memory: "{{NODE_MAX_MEMORY}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MAX_CPUS}}            cpu: "{{NODE_MAX_CPUS}}"
-{{EXTERN_NODE}}{{NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{NODE_MAX_GPUS}}"
+{N:G_NODE_NAME{{I?G_NODE_IMAGE{
+      - name: {{G_NODE_NAME/id/option}}
+        image: "$image_{{G_NODE_NAME/id/upper}}"
+        {{G_NODE_ENVIRONMENT}}
+        {{G_NODE_MOUNTS}}
+{{G_NODE_HAVE_MIN_MAX}}        resources:
+{{G_NODE_HAVE_MIN}}          requests:
+{{G_NODE_HAVE_MIN_MEMORY}}            memory: "{{G_NODE_MIN_MEMORY}}"
+{{G_NODE_HAVE_MIN_CPUS}}            cpu: "{{G_NODE_MIN_CPUS}}"
+{{G_NODE_HAVE_MIN_GPUS}}            nvidia.com/gpu: "{{G_NODE_MIN_GPUS}}"
+{{G_NODE_HAVE_MAX}}          limits:
+{{G_NODE_HAVE_MAX_MEMORY}}            memory: "{{G_NODE_MAX_MEMORY}}"
+{{G_NODE_HAVE_MAX_CPUS}}            cpu: "{{G_NODE_MAX_CPUS}}"
+{{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
+}I}
 }N}
 
 $enable_main_pod_volumes      volumes:
@@ -108,10 +113,10 @@ ${{{VOLUME_NAME/id/upper}}_COS}          emptyDir: {}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{NAME}}
+  name: {{NAME/id/option/lower}}-{{MAIN_GROUP/id/option/lower}}
   labels:
-    flow-group: {{NAME}}
-    app: {{NAME}}
+    flow-group: {{NAME/id/option/lower}}
+    app: {{NAME/id/option/lower}}
 spec:
   ports:
   - port: {{MAIN_PORT}}
@@ -121,4 +126,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: {{NAME}}
+    app: {{NAME/id/option/lower}}
