@@ -344,15 +344,26 @@ then
    export enable_main_pod_volumes=
 fi
 
-
-if [ $# -eq 0 \
-    -o "$1" == "up" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
-    -o "$1" == "provision" -a $have_ALL_VOLUME_DIRECTORIES -eq 0  \
-    -o "$1" == "run" -a $have_ALL_VOLUME_DIRECTORIES -eq 0 \
-    -o "$1" != "help" -a "$1" != "up" -a "$1" != "down" -a "$1" != "config" -a "$1" != "logs" -a "$1" != "provision" -a "$1" != "run" -a "$1" != "deploy" -a "$1" != "show" ]
+case "$1" in
+    up|provision|run)
+        [ $have_ALL_VOLUME_DIRECTORIES -ne 0 ]
+        rc=$?
+        ;;
+    down|config|logs|deploy|show|config-debug)
+        rc=0
+        ;;
+    help|"")
+        rc=1
+        ;;
+    *)
+        echo "Invalid command '$1'"
+        echo ""
+        rc=1
+esac
+if [ $rc -ne 0 ]
 then
     dd_display_help
-    exit 1
+    exit $rc
 fi
 provision() {
 {A:HAVE_COS{{{HAVE_COS}}
@@ -370,110 +381,118 @@ case "$1" in
         exit 0
         ;;
     provision)
-        if [ -z "$use_COMPOSE" ]
-        then
-            provision
-            exit $?
-        else 
-            echo "provision is only available in Docker Compose mode"
-            exit 1
-        fi
-        ;;
-    config)
-        if [ -z "$use_COMPOSE" ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" config
-            exit $?
-        fi
-        if [ -z "$use_K8S" ]
-        then
-            echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
-            exit $?
-        fi
-        if [ -z "$use_SWARM" ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
-            exit $?
-        fi
-        ;;
-    down)
-        if [ -z "$use_COMPOSE" ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" down -v
-            exit $?
-        fi
-        if [ -z "$use_SWARM" ]
-        then 
-            docker stack delete "$kd_PROJECT_NAME"
-            exit $?
-        fi
-        if [ -z "$use_K8S" ]
-        then 
-            $cur_KUBECTL delete service {{NAME}}
-{S:GROUP{   $cur_KUBECTL delete service {{NAME}}-{{GROUP}}
-}S}
-            $cur_KUBECTL delete deploy {{NAME}}-{{MAIN_POD}}
-{G:GROUP{   $cur_KUBECTL delete deploy {{NAME}}-{{GROUP}}
-}G}
-            exit $?
-        fi
-        ;;
-    logs)
-        if [ -z "$use_COMPOSE" ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
-            exit $?
-        else
-            echo "logs are only available in Docker Compose mode"
-            exit 1
-        fi
-        ;;
-   deploy|up)
-        if [ -z "$use_COMPOSE" ]
-        then
-            [ $provision_ENABLED -eq 0 ] || provision || exit 1
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up -d
-            rc=$?
-        fi
-        if [ -z "$use_SWARM" ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
-            rc=$?
-        fi
-        if [ -z "$use_K8S" ]
-        then
-            echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
-            rc=$?
-        fi
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                provision 
+                exit $?
+                ;;
+            *)
+                echo "provision is only available in Docker Compose mode"
+                exit 1
+                ;;
+        esac
         ;;
     run)
-        if [ -z "$use_COMPOSE" ]
-        then
-            [ $provision_ENABLED -eq 0 ] || provision || exit 1
-            echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up 
-            rc=$?
-        else
-            echo "run is only avaialble in Docker Compose mode"
-            exit 1
-        fi
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                [ $provision_ENABLED -eq 0 ] || provision || exit 1
+                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up 
+                rc=$?
+                ;;
+            *)
+                echo "run is only avaialble in Docker Compose mode"
+                exit 1
+                ;;
+        esac
+        ;;
+    logs)
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" logs -f $docker_compose_TIMESTAMPS
+                exit $?
+                ;;
+            *)
+                echo "logs are avaialble only in Docker Compose mode"
+                exit 1
+                ;;
+        esac
+        ;;
+    config)
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" config
+                ;;
+            "#::#")
+                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+                ;;
+            "#:#:")
+                echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+                ;;
+        esac
+        exit $?
+        ;;
+    config-debug)
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                echo "$docker_COMPOSE_YAML" | envsubst
+                ;;
+            "#::#")
+                echo "$kubernetes_YAML" | envsubst 
+                ;;
+            "#:#:")
+                echo "$docker_COMPOSE_YAML" | envsubst
+                ;;
+        esac
+        exit $?
+        ;;
+   deploy|up)
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                [ $provision_ENABLED -eq 0 ] || provision || exit 1
+                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up -d
+                ;;
+            "#::#")
+                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+                ;;
+            "#:#:")
+                echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
+                ;;
+        esac
+        rc=$?
+        ;;
+    down)
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" down -v
+                ;;
+            "#::#")
+                $cur_KUBECTL delete service {{NAME}}
+{S:GROUP{           $cur_KUBECTL delete service {{NAME}}-{{GROUP}}
+}S}
+                $cur_KUBECTL delete deploy {{NAME}}-{{MAIN_POD}}
+{G:GROUP{           $cur_KUBECTL delete deploy {{NAME}}-{{GROUP}}
+}G}
+                ;;
+            "#:#:")
+                docker stack delete "$kd_PROJECT_NAME"
+                ;;
+        esac
+        exit $?
         ;;
     show)
-        if [ -z "$use_K8S" ]
-        then
-            $cur_KUBECTL get po -l "flow-group={{NAME}}" &&\
-            $cur_KUBECTL get service -l "flow-group={{NAME}}"
-            exit $?
-        fi
-        if [ -z "$use_SWARM" ]
-        then
-            docker stack ls "$kd_PROJECT_NAME"
-            exit $?
-        fi
-        if [ -z "$use_COMPOSE" ]
-        then
-            docker ps -a | grep "$kd_PROJECT_NAME"
-            exit $?
-        fi
+        case "$use_COMPOSE:$use_K8S:$use_SWARM" in
+            ":#:#")
+                docker ps -a | grep "$kd_PROJECT_NAME"
+                ;;
+            "#::#")
+                $cur_KUBECTL get po -l "flow-group={{NAME}}" &&\
+                $cur_KUBECTL get service -l "flow-group={{NAME}}"
+                ;;
+            "#:#:")
+                docker stack ls "$kd_PROJECT_NAME"
+                ;;
+        esac
+        exit $?
         ;;
 esac
 if [ $rc -eq 0 -a "$1" == "up" ]
