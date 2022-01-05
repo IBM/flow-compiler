@@ -15,10 +15,9 @@ fi
 }N}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
-{O:MAIN_EP_ENVIRONMENT_NAME{export {{MAIN_EP_ENVIRONMENT_NAME}}_DN={{MAIN_DN_ENVIRONMENT_VALUE}}
+{O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
+export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}}I}
 }O}
-{N:NODE_NAME{export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}
-}N}
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
 {G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
@@ -223,13 +222,13 @@ case "$1" in
     export use_K8S="#"
     export use_SWARM=
     export use_MODE=swarm
-{O:MAIN_EP_ENVIRONMENT_NAME{    if [ $scale_{{NODE_NAME/id/upper}} -gt 1 ]
+{O:NODE_NAME{{I?NODE_IMAGE{    if [ $scale_{{NODE_NAME/id/upper}} -gt 1 ]
     then
-        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="@tasks.${kd_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
+        export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN="@tasks.${kd_PROJECT_NAME}_${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN}"
     else
-        export {{MAIN_EP_ENVIRONMENT_NAME}}_DN="tasks.${kd_PROJECT_NAME}_{{MAIN_DN_ENVIRONMENT_VALUE}}"
+        export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN="tasks.${kd_PROJECT_NAME}_${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN}"
     fi
-}O}
+}I}}O}
     shift
     ;;
     -K|--kubernetes)

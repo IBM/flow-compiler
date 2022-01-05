@@ -573,15 +573,13 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "IMAGE_PORT", std::to_string(pv));
         if(at(n).type != FTK_NODE)
             continue;
-        append(local_vars, "MAIN_EP_ENVIRONMENT_NAME",  sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT");
+        append(local_vars, "MAIN_EP_ENVIRONMENT_NAME", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT");
         std::string ep; 
         error_count += get_block_s(ep, n, "endpoint", "");
         if(ep.empty()) {
             append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << "$"  << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_"  << to_upper(to_identifier(nn)) << "_ENDPOINT_DN:" << pv);
-            append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", sfmt() << to_lower(to_option(to_identifier(nn))));
         } else {
             append(local_vars, "MAIN_EP_ENVIRONMENT_VALUE", sfmt() << ep);
-            append(local_vars, "MAIN_DN_ENVIRONMENT_VALUE", "");
         }
     }
     int tmp_count = 0;
