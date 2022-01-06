@@ -10,7 +10,7 @@ export kd_PROJECT_NAME={{NAME}}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
 {O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
-export scale_{{NODE_NAME/id/upper}}={{NODE_SCALE}}
+export scale_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_REPLICAS-{{NODE_SCALE}}}
 export image_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_IMAGE-{{NODE_IMAGE}}}
 if [ ! -z "${{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG" ]
 then
@@ -18,7 +18,7 @@ then
 fi}I}
 }O}
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
-{G:GROUP{export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}=${{{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
+{G:GROUP{export replicas_{{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}=${{{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
 {A:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_LOCAL}}}"
 export {{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
@@ -117,13 +117,19 @@ echo "        Set the URL to the remote resource for {{VOLUME_NAME}}, default is
 echo ""
 }O}
 echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"
-echo "        Number of replicas for the main pod [{{MAIN_POD}}]. The default is $replicas_{{NAME/id/upper}}."
+echo "        Number of replicas for the main pod [{{MAIN_POD}}] in Kubernetes mode or for the aggregator image in Docker Swarm mode."
+echo "        The default is $replicas_{{NAME/id/upper}}."
 echo ""
 {G:GROUP{
-echo "    --{{GROUP}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_{{GROUP/id/upper}}_REPLICAS)"
-echo "        Number or replicas for pod \"{{GROUP}}\" [{{GROUP_NODES}}]. The default is $replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}."
+echo "    --pod-{{GROUP}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}_REPLICAS)"
+echo "        Number or replicas for pod \"{{GROUP}}\". The default is $replicas_{{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}."
 echo ""
 }G}
+{O:NODE_NAME{{I?NODE_IMAGE{
+echo "    --node-{{NODE_NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_REPLICAS)"
+echo "       Number of replicas for node \"{{NODE_NAME}}\" in Docker Swarm mode. The default is $scale_{{NODE_NAME/id/upper}}."
+echo ""
+}I}}O}
 echo "    --tag, --image  <NODE-NAME=STRING>"
 echo "       Force the image name or tag for node NODE_NAME to STRING. The changes are applied in the order given in the commans line."
 echo "       The valid node names are:{N:IM_NODE_NAME{ {{IM_NODE_NAME/id/option/lower}}}N}."
@@ -168,12 +174,19 @@ case "$1" in
     shift
     ;;
 {G:GROUP{
-    --{{GROUP}}-replicas)
-    export replicas_{{NAME/id/upper}}_{{GROUP/id/upper}}="$2"
+    --pod-{{GROUP}}-replicas)
+    export replicas_{{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}="$2"
     shift
     shift
     ;;
 }G}
+{O:NODE_NAME{{I?NODE_IMAGE{
+    --node-{{NODE_NAME}}-replicas)
+    export scale_{{NODE_NAME/id/upper}}="$2"
+    shift
+    shift
+    ;; 
+}I}}O}
     --htdocs)
     if [ "${2:0:1}" == "/" ] 
     then
@@ -464,15 +477,15 @@ case "$1" in
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" down -v
                 ;;
             "#::#")
-                $cur_KUBECTL delete service {{NAME}}
-{S:GROUP{           $cur_KUBECTL delete service {{NAME}}-{{GROUP}}
+                $cur_KUBECTL delete service {{NAME/id/option/lower}}
+{S:GROUP{           $cur_KUBECTL delete service {{NAME/id/option/lower}}-{{GROUP/id/option/lower}}
 }S}
-                $cur_KUBECTL delete deploy {{NAME}}-{{MAIN_POD}}
-{G:GROUP{           $cur_KUBECTL delete deploy {{NAME}}-{{GROUP}}
+                $cur_KUBECTL delete deploy {{NAME/id/option/lower}}-{{MAIN_POD/id/option/lower}}
+{G:GROUP{           $cur_KUBECTL delete deploy {{NAME/id/option/lower}}-{{GROUP/id/option/lower}}
 }G}
                 ;;
             "#:#:")
-                docker stack delete "$kd_PROJECT_NAME"
+                docker stack down "$kd_PROJECT_NAME"
                 ;;
         esac
         exit $?
@@ -487,7 +500,7 @@ case "$1" in
                 $cur_KUBECTL get service -l "flow-group={{NAME}}"
                 ;;
             "#:#:")
-                docker stack ls "$kd_PROJECT_NAME"
+                docker stack ps "$kd_PROJECT_NAME"
                 ;;
         esac
         exit $?
@@ -500,7 +513,7 @@ then
 fi
 if [ -z "$use_SWARM" ] 
 then
-    docker stack ls "$kd_PROJECT_NAME"
+    docker stack ps "$kd_PROJECT_NAME"
 fi
 if [ -z "$use_K8S" ] 
 then

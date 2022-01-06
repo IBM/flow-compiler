@@ -13,6 +13,8 @@ services:
 $enable_custom_app    volumes: 
 $enable_custom_app      - ${{NAME/id/upper}}_HTDOCS:/home/worker/{{NAME}}/app:ro
     command: ["/home/worker/{{NAME}}/{{NAME}}-server", "{{MAIN_PORT}}"]
+$use_SWARM    deploy:
+$use_SWARM        replicas: $replicas_{{NAME/id/upper}}
 {N:NODE_NAME{{I?NODE_IMAGE{
   {{NODE_NAME}}:
     image: "$image_{{NODE_NAME/id/upper}}"
@@ -25,7 +27,7 @@ $default_RUNTIME{{SET_NODE_RUNTIME}}    runtime: {{NODE_RUNTIME}}
 $use_SWARM    deploy:
 $use_SWARM        endpoint_mode: dnsrr
 $use_SWARM        replicas: $scale_{{NODE_NAME/id/upper}}
-{{NODE_HAVE_MIN_MAX}}$use_SWARM            resources:
+{{NODE_HAVE_MIN_MAX}}$use_SWARM        resources:
 {{NODE_HAVE_MIN}}$use_SWARM                reservations:
 {{NODE_HAVE_MIN_MEMORY}}$use_SWARM                    memory: {{NODE_MIN_MEMORY}}
 {{NODE_HAVE_MIN_CPUS}}$use_SWARM                    cpus: {{NODE_MIN_CPUS}}
