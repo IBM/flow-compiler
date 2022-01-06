@@ -296,6 +296,66 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
     return error_count;
 }
+int flow_compiler::group_info(int gn, std::map<std::string, std::vector<std::string>> &vars, std::string const &prefix) {
+    int error_count = 0;
+    DEBUG_ENTER;    
+    if(gn <= 0) {
+        std::map<std::string, int> fgn;
+        for(int n: *this)
+            if((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER) {
+                if(!cot::contains(fgn, group(n)))
+                    fgn[group(n)] = n;
+            }
+         for(auto g: fgn) if(g.first != main_group_name || gn < 0)
+             error_count += group_info(g.second, vars, prefix);
+    } else {
+        /*
+        for(auto gp: groups) {
+            for(int n: cc_nodes) {
+                std::string host; int scale;
+                if(cot::contains(gp.second, n)) {
+                    host = "localhost"; 
+                    error_count += get_block_i(scale, n, "scale", 0);
+                    group_scale = std::max(scale, group_scale);
+                } else {
+                    host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
+                }
+                if(gp.first != main_group_name) 
+                    continue;
+
+                std::string endpoint;
+                error_count += get_block_s(endpoint, n, "endpoint", "");
+
+                append(group_vars, "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
+                if(endpoint.empty()) 
+                    append(group_vars, "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << ports[n]);
+                else 
+                    append(group_vars, "MAIN_ENVIRONMENT_VALUE", endpoint);
+            }
+            append(group_vars, "G_SCALE", std::to_string(group_scale));
+            append(alln_vars, "GROUP", gp.first);
+            append(alln_vars, "GROUP_SCALE", std::to_string(group_scale));
+        }
+        */
+        append(vars, prefix+"GROUP", group(gn));
+        int group_scale = 1;
+        for(int n: *this)
+            if(((at(n).type == FTK_NODE && method_descriptor(n) != nullptr) || at(n).type == FTK_CONTAINER) && group(n) == group(gn)) {
+                // grab scale from nodes with image or endpoint with localhost, but not localhost ips
+                std::string endpoint, image;
+                error_count += get_block_s(endpoint, n, "endpoint", "") 
+                    + get_block_s(image, n, "image", "");
+                if(!image.empty() || endpoint.empty() || stru1::starts_with("localhost:", endpoint)) {
+                    int scale;
+                    error_count += get_block_i(scale, n, "scale", 0);
+                    group_scale = std::max(scale, group_scale);
+                }
+            }
+        append(vars, prefix+"GROUP_SCALE", std::to_string(group_scale));
+    }
+    DEBUG_LEAVE;
+    return error_count;
+}
 int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::string>> &vars, std::string const &prefix) {
     int error_count = 0;
     DEBUG_ENTER;    
@@ -503,32 +563,6 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
     }
     std::map<std::string, std::map<std::string, std::vector<std::string>>> g_group_vars;
     std::map<std::string, std::vector<std::string>> alln_vars;
-    for(auto gp: groups) {
-        int group_scale = 1;
-        auto &group_vars = g_group_vars[gp.first];
-        for(int n: cc_nodes) {
-            std::string host; int scale;
-            if(cot::contains(gp.second, n)) {
-                host = "localhost"; 
-                error_count += get_block_i(scale, n, "scale", 0);
-                group_scale = std::max(scale, group_scale);
-            } else {
-                host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
-            }
-            if(gp.first != main_group_name) 
-                continue;
-    
-            std::string endpoint;
-            error_count += get_block_s(endpoint, n, "endpoint", "");
-
-            append(group_vars, "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
-            if(endpoint.empty()) 
-                append(group_vars, "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << ports[n]);
-            else 
-                append(group_vars, "MAIN_ENVIRONMENT_VALUE", endpoint);
-        }
-        append(group_vars, "GROUP_SCALE", std::to_string(group_scale));
-    }
     for(auto group: groups) for(int n: group.second) {
         std::string const &nn = name(n);
         int blck = get_ne_block_node(n);
@@ -621,6 +655,7 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     DEBUG_ENTER;
     OFSTREAM_SE(out, deployment_script);
     decltype(global_vars) local_vars;
+    error_count += group_info(0, local_vars);
 
     std::ostringstream yaml;
     error_count += genc_dcs_conf(yaml, local_vars);
