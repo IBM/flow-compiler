@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{NAME/id/option/lower}}-{{MAIN_POD/id/option/lower}}
+  name: {{NAME/id/option/lower}}
   labels:
     app: {{NAME/id/option/lower}}
     flow-group: {{NAME/id/option/lower}}
@@ -113,7 +113,7 @@ ${{{VOLUME_NAME/id/upper}}_COS}          emptyDir: {}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{NAME/id/option/lower}}-{{MAIN_GROUP/id/option/lower}}
+  name: {{NAME/id/option/lower}}
   labels:
     flow-group: {{NAME/id/option/lower}}
     app: {{NAME/id/option/lower}}

@@ -7,6 +7,7 @@
 #
 
 export kd_PROJECT_NAME={{NAME}}
+export cur_KUBECTL=${KUBECTL-kubectl}
 {O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
 }O}
 {O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
@@ -117,7 +118,7 @@ echo "        Set the URL to the remote resource for {{VOLUME_NAME}}, default is
 echo ""
 }O}
 echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"
-echo "        Number of replicas for the main pod [{{MAIN_POD}}] in Kubernetes mode or for the aggregator image in Docker Swarm mode."
+echo "        Number of replicas for the main pod in Kubernetes mode or for the aggregator image in Docker Swarm mode."
 echo "        The default is $replicas_{{NAME/id/upper}}."
 echo ""
 {G:GROUP{
@@ -463,7 +464,7 @@ case "$1" in
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up -d
                 ;;
             "#::#")
-                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$' | kubectl create -f -
+                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$' | $cur_KUBECTL create -f -
                 ;;
             "#:#:")
                 echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
@@ -480,7 +481,7 @@ case "$1" in
                 $cur_KUBECTL delete service {{NAME/id/option/lower}}
 {S:GROUP{           $cur_KUBECTL delete service {{NAME/id/option/lower}}-{{GROUP/id/option/lower}}
 }S}
-                $cur_KUBECTL delete deploy {{NAME/id/option/lower}}-{{MAIN_POD/id/option/lower}}
+                $cur_KUBECTL delete deploy {{NAME/id/option/lower}}
 {G:GROUP{           $cur_KUBECTL delete deploy {{NAME/id/option/lower}}-{{GROUP/id/option/lower}}
 }G}
                 ;;
