@@ -7,7 +7,7 @@ metadata:
     app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
     flow-group: {{NAME/id/option/lower}}
 spec:
-  replicas: ${replicas_{{NAME/id/upper}}_{{G_NODE_GROUP/id/upper}}}
+  replicas: ${replicas_{{NAME/id/upper}}_GROUP_{{G_NODE_GROUP/id/upper}}}
   selector:
     matchLabels:
       app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
