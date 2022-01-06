@@ -463,7 +463,7 @@ case "$1" in
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up -d
                 ;;
             "#::#")
-                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$' | kubectl create -f -
                 ;;
             "#:#:")
                 echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
