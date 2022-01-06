@@ -522,10 +522,10 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         std::ofstream outj(output_filename("dc-yaml-local.json"));
         stru1::to_json(outj, local_vars);
     }
-    extern char const *template_docker_compose_yaml;
+    extern char const *template_docker_yaml;
     auto local_smap = vex::make_smap(local_vars);
     auto global_smap = vex::make_smap(global_vars);
-    vex::expand(out, template_docker_compose_yaml, vex::make_cmap(local_smap, global_smap));
+    vex::expand(out, template_docker_yaml, vex::make_cmap(local_smap, global_smap));
     DEBUG_LEAVE;
     return error_count;
 }
