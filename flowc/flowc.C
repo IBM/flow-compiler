@@ -281,15 +281,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     /*******************************************************************
      * Set global level defines
      */
-    clear(global_vars, "HAVE_DEFN");
-    for(int i: *this) if(at(i).type == FTK_DEFINE) {
-        auto &defn = at(i);
-        append(global_vars, "DEFN", get_id(defn.children[0]));
-        append(global_vars, "DEFV", get_value(defn.children[1]));
-        append(global_vars, "DEFD", description(defn.children[0]));
-        append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
-        set(global_vars, "HAVE_DEFN", "");
-    }
+    error_count += set_def_vars(global_vars);
     auto referenced_nodes = get_all_referenced_nodes();
 
     /*******************************************************************

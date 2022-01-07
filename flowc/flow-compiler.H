@@ -294,11 +294,19 @@ public:
     int genc_dcs_conf(std::ostream &out, std::map<std::string, std::vector<std::string>> &local_vars);
     // Bash driver for deploying services - include both Kubernetes and Docker deployment configuration files.
     int genc_deployment_driver(std::string const &filename); 
+    // Create environment for node <n>
+    int get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port,  bool group_mode = false);
+    
+    // Set code generation variables - all return the number of errors generated
+    // Entry related info
+    int set_entry_vars(decltype(global_vars) &vars);
+    int set_cli_node_vars(decltype(global_vars) &vars);
+    int set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node);
     // Grab all deployment vars related to the node or group
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars, std::string const &prefix="");
     int group_info(int node, std::map<std::string, std::vector<std::string>> &local_vars, std::string const &prefix="");
-    // Create environment for node <n>
-    int get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port,  bool group_mode = false);
+    // Defines values
+    int set_def_vars(decltype(global_vars) &vars);
     
     // Webapp interface
     int genc_www();
@@ -308,11 +316,6 @@ public:
     int genc_makefile(std::string const &filename);
     int genc_dockerfile(std::string const &orchestrator_name);
 
-    // Set code generation variables - all return the number of errors generated
-    // Entry related info
-    int set_entry_vars(decltype(global_vars) &vars);
-    int set_cli_node_vars(decltype(global_vars) &vars);
-    int set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node);
 
     // Main call sequence
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);

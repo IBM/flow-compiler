@@ -349,3 +349,26 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     DEBUG_LEAVE;
     return error_count;
 }
+int flow_compiler::set_def_vars(decltype(global_vars) &vars) { 
+    int error_count = 0;
+    DEBUG_ENTER;    
+    clear(global_vars, "HAVE_DEFN");
+    int defn_count = 0;
+    for(int i: *this) if(at(i).type == FTK_DEFINE) {
+        auto &defn = at(i);
+        if(refcount(defn.children[1]) > 0) {
+            append(global_vars, "DEFN", get_id(defn.children[0]));
+            append(global_vars, "DEFV", get_value(defn.children[1]));
+            append(global_vars, "DEFD", description(defn.children[0]));
+            append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
+            set(global_vars, "HAVE_DEFN", "");
+            ++defn_count;
+        } else {
+            pcerr.AddWarning(main_file, defn, sfmt() << "ignoring unreferenced variable \"" << get_id(defn.children[0]) <<"\"");
+        }
+    }
+    if(defn_count)
+        set(global_vars, "DEFN_COUNT", std::to_string(defn_count));
+    DEBUG_LEAVE;
+    return error_count;
+}
