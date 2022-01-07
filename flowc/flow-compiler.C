@@ -753,7 +753,7 @@ int flow_compiler::compile_defines() {
     for(int n: *this) {
         auto const &stmt = at(n);
         switch(stmt.type) {
-            case FTK_DEFINE: {
+            case FTK_OPTION: {
                 std::string statement = get_id(stmt.children[0]);
                 if(statement == "package") {
                     std::string package_name;
