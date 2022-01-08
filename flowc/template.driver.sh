@@ -378,6 +378,16 @@ case "$1" in
         ;;
     down|config|logs|deploy|show|config-debug)
         rc=0
+{F:EFR_FILENAME{        if [ -r "$flowc_tmp_FN{{EFR_ID}}" ]
+        then
+            export flowc_tmp_FILE{{EFR_ID}}="$(cat "$flowc_tmp_FN{{EFR_ID}}")"
+        else
+            echo "$flowc_tmp_FN{{EFR_ID}}: cannot read file"
+            rc=1
+        fi
+}F}
+{A?EFR_COUNT{        [ $rc -eq 0 ] || exit 1
+}A}
         ;;
     help|"")
         rc=1
@@ -402,24 +412,6 @@ provision() {
 }O}
     return 0
 }
-{A?EFR_COUNT{
-case "$1" in
-    run|config|config-debug|deploy|up)
-        rc=0
-{F:EFR_FILENAME{        if [ -r "$flowc_tmp_FN{{EFR_ID}}" ]
-        then
-            export flowc_tmp_FILE{{EFR_ID}}="$(cat "$flowc_tmp_FN{{EFR_ID}}")"
-        else
-            echo "$flowc_tmp_FN{{EFR_ID}}: cannot read file"
-            rc=1
-        fi
-}F}
-        [ $rc -eq 0 ] || exit 1
-    ;; 
-    *)
-    ;;
-esac
-}A}
 case "$1" in
     help)
         dd_display_help
