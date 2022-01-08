@@ -302,7 +302,8 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     std::string runtime; 
     error_count += get_block_s(runtime, n, "runtime", "");
     append(vars, prefix+"SET_NODE_RUNTIME", runtime.empty()? "#": "");
-    append(vars, prefix+"NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
+    append(vars, prefix+"NODE_RUNTIME", runtime);
+    //append(vars, prefix+"NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
     int scale, min_cpus, max_cpus, min_gpus, max_gpus;
     std::string min_memory, max_memory;
     error_count += get_block_s(min_memory, n, "min_memory", "");
@@ -352,23 +353,47 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
 int flow_compiler::set_def_vars(decltype(global_vars) &vars) { 
     int error_count = 0;
     DEBUG_ENTER;    
-    clear(global_vars, "HAVE_DEFN");
+    // Global definitions
+    clear(vars, "HAVE_DEFN");
+    clear(vars, "DEFN_COUNT");
     int defn_count = 0;
     for(int i: *this) if(at(i).type == FTK_DEFINE) {
         auto &defn = at(i);
         if(refcount(defn.children[1]) > 0) {
-            append(global_vars, "DEFN", get_id(defn.children[0]));
-            append(global_vars, "DEFV", get_value(defn.children[1]));
-            append(global_vars, "DEFD", description(defn.children[0]));
-            append(global_vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
-            set(global_vars, "HAVE_DEFN", "");
+            append(vars, "DEFN", get_id(defn.children[0]));
+            append(vars, "DEFV", get_value(defn.children[1]));
+            append(vars, "DEFD", description(defn.children[0]));
+            append(vars, "DEFT", at(defn.children[1]).type == FTK_STRING? "STRING": (at(defn.children[1]).type == FTK_INTEGER? "INTEGER": "FLOAT"));
+            set(vars, "HAVE_DEFN", "");
             ++defn_count;
         } else {
             pcerr.AddWarning(main_file, defn, sfmt() << "ignoring unreferenced variable \"" << get_id(defn.children[0]) <<"\"");
         }
     }
     if(defn_count)
-        set(global_vars, "DEFN_COUNT", std::to_string(defn_count));
+        set(vars, "DEFN_COUNT", std::to_string(defn_count));
+    // File references in the environment
+    std::set<std::string> env_file_refs;
+    for(int i: *this) if(at(i).type == FTK_NODE || at(i).type == FTK_CONTAINER) {
+        std::map<std::string, int> nvnenv;
+        error_count += get_nv_block(nvnenv, i, "environment", {FTK_STRING, FTK_INTEGER, FTK_FLOAT});
+        for(auto const &nv: nvnenv) {
+            std::string value = get_text(nv.second);
+            if(starts_with(value, "{{@") && ends_with(value, "}}")) 
+                env_file_refs.insert(value.substr(3, value.length()-5));
+        }
+    }
+    clear(vars, "EFR_FILENAME");
+    clear(vars, "EFR_ID");
+    clear(vars, "EFR_COUNT");
+    int efrc = 0;
+    for(auto const &efr: env_file_refs) {
+        append(vars, "EFR_FILENAME", efr);
+        append(vars, "EFR_ID", std::to_string(++efrc));
+    }
+    if(efrc > 0)
+        set(vars, "EFR_COUNT", std::to_string(efrc));
+
     DEBUG_LEAVE;
     return error_count;
 }
