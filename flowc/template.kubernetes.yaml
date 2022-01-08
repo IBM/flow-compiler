@@ -65,6 +65,10 @@ ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
           - name: {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT
             value: "{{NAME/id/option/lower}}-{{NODE_GROUP/id/option/lower}}:{{NODE_PORT}}"
 }E}}N}
+{D:DEFN{
+          - name: {{NAME/id/upper}}_FD_{{DEFN/id/upper}}
+            value: "$fd_{{NAME/id/upper}}_FD_{{DEFN/id/upper}}"
+}D}
 $enable_custom_app        volumeMounts:
 $enable_custom_app$htdocs_PVC        - name: {{HTDOCS_VOLUME_NAME}}
 $enable_custom_app$htdocs_COS        - name: scratch-{{HTDOCS_VOLUME_NAME}}

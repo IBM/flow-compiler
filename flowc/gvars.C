@@ -303,7 +303,6 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     error_count += get_block_s(runtime, n, "runtime", "");
     append(vars, prefix+"SET_NODE_RUNTIME", runtime.empty()? "#": "");
     append(vars, prefix+"NODE_RUNTIME", runtime);
-    //append(vars, prefix+"NODE_RUNTIME", runtime.empty()? runtime: c_escape(runtime));
     int scale, min_cpus, max_cpus, min_gpus, max_gpus;
     std::string min_memory, max_memory;
     error_count += get_block_s(min_memory, n, "min_memory", "");

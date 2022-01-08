@@ -8,6 +8,8 @@
 
 export kd_PROJECT_NAME={{NAME}}
 export cur_KUBECTL=${KUBECTL-kubectl}
+{D:DEFN{export fd_{{NAME/id/upper}}_FD_{{DEFN/id/upper}}="${{{NAME/id/upper}}_FD_{{DEFN/id/upper}}-{{DEFV}}}"
+}D}
 {F:EFR_FILENAME{flowc_tmp_FN{{EFR_ID}}={{EFR_FILENAME}}
 }F}
 {O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
@@ -136,6 +138,11 @@ echo "    --tag, --image  <NODE-NAME=STRING>"
 echo "       Force the image name or tag for node NODE_NAME to STRING. The changes are applied in the order given in the commans line."
 echo "       The valid node names are:{N:IM_NODE_NAME{ {{IM_NODE_NAME/id/option/lower}}}N}."
 echo "" 
+{I:DEFN{   
+echo "    --fd-{{DEFN/option}} {{DEFT}}"
+echo "       Override the value of variable '{{DEFN}}'"
+echo ""
+}I}
 echo "Note: To access the Artifactory or Cloud Object Store $(basename $0) looks for the environment variable API_KEY."
 echo "If not found, it looks for a file named .api-key in the current directory and then in the home directory."
 echo ""
@@ -293,6 +300,13 @@ case "$1" in
     shift
     shift
     ;;
+{I:DEFN{   
+    --fd-{{DEFN/option}})
+    export fd_{{NAME/id/upper}}_FD_{{DEFN/id/upper}}="$2"
+    shift
+    shift
+    ;;
+}I}
     *)
     args+=("$1")
     shift
