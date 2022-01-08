@@ -6,6 +6,9 @@ ARG BASE_IMAGE=?
 ARG DEBUG_FLOWC=?
 ARG RUNTIME=?
 ARG STACK_TRACE=?
+LABEL version="$BUILD_VERSION"
+LABEL release="flowc $BUILD_VERSION $RUNTIME"
+LABEL description="Flow Compiler"
 
 ## Build and install flow compiler
 COPY --chown=worker:worker flow-compiler-minsrc.tgz /tmp
