@@ -116,17 +116,14 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
         std::string value = get_text(nv.second);
         std::string file_ref = check_for_file_ref(value);
         if(!file_ref.empty()) {
-            std::string name;
-            std::string value = sfmt() << "=\"$(cat " << file_ref << ")\"";
-            for(auto gv: global_vars["GLOBAL_TEMP_VARS"]) if(stru1::ends_with(gv, value)) {
-                name = stru1::remove_suffix(gv, value);
-                break;
-            }
-            if(name.empty()) {
-                name =  sfmt() << "flow_local_TMP" << (1 + global_vars["GLOBAL_TEMP_VARS"].size());
-                append(global_vars, "GLOBAL_TEMP_VARS", name+value);
-            }
-            env.push_back(std::make_pair(nv.first, std::string(sfmt() << "$" << name)));
+            auto &files = global_vars["EFR_FILENAME"];
+            auto &ids = global_vars["EFR_ID"];
+            MASSERT(ids.size() == files.size()) << "EFR size mismatch\n";
+            for(int i = 0, e = ids.size(); i < e; ++i)
+                if(files[i] == file_ref) {
+                    env.push_back(std::make_pair(nv.first, std::string("$flowc_tmp_FILE")+ids[i]));
+                    break;
+                }
         } else {
             std::ostringstream os;
             vex::expand(os, value, vex::make_smap(env_vars));
@@ -170,15 +167,19 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "environment: [", "", "", "]"));
         error_count += node_info(n, local_vars);
         std::vector<std::string> mts;
-        bool have_rw_mounts = false;
+        int rw_mounts_count = 0;
+        int mounts_count = 0;
         std::map<std::string, std::string> minfo;
         for(int mn: subtree(n)) if(at(mn).type == FTK_MOUNT) {
             minfo.clear();
             error_count += get_mount_info(minfo, mn);
             mts.push_back(sfmt() << minfo["name"] << ":" << minfo["path"] << ":" << minfo["access"]);
-            have_rw_mounts = have_rw_mounts | minfo["access"] == "rw";
+            if(minfo["access"] == "rw") ++rw_mounts_count;
+            ++mounts_count;
         }
-        append(local_vars, "HAVE_RW_VOLUMES", have_rw_mounts? "": "#");
+        append(local_vars, "HAVE_RW_VOLUMES", rw_mounts_count? "": "#");
+        append(local_vars, "RW_VOLUMES_COUNT", rw_mounts_count? std::to_string(rw_mounts_count): std::string());
+        append(local_vars, "VOLUMES_COUNT", mounts_count? std::to_string(mounts_count): std::string());
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
     if(DEBUG_GENC) {

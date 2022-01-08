@@ -21,7 +21,8 @@ $use_SWARM        replicas: $replicas_{{NAME/id/upper}}
 {{HAVE_RW_VOLUMES}}    group_add:
 {{HAVE_RW_VOLUMES}}      - $docker_compose_RW_GID
 $export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]
-$default_RUNTIME{{SET_NODE_RUNTIME}}    runtime: {{NODE_RUNTIME}}
+{R?NODE_RUNTIME{$default_RUNTIME    runtime: {{NODE_RUNTIME/c}}
+}R}
     {{NODE_ENVIRONMENT-}}
     {{NODE_MOUNTS-}}
 $use_SWARM    deploy:

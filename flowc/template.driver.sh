@@ -8,8 +8,8 @@
 
 export kd_PROJECT_NAME={{NAME}}
 export cur_KUBECTL=${KUBECTL-kubectl}
-{O:GLOBAL_TEMP_VARS{export {{GLOBAL_TEMP_VARS}}
-}O}
+{F:EFR_FILENAME{flowc_tmp_FN{{EFR_ID}}={{EFR_FILENAME}}
+}F}
 {O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
 export scale_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_REPLICAS-{{NODE_SCALE}}}
 export image_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_IMAGE-{{NODE_IMAGE}}}
@@ -32,7 +32,8 @@ export use_K8S="#"
 export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
-export docker_compose_RW_GID=$(id -g)
+{V?RW_VOLUMES_COUNT{export docker_compose_RW_GID=$(id -gn)
+}V}
 export grpc_PORT=${{{NAME/id/upper}}_GRPC_PORT-{{MAIN_PORT}}}
 export rest_PORT=${{{NAME/id/upper}}_REST_PORT-{{REST_PORT}}}
 dd_display_help() {
@@ -387,6 +388,24 @@ provision() {
 }O}
     return 0
 }
+{A?EFR_COUNT{
+case "$1" in
+    run|config|config-debug|deploy|up)
+        rc=0
+{F:EFR_FILENAME{        if [ -r "$flowc_tmp_FN{{EFR_ID}}" ]
+        then
+            export flowc_tmp_FILE{{EFR_ID}}="$(cat "$flowc_tmp_FN{{EFR_ID}}")"
+        else
+            echo "$flowc_tmp_FN{{EFR_ID}}: cannot read file"
+            rc=1
+        fi
+}F}
+        [ $rc -eq 0 ] || exit 1
+    ;; 
+    *)
+    ;;
+esac
+}A}
 case "$1" in
     help)
         dd_display_help
