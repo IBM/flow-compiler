@@ -56,7 +56,7 @@ echo "   down       Stop the running application (Docker Compose or Swarm mode)"
 echo "   help       Display this help screen"
 echo "   logs       Display logs from all the containers (Docker Compose mode)"
 echo "   up         Start the application in the background (Docker Compose or Swarm mode)"
-{V:HAVE_VOLUMES{echo "   provision  Download thte external data into local directories so it can be mounted inside the running containers (Docker Compose only)"
+{V:HAVE_VOLUMES{echo "   provision  Download the external data into local directories so it can be mounted inside the running containers (Docker Compose only)"
 }V}
 echo "   run        Run the application in the foreground in (Docker Composer mode)"
 echo "   show       Display the current status of the application (Kubernetes mode)"
@@ -362,8 +362,6 @@ if [ -z "$enable_custom_app" ]
 then
    export enable_main_pod_volumes=
 fi
-
-## generate host names
 {O:NODE_NAME{{I?NODE_IMAGE{case "$use_COMPOSE:$use_K8S:$use_SWARM:$scale_{{NODE_NAME/id/upper}}" in 
     ":#"*) 
         export ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}={{NODE_NAME/id/option/lower}}
@@ -379,7 +377,6 @@ fi
         ;;
 esac
 }I}}O}
-
 case "$1" in
     up|provision|run)
         [ $have_ALL_VOLUME_DIRECTORIES -ne 0 ]
