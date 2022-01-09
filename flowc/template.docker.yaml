@@ -6,7 +6,7 @@ services:
       {{NAME/id/upper}}_REST_LISTENING_PORTS: "{{REST_PORT}}"
 {N:NODE_NAME{{E?NODE_ENDPOINT{      {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT: "{{NODE_ENDPOINT}}"}E}
 }N}
-{N:NODE_NAME{{E?NODE_IMAGE{      {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT: "${{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN:{{NODE_PORT}}"}E}
+{N:NODE_NAME{{E?NODE_IMAGE&NODE_GRPC{      {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT: "$ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}:{{NODE_PORT}}"}E}
 }N}
 {D:DEFN{      {{NAME/id/upper}}_FD_{{DEFN/id/upper}}: "$fd_{{NAME/id/upper}}_FD_{{DEFN/id/upper}}"
 }D}

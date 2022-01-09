@@ -61,9 +61,9 @@ ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
           - name: {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT
             value: "{{NODE_ENDPOINT}}"
 }E}}N}
-{N:NODE_NAME{{E?NODE_IMAGE{
+{N:NODE_NAME{{E?NODE_IMAGE&NODE_GRPC{
           - name: {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT
-            value: "{{NAME/id/option/lower}}-{{NODE_GROUP/id/option/lower}}:{{NODE_PORT}}"
+            value: "$ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}:{{NODE_PORT}}"
 }E}}N}
 {D:DEFN{
           - name: {{NAME/id/upper}}_FD_{{DEFN/id/upper}}

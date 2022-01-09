@@ -80,9 +80,15 @@ static std::string check_for_file_ref(std::string const &vv) {
         return vv.substr(3, vv.length()-5);
     return "";
 }
+/**
+ * Create environment for node <n>. 
+ * The assigned port values for each node are in <node_port>.
+ * Group mode is true when nodes in the same group share the network interface.
+ */
 int flow_compiler::get_environment(std::vector<std::pair<std::string, std::string>> &env, int n, std::map<int, std::string> const &node_port, bool group_mode) {
     int error_count = 0;
     DEBUG_ENTER;
+    // Generate 
     std::map<std::string, std::vector<std::string>> env_vars;
     std::string ngroup;
     if(group_mode)
@@ -90,26 +96,29 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
 
     for(auto np: node_port) {
         int m = np.first;
-        std::string const en = type(m);
-        std::string const nf = name(m);
-        if((en == nf && type(n) != en) || nf == name(n)) {
-            std::string host = to_lower(to_option(to_identifier(nf)));
-            if(group_mode) {
-                std::string mgroup;
-                error_count += get_block_s(mgroup, m, "group", {FTK_STRING, FTK_INTEGER}, "");
-                if(ngroup == mgroup) {
-                    // If the this node is part of this group, it is accessible through localhost
-                    host = "localhost";
-                } else {
-                    // This node is accessible through service in this group
-                    host = to_lower(to_option(sfmt() << get(global_vars, "NAME") << "-" << mgroup));
-                }
-            }
-            append(env_vars, en+".port", np.second);
-            append(env_vars, en+".host", host);
-            append(env_vars, en, host);
+        bool localnode = m == n;
+        if(!localnode && group_mode) {
+           std::string mgroup;
+           error_count += get_block_s(mgroup, m, "group", {FTK_STRING, FTK_INTEGER}, "");
+           localnode = ngroup == mgroup;
+        }
+        std::string hostname("localhost");
+        if(!localnode) {
+            hostname = sfmt() << "${ehr_" << to_upper(to_identifier(get(global_vars, "NAME"))) << "_" << to_upper(to_identifier(name(m))) << "}";
+        }
+        std::string en = name(m);
+        set(env_vars, en+".port", np.second);
+        set(env_vars, en+".host", hostname);
+        set(env_vars, en, sfmt() << hostname << ":" << np.second);
+        // If we are generating for an optional node, also add vars without node id
+        if(m == n && en != type(m)) {
+            std::string en = type(m);
+            set(env_vars, en+".port", np.second);
+            set(env_vars, en+".host", hostname);
+            set(env_vars, en, sfmt() << hostname << ":" << np.second);
         }
     }
+    //std::cerr << "AT node " << n << " <" << name(n) << ">, "<<(group_mode? "groups": "no groups") << ", " << env_vars.size() << ":" << env_vars << "\n================\n";
     std::map<std::string, int> nvnenv;
     error_count += get_nv_block(nvnenv, n, "environment", {FTK_STRING, FTK_INTEGER, FTK_FLOAT});
     for(auto const &nv: nvnenv) {

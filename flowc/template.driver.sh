@@ -12,8 +12,7 @@ export cur_KUBECTL=${KUBECTL-kubectl}
 }D}
 {F:EFR_FILENAME{flowc_tmp_FN{{EFR_ID}}={{EFR_FILENAME}}
 }F}
-{O:NODE_NAME{{I?NODE_IMAGE{export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN={{NODE_NAME/id/option/lower}}
-export scale_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_REPLICAS-{{NODE_SCALE}}}
+{O:NODE_NAME{{I?NODE_IMAGE{export scale_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_REPLICAS-{{NODE_SCALE}}}
 export image_{{NODE_NAME/id/upper}}=${{{NAME/id/upper}}_{{NODE_NAME/id/upper}}_IMAGE-{{NODE_IMAGE}}}
 if [ ! -z "${{NAME/id/upper}}_{{NODE_NAME/id/upper}}_TAG" ]
 then
@@ -243,13 +242,6 @@ case "$1" in
     export use_K8S="#"
     export use_SWARM=
     export use_MODE=swarm
-{O:NODE_NAME{{I?NODE_IMAGE{    if [ $scale_{{NODE_NAME/id/upper}} -gt 1 ]
-    then
-        export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN="@tasks.${kd_PROJECT_NAME}_${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN}"
-    else
-        export {{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN="tasks.${kd_PROJECT_NAME}_${{{NAME/id/upper}}_NODE_{{NODE_NAME/id/upper}}_ENDPOINT_DN}"
-    fi
-}I}}O}
     shift
     ;;
     -K|--kubernetes)
@@ -370,6 +362,23 @@ if [ -z "$enable_custom_app" ]
 then
    export enable_main_pod_volumes=
 fi
+
+## generate host names
+{O:NODE_NAME{{I?NODE_IMAGE{case "$use_COMPOSE:$use_K8S:$use_SWARM:$scale_{{NODE_NAME/id/upper}}" in 
+    ":#"*) 
+        export ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}={{NODE_NAME/id/option/lower}}
+        ;;
+    "#::"*) 
+        export ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}={{NAME/id/option/lower}}-{{NODE_NAME/id/option/lower}}
+        ;;
+    "#:#::1") 
+        export ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}="tasks.${kd_PROJECT_NAME}_{{NODE_NAME/id/option/lower}}"
+        ;;
+    "#:#::"*) 
+        export ehr_{{NAME/id/upper}}_{{NODE_NAME/id/upper}}="@tasks.${kd_PROJECT_NAME}_{{NODE_NAME/id/option/lower}}"
+        ;;
+esac
+}I}}O}
 
 case "$1" in
     up|provision|run)

@@ -340,6 +340,9 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     if(!image_name.empty() && image_name[0] == '/')
         image_name = path_join(default_repository, image_name.substr(1));
     append(vars, prefix+"NODE_IMAGE", image_name);
+    std::string grpc_method;
+    if(method_descriptor(n) != nullptr) grpc_method = method_descriptor(n)->full_name();
+    append(vars, prefix+"NODE_GRPC", grpc_method);
     append(vars, prefix+"EXTERN_NODE", image_name.empty()? "#": "");
     if(!image_name.empty()) {
         append(vars, prefix+"IMAGE_NAME", image_name);
