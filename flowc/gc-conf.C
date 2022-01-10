@@ -192,16 +192,16 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         volumes_count += mounts_count;
         cos_volumes_count += cos_mounts_count;
         local_volumes_count += local_mounts_count;
-        append(local_vars, "NODE_RW_VOLUMES_COUNT", rw_mounts_count? std::to_string(rw_mounts_count): std::string());
-        append(local_vars, "NODE_VOLUMES_COUNT", mounts_count? std::to_string(mounts_count): std::string());
-        append(local_vars, "NODE_COS_VOLUMES_COUNT", cos_mounts_count? std::to_string(cos_mounts_count): std::string());
-        append(local_vars, "NODE_LOCAL_VOLUMES_COUNT", local_mounts_count? std::to_string(local_mounts_count): std::string());
+        append(local_vars, "NODE_RW_VOLUME_COUNT", rw_mounts_count? std::to_string(rw_mounts_count): std::string());
+        append(local_vars, "NODE_VOLUME_COUNT", mounts_count? std::to_string(mounts_count): std::string());
+        append(local_vars, "NODE_COS_VOLUME_COUNT", cos_mounts_count? std::to_string(cos_mounts_count): std::string());
+        append(local_vars, "NODE_LOCAL_VOLUME_COUNT", local_mounts_count? std::to_string(local_mounts_count): std::string());
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
-    set(local_vars, "RW_VOLUMES_COUNT", rw_volumes_count? std::to_string(rw_volumes_count): std::string());
-    set(local_vars, "VOLUMES_COUNT", volumes_count? std::to_string(volumes_count): std::string());
-    set(local_vars, "LOCAL_VOLUMES_COUNT", local_volumes_count? std::to_string(local_volumes_count): std::string());
-    set(local_vars, "COS_VOLUMES_COUNT", cos_volumes_count? std::to_string(cos_volumes_count): std::string());
+    set(local_vars, "RW_VOLUME_COUNT", rw_volumes_count? std::to_string(rw_volumes_count): std::string());
+    set(local_vars, "VOLUME_COUNT", volumes_count? std::to_string(volumes_count): std::string());
+    set(local_vars, "LOCAL_VOLUME_COUNT", local_volumes_count? std::to_string(local_volumes_count): std::string());
+    set(local_vars, "COS_VOLUME_COUNT", cos_volumes_count? std::to_string(cos_volumes_count): std::string());
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("dc-yaml-global.json"));
         stru1::to_json(outg, global_vars);
@@ -302,7 +302,7 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
         }
         set(local_vars, "G_INIT_COUNT", init_count? std::to_string(init_count): std::string());
-        set(local_vars, "G_VOLUMES_COUNT", volume_count? std::to_string(volume_count): std::string());
+        set(local_vars, "G_VOLUME_COUNT", volume_count? std::to_string(volume_count): std::string());
     }
     auto global_smap = vex::make_smap(global_vars);
     auto local_smap = vex::make_smap(alln_vars);

@@ -401,9 +401,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // name, group, port, image, endpoint, runtime, extern-node 
     std::map<std::string, std::set<int>> groups;
     std::map<std::string, std::map<int, int>> ports;
-    clear(global_vars, "HAVE_COS");
-    clear(global_vars, "HAVE_VOLUMES");
-    int cos_count = 0, volume_count = 0;
     for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
         append(global_vars, "XCLI_NODE_NAME", name(n));
         append(global_vars, "NODE_NAME", name(n));
@@ -420,20 +417,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                 ports[group(n)][pv] = n;
             }
         }
-
-        std::map<std::string, std::string> minfo;
-        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
-            minfo.clear();
-            error_count += get_mount_info(minfo, m);
-            ++volume_count;
-            if(!minfo["url"].empty())
-                ++cos_count;
-        }
     }
-    if(volume_count) 
-        set(global_vars, "HAVE_VOLUMES", "");
-    if(cos_count)
-        set(global_vars, "HAVE_COS", "");
 
     // Make sure the rest volume name doesn't collide with any other volume name
     std::string htdocs_volume_name = "htdocs";

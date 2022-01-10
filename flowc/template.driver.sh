@@ -32,7 +32,7 @@ export use_SWARM="#"
 export use_K8S="#"
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
-{V?RW_VOLUMES_COUNT{export docker_compose_RW_GID=$(id -gn)
+{V?RW_VOLUME_COUNT{export docker_compose_RW_GID=$(id -gn)
 }V}
 export grpc_PORT=${{{NAME/id/upper}}_GRPC_PORT-{{MAIN_PORT}}}
 export rest_PORT=${{{NAME/id/upper}}_REST_PORT-{{REST_PORT}}}
@@ -44,7 +44,7 @@ echo "Usage $(basename "$0") <up|down|config|logs|run> [-p] [-r] [-s] [-C] [-T] 
 echo "   or $(basename "$0") <up|down|config> -S [--project-name NAME] [--grpc-port PORT] [--rest-port PORT]"
 echo "   or $(basename "$0") -K [--project-name NAME] <delete|deploy|show|config>"
 echo "   or $(basename "$0") [-T] <run|logs>"
-{V?VOLUMES_COUNT{
+{V?VOLUME_COUNT{
 echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}"
 }V}
 echo ""
@@ -55,7 +55,7 @@ echo "   down       Stop the running application (Docker Compose or Swarm mode)"
 echo "   help       Display this help screen"
 echo "   logs       Display logs from all the containers (Docker Compose mode)"
 echo "   up         Start the application in the background (Docker Compose or Swarm mode)"
-{V?VOLUMES_COUNT{echo "   provision  Download the external data into local directories so it can be mounted inside the running containers (Docker Compose only)"
+{V?VOLUME_COUNT{echo "   provision  Download the external data into local directories so it can be mounted inside the running containers (Docker Compose only)"
 }V}
 echo "   run        Run the application in the foreground in (Docker Composer mode)"
 echo "   show       Display the current status of the application (Kubernetes mode)"
@@ -94,7 +94,7 @@ echo ""
 echo "    --rest-port PORT (or set {{NAME/id/upper}}_REST_PORT)"
 echo "        Set the locally mapped port for the REST API. The default is $rest_PORT"
 echo ""
-{V?VOLUMES_COUNT{
+{V?VOLUME_COUNT{
 echo "    --data-directory (or set {{NAME/id/upper}}_DATA_DIR)"
 echo "        Set the data directory local volume mounts for Docker Compose and Swarm. Current directory is the default."
 echo ""

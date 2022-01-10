@@ -20,7 +20,7 @@ $use_SWARM        replicas: $replicas_{{NAME/id/upper}}
 {N:NODE_NAME{{I?NODE_IMAGE{
   {{NODE_NAME}}:
     image: "$image_{{NODE_NAME/id/upper}}"
-{V?NODE_RW_VOLUMES_COUNT{
+{V?NODE_RW_VOLUME_COUNT{
     group_add:
       - $docker_compose_RW_GID
 }V}
@@ -41,7 +41,7 @@ $use_SWARM        replicas: $scale_{{NODE_NAME/id/upper}}
 {{NODE_HAVE_MAX_CPUS}}$use_SWARM                    cpus: {{NODE_MAX_CPUS}}
 }I}
 }N}
-{V?VOLUMES_COUNT{
+{V?VOLUME_COUNT{
 volumes:
 }V}
 {W:VOLUME_NAME{

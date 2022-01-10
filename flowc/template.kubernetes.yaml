@@ -21,7 +21,7 @@ spec:
 {S:IMAGE_PULL_SECRET{
       - name: "{{IMAGE_PULL_SECRET}}"
 }S}
-{X?G_INIT_COUNT|G_VOLUMES_COUNT{
+{X?G_INIT_COUNT|G_VOLUME_COUNT{
       initContainers:}X}
 {I:G_INIT_CONTAINER{
       - {{G_INIT_CONTAINER}}

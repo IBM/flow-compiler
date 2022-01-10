@@ -22,7 +22,7 @@ spec:
 {S:IMAGE_PULL_SECRET{
       - name: "{{IMAGE_PULL_SECRET}}"
 }S}
-{X?G_INIT_COUNT|G_VOLUMES_COUNT{
+{X?G_INIT_COUNT|G_VOLUME_COUNT{
       initContainers:}X}
 {I:G_INIT_CONTAINER{
       - {{G_INIT_CONTAINER}}
@@ -62,7 +62,7 @@ ${{{G_VOLUME_NAME/id/upper}}_COS}          readOnly: true
 {{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
 }I}
 }N}
-{V?G_VOLUMES_COUNT{
+{V?G_VOLUME_COUNT{
       volumes:
 }V}
 {W:G_VOLUME_NAME{
