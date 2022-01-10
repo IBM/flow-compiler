@@ -164,6 +164,7 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "IMAGE_PORT", std::to_string(pv));
     }
     int tmp_count = 0;
+    int rw_volumes_count = 0, volumes_count = 0, cos_volumes_count = 0, local_volumes_count = 0;
     for(int n: cc_nodes) {
         std::string const &nn = name(n);
         int blck = get_ne_block_node(n);
@@ -176,21 +177,31 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "environment: [", "", "", "]"));
         error_count += node_info(n, local_vars);
         std::vector<std::string> mts;
-        int rw_mounts_count = 0;
-        int mounts_count = 0;
+        int rw_mounts_count = 0, mounts_count = 0, cos_mounts_count = 0, local_mounts_count = 0;
         std::map<std::string, std::string> minfo;
         for(int mn: subtree(n)) if(at(mn).type == FTK_MOUNT) {
             minfo.clear();
             error_count += get_mount_info(minfo, mn);
             mts.push_back(sfmt() << minfo["name"] << ":" << minfo["path"] << ":" << minfo["access"]);
             if(minfo["access"] == "rw") ++rw_mounts_count;
+            if(!minfo["url"].empty()) ++cos_mounts_count;
+            if(!minfo["local"].empty()) ++local_mounts_count;
             ++mounts_count;
         }
-        append(local_vars, "HAVE_RW_VOLUMES", rw_mounts_count? "": "#");
-        append(local_vars, "RW_VOLUMES_COUNT", rw_mounts_count? std::to_string(rw_mounts_count): std::string());
-        append(local_vars, "VOLUMES_COUNT", mounts_count? std::to_string(mounts_count): std::string());
+        rw_volumes_count += rw_mounts_count;
+        volumes_count += mounts_count;
+        cos_volumes_count += cos_mounts_count;
+        local_volumes_count += local_mounts_count;
+        append(local_vars, "NODE_RW_VOLUMES_COUNT", rw_mounts_count? std::to_string(rw_mounts_count): std::string());
+        append(local_vars, "NODE_VOLUMES_COUNT", mounts_count? std::to_string(mounts_count): std::string());
+        append(local_vars, "NODE_COS_VOLUMES_COUNT", cos_mounts_count? std::to_string(cos_mounts_count): std::string());
+        append(local_vars, "NODE_LOCAL_VOLUMES_COUNT", local_mounts_count? std::to_string(local_mounts_count): std::string());
         append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
+    set(local_vars, "RW_VOLUMES_COUNT", rw_volumes_count? std::to_string(rw_volumes_count): std::string());
+    set(local_vars, "VOLUMES_COUNT", volumes_count? std::to_string(volumes_count): std::string());
+    set(local_vars, "LOCAL_VOLUMES_COUNT", local_volumes_count? std::to_string(local_volumes_count): std::string());
+    set(local_vars, "COS_VOLUMES_COUNT", cos_volumes_count? std::to_string(cos_volumes_count): std::string());
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("dc-yaml-global.json"));
         stru1::to_json(outg, global_vars);

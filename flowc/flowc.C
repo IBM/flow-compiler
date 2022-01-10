@@ -403,7 +403,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::map<std::string, std::map<int, int>> ports;
     clear(global_vars, "HAVE_COS");
     clear(global_vars, "HAVE_VOLUMES");
-    bool have_cos = false, have_volumes = false;
+    int cos_count = 0, volume_count = 0;
     for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
         append(global_vars, "XCLI_NODE_NAME", name(n));
         append(global_vars, "NODE_NAME", name(n));
@@ -425,29 +425,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
             minfo.clear();
             error_count += get_mount_info(minfo, m);
-            have_volumes = true;
-            append(global_vars, "VOLUME_NAME", minfo["name"]);
-            append(global_vars, "VOLUME_LOCAL", minfo["local"]);
-            append(global_vars, "VOLUME_COS", minfo["url"]);
+            ++volume_count;
             if(!minfo["url"].empty())
-                have_cos = true;
-            append(global_vars, "VOLUME_SECRET", minfo["secret"]);
-            append(global_vars, "VOLUME_PVC", minfo["pvc"]);
-            append(global_vars, "VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
-            append(global_vars, "VOLUME_ACCESS", minfo["access"]);
-            if(description.has(get_previous_sibling(n))) {
-                append(global_vars, "VOLUME_COMMENT", description(get_previous_sibling(n)));
-            } else {
-                append(global_vars, "VOLUME_COMMENT", "");
-            }
+                ++cos_count;
         }
-        
-        int value = 0;
-        bool external_node = false;
     }
-    if(have_volumes) 
+    if(volume_count) 
         set(global_vars, "HAVE_VOLUMES", "");
-    if(have_cos)
+    if(cos_count)
         set(global_vars, "HAVE_COS", "");
 
     // Make sure the rest volume name doesn't collide with any other volume name

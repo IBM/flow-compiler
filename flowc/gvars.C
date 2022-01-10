@@ -348,7 +348,25 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
         append(vars, prefix+"IMAGE_NAME", image_name);
         append(vars, prefix+"IM_NODE_NAME", name(n));
     }
-
+    // add the volumes for this node
+     
+    std::map<std::string, std::string> minfo;
+    for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
+        minfo.clear();
+        error_count += get_mount_info(minfo, m);
+        append(vars, prefix+"VOLUME_NAME", minfo["name"]);
+        append(vars, prefix+"VOLUME_LOCAL", minfo["local"]);
+        append(vars, prefix+"VOLUME_COS", minfo["url"]);
+        append(vars, prefix+"VOLUME_SECRET", minfo["secret"]);
+        append(vars, prefix+"VOLUME_PVC", minfo["pvc"]);
+        append(vars, prefix+"VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
+        append(vars, prefix+"VOLUME_ACCESS", minfo["access"]);
+        if(description.has(get_previous_sibling(n))) {
+            append(vars, prefix+"VOLUME_COMMENT", description(get_previous_sibling(n)));
+        } else {
+            append(vars, prefix+"VOLUME_COMMENT", "");
+        }
+    }
     DEBUG_LEAVE;
     return error_count;
 }

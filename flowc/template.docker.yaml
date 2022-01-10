@@ -20,8 +20,10 @@ $use_SWARM        replicas: $replicas_{{NAME/id/upper}}
 {N:NODE_NAME{{I?NODE_IMAGE{
   {{NODE_NAME}}:
     image: "$image_{{NODE_NAME/id/upper}}"
-{{HAVE_RW_VOLUMES}}    group_add:
-{{HAVE_RW_VOLUMES}}      - $docker_compose_RW_GID
+{V?NODE_RW_VOLUMES_COUNT{
+    group_add:
+      - $docker_compose_RW_GID
+}V}
 $export_PORTS    ports: ["{{NODE_PORT}}:{{IMAGE_PORT}}"]
 {R?NODE_RUNTIME{$default_RUNTIME    runtime: {{NODE_RUNTIME/c}}
 }R}
