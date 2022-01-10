@@ -41,8 +41,8 @@ $use_SWARM        replicas: $scale_{{NODE_NAME/id/upper}}
 {{NODE_HAVE_MAX_CPUS}}$use_SWARM                    cpus: {{NODE_MAX_CPUS}}
 }I}
 }N}
-{V:HAVE_VOLUMES{
-volumes:{{HAVE_VOLUMES}}
+{V?VOLUMES_COUNT{
+volumes:
 }V}
 {W:VOLUME_NAME{
 {{VOLUME_COMMENT/shcom-}}

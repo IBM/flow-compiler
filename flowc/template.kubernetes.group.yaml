@@ -62,8 +62,8 @@ ${{{VOLUME_NAME/id/upper}}_COS}          readOnly: true
 {{G_NODE_HAVE_MAX_GPUS}}            nvidia.com/gpu: "{{G_NODE_MAX_GPUS}}"
 }I}
 }N}
-{V:HAVE_VOLUMES{
-      volumes:{{HAVE_VOLUMES}}
+{V?VOLUMES_COUNT{
+      volumes:
 }V}
 {W:VOLUME_NAME{
 ${{{VOLUME_NAME/id/upper}}_PVC}        - name: {{VOLUME_NAME/option}}

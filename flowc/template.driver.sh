@@ -30,7 +30,6 @@ export use_MODE=compose
 export use_COMPOSE=
 export use_SWARM="#"
 export use_K8S="#"
-export provision_ENABLED=1
 export default_RUNTIME=
 export docker_compose_TIMESTAMPS=
 {V?RW_VOLUMES_COUNT{export docker_compose_RW_GID=$(id -gn)
@@ -45,7 +44,7 @@ echo "Usage $(basename "$0") <up|down|config|logs|run> [-p] [-r] [-s] [-C] [-T] 
 echo "   or $(basename "$0") <up|down|config> -S [--project-name NAME] [--grpc-port PORT] [--rest-port PORT]"
 echo "   or $(basename "$0") -K [--project-name NAME] <delete|deploy|show|config>"
 echo "   or $(basename "$0") [-T] <run|logs>"
-{V:HAVE_VOLUMES{
+{V?VOLUMES_COUNT{
 echo "   or $(basename "$0") <provision> {O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}"
 }V}
 echo ""
@@ -56,7 +55,7 @@ echo "   down       Stop the running application (Docker Compose or Swarm mode)"
 echo "   help       Display this help screen"
 echo "   logs       Display logs from all the containers (Docker Compose mode)"
 echo "   up         Start the application in the background (Docker Compose or Swarm mode)"
-{V:HAVE_VOLUMES{echo "   provision  Download the external data into local directories so it can be mounted inside the running containers (Docker Compose only)"
+{V?VOLUMES_COUNT{echo "   provision  Download the external data into local directories so it can be mounted inside the running containers (Docker Compose only)"
 }V}
 echo "   run        Run the application in the foreground in (Docker Composer mode)"
 echo "   show       Display the current status of the application (Kubernetes mode)"
@@ -95,6 +94,11 @@ echo ""
 echo "    --rest-port PORT (or set {{NAME/id/upper}}_REST_PORT)"
 echo "        Set the locally mapped port for the REST API. The default is $rest_PORT"
 echo ""
+{V?VOLUMES_COUNT{
+echo "    --data-directory (or set {{NAME/id/upper}}_DATA_DIR)"
+echo "        Set the data directory local volume mounts for Docker Compose and Swarm. Current directory is the default."
+echo ""
+}V}
 echo "    --htdocs DIRECTORY (or set {{NAME/id/upper}}_HTDOCS)"
 echo "        Mount local DIRECTORY inside the container to use as a custom application (Docker compose mode)."
 [ ! -z "${{NAME/id/upper}}_HTDOCS" ] && echo "       Currently set to \"${{NAME/id/upper}}_HTDOCS\""
@@ -210,6 +214,11 @@ case "$1" in
     shift
     shift
     ;;
+    --data-directory)
+    export {{NAME/id/upper}}_DATA_DIR="$2"
+    shift 
+    shift
+    ;;
     --grpc-port)
     export grpc_PORT="$2"
     shift
@@ -226,7 +235,7 @@ case "$1" in
     shift
     ;;
     -s|--skip-provision)
-    export provision_ENABLED=0
+    export provision_ARGS=--no-download
     shift
     ;;
     -p|--export-ports)
@@ -309,13 +318,13 @@ set -- "${args[@]}"
 {O:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-$flow_{{VOLUME_NAME/id/upper}}}"
 if [ "${{{VOLUME_NAME/id/upper}}:0:1}" != "/" ]
 then
-    export {{VOLUME_NAME/id/upper}}="$(pwd)/${{VOLUME_NAME/id/upper}}"
+    export {{VOLUME_NAME/id/upper}}="${{{NAME/id/upper}}_DATA_DIR-$(pwd)}/${{VOLUME_NAME/id/upper}}"
 fi
 }O}
 
 if ! which envsubst > /dev/null 2>&1 
 then
-    echo "envsubst command not found"
+    echo "envsubst command not found" 2>&1
 fi
 
 kubernetes_YAML=$(cat <<"ENDOFYAML"
@@ -327,6 +336,17 @@ docker_COMPOSE_YAML=$(cat <<"ENDOFYAML"
 ENDOFYAML
 )
 
+is_cosurl() {
+    case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
+        s3://*|http://|https://)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 [ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}" -o }O} 1 -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
 if [ -z "$use_K8S" ]
@@ -334,16 +354,14 @@ then
 [ {O:VOLUME_NAME{-z "${{VOLUME_NAME/id/upper}}_SECRET_NAME" -o }O} $have_ALL_VOLUME_DIRECTORIES -eq 0 ]
 have_ALL_VOLUME_DIRECTORIES=$?
 {A:VOLUME_NAME{
-case "$(echo "${{VOLUME_NAME/id/upper}}_URL" | tr '[:upper:]' '[:lower:]')" in
-    s3://*|http://|https://)
-        export {{VOLUME_NAME/id/upper}}_PVC="#"
-        export {{VOLUME_NAME/id/upper}}_COS=
-        ;;
-    *)
-        export {{VOLUME_NAME/id/upper}}_PVC=
-        export {{VOLUME_NAME/id/upper}}_COS="#"
-        ;;
-esac
+if is_cosurl "${{VOLUME_NAME/id/upper}}_URL"
+then
+    export {{VOLUME_NAME/id/upper}}_PVC="#"
+    export {{VOLUME_NAME/id/upper}}_COS=
+else
+    export {{VOLUME_NAME/id/upper}}_PVC=
+    export {{VOLUME_NAME/id/upper}}_COS="#"
+fi
 }A}
 fi
 export enable_custom_app="#"
@@ -408,15 +426,38 @@ then
     dd_display_help
     exit $rc
 fi
-provision() {
-{A:HAVE_COS{{{HAVE_COS}}
-{O:VOLUME_NAME{    [ -z "${{VOLUME_NAME/id/upper}}_URL" ] || \
-        download_file -o "${{VOLUME_NAME/id/upper}}" --untar "${{VOLUME_NAME/id/upper}}_URL" || return 1
-}O}
-}A}
-{O:VOLUME_NAME{    [ {{VOLUME_ISRO}} -eq 0 ] && chmod -fR g+w "${{VOLUME_NAME/id/upper}}"
-}O}
+chkpath() {
+    pushd "$1" > /dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+        echo -n "$1"
+        return 1
+    fi
+    pwd | tr -d $'\r'$'\n'
+    popd > /dev/null 2>&1
     return 0
+}
+provision() {
+    [ "$1" == "--no-download" ]
+    local skip_download=$?
+    local ec=0
+    local rc=0
+{O:VOLUME_NAME{    [ $skip_download -eq 0 -o -z "${{VOLUME_NAME/id/upper}}_URL" ] || \
+        download_file -o "${{VOLUME_NAME/id/upper}}" --untar "${{VOLUME_NAME/id/upper}}_URL" || return 1
+    rc=0
+    {{VOLUME_NAME/id/upper}}="$(chkpath "${{VOLUME_NAME/id/upper}}")"
+    if [ $? -ne 0 ]
+    then
+        ec=$((ec + 1))
+        rc=1
+        echo "${{VOLUME_NAME/id/upper}}: not a directory" 1>&2
+    else
+        export {{VOLUME_NAME/id/upper}}
+    fi
+
+    [ $rc -eq 1 -o $skip_download -eq 0 -o {{VOLUME_ISRO}} -eq 1 ] || chmod -fR g+w "${{VOLUME_NAME/id/upper}}"
+}O}
+    return $ec
 }
 case "$1" in
     help)
@@ -425,12 +466,12 @@ case "$1" in
         ;;
     provision)
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
-            ":#:#")
-                provision 
+            ":#:#"|"#:#:")
+                provision $provision_ARGS
                 exit $?
                 ;;
             *)
-                echo "provision is only available in Docker Compose mode"
+                echo "provision is not available in Kubernetes mode" 2>&1
                 exit 1
                 ;;
         esac
@@ -438,7 +479,7 @@ case "$1" in
     run)
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
             ":#:#")
-                [ $provision_ENABLED -eq 0 ] || provision || exit 1
+                provision $provision_ARGS || exit 1
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up 
                 rc=$?
                 ;;
@@ -463,12 +504,14 @@ case "$1" in
     config)
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
             ":#:#")
+                provision --no-download
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" config
                 ;;
             "#::#")
                 echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
                 ;;
             "#:#:")
+                provision --no-download
                 echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
                 ;;
         esac
@@ -477,12 +520,14 @@ case "$1" in
     config-debug)
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
             ":#:#")
+                provision --no-download
                 echo "$docker_COMPOSE_YAML" | envsubst
                 ;;
             "#::#")
                 echo "$kubernetes_YAML" | envsubst 
                 ;;
             "#:#:")
+                provision --no-download
                 echo "$docker_COMPOSE_YAML" | envsubst
                 ;;
         esac
@@ -491,13 +536,14 @@ case "$1" in
    deploy|up)
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
             ":#:#")
-                [ $provision_ENABLED -eq 0 ] || provision || exit 1
+                provision $provision_ARGS || exit 1
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up -d
                 ;;
             "#::#")
                 echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$' | $cur_KUBECTL create -f -
                 ;;
             "#:#:")
+                provision $provision_ARGS || exit 1
                 echo "$docker_COMPOSE_YAML" | envsubst | docker stack deploy -c - "$kd_PROJECT_NAME"
                 ;;
         esac
