@@ -249,69 +249,60 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
     }
     std::map<std::string, std::map<std::string, std::vector<std::string>>> g_group_vars;
     std::map<std::string, std::vector<std::string>> alln_vars;
-    for(auto group: groups) for(int n: group.second) {
-        std::string const &nn = name(n);
-        int blck = get_ne_block_node(n);
-        std::vector<std::string> buf;
-        std::vector<std::pair<std::string, std::string>> env;
+    for(auto group: groups) {
+        int volume_count = 0, init_count = 0;
         auto &local_vars = g_group_vars[group.first];
-        error_count += get_environment(env, n, ports, true);
-        for(auto nv: env)
-            buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
+        for(int n: group.second) {
+            std::string const &nn = name(n);
+            int blck = get_ne_block_node(n);
+            std::vector<std::string> buf;
+            std::vector<std::pair<std::string, std::string>> env;
+            error_count += get_environment(env, n, ports, true);
+            for(auto nv: env)
+                buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
 
-        append(alln_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
-        append(local_vars, "G_NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
-        append(alln_vars, "NODE_PORT", ports[n]);
-        append(local_vars, "G_NODE_PORT", ports[n]);
-        append(alln_vars, "IMAGE_PORT", ports[n]);
-        error_count += node_info(n, alln_vars);
-        error_count += node_info(n, local_vars, "G_");
+            append(alln_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+            append(local_vars, "G_NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+            append(alln_vars, "NODE_PORT", ports[n]);
+            append(local_vars, "G_NODE_PORT", ports[n]);
+            append(alln_vars, "IMAGE_PORT", ports[n]);
+            error_count += node_info(n, alln_vars);
+            error_count += node_info(n, local_vars, "G_");
 
-        buf.clear();
-        for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
-            std::map<std::string, std::string> minfo;
-            error_count += get_mount_info(minfo, m);
-            buf.push_back(sfmt() << "{name: scratch-" << to_option(minfo["name"]) << ", mountPath: " << c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
-            append(local_vars, "G_VOLUME_NAME", minfo["name"]);
-            append(local_vars, "G_VOLUME_LOCAL", minfo["local"]);
-            append(local_vars, "G_VOLUME_COS", minfo["url"]);
-            append(local_vars, "G_VOLUME_SECRET", minfo["secret"]);
-            append(local_vars, "G_VOLUME_PVC", minfo["pvc"]);
-            append(local_vars, "G_VOLUME_ISRO", minfo["access"] == "ro"? "1": "0");
-            append(local_vars, "G_VOLUME_ACCESS", minfo["access"]);
-            if(description.has(get_previous_sibling(n))) {
-                append(local_vars, "G_VOLUME_COMMENT", description(get_previous_sibling(n)));
-            } else {
-                append(local_vars, "G_VOLUME_COMMENT", "");
-            }
-        }
-        append(local_vars, "G_NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
-
-        std::vector<int> init_blcks;
-        int init_count = 0;
-        error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
-        for(int init_blck: init_blcks) {
             buf.clear();
-            int command_value = 0;
-            error_count += get_block_value(command_value, init_blck, "command", false, {FTK_STRING});
-            if(command_value == 0) {
-                pcerr.AddWarning(main_file, at(init_blck), sfmt() << "ignoring \"init\" block without \"command\"");
-                continue;
+            for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
+                std::map<std::string, std::string> minfo;
+                error_count += get_mount_info(minfo, m);
+                buf.push_back(sfmt() << "{name: scratch-" << to_option(minfo["name"]) << ", mountPath: " << c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
+                ++volume_count;
             }
-            buf.push_back(sfmt() << "command: [\"/bin/sh\", \"-c\", \"" << get_string(command_value) << "\"]");
-            int image_value = 0;
-            error_count += get_block_value(image_value, init_blck, "image", false, {FTK_STRING});
-            if(image_value == 0) 
-                buf.push_back("image: \"busybox:latest\"");
-            else 
-                buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
-            buf.push_back("securityContext: {privileged: true}");
-            buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
-            append(local_vars, "INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
+            append(local_vars, "G_NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
+
+            std::vector<int> init_blcks;
+            error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
+            for(int init_blck: init_blcks) {
+                buf.clear();
+                int command_value = 0;
+                error_count += get_block_value(command_value, init_blck, "command", false, {FTK_STRING});
+                if(command_value == 0) {
+                    pcerr.AddWarning(main_file, at(init_blck), sfmt() << "ignoring \"init\" block without \"command\"");
+                    continue;
+                }
+                buf.push_back(sfmt() << "command: [\"/bin/sh\", \"-c\", \"" << get_string(command_value) << "\"]");
+                int image_value = 0;
+                error_count += get_block_value(image_value, init_blck, "image", false, {FTK_STRING});
+                if(image_value == 0) 
+                    buf.push_back("image: \"busybox:latest\"");
+                else 
+                    buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
+                buf.push_back("securityContext: {privileged: true}");
+                buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
+                append(local_vars, "G_INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
+            }
+            DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
         }
-        DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
-        if(init_count > 0)
-            set(local_vars, "HAVE_INIT_CONTAINERS", "");
+        set(local_vars, "G_INIT_COUNT", init_count? std::to_string(init_count): std::string());
+        set(local_vars, "G_VOLUMES_COUNT", volume_count? std::to_string(volume_count): std::string());
     }
     auto global_smap = vex::make_smap(global_vars);
     auto local_smap = vex::make_smap(alln_vars);

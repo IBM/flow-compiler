@@ -120,7 +120,7 @@ echo "    --secret-{{VOLUME_NAME/option-}} <SECRET-NAME>  (or set {{VOLUME_NAME/
 echo "        Secret name for COS access for {{VOLUME_NAME}}, default is \"${{VOLUME_NAME/id/upper}}_SECRET_NAME\""
 echo ""
 echo "    --remote-{{VOLUME_NAME/option-}} <URL> (or set {{VOLUME_NAME/id/upper}}_URL)"
-echo "        Set the URL to the remote resource for {{VOLUME_NAME}}, default is \"${{VOLUME_NAME/id/upper}}_URL\""
+echo "        Set the URL to the remote resource for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}}_URL)"
 echo ""
 }O}
 echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"

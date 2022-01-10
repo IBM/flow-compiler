@@ -45,7 +45,6 @@ $use_SWARM        replicas: $scale_{{NODE_NAME/id/upper}}
 volumes:
 }V}
 {W:VOLUME_NAME{
-{{VOLUME_COMMENT/shcom-}}
     {{VOLUME_NAME}}:
         driver_opts:
             type: none
