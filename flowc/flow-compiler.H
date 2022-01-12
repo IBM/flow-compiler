@@ -65,8 +65,6 @@ private:
     bool orchestrator_no_rest;
     std::string main_name;
     std::string main_group_name;
-    // Main description, gleaned from comments
-    std::string main_description;
     // Orchestrator image name with repository (as it appears in composer or kube config)
     std::string orchestrator_pull_image;
     // Default repository path for all images
@@ -144,10 +142,9 @@ public:
      */
     std::string format_message_names(std::string const &sep, std::string const &last, std::string const &begin, std::string const &prefix, std::string const &suffix) const;
     /**
-     * Preserve all comments that have @text referneces in them
-     * and the ones that don't start with punctuation
+     * Preserve all comments for a given token
      */
-    void add_comments(std::string const &comment, int token);
+    void add_comments(int token, std::vector<std::string> const &comments);
     int parse();
     /**
      * Finds a labeled entry in the block

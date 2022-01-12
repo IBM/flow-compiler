@@ -154,26 +154,45 @@ std::string flow_compiler::format_full_name_methods(std::string const &sep, std:
         }
     return stru1::join(l_names, sep, last, begin, prefix, suffix);
 }
+static bool is_white_punct(std::string const &s) {
+    for(auto c: s)
+        if(!isspace(c) && !ispunct(c))
+            return false;
+    return true;
+}
+static bool is_white(std::string const &s) {
+    for(auto c: s)
+        if(!isspace(c))
+            return false;
+    return true;
+}
 /**
- * Preserve all comments that have @text referneces in them
+ * Preserve all comments that have @text references. 
  */
-void flow_compiler::add_comments(std::string const &comment, int token) {
-    auto atp = comment.find_first_of("@");
-    if(atp != std::string::npos) {
-        auto eid = atp+1;
-        for(; eid < comment.length(); ++eid) 
-            if(comment[eid] != '_' && !isalnum(comment[eid]))
-                break;
-        if(eid != comment.length()) {
-            std::string text = stru1::strip(comment.substr(eid), " \t\r\b\v\f\n");
-            if(!text.empty())
-                comments[comment.substr(atp+1, eid-atp-1)].push_back(text);
-        }
+void flow_compiler::add_comments(int token, std::vector<std::string> const &comments) {
+    // filter comments 
+    unsigned b = 0;
+    while(b < comments.size() && (
+       comments[b].empty() || 
+       is_white_punct(comments[b]) ||
+       // remove copyright message from the top of the file
+       (stru1::to_lower(comments[b]).find("copyright") != std::string::npos && token == 1)
+       )) ++b;
+
+    std::stringstream buf1, buf2;
+    for(unsigned i = b, e = comments.size(); i < e; ++i) 
+        buf1 << stru1::strip(comments[i]) << "\n";
+    std::string line; 
+    bool front = true;
+    while(!!std::getline(buf1, line)) {
+        line = stru1::rstrip(nullptr, line);
+        if(front && is_white_punct(line))
+            continue;
+        front = false;
+        buf2 << line << "\n";
     }
-    std::string text = stru1::strip(comment, " \t\r\b\v\f\n");
-    if(token > 0 && !text.empty() && isalnum(text[0])) {
-        token_comment.push_back(std::make_pair(token, text));
-    }
+    if(!buf2.str().empty()) 
+        description.put(token, stru1::strip(buf2.str()));
 }
 int flow_compiler::parse() {
     io::ZeroCopyInputStream *zi = source_tree.Open(main_file);
@@ -190,9 +209,8 @@ int flow_compiler::parse() {
     flow_token ftok;
     ftok.type = 0; // In case tokenizer fails
 
-    std::string prev_trailing;
+    std::string prev_trailing, next_leading;
     std::vector<std::string> detached;
-    std::string next_leading;
     bool get_previous = false;
     bool keep_parsing = true;
 
@@ -326,17 +344,9 @@ int flow_compiler::parse() {
         if(error_count > 0) 
             break;
         int ntok = mk_node(ftok);
-        std::string clean_prev_trailing = stru1::strip(prev_trailing);
-        std::string clean_next_leading = stru1::strip(next_leading); 
-        if(!clean_prev_trailing.empty() || !clean_next_leading.empty()) {
-            std::string join;
-            if(!clean_prev_trailing.empty() && !clean_next_leading.empty()) join = "\n";
-            description.put(ntok, clean_prev_trailing + join + clean_next_leading);
-        }
-
-        add_comments(prev_trailing, ntok);
-        for(auto const &s: detached) add_comments(s, ntok);
-        add_comments(next_leading, ntok);
+        if(!next_leading.empty()) detached.push_back(next_leading);
+        if(!prev_trailing.empty()) detached.insert(detached.begin(), prev_trailing);
+        add_comments(ntok, detached);
         flow_parser(fpp, ftok.type, ntok, this);
         auto top = store.back().type;
         if(top  == FTK_ACCEPT) 

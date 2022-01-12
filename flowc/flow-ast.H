@@ -50,10 +50,6 @@ std::ostream &operator << (std::ostream &out, flow_ast_node const &node);
 
 struct flow_ast {
     std::vector<flow_ast_node> store;
-    // Preserve comments that have a @id reference
-    std::map<std::string, std::vector<std::string>> comments;              
-    // Preserve comments that do not start with punctuation
-    std::vector<std::pair<int, std::string>> token_comment;
     /***********  Node attributes **************************
      */
     // grpc descriptors associated with this AST node
@@ -237,9 +233,8 @@ struct flow_ast {
         return e;
     }
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
-            name(""), type(""), description(""), refcount(0), value_type(0), dimension(0), group("")  {
+            name(""), type(""), description(""), refcount(0), value_type(0), dimension(0), group("") {
             }
-
     bool has_attributes(int n) const {
         return has_attr(n, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension, group);
     }
