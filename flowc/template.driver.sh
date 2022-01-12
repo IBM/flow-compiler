@@ -395,6 +395,12 @@ fi
         ;;
 esac
 }I}}O}
+if which yq > /dev/null 
+then
+    flow_Uyq="yq e - -P -o y"
+else
+    flow_Uyq="cat -"
+fi
 case "$1" in
     up|provision|run)
         [ $have_ALL_VOLUME_DIRECTORIES -ne 0 ]
@@ -480,7 +486,7 @@ case "$1" in
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
             ":#:#")
                 provision $provision_ARGS || exit 1
-                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up 
+                echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" up
                 rc=$?
                 ;;
             *)
@@ -508,11 +514,11 @@ case "$1" in
                 echo "$docker_COMPOSE_YAML" | envsubst | docker-compose -f - -p "$kd_PROJECT_NAME" config
                 ;;
             "#::#")
-                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+                echo "$kubernetes_YAML" | envsubst | grep -v -E '^(#.*|\s*)$' | $flow_Uyq
                 ;;
             "#:#:")
                 provision --no-download
-                echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$'
+                echo "$docker_COMPOSE_YAML" | envsubst | grep -v -E '^(#.*|\s*)$' | $flow_Uyq
                 ;;
         esac
         exit $?
@@ -521,14 +527,14 @@ case "$1" in
         case "$use_COMPOSE:$use_K8S:$use_SWARM" in
             ":#:#")
                 provision --no-download
-                echo "$docker_COMPOSE_YAML" | envsubst
+                echo "$docker_COMPOSE_YAML" | envsubst 
                 ;;
             "#::#")
                 echo "$kubernetes_YAML" | envsubst 
                 ;;
             "#:#:")
                 provision --no-download
-                echo "$docker_COMPOSE_YAML" | envsubst
+                echo "$docker_COMPOSE_YAML" | envsubst 
                 ;;
         esac
         exit $?
