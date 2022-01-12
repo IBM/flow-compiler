@@ -416,11 +416,9 @@ struct macro_parser {
                 } else if(transf == "trim") {
                     value = stru1::strip(value);
                 } else if(transf == "ltrim") {
-                    int c;
-                    value = stru1::lstrip(c, value, "\t\r\a\b\v\f\n ");
+                    value = stru1::lstrip(nullptr, value, "\t\r\a\b\v\f\n ");
                 } else if(transf == "rtrim") {
-                    int c;
-                    value = stru1::rstrip(c, value, "\t\r\a\b\v\f\n ");
+                    value = stru1::rstrip(nullptr, value, "\t\r\a\b\v\f\n ");
                 } else if(transf == "lchop") {
                     value = value.length() <= 1? std::string(): value.substr(1);
                 } else if(transf == "rchop") {

@@ -156,8 +156,9 @@ std::string strip(std::string const &str, std::string const &strip_chars="\t\r\a
     return str.substr(b, e-b+1);
 }
 inline static
-std::string lstrip(int &column, std::string const &str, std::string const &strip_chars) {
+std::string lstrip(int *columnp, std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
     auto b = str.find_first_not_of(strip_chars);
+    int c; int &column = columnp == nullptr? c: *columnp;
     if(b == std::string::npos) {
         column = int(str.length());
         return "";
@@ -166,8 +167,9 @@ std::string lstrip(int &column, std::string const &str, std::string const &strip
     return str.substr(b);
 }
 inline static
-std::string rstrip(int &column, std::string const &str, std::string const &strip_chars) {
+std::string rstrip(int *columnp, std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
     auto b = str.find_last_not_of(strip_chars);
+    int c; int &column = columnp == nullptr? c: *columnp;
     if(b == std::string::npos) {
         column = int(str.length());
         return "";
