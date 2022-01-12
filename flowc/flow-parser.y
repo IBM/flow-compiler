@@ -51,7 +51,10 @@ flow(A) ::= flow(B) stmt(C).                                   { A = ast->nappen
 
 stmt(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->stmt_keyw(B) == FTK_IMPORT? ast->node(FTK_IMPORT, C): ast->node(ast->stmt_keyw(B), B, C); 
                                                                  ast->expect(A, {FTK_DEFINE, FTK_IMPORT}, "import directive or variable definition expected"); 
-                                                                 if(ast->stmt_keyw(B) == FTK_DEFINE) ast->define_var(ast->get_id(B), C);
+                                                                 if(ast->stmt_keyw(B) == FTK_DEFINE) {
+                                                                    ast->define_var(ast->get_id(B), C);
+                                                                    ast->description.cat(true, "\n", A, {B, C});
+                                                                 }
                                                                } 
 stmt(A) ::= ID(B) eqsc valx(C) SEMICOLON.                      { A = ast->node(ast->stmt_keyw(B), B, C); ast->expect(A, FTK_DEFINE, "keyword used as variable name");
                                                                  ast->define_var(ast->get_id(B), C);
@@ -69,6 +72,7 @@ stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(a
                                                                  } else {
                                                                      ast->name.put(A, ast->get_dotted_id(C));
                                                                  }
+                                                                 ast->description.cat(true, "\n", A, {B, C, D});
                                                                  ast->type.put(D, ast->get_id(B));
                                                                } 
 // node with condition
@@ -77,14 +81,17 @@ stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(a
                                                                  ast->type.put(A, ast->get_dotted_id(C, 0, 1)); 
                                                                  ast->name.put(A, ast->get_dotted_id(C));
                                                                  ast->type.put(D, ast->get_id(B));
+                                                                 ast->description.cat(true, "\n", A, {B, C, D});
                                                                } 
 // error check 
 stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR fldr(D).            { A = ast->node(ast->stmt_keyw(B), C, D);
                                                                  ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
+                                                                 ast->description.cat(true, "\n", A, B);
                                                                }
 stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR valc(D) COMMA fldr(E). { A = ast->node(ast->stmt_keyw(B), C, D, E);
                                                                  ast->expect(A, FTK_ERROR, "expected \"error\" keyword");  
                                                                  ast->expect(D, {FTK_INTEGER, FTK_ID}, "expected integer or label");
+                                                                 ast->description.cat(true, "\n", A, B);
                                                                }
 stmt(A) ::= stmt(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
@@ -109,11 +116,12 @@ elem(A) ::= ID(B) blck(C).                                     { ast->chtype(C, 
                                                                     A = ast->node(FTK_elem, B, C);
                                                                  }
                                                                  ast->expect(C, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\", \"environment\", or \"mount\" here"); 
-
+                                                                 ast->description.cat(true, "\n", C, B);
                                                                }
 elem(A) ::= ID(B) lblk(C).                                     { ast->chtype(C, ast->blck_keyw(B));
                                                                  A = ast->node(FTK_elem, B, C); 
                                                                  ast->expect(C, {FTK_MOUNT, FTK_lblk}, "expected \"mount\" here"); 
+                                                                 ast->description.cat(true, "\n", C, B);
                                                                }
 elem(A) ::= ID(B) valx(C) SEMICOLON.                           { A = ast->node(FTK_elem, B, C); }          
 elem(A) ::= ID(B) EQUALS valx(C) SEMICOLON.                    { A = ast->node(FTK_elem, B, C); }          
@@ -211,8 +219,12 @@ fldn(A) ::= ID(B) AT.                                          { A = B; }
 //fldx(A) ::= ID(B) AT dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
 // dtid: dotted id id[.id]*
 
-dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B); }
-dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappend(B, C); }
+dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B);
+                                                                 ast->description.cat(true, "\n", A, B);
+                                                               }
+dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappend(B, C); 
+                                                                 ast->description.cat(true, "\n", A, C);
+                                                               }
 
 // eqsc: assignment operator
 

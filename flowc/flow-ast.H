@@ -235,6 +235,9 @@ struct flow_ast {
     flow_ast(): message_descriptor(nullptr), method_descriptor(nullptr), input_descriptor(nullptr), field_descriptor(nullptr), enum_descriptor(nullptr), 
             name(""), type(""), description(""), refcount(0), value_type(0), dimension(0), group("") {
             }
+    /***
+     * attribute manipulators
+     */
     bool has_attributes(int n) const {
         return has_attr(n, name, type, description, refcount, message_descriptor, method_descriptor, input_descriptor, field_descriptor, enum_descriptor, value_type, dimension, group);
     }

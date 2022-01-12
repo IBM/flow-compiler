@@ -38,6 +38,29 @@ template<class V> struct attribute {
         if(p == value.end()) return false;
         return put(to, p->second);
     }
+    bool move(int to, int from) {
+        auto p = value.find(from);
+        if(p == value.end()) return false;
+        value[to] = p->second;
+        value.erase(value.find(from));
+        return true;
+    }
+    bool cat(bool move_attr, V join, int to, int from) {
+        if(!has(from))
+            return false;
+        if(!has(to))
+            return move_attr? move(to, from): copy(from, to);
+        update(to, value.find(to)->second + join + value.find(from)->second);
+        if(move_attr)
+            value.erase(value.find(from));
+        return true;
+    }
+    bool cat(bool move_attr, V join, int to, std::set<int> const &from) {
+        bool r = false;
+        for(int f: from)
+            if(cat(move_attr, join, to, f)) r = true;
+        return r;
+    }
     std::set<int> nodes() const {
         std::set<int> all;
         for(auto &nv: value) all.insert(nv.first);
