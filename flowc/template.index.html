@@ -25,6 +25,7 @@
         div[data-schemaid=root]>h3{ display: none; }
         div[data-schemaid=root]>p{ display: none; font-size: 125%; font-weight: bold; }
         div.pr-button { width: 220px; margin-left: 0px; margin-right: 20px; margin-top: 8px; display: inline-block; vertical-align: top; }
+        div[data-schematype=array]>p,
         p.form-text,  
         .pr-button-text {  font-style: italic; font-size: 75%;  white-space: normal; }
         label { font-weight: bold; }
@@ -34,6 +35,11 @@
             div.pr-button { display: block; }
         }
         p {  font-family: unset; }
+        div[data-schematype=array]>h3>span {font-weight: bold; font-size: 60%;  white-space: normal; }
+        .btn-primary { background-color: black; border-color: black;}
+        .btn-secondary { border-radius: 0.4em; padding: 2px; margin: 0; border 0;}
+        .btn-secondary>span { font-style: italic; font-size: 50%;  white-space: normal; }
+        .btn-group { vertical-align: bottom; padding :0; }
 
         .pr-message-good { font-size: 90%; font-weight: bold; color: blue; }
         .pr-message-error { font-size: 90%; font-weight: bold; color: red; }
@@ -71,14 +77,14 @@
                         <div id="pr-nodes-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="pr-nodes-link">
 {C:CLI_NODE_NAME{
                             <a class="dropdown-item" href="/-www/{{CLI_NODE_NAME/id/option}}-index.html">{{CLI_NODE_NAME}}</a>
-                            <i>{{CLI_NODE_DESCRIPTION/html}}</i>
+                            <!-- >{{CLI_NODE_DESCRIPTION/html}}</ -->
 }C}
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item" href="/-proto/">{{NAME}}.proto</a>
                             <div class="dropdown-divider"></div>
 {I:ENTRY_NAME{    
                             <a class="dropdown-item" href="/-proto/{{ENTRY_NAME}}">{{ENTRY_NAME}}.proto</a> 
 }I}
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="/-proto/">{{NAME}}.proto</a>
                         </div>
                     </li>
                 </ul>
@@ -353,7 +359,7 @@
         },
 
         connectButtons: function() {
-            /* submit on <Return> in the main filed if any */
+            /* submit on <Return> in the main field if any */
             /*
             $('*[data-schemapath="root.question"]').on("keydown", function(event) {
                 var keycode = event.keyCode || event.which;
