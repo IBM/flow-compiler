@@ -2,6 +2,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <functional>
 #include "stru1.H"
 
 namespace vex {
