@@ -1,7 +1,7 @@
 #include <fstream>
 #include <iostream>
-#include "vex.H"
 #include "stru1.H"
+#include "vex.H"
 
 struct envmap {
     static bool ends_with(std::string const &name, const std::string &suff) {
@@ -136,12 +136,8 @@ int main(int argc, char *argv[]) {
         }
         in = &fin;
     } 
-    vex::lvmap maps;
-    std::vector<std::map<std::string, std::vector<std::string>>> mv(1);
-    auto jt = vex::make_vmap(vex::make_smap(mv[0]));
-    std::vector<decltype(jt)> mvs;
-    mv.resize(argc-2);
 
+    std::vector<std::map<std::string, std::vector<std::string>>> mv(argc-2);
     for(int i = 2; i < argc; ++i) {
         int rc = 0;
         if(strcmp(argv[i], "-") == 0) {
@@ -167,25 +163,7 @@ int main(int argc, char *argv[]) {
         if(rc != 0) {
             return rc;
         }
-        mvs.push_back(vex::make_vmap(vex::make_smap(mv[i-2])));
     }
-    for(auto &m: mvs) 
-        maps.push_front(&m);
-
-    int rc = 1;
-    switch(mv.size()) {
-        case 0:
-            rc = vex::expand(std::cout, *in, envmap());
-            break;
-        case 1:
-            rc = vex::expand(std::cout, *in, vex::make_smap(mv.back()));
-            break;
-        case 2:
-            rc = vex::expand(std::cout, *in, vex::make_cmap(vex::make_smap(mv.back()), vex::make_smap(mv[mv.size()-2])));
-            break;
-        default:
-            int rc = vex::expand(std::cout, *in, maps);
-            break;
-    }
+    int rc = vex::expand(std::cout, *in, mv);
     return rc;
 }

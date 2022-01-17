@@ -9,7 +9,7 @@
 
 #include "flow-compiler.H"
 #include "stru1.H"
-#include "vexvars.H"
+#include "vex.H"
 #include "grpc-helpers.H"
 
 using namespace stru1;

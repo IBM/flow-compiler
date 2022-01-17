@@ -21,7 +21,7 @@
 #include "grpc-helpers.H"
 #include "helpo.H"
 #include "stru1.H"
-#include "vexvars.H"
+#include "vex.H"
 
 #if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>

@@ -11,7 +11,7 @@
 #include "stru1.H"
 #include "cot.H"
 #include "grpc-helpers.H"
-#include "vexvars.H"
+#include "vex.H"
 
 using namespace stru1;
 #define OUT indenter

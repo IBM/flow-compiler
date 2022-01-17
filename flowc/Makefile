@@ -229,8 +229,8 @@ all-images: $(RUNTIMES)
 recli: recli.C
 	$(CXX) -std=c++11 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
 
-vex2: vex2.C vexvars.H stru1.H veximpl.C
-	$(CXX) -std=c++11 -O3 -o vex2 vex2.C veximpl.C
+vex: vex.C vex.H stru1.H veximpl.C
+	$(CXX) -std=c++11 -O3 -o vex vex.C veximpl.C
 
 TOOLS=recli vex
 
