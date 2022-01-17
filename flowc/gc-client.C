@@ -42,9 +42,7 @@ int flow_compiler::genc_cc_client(std::string const &ccfn) {
         stru1::to_json(outj, local_vars);
     }
     extern char const *template_client_C;
-    auto global_smap = vex::make_smap(global_vars);
-    auto local_smap = vex::make_smap(local_vars);
-    vex::expand(out, template_client_C, vex::make_cmap(local_smap, global_smap));
+    vex::expand(out, template_client_C, local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -53,7 +51,7 @@ int flow_compiler::genc_py_client(std::string const &pyfn) {
     DEBUG_ENTER;
     OFSTREAM_SE(outf, pyfn);
     extern char const *template_client_py;
-    vex::expand(outf, template_client_py, vex::make_smap(global_vars));
+    vex::expand(outf, template_client_py, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }

@@ -100,7 +100,7 @@ TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile t
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
 
-OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flowc.o gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o gvars.o print-graph.o print-pseu.o tree-accessors.o version.o
+OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flowc.o gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o gvars.o print-graph.o print-pseu.o tree-accessors.o veximpl.o version.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
@@ -229,8 +229,8 @@ all-images: $(RUNTIMES)
 recli: recli.C
 	$(CXX) -std=c++11 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
 
-vex: vex.C vex.H stru1.H
-	$(CXX) -std=c++11 -O3 -o vex vex.C
+vex: vex.C vex.H stru1.H veximpl.C
+	$(CXX) -std=c++11 -O3 -o vex vex.C veximpl.C
 
 TOOLS=recli vex
 

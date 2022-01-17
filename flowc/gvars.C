@@ -12,7 +12,6 @@
 #include "flow-compiler.H"
 #include "grpc-helpers.H"
 #include "stru1.H"
-#include "vex.H"
 
 using namespace stru1;
 

@@ -1388,8 +1388,6 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
     set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
 
     extern char const *template_server_C;
-    auto mgv = vex::make_smap(global_vars);
-    auto mlv = vex::make_smap(local_vars);
 
     if(DEBUG_GENC) {
         std::string ofn = server_src + "-global.json";
@@ -1402,7 +1400,7 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
         stru1::to_json(outj, local_vars);
     }
 
-    vex::expand(out, template_server_C, vex::make_cmap(mlv, mgv));
+    vex::expand(out, template_server_C, local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
