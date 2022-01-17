@@ -21,7 +21,7 @@
 #include "grpc-helpers.H"
 #include "helpo.H"
 #include "stru1.H"
-#include "vex.H"
+#include "vexvars.H"
 
 #if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>
@@ -456,9 +456,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
         if(pt == ".") {
-            vex::expand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", vex::make_smap(global_vars));
+            vex::expand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", global_vars);
         } else if(pt == "-") {
-            vex::expand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", vex::make_smap(global_vars));
+            vex::expand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", global_vars);
         } else {
             // look for a matching entry name
             int en = 0;
@@ -595,7 +595,7 @@ int flow_compiler::genc_www() {
     }
     if(error_count == 0) {
         extern char const *template_index_html;
-        vex::expand(outf, template_index_html, vex::make_smap(global_vars));
+        vex::expand(outf, template_index_html, global_vars);
     }
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         decltype(global_vars) local_vars;
@@ -609,7 +609,7 @@ int flow_compiler::genc_www() {
         }
         if(error_count == 0) {
             extern char const *template_index_html;
-            vex::expand(outf, template_index_html, vex::make_cmap(vex::make_smap(local_vars), vex::make_smap(global_vars)));
+            vex::expand(outf, template_index_html, local_vars, global_vars);
         }
     }
     DEBUG_LEAVE;
@@ -622,7 +622,7 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
     OFSTREAM_SE(makf, fn);
     if(error_count == 0) {
         extern char const *template_Makefile;
-        vex::expand(makf, template_Makefile, vex::make_smap(global_vars));
+        vex::expand(makf, template_Makefile, global_vars);
     }
     // Create a link to this makefile if Makefile isn't in the way
     std::string mp = output_filename("Makefile");
@@ -638,21 +638,20 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
 int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     int error_count = 0;
     DEBUG_ENTER;
-    auto global_smap = vex::make_smap(global_vars);
     std::string fn = output_filename(orchestrator_name+".Dockerfile");
     OFSTREAM_SE(outf, fn);
     if(error_count == 0) {
         extern std::map<std::string, char const *> template_runtime_Dockerfile;
         char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
-        vex::expand(outf, c_template_runtime_Dockerfile, global_smap);
+        vex::expand(outf, c_template_runtime_Dockerfile, global_vars);
         extern char const *template_Dockerfile;
-        vex::expand(outf, template_Dockerfile, global_smap);
+        vex::expand(outf, template_Dockerfile, global_vars);
     }
     std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
     OFSTREAM_SE(outf2, fn2);
     if(error_count == 0) {
         extern char const *template_slim_Dockerfile;
-        vex::expand(outf2, template_slim_Dockerfile, global_smap);
+        vex::expand(outf2, template_slim_Dockerfile, global_vars);
     }
     DEBUG_LEAVE;
     return error_count;

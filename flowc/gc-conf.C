@@ -12,7 +12,7 @@
 #include "flow-compiler.H"
 #include "grpc-helpers.H"
 #include "stru1.H"
-#include "vex.H"
+#include "vexvars.H"
 
 using namespace stru1;
     
@@ -135,7 +135,7 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
                 }
         } else {
             std::ostringstream os;
-            vex::expand(os, value, vex::make_smap(env_vars));
+            vex::expand(os, value, env_vars);
             env.push_back(std::make_pair(nv.first, os.str()));
         }
     }
@@ -209,9 +209,7 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         stru1::to_json(outj, local_vars);
     }
     extern char const *template_docker_yaml;
-    auto local_smap = vex::make_smap(local_vars);
-    auto global_smap = vex::make_smap(global_vars);
-    vex::expand(out, template_docker_yaml, vex::make_cmap(local_smap, global_smap));
+    vex::expand(out, template_docker_yaml, local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -304,10 +302,7 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
         set(local_vars, "G_INIT_COUNT", init_count? std::to_string(init_count): std::string());
         set(local_vars, "G_VOLUME_COUNT", volume_count? std::to_string(volume_count): std::string());
     }
-    auto global_smap = vex::make_smap(global_vars);
-    auto local_smap = vex::make_smap(alln_vars);
-    auto gg_smap = vex::make_smap(g_group_vars[main_group_name]);
-    vex::expand(out, template_kubernetes_yaml, vex::make_cmap(gg_smap, local_smap, global_smap));
+    vex::expand(out, template_kubernetes_yaml, g_group_vars[main_group_name], alln_vars, global_vars);
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("k8s-yaml-global.json"));
         stru1::to_json(outg, global_vars);
@@ -319,8 +314,7 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
             stru1::to_json(outj, g_group_vars[g.first]);
         }
-        auto gg_smap = vex::make_smap(g_group_vars[g.first]);
-        vex::expand(out, template_kubernetes_group_yaml, vex::make_cmap(gg_smap, local_smap, global_smap));
+        vex::expand(out, template_kubernetes_group_yaml, g_group_vars[g.first], alln_vars, global_vars);
     }
 
     DEBUG_LEAVE;
@@ -341,7 +335,7 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     set(local_vars, "RR_KEYS_SH", rr_keys_sh);
     extern char const *rr_get_sh;
     yaml.str("");
-    vex::expand(yaml, rr_get_sh, vex::make_smap(local_vars));
+    vex::expand(yaml, rr_get_sh, local_vars);
     set(local_vars, "RR_GET_SH",  yaml.str());
     yaml.str("");
     error_count += genc_k8s_conf(yaml);
@@ -366,9 +360,7 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
         stru1::to_json(outj, local_vars);
     }
     extern char const *template_driver_sh; 
-    auto local_smap = vex::make_smap(local_vars);
-    auto global_smap = vex::make_smap(global_vars);
-    vex::expand(out, template_driver_sh, vex::make_cmap(local_smap, global_smap));
+    vex::expand(out, template_driver_sh, local_vars, global_vars);
 
     if(error_count == 0) {
         out.close();
