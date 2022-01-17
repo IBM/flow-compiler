@@ -137,7 +137,7 @@ static inline std::string get_value(SC&& sc, int index) {
 }
 struct is_value_dictionary_test {
     template<typename T, typename has_find = decltype(std::declval<const T&>().find("")),
-                         typename has_size = decltype(std::declval<const T&>().size())>
+                         typename has_end = decltype(std::declval<const T&>().end())>
     static is_value_type<decltype(std::declval<const T&>().find("")->second)> test(int);
     template<typename...>
     static std::false_type test(...);
