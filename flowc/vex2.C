@@ -1,7 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include "stru1.H"
-#include "vex2.H"
+#include "vexvars.H"
 
 struct envmap {
     static bool ends_with(std::string const &name, const std::string &suff) {

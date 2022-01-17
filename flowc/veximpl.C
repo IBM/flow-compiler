@@ -5,6 +5,8 @@
 #include "vexvars.H"
 #include "stru1.H"
 
+#include <iostream>
+
 namespace vex {
 struct macro_descr {
     std::string label;
@@ -73,8 +75,8 @@ struct macro_parser {
     std::ostream *errp = nullptr;
     long lc = 0;
     std::string label;
-    std::function< std::pair<bool, std::string>(std::string const &, int) > gv_value;
-    std::function< int(std::string const &) > gv_count;
+    std::function<std::pair<bool, std::string>(std::string const &, int)> gv_value;
+    std::function<int(std::string const &)> gv_count;
 
     macro_parser(decltype(gv_value) gvf, decltype(gv_count) gcf):gv_value(gvf), gv_count(gcf) {
     }
@@ -414,5 +416,9 @@ struct macro_parser {
         return std::make_pair(found, missed);
     }
 };
+std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, std::function<int(std::string const &)> fgc) {
+    macro_parser mp(fgv, fgc);
+    return mp.render_varsub_r(out, templ, templ_end, -1); 
 }
-#endif
+}
+

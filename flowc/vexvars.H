@@ -2,7 +2,9 @@
 #define H_VEXVARS_H
 
 #include <type_traits>
+#include <functional>
 #include <string>
+#include <iostream>
 
 namespace vex {
 
@@ -221,6 +223,38 @@ int dict_value_count(std::string const &name, M&& dict, MM&&... args) {
     auto r = dict_value_count(name, dict);
     if(r >= 0) return r;
     return dict_value_count(name, args...);
+}
+
+std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, std::function<int(std::string const &)> fgc);
+
+template <typename... MM> 
+static 
+int expand(std::ostream &out, char const *in, char const *end_in, MM&&... maps) {
+    auto fgv = [&](std::string const &name, int index) -> std::pair<bool, std::string> {
+        return get_dict_value(name, index, std::forward<MM>(maps)...);
+    };
+    auto fgc = [&](std::string const &name) -> int {
+        return dict_value_count(name, std::forward<MM>(maps)...);
+    };
+    auto rc = render_varsub(out, in, end_in, fgv, fgc); 
+    return rc.second;
+}
+template <typename... MM> 
+static 
+int expand(std::ostream &out, char const *in, MM&&... maps) {
+    return expand(out, in, strchr(in, '\0'), std::forward<MM>(maps)...); 
+}
+template <typename... MM> 
+static 
+int expand(std::ostream &out, std::string const &in, MM&&... maps) {
+    return expand(out, in.c_str(), in.c_str()+in.length(), std::forward<MM>(maps)...); 
+}
+template <typename... MM> 
+static 
+int expand(std::ostream &out, std::istream &is, MM&&... maps) {
+    std::istreambuf_iterator<char> eos;
+    std::string templ(std::istreambuf_iterator<char>(is), eos);
+    return expand(out, templ, std::forward<MM>(maps)...);
 }
 
 }
