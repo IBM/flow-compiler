@@ -1,143 +1,11 @@
-#ifndef H_VEX2_H
-#define H_VEX2_H
-
 #include <cctype>
 #include <cstring>
-#include <list>
-#include <map>
-#include <vector>
 #include <sstream>
 #include <string>
+#include "vexvars.H"
 #include "stru1.H"
 
 namespace vex {
-/**
-* Cascaded map template. The maps are looked up left to right.
-*/
-template <class... Ts> struct cmap {
-    /**
-     * If the variable is found true and the value corresponding to the index should be returned.
-     * If the index is out of range the first value should be returned.
-     * If the varaible is not found, false and an empty string must be returned.
-     */
-    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        return std::make_pair(false, std::string());
-    }
-    /** 
-     * Returns the number of values for name or -1 if lookup fails.
-     */
-    virtual int gets(std::string const &name) const {
-        return -1;
-    }
-};
-template <class T, class... Ts>
-struct cmap<T, Ts...>: cmap<Ts...> {
-    cmap(T t, Ts... ts): cmap<Ts...>(ts...), tail(t) {}
-    T tail;
-
-    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        auto f = tail.getv(name, index);
-        return f.first? f: cmap<Ts...>::getv(name, index);
-    }
-    int gets(std::string const &name) const {
-        int s  = tail.gets(name);
-        return s >= 0? s: cmap<Ts...>::gets(name);
-    }
-};    
-template <class... Ts> inline static 
-cmap<Ts...> make_cmap(Ts&&... args) {
-    return cmap<Ts...>(std::forward<Ts>(args)...);
-}
-/**
- * Abstract map interface
- */
-struct amap {
-    /**
-     * Return the value corresponding to the index and true if the value is found
-     * Return the first value if the index is out of range.
-     * If the variable is not found, return false and an empty string.
-     */
-    virtual std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        return std::make_pair(false, std::string());
-    }
-    /** 
-     * Returns the number of values for name or -1 if lookup fails.
-     */
-    virtual int gets(std::string const &name) const {
-        return -1;
-    }
-};
-/**
- * Templates to virtualize a vex::map.
- */
-template <class MAP> 
-struct vmap: public amap {
-    MAP const m;
-    vmap(MAP mm): m(mm) {};
-    virtual std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        return m.getv(name, index);
-    }
-    virtual int gets(std::string const &name) const {
-        return m.gets(name);
-    }
-};
-template <class M> static inline
-vmap<M> make_vmap(M m) {
-    return vmap<M>(m);
-}
-/**
- * Variable map based on a std::map like interface. Uses find() and end() methods only.
- * find() must take a string type as argument.
- * The result to find must be a pointer type to a structure that stores the values in a filed called 'second'.
- * The value field must be an array type withe a size() method.
- */
-template <class M=std::map<std::string, std::vector<std::string>>>
-struct smap {
-    M const m;
-    smap(M mm): m(mm) {
-    }
-    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        auto f = m.find(name);
-        if(f == m.end())
-            return std::make_pair(false, std::string());
-        if(f->second.size() == 0)
-            return std::make_pair(true, std::string());
-        return std::make_pair(true, f->second[f->second.size() > index && index >= 0? index: 0]);
-    }
-    int gets(std::string const &name) const {
-        auto f = m.find(name);
-        if(f == m.end()) 
-            return -1;
-        return int(f->second.size());
-    }
-};
-template <class M>
-struct smap<M> make_smap(M m) {
-    return smap<M>(m);
-}
-/**
- * A map consisting of a list of virtual maps
- * Use the std::list interface to populate the map.
- * Lookups are prioritized in list oder.
- */
-class lvmap: public std::list<amap *> {
-public:    
-    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        for(auto const &m: *this) {
-            auto f = m->getv(name, index);
-            if(f.first) return f;
-        }
-        return std::make_pair(false, std::string());
-    }
-    int gets(std::string const &name) const {
-        for(auto const &m: *this) {
-            int s = m->gets(name);
-            if(s >= 0)
-                return s;
-        }
-        return -1;
-    }
-};
 struct macro_descr {
     std::string label;
     std::string name;
@@ -205,7 +73,11 @@ struct macro_parser {
     std::ostream *errp = nullptr;
     long lc = 0;
     std::string label;
+    std::function< std::pair<bool, std::string>(std::string const &, int) > gv_value;
+    std::function< int(std::string const &) > gv_count;
 
+    macro_parser(decltype(gv_value) gvf, decltype(gv_count) gcf):gv_value(gvf), gv_count(gcf) {
+    }
     static bool match(char const *obj, char const *heap, char const *end_heap) {
         char const *bo = obj, *bh = heap;
         while(*bo != '\0' && bh != end_heap && *bo == *bh) ++bo, ++bh;
@@ -355,14 +227,14 @@ struct macro_parser {
         md.clear(templ, templ_end);
         return 0;
     }
-    template <class MAP1> int gets(MAP1 const &map, std::string const &name, int min_max) const {
+    int gets(std::string const &name, int min_max) const {
         int s = 0;
         std::string::size_type nb = 0;
         while(nb < name.length()) {
             auto ne = name.find_first_of('+', nb);
             if(ne == std::string::npos) ne = name.length();
             std::string n = name.substr(nb, ne - nb);
-            int ns = map.gets(n);
+            int ns = gv_count(n);
             if(ns >= 0) {
                 if(min_max == 0 || (min_max < 0 && s < 0)) {
                     s = ns;
@@ -378,7 +250,7 @@ struct macro_parser {
         }
         return s;
     }
-    template <class MAP1> std::pair<int, std::string> get_value(MAP1 const &map, std::string const &names, int index) {
+    std::pair<int, std::string> get_value_c(std::string const &names, int index) {
         std::string::size_type tb = 0;
         while(tb < names.length()) {
             auto te = names.find_first_of('+', tb);
@@ -388,7 +260,7 @@ struct macro_parser {
             auto ne = namet.find_first_of('/');
             if(ne == std::string::npos) ne = namet.length();
             std::string name = namet.substr(0, ne);
-            auto fv = map.getv(name, index);
+            auto fv = gv_value(name, index);
             if(!fv.first) 
                 continue;
             std::string value(fv.second);
@@ -444,10 +316,16 @@ struct macro_parser {
         }
         return std::make_pair(1, std::string());
     }
+    std::pair<int, std::string> get_value(std::string const &names, int index) {
+        auto r = get_value_c(names, index);
+        std::cerr << "V:"<< names  << "#" << index << ": " << r.first << ", " << r.second << "\n";
+        return r;
+    } 
+
     /***
      *  Return the number of substitutions and the number of misses.
      */
-    template <class MAP1> std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, MAP1 const &map, int index=-1) {
+    std::pair<int, int> render_varsub_r(std::ostream &out, char const *templ, char const *templ_end, int index) {
         if(templ_end == nullptr) templ_end = templ + strlen(templ);
         macro_descr md;
         int mprc = find_macro(md, templ, templ_end);
@@ -458,7 +336,7 @@ struct macro_parser {
             pos = md.after;
             if(md.label.empty()) {
                 // regular variable reference
-                auto fv = get_value(map, md.name, index < 0? 0: index);
+                auto fv = get_value(md.name, (index < 0? 0: index));
                 if(fv.first == 0) { 
                     out << fv.second;
                     ++found;
@@ -484,7 +362,7 @@ struct macro_parser {
                     if(fe == std::string::npos) fe = bexp.length();
                     std::string right = bexp.substr(op+1, fe-op-1);
                     //std::cout << "CHK " << left << " & " << right << "\n";
-                    auto fv = get_value(map, left, index < 0? 0: index);
+                    auto fv = get_value(left, (index < 0? 0: index));
                     if(fv.first == 1 || fv.second.empty()) {
                         bexp = bexp.substr(0, lb) + left + bexp.substr(fe);
                         continue;
@@ -497,7 +375,7 @@ struct macro_parser {
                     auto fe = bexp.find_first_of("&|", op+1);
                     if(fe == std::string::npos) fe = bexp.length();
                     std::string right = bexp.substr(op+1, fe-op-1);
-                    auto fv = get_value(map, left, index < 0? 0: index);
+                    auto fv = get_value(left, index < 0? 0: index);
                     if(fv.first == 1 || fv.second.empty()) {
                         bexp = bexp.substr(op+1);
                         continue;
@@ -506,20 +384,20 @@ struct macro_parser {
                     break;
                 }
                 if(!cond) {
-                    auto fv = get_value(map, bexp, index < 0? 0: index);
+                    auto fv = get_value(bexp, (index < 0? 0: index));
                     cond = fv.first == 0 && !fv.second.empty();
                 }
                 if(cond) {
-                    render_varsub(sout, md.begin, md.end, map, index);
+                    render_varsub_r(sout, md.begin, md.end, index);
                     out << sout.str(); 
                 }
             } else {
                 // loop reference
-                int maxx = md.count >= 0? md.count: (md.name.empty()? -1: gets(map, md.name, md.min_max));
+                int maxx = md.count >= 0? md.count: (md.name.empty()? -1: gets(md.name, md.min_max));
                 int mima = md.name.empty()? (md.min_max > 0? 1: -1) : 0;
                 std::ostringstream sout;
                 for(int i = 0; maxx < 0 || i < maxx; ++i) {
-                    auto rok = render_varsub(sout, md.begin, md.end, map, i);
+                    auto rok = render_varsub_r(sout, md.begin, md.end, i);
                     if(mima < 0 && rok.second > 0)
                         break;
                     if(mima > 0 && rok.first == 0)
@@ -536,29 +414,5 @@ struct macro_parser {
         return std::make_pair(found, missed);
     }
 };
-template <class MAP> 
-static 
-int expand(std::ostream &out, char const *in, char const *end_in, MAP const &map) {
-    macro_parser mp;
-    auto rc = mp.render_varsub(out, in, end_in, map); 
-    return rc.second;
-}
-template <class MAP> 
-static 
-int expand(std::ostream &out, char const *in, MAP const &map) {
-    return expand(out, in, strchr(in, '\0'), map); 
-}
-template <class MAP> 
-static 
-int expand(std::ostream &out, std::string const &in, MAP const &map) {
-    return expand(out, in.c_str(), in.c_str()+in.length(), map); 
-}
-template <class MAP> 
-static 
-int expand(std::ostream &out, std::istream &is, MAP const &map) {
-    std::istreambuf_iterator<char> eos;
-    std::string templ(std::istreambuf_iterator<char>(is), eos);
-    return expand(out, templ, map);
-}
 }
 #endif
