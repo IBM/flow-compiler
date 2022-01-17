@@ -229,7 +229,7 @@ std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char con
 
 template <typename... MM> 
 static 
-int expand(std::ostream &out, char const *in, char const *end_in, MM&&... maps) {
+int expandp(std::ostream &out, char const *in, char const *end_in, MM&&... maps) {
     auto fgv = [&](std::string const &name, int index) -> std::pair<bool, std::string> {
         return get_dict_value(name, index, maps...);
     };
@@ -242,12 +242,12 @@ int expand(std::ostream &out, char const *in, char const *end_in, MM&&... maps) 
 template <typename... MM> 
 static 
 int expand(std::ostream &out, char const *in, MM&&... maps) {
-    return expand(out, in, strchr(in, '\0'), maps...); 
+    return expandp(out, in, strchr(in, '\0'), maps...); 
 }
 template <typename... MM> 
 static 
 int expand(std::ostream &out, std::string const &in, MM&&... maps) {
-    return expand(out, in.c_str(), in.c_str()+in.length(), maps...); 
+    return expandp(out, in.c_str(), in.c_str()+in.length(), maps...); 
 }
 template <typename... MM> 
 static 
