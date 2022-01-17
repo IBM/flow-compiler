@@ -2,10 +2,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
-#include "vexvars.H"
 #include "stru1.H"
-
-#include <iostream>
 
 namespace vex {
 struct macro_descr {
@@ -320,7 +317,7 @@ struct macro_parser {
     }
     std::pair<int, std::string> get_value(std::string const &names, int index) {
         auto r = get_value_c(names, index);
-        std::cerr << "V:"<< names  << "#" << index << ": " << r.first << ", " << r.second << "\n";
+        //std::cerr << "V:"<< names  << "#" << index << ": " << r.first << ", " << r.second << "\n";
         return r;
     } 
 

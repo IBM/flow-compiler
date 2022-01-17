@@ -1,5 +1,5 @@
-#ifndef H_VEXVARS_H
-#define H_VEXVARS_H
+#ifndef H_VEX_H
+#define H_VEX_H
 
 #include <type_traits>
 #include <functional>
