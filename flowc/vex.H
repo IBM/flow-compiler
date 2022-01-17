@@ -73,11 +73,11 @@ struct value_count_impl<SC, true, true> {
 };
 template<class SC>
 static inline size_t value_count(SC&& sc) {
-    return value_count_impl<SC, is_string_type<SC>::value, has_size<SC>::value>::count(sc);
+    return value_count_impl<SC, is_string_type<SC>::value, has_size<SC>::value>::count(std::forward<SC>(sc));
 }
 template<class SC>
 static inline std::string get_ra_value(SC&& sc, int index) {
-    auto count = value_count<SC>(sc);
+    auto count = value_count<SC>(std::forward<SC>(sc));
     switch(count) {
         case 0: 
             return "";
@@ -88,7 +88,7 @@ static inline std::string get_ra_value(SC&& sc, int index) {
 }
 template<class SC>
 static inline std::string get_it_value(SC&& sc, int index) {
-    auto count = value_count<SC>(sc);
+    auto count = value_count<SC>(std::forward<SC>(sc));
     switch(count) {
         case 0: 
             return "";
@@ -116,24 +116,24 @@ struct get_value_impl<SC, true, false, false> {
 template<class SC>
 struct get_value_impl<SC, false, true, false> {
     static std::string value(SC&& sc, int index) {
-        return get_ra_value<SC>(sc, index);
+        return get_ra_value<SC>(std::forward<SC>(sc), index);
     }
 };
 template<class SC>
 struct get_value_impl<SC, false, true, true> {
     static std::string value(SC&& sc, int index) {
-        return get_ra_value<SC>(sc, index);
+        return get_ra_value<SC>(std::forward<SC>(sc), index);
     }
 };
 template<class SC>
 struct get_value_impl<SC, false, false, true> {
     static std::string value(SC&& sc, int index) {
-        return get_it_value<SC>(sc, index);
+        return get_it_value<SC>(std::forward<SC>(sc), index);
     }
 };
 template<class SC>
 static inline std::string get_value(SC&& sc, int index) {
-    return get_value_impl<SC, is_string_type<SC>::value, is_string_vector<SC>::value, is_string_container<SC>::value>::value(sc, index);
+    return get_value_impl<SC, is_string_type<SC>::value, is_string_vector<SC>::value, is_string_container<SC>::value>::value(std::forward<SC>(sc), index);
 }
 struct is_value_dictionary_test {
     template<typename T, typename has_find = decltype(std::declval<const T&>().find("")),
@@ -203,26 +203,26 @@ struct get_dict_value_impl<VS, false, true> {
 template<typename M>
 static inline 
 std::pair<bool, std::string> get_dict_value(std::string const &name, int index, M&& dict) {
-    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_dictionary_container<M>::value>::value(dict, name, index);
+    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_dictionary_container<M>::value>::value(std::forward<M>(dict), name, index);
 }
 template<typename M, typename... MM>
 static inline 
 std::pair<bool, std::string> get_dict_value(std::string const &name, int index, M&& dict, MM&&... args) {
-    auto r = get_dict_value(name, index, dict);
+    auto r = get_dict_value(name, index, std::forward<M>(dict));
     if(r.first) return r;
-    return get_dict_value(name, index, args...);
+    return get_dict_value(name, index, std::forward<MM>(args)...);
 }
 template<typename M>
 static inline 
 int dict_value_count(std::string const &name, M&& dict) {
-    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_dictionary_container<M>::value>::count(dict, name);
+    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_dictionary_container<M>::value>::count(std::forward<M>(dict), name);
 }
 template<typename M, typename... MM>
 static inline 
 int dict_value_count(std::string const &name, M&& dict, MM&&... args) {
-    auto r = dict_value_count(name, dict);
+    auto r = dict_value_count(name, std::forward<M>(dict));
     if(r >= 0) return r;
-    return dict_value_count(name, args...);
+    return dict_value_count(name, std::forward<MM>(args)...);
 }
 
 std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, std::function<int(std::string const &)> fgc);
@@ -231,10 +231,10 @@ template <typename... MM>
 static 
 int expandp(std::ostream &out, char const *in, char const *end_in, MM&&... maps) {
     auto fgv = [&](std::string const &name, int index) -> std::pair<bool, std::string> {
-        return get_dict_value(name, index, maps...);
+        return get_dict_value(name, index, std::forward<MM>(maps)...);
     };
     auto fgc = [&](std::string const &name) -> int {
-        return dict_value_count(name, maps...);
+        return dict_value_count(name, std::forward<MM>(maps)...);
     };
     auto rc = render_varsub(out, in, end_in, fgv, fgc); 
     return rc.second;
@@ -242,19 +242,19 @@ int expandp(std::ostream &out, char const *in, char const *end_in, MM&&... maps)
 template <typename... MM> 
 static 
 int expand(std::ostream &out, char const *in, MM&&... maps) {
-    return expandp(out, in, strchr(in, '\0'), maps...); 
+    return expandp(out, in, strchr(in, '\0'), std::forward<MM>(maps)...); 
 }
 template <typename... MM> 
 static 
 int expand(std::ostream &out, std::string const &in, MM&&... maps) {
-    return expandp(out, in.c_str(), in.c_str()+in.length(), maps...); 
+    return expandp(out, in.c_str(), in.c_str()+in.length(), std::forward<MM>(maps)...); 
 }
 template <typename... MM> 
 static 
 int expand(std::ostream &out, std::istream &is, MM&&... maps) {
     std::istreambuf_iterator<char> eos;
     std::string templ(std::istreambuf_iterator<char>(is), eos);
-    return expand(out, templ, maps...);
+    return expand(out, templ, std::forward<MM>(maps)...);
 }
 
 }
