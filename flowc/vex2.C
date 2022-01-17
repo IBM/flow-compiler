@@ -159,41 +159,11 @@ int main(int argc, char *argv[]) {
             rc = read_json_file(mv[i-2], fin);
             if(rc != 0) 
                 std::cerr << argv[i] << ": error reading json variables\n";
-            std::cerr << "NAME(" << i << "): " << vex::get_dict_value("NAME", 0, mv[i-2]) << "\n";
-            std::cerr << "NAME(" << i << ")#: " << vex::dict_value_count("NAME", mv[i-2]) << "\n";
-            std::cerr << "MDP_SERVICE_NAME(" << i << "): " << vex::get_dict_value("MDP_SERVICE_NAME", 0, mv[i-2]) << "\n";
-            std::cerr << "MDP_SERVICE_NAME(" << i << ")#: " << vex::dict_value_count("MDP_SERVICE_NAME", mv[i-2]) << "\n";
         }
         if(rc != 0) {
             return rc;
         }
     }
-
-    std::cerr << "NAME(.): " << vex::get_dict_value("NAME", 0, mv[0], mv[1]) << "\n";
-    std::cerr << "NAME(c): " << vex::get_dict_value("NAME", 0, mv) << "\n";
-    std::cerr << "NAME(.)#: " << vex::dict_value_count("NAME", mv[0], mv[1]) << "\n";
-    std::cerr << "NAME(c)#: " << vex::dict_value_count("NAME", mv) << "\n";
-
-    std::cerr << "MDP_SERVICE_NAME(.): " << vex::get_dict_value("MDP_SERVICE_NAME", 0, mv[0], mv[1]) << "\n";
-    std::cerr << "MDP_SERVICE_NAME(c): " << vex::get_dict_value("MDP_SERVICE_NAME", 0, mv) << "\n";
-    std::cerr << "MDP_SERVICE_NAME(.)#: " << vex::dict_value_count("MDP_SERVICE_NAME", mv[0], mv[1]) << "\n";
-    std::cerr << "MDP_SERVICE_NAME(c)#: " << vex::dict_value_count("MDP_SERVICE_NAME", mv) << "\n";
-    std::cerr << "=----------------********************\n";
-
-    int rc = 1;
-    switch(mv.size()) {
-        case 0:
-            //rc = vex::expand(std::cout, *in, envmap());
-            break;
-        case 1:
-            rc = vex::expand(std::cout, *in, mv[0]);
-            break;
-        case 2:
-            rc = vex::expand(std::cout, *in, mv[0], mv[1]);
-            break;
-        default:
-            rc = vex::expand(std::cout, *in, mv[0], mv[1], mv[2]);
-            break;
-    }
+    int rc = vex::expand(std::cout, *in, mv);
     return rc;
 }
