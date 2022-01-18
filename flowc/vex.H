@@ -144,6 +144,17 @@ struct is_value_dictionary_test {
 };
 template<typename T>
 struct is_value_dictionary: decltype(is_value_dictionary_test::test<T>(0)) {};
+
+struct is_value_accessor_test {
+    template<typename T, typename has_get = decltype(std::declval<const T&>().get("")),
+                         typename has_end = decltype(std::declval<const T&>().end())>
+    static is_value_type<decltype(true? std::declval<const T&>().get(""): std::declval<const T&>().end())> test(int);
+    template<typename...>
+    static std::false_type test(...);
+};
+template<typename T>
+struct is_value_accessor: decltype(is_value_accessor_test::test<T>(0)) {};
+
 struct is_value_dictionary_container_test {
     template<typename T, typename has_begin = decltype(std::declval<const T&>().begin()),
                          typename has_end = decltype(std::declval<const T&>().end())>
@@ -154,12 +165,12 @@ struct is_value_dictionary_container_test {
 template<typename T>
 struct is_value_dictionary_container: decltype(is_value_dictionary_container_test::test<T>(0)) {};
 template<class SC>
-struct is_value_store: std::integral_constant<bool, is_value_dictionary<SC>::value || is_value_dictionary_container<SC>::value> {};
+struct is_value_store: std::integral_constant<bool, is_value_dictionary<SC>::value || is_value_accessor<SC>::value || is_value_dictionary_container<SC>::value> {};
 
 #define VALUE_STORE_NEEDED_ERRM "Must be a map from string to single or multiple strings, or a container of such maps"
 #define VALUE_MAP_NEEDED_ERRM "Must be a map from string to single or multiple strings"
 #define VALUE_MAP_CONTAINER_NEEDED_ERRM "Must be a container of maps from string to single or multiple strings"
-template<class VS, bool is_m, bool is_s>
+template<class VS, bool is_m, bool is_a, bool is_s>
 struct get_dict_value_impl {
     static_assert(is_value_store<VS>::value, VALUE_STORE_NEEDED_ERRM);
     static std::pair<bool, std::string> value(VS&& s, std::string const &name, int index) { 
@@ -170,31 +181,44 @@ struct get_dict_value_impl {
     }
 };
 template<class VS>
-struct get_dict_value_impl<VS, true, false> {
+struct get_dict_value_impl<VS, true, false, false> {
     static_assert(is_value_dictionary<VS>::value, VALUE_MAP_NEEDED_ERRM);
     static std::pair<bool, std::string> value(VS&& sc, std::string const &name, int index) {
-        auto fp = sc.find(name.c_str());
+        auto &&fp = sc.find(name.c_str());
         return fp == sc.end()? std::make_pair(false, ""):
             std::make_pair(true, get_value(fp->second, index));
     }
     static int count(VS&& sc, std::string const &name) { 
-        auto fp = sc.find(name.c_str());
+        auto &&fp = sc.find(name.c_str());
         return fp == sc.end()? -1: value_count(fp->second);
     }
 };
 template<class VS>
-struct get_dict_value_impl<VS, false, true> {
+struct get_dict_value_impl<VS, false, true, false> {
+    static_assert(is_value_accessor<VS>::value, VALUE_MAP_NEEDED_ERRM);
+    static std::pair<bool, std::string> value(VS&& sc, std::string const &name, int index) {
+        auto &&fp = sc.get(name.c_str());
+        return fp == sc.end()? std::make_pair(false, ""):
+            std::make_pair(true, get_value(fp, index));
+    }
+    static int count(VS&& sc, std::string const &name) { 
+        auto &&fp = sc.get(name.c_str());
+        return fp == sc.end()? -1: value_count(fp);
+    }
+};
+template<class VS>
+struct get_dict_value_impl<VS, false, false, true> {
     static_assert(is_value_dictionary_container<VS>::value, VALUE_MAP_CONTAINER_NEEDED_ERRM);
     static std::pair<bool, std::string> value(VS&& sc, std::string const &name, int index) {
         for(auto p = sc.begin(), e = sc.end(); p != e; ++p) {
-            auto r = get_dict_value_impl<decltype(*p), is_value_dictionary<decltype(*p)>::value, is_value_dictionary_container<decltype(*p)>::value>::value(*p, name, index);
+            auto r = get_dict_value_impl<decltype(*p), is_value_dictionary<decltype(*p)>::value, is_value_accessor<decltype(*p)>::value, is_value_dictionary_container<decltype(*p)>::value>::value(*p, name, index);
             if(r.first) return r;
         }
         return std::make_pair(false, "");
     }
     static int count(VS&& sc, std::string const &name) { 
         for(auto p = sc.begin(), e = sc.end(); p != e; ++p) {
-            auto r = get_dict_value_impl<decltype(*p), is_value_dictionary<decltype(*p)>::value, is_value_dictionary_container<decltype(*p)>::value>::count(*p, name);
+            auto r = get_dict_value_impl<decltype(*p), is_value_dictionary<decltype(*p)>::value, is_value_accessor<decltype(*p)>::value, is_value_dictionary_container<decltype(*p)>::value>::count(*p, name);
             if(r >= 0) return r;
         }
         return -1;
@@ -203,7 +227,7 @@ struct get_dict_value_impl<VS, false, true> {
 template<typename M>
 static inline 
 std::pair<bool, std::string> get_dict_value(std::string const &name, int index, M&& dict) {
-    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_dictionary_container<M>::value>::value(std::forward<M>(dict), name, index);
+    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_accessor<M>::value, is_value_dictionary_container<M>::value>::value(std::forward<M>(dict), name, index);
 }
 template<typename M, typename... MM>
 static inline 
@@ -215,7 +239,7 @@ std::pair<bool, std::string> get_dict_value(std::string const &name, int index, 
 template<typename M>
 static inline 
 int dict_value_count(std::string const &name, M&& dict) {
-    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_dictionary_container<M>::value>::count(std::forward<M>(dict), name);
+    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_accessor<M>::value, is_value_dictionary_container<M>::value>::count(std::forward<M>(dict), name);
 }
 template<typename M, typename... MM>
 static inline 
