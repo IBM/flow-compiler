@@ -54,6 +54,7 @@ int call_timeout = 3600000;
 int concurrent_calls = 1;
 bool show_headers = false;
 bool show_help = false;
+bool show_version = false;
 std::vector<std::pair<char, std::string>> show;
 std::vector<std::pair<std::string, std::string>> headers;
 
@@ -309,12 +310,13 @@ static ansiesc_out &print_banner(ansiesc_out &out) {
            "g++ " << __VERSION__ << " (" << __cplusplus << ")\n"
 #else
 #endif
-        << "\n";
+    ;
     return out;
 }
 static struct option long_opts[] {
     { "async-calls",          no_argument, nullptr,         'a' },
     { "entries-proto",        no_argument, nullptr,         'E' },
+    { "header",               required_argument, nullptr,   'H' },
     { "help",                 no_argument, nullptr,         'h' },
     { "ignore-grpc-errors",   no_argument, nullptr,         'g' },
     { "ignore-json-errors",   no_argument, nullptr,         'j' },
@@ -326,17 +328,18 @@ static struct option long_opts[] {
     { "streams",              required_argument, nullptr,   'n' },
     { "time-calls",           no_argument, nullptr,         't' },
     { "timeout",              required_argument, nullptr,   'T' },
-    { "header",               required_argument, nullptr,   'H' },
+    { "version",              no_argument, nullptr,         'v' },
     { nullptr,0,nullptr,0 }
 };
 static bool parse_command_line(int &argc, char **&argv, ansiesc_out &aout) {
     int ec = 0, ch;
-    while((ch = getopt_long(argc, argv, "hgjsta:n:T:H:", long_opts, nullptr)) != -1) {
+    while((ch = getopt_long(argc, argv, "hvgjsta:n:T:H:", long_opts, nullptr)) != -1) {
         switch (ch) {
             case 'a': async_calls = stringtobool(optarg, async_calls); set_async_calls = true;break;
             case 'h': show_help = true; break;
             case 'g': ignore_grpc_errors = true; break;
             case 'j': ignore_json_errors = true; break;
+            case 'v': show_version = true; break;
             case 's': show_headers = true; break;
             case 't': time_calls = true; break;
             case 'H': add_header(optarg); break;
@@ -369,44 +372,52 @@ static bool parse_command_line(int &argc, char **&argv, ansiesc_out &aout) {
 }
 int main(int argc, char *argv[]) {
     ansiesc_out aout(std::cout);
-    if(!parse_command_line(argc, argv, aout) || show_help || (show.size() == 0 && (argc < 3 || argc > 6)) || show.size() != 0 && argc > 1) {
+    show_help = argc == 1;
+    if(!parse_command_line(argc, argv, aout) || show_help || show_version || (show.size() == 0 && (argc < 3 || argc > 6)) || show.size() != 0 && argc > 1) {
         unsigned ec = 0;
         char const *argv0 = strrchr(argv[0], '/')? strrchr(argv[0], '/')+1: argv[0];
-        print_banner(aout) <<
-        "USAGE\n" 
-        "\t" << argv0 << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE] [HEADERS-FILE]\n"
-        "\t" << argv0 << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n"
-        "\t" << argv0 << " --entries-proto|--nodes-proto\n"
-        "\n"
-        "\tInput and output files default to <stdin> and <stdout> respectively. The headers file defaults to the output file.\n"
-        "\n"
-        "OPTIONS\n"
-        "\t`--async-calls`, `-a` TRUE/FALSE\n\t\tOverride the asynchronous calls setting in the aggregator.\n\n"
-        "\t`--entries-proto`\n\t\tOutput a proto file with the definition for all the entries. See also `--nodes-proto` and `--proto`.\n\n"
-        "\t`--help`, `-h`\n\t\tDisplay this help and exit.\n\n"
-        "\t`--header`, `-H` NAME=VALUE\n\t\tAdd this header to every request.\n\n"
-        "\t`--ignore-grpc-errors`, `-g`\n\t\tKeep going when grpc errors are encountered.\n\n"
-        "\t`--ignore-json-errors`, `-j`\n\t\tKeep going even if input 'JSON' fails conversion to 'protobuf.'\n\n"
-        "\t`--input-schema` [SERVICE.]RPC\n\t\tShow the 'JSON' schema for the input for this 'RPC'.\n\n"
-        "\t`--nodes-proto`\n\t\tOutput a proto file with the definition for all the entries and mnodes. See also `--entries-proto` and `--proto`.\n\n"
-        "\t`--ouput-schema` [SERVICE.]RPC\n\t\tShow the 'JSON' schema for the output for 'RPC'.\n\n"
-        "\t`---proto` [SERVICE.]RPC\n\t\tOutput a proto file with the definition for this 'RPC'.\n\t\tSee also `--entries-proto` and `--nodes-proto`.\n\n"
-        "\t`--show-headers`, `-s`\n\t\tDisplay headers returned with the reply. By default headers are shown only if a headers file is given.\n\t\tIf this option is set and no header file is given, the headers will be displayed before each output.\n\n"
-        "\t`--streams`, `-n` INTEGER\n\t\tNumber of concurrent calls to make through the connection. The default is '1'.\n\n"
-        "\t`--time-calls`, `-t`\n\t\tRetrieve timing information for each call. The timing information is displayed in the 'times-bin' output header.\n\t\tSee `--show-headers` for more information.\n\n"
-        "\t`--timeout`, `-T`  MILLISECONDS\n\t\tLimit each call to the given amount of time. The default is '3600000' (one hour). Set to '0' to disable timeouts.\n\n"
-        "ENTRIES\n"
-        "\tgRPC services implemented in the aggregator\n";
-        for(auto const &mid: entry_table) if(mid.entry) {
-            ++ec;
-            aout << "\t\t'" << mid.entry_full_name << "'\n";
-        }
-        if(ec != entry_table.size()) {
-            aout << "\nNODES\n\tgRPC services referenced by nodes\n";
+        if(show_help || show_version) print_banner(aout);
+        if(show_version) return 0;
+        if(show_help) {
+            aout << "\n"
+                "USAGE\n" 
+                "\t" << argv0 << " [OPTIONS] PORT|ENDPOINT [SERVICE.]RPC [JSONL-INPUT-FILE] [OUTPUT-FILE] [HEADERS-FILE]\n"
+                "\t" << argv0 << " --input-schema|--output-schema|--proto [SERVICE.]RPC\n"
+                "\t" << argv0 << " --entries-proto|--nodes-proto\n"
+                "\n"
+                "\tInput and output files default to <stdin> and <stdout> respectively. The headers file defaults to the output file.\n"
+                "\n"
+                "OPTIONS\n"
+                "\t`--async-calls`, `-a` TRUE/FALSE\n\t\tOverride the asynchronous calls setting in the aggregator.\n\n"
+                "\t`--entries-proto`\n\t\tOutput a proto file with the definition for all the entries. See also `--nodes-proto` and `--proto`.\n\n"
+                "\t`--help`, `-h`\n\t\tDisplay this help and exit.\n\n"
+                "\t`--header`, `-H` NAME=VALUE\n\t\tAdd this header to every request.\n\n"
+                "\t`--ignore-grpc-errors`, `-g`\n\t\tKeep going when grpc errors are encountered.\n\n"
+                "\t`--ignore-json-errors`, `-j`\n\t\tKeep going even if input 'JSON' fails conversion to 'protobuf.'\n\n"
+                "\t`--input-schema` [SERVICE.]RPC\n\t\tShow the 'JSON' schema for the input for this 'RPC'.\n\n"
+                "\t`--nodes-proto`\n\t\tOutput a proto file with the definition for all the entries and mnodes. See also `--entries-proto` and `--proto`.\n\n"
+                "\t`--ouput-schema` [SERVICE.]RPC\n\t\tShow the 'JSON' schema for the output for 'RPC'.\n\n"
+                "\t`---proto` [SERVICE.]RPC\n\t\tOutput a proto file with the definition for this 'RPC'.\n\t\tSee also `--entries-proto` and `--nodes-proto`.\n\n"
+                "\t`--show-headers`, `-s`\n\t\tDisplay headers returned with the reply. By default headers are shown only if a headers file is given.\n\t\tIf this option is set and no header file is given, the headers will be displayed before each output.\n\n"
+                "\t`--streams`, `-n` INTEGER\n\t\tNumber of concurrent calls to make through the connection. The default is '1'.\n\n"
+                "\t`--time-calls`, `-t`\n\t\tRetrieve timing information for each call. The timing information is displayed in the 'times-bin' output header.\n\t\tSee `--show-headers` for more information.\n\n"
+                "\t`--timeout`, `-T`  MILLISECONDS\n\t\tLimit each call to the given amount of time. The default is '3600000' (one hour). Set to '0' to disable timeouts.\n\n"
+                "\t`--version`, `-v`\n\t\tDisplay version information.\n\n"
+                "ENTRIES\n"
+                "\tgRPC services implemented in the aggregator\n";
+            for(auto const &mid: entry_table) if(mid.entry) {
+                ++ec;
+                aout << "\t\t'" << mid.entry_full_name << "'\n";
+            }
+            if(ec != entry_table.size()) {
+                aout << "\nNODES\n\tgRPC services referenced by nodes\n";
                 for(auto const &mid: entry_table) if(!mid.entry)
                     aout << "\t\t'" << mid.entry_full_name << "'\n";
+            }
+            aout << "\n";
+        } else {
+            aout << "Use `--help` to find the list of all valid options\n";
         }
-        aout << "\n";
         return show_help? 1: 0;
     }
 

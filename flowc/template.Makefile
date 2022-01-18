@@ -146,6 +146,10 @@ image-info-Linux:
 image: image-info-$(shell uname -s)
 	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE_NAME):$(IMAGE_TAG) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(IMAGE_PROXY)
 	@$(MAKE) -s -f $(THIS_FILE) IMAGE=$(IMAGE_NAME):$(IMAGE_TAG) DBG=$(DBG) IMAGE_PROXY=$(IMAGE_PROXY) PUSH_REPO=$(PUSH_REPO) $(DOCKER)
+	@echo "------------------ $(IMAGE_NAME):$(IMAGE_TAG) -------------------------"
+	@docker run --rm $(IMAGE) ./{{NAME}}-server --version
+	@echo "------------------------------------------------------------------------------"
+	@docker run --rm $(IMAGE) ./{{NAME}}-client --version
 
 {{NAME}}-server: {{NAME}}-server.C $(PB_GENERATED_CC) $(PB_GENERATED_H) $(SERVER_XTRA_H)
 	${CXX} $(SERVER_CFLAGS) $(CFLAGS) -o $@  $< $(PB_GENERATED_CC) $(SERVER_XTRA_C) $(SERVER_LFLAGS)

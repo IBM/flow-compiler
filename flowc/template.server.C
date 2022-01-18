@@ -1174,10 +1174,10 @@ namespace flowinfo {
 std::map<std::string, char const *> schema_map = {
 {I:CLI_NODE_NAME{    
 #if !defined(NO_REST) || !(NO_REST)    
-    { "/-node-output/{{CLI_NODE_NAME/option}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
-    { "/-node-input/{{CLI_NODE_NAME/option}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
+    { "/-node-output/{{CLI_NODE_NAME/id/option}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
+    { "/-node-input/{{CLI_NODE_NAME/id/option}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
 #endif
-    { "/-node-proto/{{CLI_NODE_NAME/option}}", {{CLI_PROTO/c}} }, 
+    { "/-node-proto/{{CLI_NODE_NAME/id/option}}", {{CLI_PROTO/c}} }, 
 }I}
 {I:ENTRY_NAME{    
 #if !defined(NO_REST) || !(NO_REST)    
@@ -1768,7 +1768,7 @@ bool node_cfg::read_from_cfg(std::vector<std::string> const &cfg) {
     bool ep_ok = !endpoint.empty() &&
         casd::parse_endpoint_list(dnames, dendpoints, fendpoints, endpoint);
     if(!ep_ok) 
-        std::cout << "No endpoint found for node [" << id << "]\n";
+        std::cerr << "No endpoint found for node [" << id << "]\n";
     return ep_ok && cert_ok;
 }
 bool node_cfg::check_option(std::string const &opt) const {
@@ -1912,12 +1912,17 @@ inline static
 bool startsw(char const *str, char const *start) {
     return strncmp(str, start, strlen(start)) == 0;
 }
-// returns: 0 OK, 1 error, 2 show help, 3 show config 4 show info
+// returns: 0 OK, 1 error, 2 show help, 3 show config, 4 show info, 5 show version
 static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int min_args=1) {
+    if(argc == 1)
+        return 2;
     int uac = 0, a = 1, rc = 0;
     while(a < argc) {
         if(strcmp(argv[a], "--help") == 0) {
             rc = 2;
+            ++a;
+        } else if(strcmp(argv[a], "--version") == 0) {
+            rc = 5;
             ++a;
         } else if(strcmp(argv[a], "--cfg") == 0) {
             rc = 3;
@@ -1966,7 +1971,10 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int
             return 1;
         }
     }
-    if(rc == 0 && uac < min_args) rc = 1;
+    if(rc == 0 && uac < min_args) {
+        std::cerr << "Invalid number of args, " << min_args << " expected\n";
+        rc = 1;
+    }
     return rc;
 }
 static int parse_listening_port_list(std::set<std::string> &list, std::string const &slist) {
@@ -1993,7 +2001,7 @@ static void print_banner(std::ostream &out) {
         << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n"
 #else
 #endif
-        << std::endl;
+        << std::flush;
 }
 static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const &cfg) {
     for(size_t c = 0, s = cfg.size(); c < s; c += 2) 
@@ -2056,12 +2064,14 @@ inline static flowc::ansiesc_out &operator <<(flowc::ansiesc_out &out, V s) {
 }
 int main(int argc, char *argv[]) {
     std::vector<std::string> cfg;
-    int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config, 4 show info
-    if(flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, 1)) == 1 || cmd == 2) {
-        flowc::print_banner(std::cout);
-        flowc::ansiesc_out aout(std::cout);
+    int cmd = 1; // updated by parse_args(): 0 OK, 1 error, 2 show help, 3 show config, 4 show info, 5 show version
+    if(flowc::read_cfg(cfg, "{{NAME}}.cfg", "{{NAME/id/upper}}_") != 0 || (cmd = flowc::parse_args(argc, argv, cfg, 1)) == 1 || cmd == 2 || cmd == 5) {
+        if(cmd == 2 || cmd == 5) flowc::print_banner(std::cout);
+        if(cmd == 5) return 0;
         char const *argv0 = strrchr(argv[0], '/')? strrchr(argv[0], '/')+1: argv[0];
-        aout << "USAGE\n"
+        flowc::ansiesc_out aout(std::cout);
+        if(cmd == 1) aout << "Use `--help` to see the command line help and the list of valid options.\n";  
+        if(cmd == 2) aout << "\nUSAGE\n"
 #if !defined(NO_REST) || !(NO_REST)    
         "\t" << argv0 << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n"
 #else
@@ -2092,27 +2102,28 @@ int main(int argc, char *argv[]) {
         "\t`--grpc-num-threads` NUMBER\n\t\tNumber of threads to run in the gRPC server. Set to '0' to use the default gRPC value.\n\n"
         "\t`--grpc-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the ssl certificate. Default is '{{NAME}}-grpc.pem' and '{{NAME}}.pem' in the current directory.\n\n"
         "\t`--help`\n\t\tShow this screen and exit\n\n"
+#if !defined(NO_REST) || !(NO_REST)    
+        "\t`--rest-num-threads` NUMBER\n\t\tNumber of threads to run in the REST server. Default is '" << DEFAULT_REST_THREADS << "'.\n\n"
+        "\t`--rest-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the SSL certificates. Default is '{{NAME}}-rest.pem' and '{{NAME}}.pem' in the current directory.\n\n"
+#endif
         "\t`--server-id` STRING\n\t\tString to use as an idendifier for this server. If not set a random string will automatically be generated.\n\n"
         "\t`--send-id` TRUE/FALSE\n\t\tSet to false to disable sending the node id in replies. Enabled by default.\n\n"
         "\t`--ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the SSL certificates to be used by either gRPC or REST\n\n"
         "\t`--trace-calls` TRUE/FALSE\n\t\tEnable trace mode\n\n"
         "\t`--trace-connectios` TRUE/FALSE\n\t\tEnable the trace flag in all node calls\n\n"
-#if !defined(NO_REST) || !(NO_REST)    
-        "\t`--rest-num-threads` NUMBER\n\t\tNumber of threads to run in the REST server. Default is '" << DEFAULT_REST_THREADS << "'.\n\n"
-        "\t`--rest-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the SSL certificates. Default is '{{NAME}}-rest.pem' and '{{NAME}}.pem' in the current directory.\n\n"
-#endif
+        "\t`--version`\n\t\tDisplay version information\n\n"
         "NODE SPECIFIC OPTIONS\n\n"
 {I:CLI_NODE_NAME{    
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-certificate` FILE\n\t\tSSL server certificate for node '{{CLI_NODE_NAME}}'\n\n"
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-endpoint` HOST:PORT`*`\n\t\tgRPC edndpoints for node '{{CLI_NODE_NAME}}' ('{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}'). "<<(flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint.empty()? std::string("No default."): (std::string("[")+flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint+std::string("]"))) << "\n\n"
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-maxcc` NUMBER\n\t\tMaximum number of concurrent requests that can be send to '{{CLI_NODE_NAME}}'. Default is '" << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << "'.\n\n"
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-timeout` MILLISECONDS\n\t\tTimeout for calls to node '{{CLI_NODE_NAME}}'. Default is '" << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << "'.\n\n"
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-trace` TRUE/FALSE\n\t\tEnable the trace flag in calls to node '{{CLI_NODE_NAME}}'\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-certificate` FILE\n\t\tSSL server certificate for node '{{CLI_NODE_NAME}}'\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-endpoint` HOST:PORT`*`\n\t\tgRPC edndpoints for node '{{CLI_NODE_NAME}}' ('{{CLI_GRPC_SERVICE_NAME}}.{{CLI_METHOD_NAME}}'). "<<(flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint.empty()? std::string("No default."): (std::string("[")+flowc::ns_{{CLI_NODE_NAME/lower/id}}.endpoint+std::string("]"))) << "\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-maxcc` NUMBER\n\t\tMaximum number of concurrent requests that can be send to '{{CLI_NODE_NAME}}'. Default is '" << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << "'.\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-timeout` MILLISECONDS\n\t\tTimeout for calls to node '{{CLI_NODE_NAME}}'. Default is '" << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << "'.\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-trace` TRUE/FALSE\n\t\tEnable the trace flag in calls to node '{{CLI_NODE_NAME}}'\n\n"
 #if !defined(NO_REST) || !(NO_REST)    
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-input`\n\t\tDisplay input schema for '{{CLI_NODE_NAME}}'\n\n"
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-output`\n\t\tDisplay output schema for '{{CLI_NODE_NAME}}'\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-input`\n\t\tDisplay input schema for '{{CLI_NODE_NAME}}'\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-output`\n\t\tDisplay output schema for '{{CLI_NODE_NAME}}'\n\n"
 #endif
-        "\t`--node-{{CLI_NODE_NAME/lower/option}}-proto`\n\t\tDisplay minimal proto file for '{{CLI_NODE_NAME}}'\n\n"
+        "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-proto`\n\t\tDisplay minimal proto file for '{{CLI_NODE_NAME}}'\n\n"
 }I}
         "ENTRY SPECIFIC OPTIONS\n\n"
 {I:ENTRY_NAME{    "\t`--entry-{{ENTRY_NAME/lower/option}}-timeout` MILLISECONDS\n\t\tTimeout for calls to the '{{ENTRY_NAME}}' entry. Default is '" << flowc::entry_{{ENTRY_NAME}}_timeout << "'.\n\n"
@@ -2178,7 +2189,7 @@ int main(int argc, char *argv[]) {
     }
         
 
-    flowc::print_banner(std::cout);
+    if(cmd != 3) flowc::print_banner(std::cout);
 
 {I:DEFN{    if(flowc::get_cfg(cfg, "fd_{{DEFN}}") != nullptr)
         flowdef::v{{DEFN}} = flowdef::to_vt_{{DEFT}}(flowc::get_cfg(cfg, "fd_{{DEFN}}"));
@@ -2240,10 +2251,10 @@ int main(int argc, char *argv[]) {
     if(rest_need_certificate) {
         ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
         if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
-            std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
+            std::cerr << "SSL certificate file not found: " << ssl_certificate << "\n";
             ++error_count;
         } else if(ssl_certificate.empty()) {
-            std::cout << "SSL certificate is needed for https\n";
+            std::cerr << "SSL certificate is needed for https\n";
             ++error_count;
         }
     }
@@ -2256,10 +2267,10 @@ int main(int argc, char *argv[]) {
     if(grpc_need_certificate) {
         ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
         if(!ssl_certificate.empty() && stat(ssl_certificate.c_str(), &buffer) != 0) {
-            std::cout << "SSL certificate file not found: " << ssl_certificate << "\n";
+            std::cerr << "SSL certificate file not found: " << ssl_certificate << "\n";
             ++error_count;
         } else if(ssl_certificate.empty()) {
-            std::cout << "SSL certificate is needed for secure grpc\n";
+            std::cerr << "SSL certificate is needed for secure grpc\n";
             ++error_count;
         }
     }
