@@ -3,58 +3,28 @@
 #include "stru1.H"
 #include "vex.H"
 
-struct envmap {
-    static bool ends_with(std::string const &name, const std::string &suff) {
-        return name.length() >= suff.length() && name.substr(name.length()-suff.length(), suff.length()) == suff;
+struct environment {
+    std::vector<std::string> end() const {
+        return std::vector<std::string>();
     }
-    static bool is_array_name(std::string const &name) {
-        return name == "PATH" || ends_with(name, "_PATH");
-    }
-    std::pair<bool, std::string> getv(std::string const &name, int index=0) const {
-        char *envv = getenv(name.c_str());
-        if(envv == nullptr)
-            return std::make_pair(false, std::string());
-
-        if(is_array_name(name)) {
-            int cc = 0;
-            char const *cb = envv, *ce = nullptr;
-            while(true) {
-                ce = strchr(cb, ':');
-                if(ce == nullptr || cc == index || index < 0) 
-                    break;
-                ++cc; 
-                cb = ce+1;
-            };
-            if(ce == nullptr) ce = strchr(cb, '\0');
-            if(index < 0 || cc == index)
-                return std::make_pair(true, std::string(cb, ce));
-            return std::make_pair(false, std::string());
+    std::vector<std::string> get(char const *name) const {
+        auto envv = getenv(name);
+        if(envv == nullptr) return end();
+        std::vector<std::string> r;
+        if(strcmp(name, "PATH") == 0 || stru1::ends_with(name, "_PATH")) {
+            stru1::split(r, envv, ":");
+        } else {
+            r.push_back(envv);
         }
-        return std::make_pair(true, envv);
-    }
-    int gets(std::string const &name) const {
-        char *envv = getenv(name.c_str());
-        if(envv == nullptr)
-            return -1;
-        if(is_array_name(name)) {
-            int cc = 1;
-            char const *cb = envv;
-            while(true) {
-                char const *ce = strchr(cb, ':');
-                if(ce == nullptr) return cc;
-                ++cc; 
-                cb = ce+1;
-            };
-        }
-        return 1;
+        return r;
     }
 };
 
 static int usage(char const *bpath, int rc = 0) {
     std::cout << "Variable substitution from environment and configuration files\n\n";
-    std::cout << "Usage: " << bpath << " <TEMPLATE-FILE> [VAR-FILE...]\n\n";
+    std::cout << "Usage: " << bpath << " <TEMPLATE-FILE> [VAR-FILE | --environment...]\n\n";
     std::cout << "\n";
-    std::cout << "If no VAR-FILE is given the environment variables will be used.\n";
+    std::cout << "--environment, --env, -e  Use the enviroanment variables\n";
     std::cout << "\n";
     return rc;
 }
@@ -137,33 +107,55 @@ int main(int argc, char *argv[]) {
         in = &fin;
     } 
 
-    std::vector<std::map<std::string, std::vector<std::string>>> mv(argc-2);
+    bool env_used = false;
+
+    std::vector<std::map<std::string, std::vector<std::string>>> mv1;
+    std::vector<std::map<std::string, std::vector<std::string>>> mv2;
+
     for(int i = 2; i < argc; ++i) {
         int rc = 0;
-        if(strcmp(argv[i], "-") == 0) {
-            if(stdin_used != 0) {
-                std::cerr << "stdin has already been used\n";
-                return 1;
+        if(strcmp(argv[i], "--environment") == 0 || strcmp(argv[i], "--env") == 0 || strcmp(argv[i], "-e") == 0) {
+            if(env_used) {
+                std::cerr << "environment has already been used once\n";
+                rc = 1;
             }
-            stdin_used = i;
-            rc = read_json_file(mv[i-2], std::cin);
-            if(rc != 0) 
-                std::cerr << "<stdin>: error reading json variables\n";
+            env_used = true;
         } else {
+            if(env_used) mv2.emplace_back(); 
+            else mv1.emplace_back();
+            auto &map = env_used? mv2.back(): mv1.back();
+    
             std::ifstream fin;
-            fin.open(argv[i]);
-            if(!fin.is_open()) {
-                std::cerr << argv[i] << ": error reading file\n";
-                return 1;
+            std::istream *in = &std::cin;
+
+            if(strcmp(argv[i], "-") == 0) {
+                if(stdin_used != 0) {
+                    std::cerr << "stdin has already been used\n";
+                    rc = 1;
+                } else {
+                    stdin_used = i;
+                    rc = read_json_file(map, std::cin);
+                    if(rc != 0) 
+                        std::cerr << "<stdin>: error reading json variables\n";
+                }
+            } else {
+                std::ifstream fin;
+                fin.open(argv[i]);
+                if(!fin.is_open()) {
+                    std::cerr << argv[i] << ": error reading file\n";
+                    rc = 1;
+                } else {
+                    rc = read_json_file(map, fin);
+                    if(rc != 0) 
+                        std::cerr << argv[i] << ": error reading json variables\n";
+                }
             }
-            rc = read_json_file(mv[i-2], fin);
-            if(rc != 0) 
-                std::cerr << argv[i] << ": error reading json variables\n";
         }
-        if(rc != 0) {
+        if(rc != 0) 
             return rc;
-        }
     }
-    int rc = vex::expand(std::cout, *in, mv);
+    int rc = env_used? 
+        vex::expand(std::cout, *in, mv1, environment(), mv2):
+        vex::expand(std::cout, *in, mv1);
     return rc;
 }
