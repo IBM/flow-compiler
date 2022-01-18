@@ -15,7 +15,7 @@
 
 -include makefile.local
 
-BUILD_VERSION?=0.17.3
+BUILD_VERSION?=0.18.0
 
 ifndef BUILD_ID
 
@@ -204,19 +204,11 @@ alpine-3.15:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
-alpine-3.14:
-	@rm -f flow-templates.C
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
-
-ubuntu-18.04:
-	@rm -f flow-templates.C
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
-
 ubuntu-20.04:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
-redhat-ubi7:
+debian-bullseye:
 	@rm -f flow-templates.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
