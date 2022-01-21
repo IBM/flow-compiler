@@ -73,14 +73,14 @@
                 <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
 {A:HAVE_ACTIVE_NODE{
                     <li class="nav-item" id="home-menu">
-                        <a id="pr-home-link" class="nav-link" href="/-www/index.html">{{NAME}}</a>
+                        <a id="pr-home-link" class="nav-link" href="#">{{NAME}}</a>
                     </li>
 }A}
                     <li class="nav-item dropdown">
                         <a id="pr-menu" class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">&vellip;&vellip;&vellip;</a>
                         <div id="pr-menu-items" class="dropdown-menu dropdown-menu-right" aria-labelledby="pr-menu">
 {C:CLI_NODE_NAME{
-                            <a class="dropdown-item" href="/-www/{{CLI_NODE_NAME/id/option}}-index.html">{{CLI_NODE_NAME}}</a>
+                            <a class="dropdown-item node-item" href="#" data-name="{{CLI_NODE_NAME/id/option}}">{{CLI_NODE_NAME}}</a>
                             <!-- >{{CLI_NODE_DESCRIPTION/html}}</ -->
 }C}
                             <div class="dropdown-divider"></div>
@@ -180,10 +180,26 @@
             }
 }I}
         ]
+                ,
+        "node": {
+{C:CLI_NODE_NAME{
+            "{{CLI_NODE_NAME/lower/id/option}}": {
+                "request-schema": {{CLI_INPUT_SCHEMA_JSON}},
+                "response-schema": {{CLI_OUTPUT_SCHEMA_JSON}},
+
+                "name": "{{CLI_NODE_NAME/lower/id/option}}",
+                "description": {{CLI_NODE_DESCRIPTION/json}},
+                "url": "/-node/{{CLI_NODE_NAME/id/option}}"
+             },
+}C}
+            ".": {
+            }
+        }
     };
     window.PR = {
         main_page: 1 {A:HAVE_ACTIVE_NODE{-1}A},
         ui_data: null,
+        form: null,
         init: function(data) {
             PR.ui_data = data;
             try {
@@ -224,8 +240,14 @@
                 PR.textFields.push(prefix);
             }
         },
-        makeForm: function() {
+        makeForm: function(node_name) {
+            if(PR.form != null) {
+               PR.form.destroy();
+            }
             var rqt_schema = PR.ui_data["request-schema"];
+            if(node_name != "") {
+                rqt_schema = PR.ui_data.node[node_name]["request-schema"];
+            }
             rqt_schema["format"] = "grid";
             PR.prepareSchema(rqt_schema);
             if("properties" in rqt_schema)
@@ -414,6 +436,9 @@
                     if(PR.have_storage) localStorage.advanced_menu = false;
                 }
             });
+            $('.node-item').on('click', function(e) {
+                PR.makeForm(this.getAttribute('data-name'));
+            });
             $('#download-response').on('click', function() {
                 var a = document.createElement("a");
                 var docstr = JSON.stringify(PR.response);
@@ -548,7 +573,7 @@
         }
     };
     PR.init(ui_data);
-    PR.makeForm();
+    PR.makeForm("");
     PR.connectButtons();
 
          $("#advanced-view").prop("checked", PR.main_page === 0).trigger("change");

@@ -597,6 +597,7 @@ int flow_compiler::genc_www() {
         extern char const *template_index_html;
         vex::expand(outf, template_index_html, global_vars);
     }
+    /*
     for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
         decltype(global_vars) local_vars;
         set_cli_active_node_vars(local_vars, n);
@@ -612,6 +613,7 @@ int flow_compiler::genc_www() {
             vex::expand(outf, template_index_html, local_vars, global_vars);
         }
     }
+    */
     DEBUG_LEAVE;
     return error_count;
 }
@@ -659,8 +661,8 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
 extern char const *template_help, *template_syntax;
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
-    {"client",            {"grpc-files", "makefile", "dockerfile"}},
-    {"server",            {"grpc-files", "makefile", "dockerfile", "www-files", "ssl-certificates"}},
+    {"client",            {"grpc-files", "makefile", "dockerfile", "docs"}},
+    {"server",            {"grpc-files", "makefile", "dockerfile", "www-files", "ssl-certificates", "docs"}},
     {"grpc-files",        {"protobuf-files"}},
     {"build-client",      {"client"}},
     {"python-client",     {}},
