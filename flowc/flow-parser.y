@@ -2,7 +2,7 @@
 %name flow_parser
 %token_prefix FTK_
 
-%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OPTION OUTPUT RETURN ERROR MOUNT ENVIRONMENT INPUT HEADERS.
+%nonassoc ID STRING INTEGER FLOAT SYMBOL NODE CONTAINER ENTRY IMPORT DEFINE OPTION OUTPUT RETURN ERROR MOUNT ENVIRONMENT INPUT HEADERS INIT LIMITS.
 %left SEMICOLON.
 %left DOT.
 %left AT.
@@ -63,12 +63,19 @@ stmt(A) ::= ID(B) ID(C) eqsc valx(D) SEMICOLON.                {
                                                                  A = ast->node(ast->stmt_keyw(B), C, D); 
                                                                  ast->expect(A, FTK_OPTION, "option keyword expected here");
                                                                }
-// node, entry or container                                                   
+// input
+stmt(A) ::= ID(B) blck(C).                                     { A = ast->node(ast->stmt_keyw(B), B, C);
+                                                                 ast->expect(A, FTK_INPUT, "\"input\" keyword here");
+                                                                 ast->name.put(A, ast->get_id(B));
+                                                                 ast->type.put(C, ast->get_id(B));
+                                                               } 
+// node, entry, input or container                                                   
 stmt(A) ::= ID(B) dtid(C) blck(D).                             { A = ast->node(ast->stmt_keyw(B), B, C, D); 
-                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY}, "expected \"node\", \"entry\" or \"container\" here");
+                                                                 ast->expect(A, {FTK_CONTAINER, FTK_NODE, FTK_ENTRY, FTK_INPUT}, "expected \"node\", \"entry\", \"input\" or \"container\" here");
                                                                  if(ast->at(A).type == FTK_NODE || ast->at(A).type == FTK_CONTAINER) {
                                                                      ast->name.put(A, ast->get_dotted_id(C));
                                                                      ast->type.put(A, ast->get_dotted_id(C, 0, 1)); 
+                                                                     ast->check_node_blck(D);
                                                                  } else {
                                                                      ast->name.put(A, ast->get_dotted_id(C));
                                                                  }
@@ -82,6 +89,7 @@ stmt(A) ::= ID(B) dtid(C) OPENPAR fldr(E) CLOSEPAR blck(D).    { A = ast->node(a
                                                                  ast->name.put(A, ast->get_dotted_id(C));
                                                                  ast->type.put(D, ast->get_id(B));
                                                                  ast->description.cat(true, "\n", A, {B, C, D});
+                                                                 ast->check_node_blck(D);
                                                                } 
 // error check 
 stmt(A) ::= ID(B) OPENPAR fldr(C) CLOSEPAR fldr(D).            { A = ast->node(ast->stmt_keyw(B), C, D);
@@ -108,7 +116,8 @@ list(A) ::= list(B) elem(C).                                   { A = ast->nappen
 
 // elem: any of the definitions allowed in a block
 
-elem(A) ::= ID(B) blck(C).                                     { ast->chtype(C, ast->blck_keyw(B));
+elem(A) ::= ID(B) blck(C).                                     { /*
+                                                                 ast->chtype(C, ast->blck_keyw(B));
                                                                  if(ast->at(C).type == FTK_MOUNT) {
                                                                     A = ast->node(FTK_elem, B, ast->node(FTK_MOUNT, C));
                                                                     ast->chtype(C, FTK_blck);
@@ -116,6 +125,8 @@ elem(A) ::= ID(B) blck(C).                                     { ast->chtype(C, 
                                                                     A = ast->node(FTK_elem, B, C);
                                                                  }
                                                                  ast->expect(C, {FTK_HEADERS, FTK_ENVIRONMENT, FTK_MOUNT, FTK_blck}, "expected \"headers\", \"environment\", or \"mount\" here"); 
+                                                                 */
+                                                                 A = ast->node(FTK_elem, B, C);
                                                                  ast->description.cat(true, "\n", C, B);
                                                                }
 elem(A) ::= ID(B) lblk(C).                                     { ast->chtype(C, ast->blck_keyw(B));
@@ -207,27 +218,22 @@ fldra(A) ::= fldr(B).                                          { A = ast->node(F
 fldra(A) ::= fldra(B) COMMA fldr(C).                           { A = ast->nappend(B, C); }
 
 // fldx: field expression node@[field[.field]]
-
 //fldx(A) ::= fldn(B).                                           { A = B; }
 fldx(A) ::= fldn(B) dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
 
 // fldn: node reference (node@)
-
 fldn(A) ::= ID(B) AT.                                          { A = B; }
 
 //fldx(A) ::= ID(B) AT.                                           { A = B; }
 //fldx(A) ::= ID(B) AT dtid(C).                                   { A = ast->chtype(ast->nprepend(C, B), FTK_fldx); }
-// dtid: dotted id id[.id]*
 
+// dtid: dotted id id[.id]*
 dtid(A) ::= ID(B).                                             { A = ast->node(FTK_dtid, B);
                                                                  ast->description.cat(true, "\n", A, B);
                                                                }
 dtid(A) ::= dtid(B) DOT ID(C).                                 { A = ast->nappend(B, C); 
                                                                  ast->description.cat(true, "\n", A, C);
                                                                }
-
 // eqsc: assignment operator
-
 eqsc(A) ::= EQUALS.                                            { ast->chinteger(A, 0); } 
 eqsc(A) ::= COLON.                                             { ast->chinteger(A, 0); } 
-
