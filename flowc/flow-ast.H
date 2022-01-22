@@ -418,7 +418,7 @@ struct flow_ast {
      * Lookup statement level keyword for node 'in'
      */
     int stmt_keyw(int in) const {
-        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}, {"error", FTK_ERROR}, {"option", FTK_OPTION}};
+        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}, {"error", FTK_ERROR}, {"option", FTK_OPTION}, {"input", FTK_INPUT}};
         auto ki = keywords.find(get_id(in));
         int k = ki == keywords.end()? FTK_DEFINE: ki->second;
         return k;
@@ -427,10 +427,41 @@ struct flow_ast {
      * Lookup block level keyword for node 'in'
      */
     int blck_keyw(int in, int def_type=-1) const {
-        static std::map<std::string, int> keywords = {{"headers", FTK_HEADERS}, {"environment", FTK_ENVIRONMENT}, {"mount", FTK_MOUNT}, {"output", FTK_OUTPUT}, {"return", FTK_RETURN} };
+        static std::map<std::string, int> keywords = {
+            {"headers", FTK_HEADERS}, {"environment", FTK_ENVIRONMENT}, 
+            {"mount", FTK_MOUNT}, {"init", FTK_INIT}, {"limits", FTK_LIMITS},
+            {"output", FTK_OUTPUT}, {"return", FTK_RETURN} 
+        };
         auto ki = keywords.find(get_id(in));
         int k = ki == keywords.end()? def_type: ki->second;
         return k;
+    }
+    /**
+     * Check all the entries in the block for labels allowed in node and conatiners only
+     */
+    int check_node_blck(int n) {
+        auto &blck = at(n);
+        for(int c: blck.children) { // of type elem 
+            auto &elem = at(c);
+            assert(elem.type == FTK_elem);
+            if(at(elem.children[1]).type == FTK_blck) {
+                auto vtype = blck_keyw(elem.children[0]);
+                switch(vtype) {
+                    case FTK_ENVIRONMENT: case FTK_HEADERS:
+                        chtype(elem.children[1], vtype);
+                        break;
+                    case FTK_MOUNT:
+                        store[c-1].children[1] = node(FTK_MOUNT, elem.children[1]);
+                        break;
+                    case FTK_INIT: case FTK_LIMITS:
+                        break;
+                    default:
+                        error(elem.children[0], "expected \"environment\", \"headers\" or \"mount\"");
+                        break;
+                }
+            }
+        }
+        return n;
     }
     /**
      * Return the first value that matches 'key' from a blck compatible node

@@ -74,18 +74,17 @@ char const *node_name(int i) {
         case FTK_IMPORT: return "<IMPORT>";
         case FTK_DEFINE: return "<DEFINE>";
         case FTK_OPTION: return "<OPTION>";
+        case FTK_INPUT: return "<INPUT>";
         
         case FTK_OUTPUT: return "<OUTPUT>";
         case FTK_RETURN: return "<RETURN>";
         case FTK_ERROR: return "<ERROR>";
 
-//        case FTK_ENDPOINT: return "<ENDPOINT>";
-//        case FTK_IMAGE: return "<IMAGE>";
         case FTK_ENVIRONMENT: return "<ENVIRONEMNT>";
         case FTK_MOUNT: return "<MOUNT>";
         case FTK_HEADERS: return "<HEADERS>";
-
-        case FTK_INPUT: return "<INPUT>";
+        case FTK_LIMITS: return "<LIMITS>";
+        case FTK_INIT: return "<INIT>";
 
         default: 
              return "symbol";
