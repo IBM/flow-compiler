@@ -413,7 +413,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             
             if(cot::contains(ports[group(n)], pv)) {
                 pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group(n)][pv]) << "\" in the same group");
-                pcerr.AddNote(main_file, at(get_first_value_node(get_ne_block_node(ports[group(n)][pv]), "port")), "first used here");
+                pcerr.AddNote(main_file, at(get_nblck_value(get_ne_block_node(ports[group(n)][pv]), "port")), "first used here");
             } else {
                 ports[group(n)][pv] = n;
             }
@@ -596,23 +596,6 @@ int flow_compiler::genc_www() {
         extern char const *template_index_html;
         vex::expand(outf, template_index_html, global_vars);
     }
-    /*
-    for(int n: get_all_referenced_nodes()) if(method_descriptor(n) != nullptr) {
-        decltype(global_vars) local_vars;
-        set_cli_active_node_vars(local_vars, n);
-        std::string outputfn = output_filename("www/"+stru1::to_identifier(stru1::to_option(name(n)))+"-index.html");
-        OFSTREAM_SE(outf, outputfn);
-        if(DEBUG_GENC) {
-            outputfn += ".json";
-            OFSTREAM_SE(outj, outputfn);
-            stru1::to_json(outj, local_vars);
-        }
-        if(error_count == 0) {
-            extern char const *template_index_html;
-            vex::expand(outf, template_index_html, local_vars, global_vars);
-        }
-    }
-    */
     DEBUG_LEAVE;
     return error_count;
 }

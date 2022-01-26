@@ -171,20 +171,17 @@
     <script>
     var ui_data = {
         "request-schema": {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
+        "request-defaults": {{MAIN_ENTRY_DEFAULTS}},
         "methods": [
             {
                 "name": "{{MAIN_ENTRY_NAME}}",
                 "url": "{{MAIN_ENTRY_URL}}",
-                "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}},
-                "hidden-fields": "{{MAIN_ENTRY_HIDDEN_FIELDS}}",
-                "hidden-labels": "{{MAIN_ENTRY_HIDDEN_LABELS}}"
+                "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
             }
 {I:ALT_ENTRY_NAME{               ,{
                 "name": "{{ALT_ENTRY_NAME}}",
                 "url": "{{ALT_ENTRY_URL}}",
                 "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}},
-                "hidden-fields": "{{ALT_ENTRY_HIDDEN_FIELDS}}",
-                "hidden-labels": "{{ALT_ENTRY_HIDDEN_LABELS}}"
             }
 }I}
         ]
@@ -194,8 +191,6 @@
             {
                 "request-schema": {{CLI_INPUT_SCHEMA_JSON}},
                 "response-schema": {{CLI_OUTPUT_SCHEMA_JSON}},
-                "hidden-fields": "",
-                "hidden-labels": "",
                 "name": "{{CLI_NODE_NAME/lower/id/option}}",
                 "url": "/-node/{{CLI_NODE_NAME/id/option}}"
              },
@@ -275,8 +270,10 @@
                $('.node-button').hide();
             }
             var rqt_schema = PR.ui_data["request-schema"];
+            var rqt_defaults = PR.ui_data["request-defaults"];
             for(const n of PR.ui_data.node) if(n.name == node_name) {
                 rqt_schema = n["request-schema"];
+                rqt_defaults = {};
             }
             rqt_schema["format"] = "grid";
             PR.prepareSchema(rqt_schema);
@@ -299,6 +296,11 @@
                } else {
                    $('#node-'+PR.current_node+'-button').show();
                }
+           }
+           for(const [key, value] of Object.entries(rqt_defaults)) {
+               $('*[data-schemapath="root.'+key+'"] input').val(value);
+               $('*[data-schemapath="root.'+key+'"] select').val(value);
+               PR.advancedFields.push('root.'+key);
            }
            PR.setDarkView(PR.dark_view);
         },
@@ -560,7 +562,7 @@
                                 $("#pr-message").html('');
                                 PR.response = reply_obj;
                                 PR.responseSchema = m["response-schema"];
-                                PR.beforeRender(m["hidden-fields"], m["hidden-labels"]);
+                                //PR.beforeRender(m["hidden-fields"], m["hidden-labels"]);
                                 PR.renderJSON(PR.responseSchema, $("#pr-response"), "m", "pr-response", reply_obj, true, null);
                                 $("#advanced-view").prop("checked", $("#advanced-view").prop("checked")).trigger("change");
                                 $('#download-request').show();
