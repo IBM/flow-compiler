@@ -597,10 +597,10 @@ std::string camelize(std::string const &s, bool capitalize_first=false) {
     std::ostringstream out;
     bool cap_next = capitalize_first;
     for(char c: s) 
-        if(isspace(c)) {
+        if(isspace(c) || c == '_') {
             cap_next = true;
         } else {
-            out << (cap_next? ::toupper(c): c);
+            out << (char) (cap_next? ::toupper(c): c);
             cap_next = false;
         }
     return out.str();

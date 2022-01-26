@@ -367,7 +367,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     clear(global_vars, "PROTO_FILE");
     clear(global_vars, "PROTO_FILE_DESCRIPTION");
 
-    for(auto fdp: fdps) {
+    if(error_count == 0) for(auto fdp: fdps) {
         std::string file(fdp->name());
         std::vector<std::string> mns;
         for(int s = 0, sdc = fdp->service_count(); s < sdc; ++s) {
@@ -402,7 +402,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     // name, group, port, image, endpoint, runtime, extern-node 
     std::map<std::string, std::set<int>> groups;
     std::map<std::string, std::map<int, int>> ports;
-    for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
+    if(error_count == 0) for(int n: *this) if(method_descriptor(n) != nullptr && at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) {
         append(global_vars, "XCLI_NODE_NAME", name(n));
         append(global_vars, "NODE_NAME", name(n));
         append(global_vars, "NODE_GROUP", group(n));
@@ -427,7 +427,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     // Check/generate the entry list for the rest gateway
     // Do this if we have rest and generated config files
-    if(cot::contains(targets, "server")) {
+    if(error_count == 0 && cot::contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
         for(int n: *this) if(at(n).type == FTK_ENTRY) {
@@ -450,9 +450,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     }
     // Generic entry and client node info. 
     // Note that client here is not necessarily an instantiated node.
-    error_count += set_entry_vars(global_vars);
-    error_count += set_cli_node_vars(global_vars);
-
+    if(error_count == 0) error_count += set_entry_vars(global_vars);
+    if(error_count == 0) error_count += set_cli_node_vars(global_vars);
 
     if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
         if(pt == ".") {
