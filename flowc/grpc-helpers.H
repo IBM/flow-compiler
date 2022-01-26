@@ -2,9 +2,11 @@
 #define H_GRPC_HELPERS_H
 
 #include <cstdio>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
+
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/compiler/cpp/cpp_generator.h>
 #include <google/protobuf/compiler/importer.h>
@@ -128,7 +130,7 @@ std::vector<std::pair<std::string, int>> get_fields(::google::protobuf::Descript
 /**
  * Return all field names accesible from this descriptor
  */
-std::vector<std::string> get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j="-");
+std::vector<std::string> get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j="-", bool json=false);
 /**
  * Return all field name and their corresponding field descriptors
  */
@@ -149,7 +151,13 @@ inline static
 bool is_enum(::google::protobuf::FieldDescriptor const *fd) {
     return fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM;
 }
-std::string json_schema(std::map<std::string, std::string> const &defaults, google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, bool extended_format, bool pretty); 
+typedef std::string (*get_prop_f)(std::string const &, std::string const &);
+std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop); 
+inline static std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description) {
+    std::function<std::string (std::string const &field, std::string const &prop)> egpf;
+    return json_schema(dp, title, description, egpf);
+}
+//std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, get_prop_f const get_prop=nullptr); 
 std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp);
 std::string gen_proto(std::set<::google::protobuf::MethodDescriptor const *> const &mdps);
 std::string grpc_error_code(int c);

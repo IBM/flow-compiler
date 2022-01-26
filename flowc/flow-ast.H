@@ -437,7 +437,7 @@ struct flow_ast {
         return k;
     }
     /**
-     * Check all the entries in the block for labels allowed in node and conatiners only
+     * Check all the entries in the block for labels allowed in node and containers only
      */
     int check_node_blck(int n) {
         auto &blck = at(n);
@@ -463,18 +463,6 @@ struct flow_ast {
         }
         return n;
     }
-    /**
-     * Return the first value that matches 'key' from a blck compatible node
-     */
-    int get_first_value_node(int blck_node, std::string const &key) const {
-        auto const &blck = at(blck_node);
-        for(int p: blck.children) {
-            auto const &elem = at(p);
-            if(get_id(elem.children[0]) == key) 
-                return elem.children[1];
-        }
-        return 0;
-    }
     std::set<int> blck_value_nodes(int blck_node, std::string const &key) const {
         auto const &blck = at(blck_node);
         assert(blck.type == FTK_blck);
@@ -486,6 +474,40 @@ struct flow_ast {
                 values.insert(elem.children[1]);
         }
         return values;
+    }
+    /**
+     * Return the first value that matches 'key' from a blck compatible node
+     */
+    /*
+    int get_first_value_node(int blck_node, std::string const &key) const {
+        auto const &blck = at(blck_node);
+        for(int p: blck.children) {
+            auto const &elem = at(p);
+            if(get_id(elem.children[0]) == key) 
+                return elem.children[1];
+        }
+        return 0;
+    }
+    */
+    /* Return the first value that matches 'key' from a blck compatible node
+     */
+    template <typename S>
+    int get_nblck_value(int blck, S key) const {
+        if(blck != 0) for(int p: at(blck).children) {
+            auto &elem = at(p);
+            if(elem.type == FTK_elem && get_id(elem.children[0]) == key) {
+                return elem.children[1];
+            }
+        }
+        return 0;
+    }
+    /* Return the value corresponding to the list of keys from a nested blck node
+     */
+    template <typename S, typename... SS>
+    int get_nblck_value(int blck, S key, SS...keys) const {
+        int r = get_nblck_value(blck, key);
+        if(r == 0) return 0;
+        return get_nblck_value(r, keys...);
     }
     void error(int node, std::string message) {
         syntax_errors.push_back(std::make_pair(node, message));

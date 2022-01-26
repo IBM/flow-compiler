@@ -251,9 +251,6 @@
             } else 
             if('type' in schema && 'default' in schema) {
                 PR.advancedFields.push(prefix);
-            } else
-            if('type' in schema && !('default' in schema) && 'format' in schema && schema['format'] === 'textarea') {
-                PR.textFields.push(prefix);
             }
         },
         makeForm: function(node_name) {

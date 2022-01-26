@@ -88,7 +88,7 @@ static std::string get_description(::google::protobuf::Descriptor const *fd) {
     }
     return fdescription;
 }
-void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, bool extended_format, int indent, int level, std::string const &prefix, std::map<std::string, std::string> const &defaults) {
+static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, std::string const &prefix, std::function<std::string (std::string const &field, std::string const &prop)> get_prop, int indent, int level=1) {
     std::string eos;
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
 
@@ -97,8 +97,9 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
 
     for(int f = 0, fc = dp->field_count(); f != fc; ++f) {
         FieldDescriptor const *fd = dp->field(f);
-        std::string ftitle = decamelize(fd->name());
-        std::string fdescription = get_description(fd);
+        std::string ffname = prefix.empty()? std::string(fd->name()): prefix + "." + fd->name();
+        std::string ftitle, fdescription;
+        if(fdescription.empty()) fdescription = get_description(fd);
         bool is_repeated = fd->is_repeated();
 
         if(f > 0) buf << ",";
@@ -107,16 +108,25 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
 
         ++level;
         if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
-
-        buf << eos << "\"title\":" << c_escape(ftitle) << "," << eos;
-        if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << "," << eos;
-        if(extended_format) {
-            buf << "\"propertyOrder\":" << f << "," << eos;
-            // find the default value
-            auto dfp = defaults.find(prefix.empty()? std::string(fd->name()): prefix + "." + fd->name());
-            if(dfp != defaults.end()) 
-                buf << "\"default\":" << c_escape(dfp->second) << "," << eos;
+        buf << eos;
+        std::string fpv;
+        if(get_prop) {
+            fdescription = get_prop(ffname, "description");
+            ftitle = get_prop(ffname, "label");
+            fpv = get_prop(ffname, "order");
+            if(!fpv.empty()) {
+                buf << "\"propertyOrder\":" << fpv << "," << eos;
+            } else {
+                buf << "\"propertyOrder\":" << f << "," << eos;
+            }
+            fpv = get_prop(ffname, "format");
+            if(!fpv.empty()) 
+                buf << "\"format\":" << c_escape(fpv) << "," << eos;
         }
+        if(ftitle.empty()) ftitle = decamelize(fd->name());
+        buf << "\"title\":" << c_escape(ftitle) << "," << eos;
+        if(fdescription.empty()) fdescription = get_description(fd);
+        if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << "," << eos;
 
         if(is_repeated) {
             buf << "\"type\":\"array\"," << "\"items\":{";
@@ -154,7 +164,7 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 buf << "]";
                 break; 
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
-                json_schema_buf(buf, fd->message_type(), extended_format, indent, level+1, prefix.empty()? std::string(fd->name()): prefix + "." + fd->name(), defaults);
+                json_schema_buf(buf, fd->message_type(), ffname, get_prop, indent, level+1);
                 break;
             default:
                 buf << "null";
@@ -174,17 +184,14 @@ void static json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
     buf << eos << "}";
 }
-std::string json_schema(std::map<std::string, std::string> const &defaults, ::google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, bool extended_format, bool pretty) {
+std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop) {
     std::ostringstream buf;
     buf << "{";
-    if(pretty) buf << "\n";
     if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";
     std::string descr = description.empty()? get_description(dp): description;
     if(!descr.empty()) 
         buf << "\"description\":" << c_escape(descr) << ",";
-
-    json_schema_buf(buf, dp, extended_format, pretty? 4: 0, 1, "", defaults);
-    if(pretty) buf << "\n";
+    json_schema_buf(buf, dp, "", get_prop, 4);
     buf << "}";
     return buf.str();
 }
@@ -416,30 +423,29 @@ std::vector<std::pair<std::string, ::google::protobuf::FieldDescriptor const *>>
     r_get_accessors(dp, "", buf);
     return buf;
 }
-void r_get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j, std::string const &prefix, std::vector<std::pair<std::string, int>> &buf, int start_level, int current_level, int dim=0) {
+static void r_get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j, std::string const &prefix, std::vector<std::pair<std::string, int>> &buf, int dim, bool json) {
     for(int f = 0, ef = dp->field_count(); f < ef; ++f) {
         auto fd = dp->field(f);
         std::string name = prefix;
-        if(current_level >= start_level) {
-            if(name.length() > 0) name += j;
-            name += fd->name();
-        }
+        if(name.length() > 0) name += j;
+        name += json? fd->json_name(): fd->name();
+
         if(fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE) 
-            r_get_field_names(fd->message_type(), j, name, buf, start_level, current_level+1, dim + (fd->is_repeated()? 1: 0));
+            r_get_field_names(fd->message_type(), j, name, buf, dim + (fd->is_repeated()? 1: 0), json);
         else 
             buf.push_back(std::make_pair(name, dim + (fd->is_repeated()? 1: 0)));
     }
 }
-std::vector<std::string> get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j) {
+std::vector<std::string> get_field_names(::google::protobuf::Descriptor const *dp, std::string const &j, bool json) {
     std::vector<std::pair<std::string, int>> buf;
-    r_get_field_names(dp, j, "", buf, 0, 0);
+    r_get_field_names(dp, j, "", buf, 0, json);
     std::vector<std::string> rvl;
     for(auto p: buf) rvl.push_back(p.first);
     return rvl;
 }
 std::vector<std::pair<std::string, int>> get_fields(::google::protobuf::Descriptor const *dp, int dim, std::string const &j) {
     std::vector<std::pair<std::string, int>> buf;
-    r_get_field_names(dp, j, "", buf, 0, 0, dim);
+    r_get_field_names(dp, j, "", buf, dim, false);
     return buf;
 }
 static std::map<std::string, int> gec = {
