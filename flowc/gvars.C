@@ -29,9 +29,9 @@ int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli
     auto mdp = method_descriptor(cli_node);
     append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
     append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-    std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node), true, true);
+    std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node));
     append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-    std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), node_name, description(cli_node), true, true);
+    std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node));
     append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
     append(vars, "MAIN_ENTRY_METHOD_NAME", mdp->name());
     append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
@@ -75,9 +75,9 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
         append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(rn), true, false);
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(rn));
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
-        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), name(rn), description(rn), true, false);
+        std::string input_schema = json_schema(mdp->input_type(), name(rn), description(rn));
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "CLI_PROTO", gen_proto(mdp));
         append(vars, "CLI_METHOD_NAME", mdp->name());
@@ -106,6 +106,7 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     set(vars, "NO_NODE_NAME", no_node_name);
     return error_count;
 }
+
 int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
     int error_count = 0;
     std::set<int> entry_node_set;
@@ -125,13 +126,20 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         }
         int block = get_ne_block_node(entry_node);
         sdp = mdp->service();
-        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node), true, true);
-        std::map<std::string, int> defsn;
-        error_count += get_nv_block(defsn, block, "defaults", {FTK_STRING, FTK_FLOAT, FTK_INTEGER});
-        std::map<std::string, std::string> defs;
-        for(auto d: defsn)
-            defs[d.first] = get_value(d.second);
-        std::string input_schema = json_schema(defs, mdp->input_type(), to_upper(to_option(main_name)), description(1), true, true);
+
+        int input_block = 0;
+        std::string input_name = input_label;
+        for(int n: *this) if(at(n).type == FTK_INPUT && name(n) == input_name) {
+            input_block = at(n).children.back(); break;
+        }
+        auto pfr = [&](std::string const &field_name, std::string const &prop_name) -> std::string { 
+                    int n = get_nblck_value(input_block, field_name, prop_name); 
+                    return n? get_value(n): std::string();
+                };
+
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
+        std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), description(1), pfr);
+
         entry_mdps.insert(mdp); all_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
@@ -148,16 +156,20 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "ENTRY_DESCRIPTION", description(entry_node));
         append(vars, "ENTRY_ORDER", sfmt() << entry_count);
-        std::vector<int> values;
-        std::string hidden_fields;
-        error_count += get_block_value(values, block, "hide", false, {FTK_STRING});
-        for(int n: values) hidden_fields = hidden_fields + (hidden_fields.empty()? "": ", ") + get_string(n);
-        append(vars, "ENTRY_HIDDEN_FIELDS", hidden_fields);
-        values.clear();
-        std::string hidden_labels;
-        error_count += get_block_value(values, block, "hide_label", false, {FTK_STRING});
-        for(int n: values) hidden_labels = hidden_labels + (hidden_labels.empty()? "": ", ") + get_string(n);
-        append(vars, "ENTRY_HIDDEN_LABELS", hidden_labels);
+
+        std::ostringstream buf;
+        buf << "{";
+        int pc = 0;
+        for(auto fn: get_field_names(mdp->input_type(), ".", false)) {
+            auto dv = pfr(fn, "default");
+            if(dv.empty()) dv = pfr(camelize(fn), "default");
+            if(dv.empty()) continue;
+
+            if(pc++ != 0) buf << ",";
+            buf << c_escape(camelize(fn)) << ":" << c_escape(dv);
+        }
+        buf << "}";
+        std::string default_vals = buf.str();
 
         if(entry_count == 1) {
             append(vars, "MAIN_ENTRY_PROTO", gen_proto(mdp));
@@ -171,8 +183,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
             append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "MAIN_ENTRY_DESCRIPTION", description(entry_node));
-            append(vars, "MAIN_ENTRY_HIDDEN_FIELDS", hidden_fields);
-            append(vars, "MAIN_ENTRY_HIDDEN_LABELS", hidden_labels);
+            append(vars, "MAIN_ENTRY_DEFAULTS", default_vals);
         } else {
             append(vars, "ALT_ENTRY_PROTO", gen_proto(mdp));
             append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
@@ -185,8 +196,6 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
             append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
             append(vars, "ALT_ENTRY_DESCRIPTION", description(entry_node));
-            append(vars, "ALT_ENTRY_HIDDEN_FIELDS", hidden_fields);
-            append(vars, "ALT_ENTRY_HIDDEN_LABELS", hidden_labels);
         }
     }
     if(entry_count > 1)
@@ -200,8 +209,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
             all_mdps.insert(mdp);
     }
     for(auto mdp: entry_mdps) {
-        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), "", true, true);
-        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), decamelize(mdp->input_type()->name()), "", true, true);
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
+        std::string input_schema = json_schema(mdp->input_type(), decamelize(mdp->input_type()->name()), "");
         append(vars, "MDP_PROTO", gen_proto(mdp));
         append(vars, "MDP_FULL_NAME", mdp->full_name());
         append(vars, "MDP_NAME", mdp->name());
@@ -216,8 +225,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "MDP_IS_ENTRY", "1");
     }
     for(auto mdp: all_mdps) if(!cot::contains(entry_mdps, mdp)) {
-        std::string output_schema = json_schema(std::map<std::string, std::string>(), mdp->output_type(), decamelize(mdp->output_type()->name()), "", true, true);
-        std::string input_schema = json_schema(std::map<std::string, std::string>(), mdp->input_type(), decamelize(mdp->input_type()->name()), "", true, true);
+        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
+        std::string input_schema = json_schema(mdp->input_type(), decamelize(mdp->input_type()->name()), "");
         append(vars, "MDP_PROTO", gen_proto(mdp));
         append(vars, "MDP_FULL_NAME", mdp->full_name());
         append(vars, "MDP_NAME", mdp->name());
