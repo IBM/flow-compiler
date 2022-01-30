@@ -110,7 +110,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 	${CXX} -std=c++11 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $< 
 
 flowc: $(OBJS) 
-	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} 
+	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
 	@echo "====================================================================="
 	@./flowc --version
 
