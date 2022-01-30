@@ -41,8 +41,8 @@ int flow_compiler::genc_cc_client(std::string const &ccfn) {
         OFSTREAM_SE(outj, ofn);
         stru1::to_json(outj, local_vars);
     }
-    extern char const *template_client_C;
-    vex::expand(out, template_client_C, local_vars, global_vars);
+    extern std::string get_template_client_C();
+    vex::expand(out, get_template_client_C(), local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -50,8 +50,8 @@ int flow_compiler::genc_py_client(std::string const &pyfn) {
     int error_count = 0;
     DEBUG_ENTER;
     OFSTREAM_SE(outf, pyfn);
-    extern char const *template_client_py;
-    vex::expand(outf, template_client_py, global_vars);
+    extern std::string get_template_client_py();
+    vex::expand(outf, get_template_client_py(), global_vars);
     DEBUG_LEAVE;
     return error_count;
 }

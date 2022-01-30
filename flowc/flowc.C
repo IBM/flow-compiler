@@ -509,7 +509,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::string o_default_certificate = opts.opt("default-certificate", "");
         std::string o_grpc_certificate = opts.opt("grpc-certificate", o_default_certificate);
         std::string o_rest_certificate = opts.opt("rest-certificate", o_default_certificate);
-        extern char const *template_server_pem;
+        extern std::string get_template_server_pem();
+        std::string template_server_pem = get_template_server_pem();
 
         if(o_grpc_certificate == o_rest_certificate) {
             if(filu::write_file(output_filename(default_certificate), o_grpc_certificate, template_server_pem)) {
@@ -593,8 +594,8 @@ int flow_compiler::genc_www() {
         stru1::to_json(outj, global_vars);
     }
     if(error_count == 0) {
-        extern char const *template_index_html;
-        vex::expand(outf, template_index_html, global_vars);
+        extern std::string get_template_index_html();
+        vex::expand(outf, get_template_index_html(), global_vars);
     }
     DEBUG_LEAVE;
     return error_count;
@@ -605,8 +606,8 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
     std::string fn = output_filename(makefile_name);
     OFSTREAM_SE(makf, fn);
     if(error_count == 0) {
-        extern char const *template_Makefile;
-        vex::expand(makf, template_Makefile, global_vars);
+        extern std::string get_template_Makefile();
+        vex::expand(makf, get_template_Makefile(), global_vars);
     }
     // Create a link to this makefile if Makefile isn't in the way
     std::string mp = output_filename("Makefile");
@@ -625,22 +626,23 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     std::string fn = output_filename(orchestrator_name+".Dockerfile");
     OFSTREAM_SE(outf, fn);
     if(error_count == 0) {
-        extern std::map<std::string, char const *> template_runtime_Dockerfile;
-        char const *c_template_runtime_Dockerfile = template_runtime_Dockerfile.find(runtime)->second;
+        extern std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile;
+        std::string c_template_runtime_Dockerfile = ztemplate_runtime_Dockerfile.find(runtime)->second();
         vex::expand(outf, c_template_runtime_Dockerfile, global_vars);
-        extern char const *template_Dockerfile;
-        vex::expand(outf, template_Dockerfile, global_vars);
+        extern std::string get_template_Dockerfile();
+        vex::expand(outf, get_template_Dockerfile(), global_vars);
     }
     std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
     OFSTREAM_SE(outf2, fn2);
     if(error_count == 0) {
-        extern char const *template_slim_Dockerfile;
-        vex::expand(outf2, template_slim_Dockerfile, global_vars);
+        extern std::string get_template_slim_Dockerfile();
+        vex::expand(outf2, get_template_slim_Dockerfile(), global_vars);
     }
     DEBUG_LEAVE;
     return error_count;
 }
-extern char const *template_help, *template_syntax;
+extern std::string get_template_help();
+extern std::string get_template_syntax();
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile"}},
     {"client",            {"grpc-files", "makefile", "dockerfile", "docs"}},
@@ -668,10 +670,10 @@ int main(int argc, char *argv[]) {
     signal(SIGSEGV, handler);
     helpo::opts opts;
     int main_argc = argc;
-    if(opts.parse(template_help, argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
+    if(opts.parse(get_template_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
         if(opts.have("help-syntax")) {
-            std::cout << ansi::emphasize(template_syntax, ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n\n";
+            std::cout << ansi::emphasize(get_template_syntax(), ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n\n";
             std::ostringstream out;
             show_builtin_help(out);
             std::cout << "Built in functions:\n\n";
@@ -694,7 +696,7 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         } else if(opts.have("help") || main_argc == 1) {
-            ansi::emphasize(std::cout, ansi::emphasize(template_help, ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
+            ansi::emphasize(std::cout, ansi::emphasize(get_template_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
             return opts.have("help")? 0: 1;
         } else {
             if(argc != 2) 

@@ -1387,7 +1387,7 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
     ServiceDescriptor const *sdp =  method_descriptor(*entry_node_set.begin())->service();
     set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
 
-    extern char const *template_server_C;
+    extern std::string get_template_server_C();
 
     if(DEBUG_GENC) {
         std::string ofn = server_src + "-global.json";
@@ -1400,7 +1400,7 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
         stru1::to_json(outj, local_vars);
     }
 
-    vex::expand(out, template_server_C, local_vars, global_vars);
+    vex::expand(out, get_template_server_C(), local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }

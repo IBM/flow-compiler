@@ -208,8 +208,8 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         std::ofstream outj(output_filename("dc-yaml-local.json"));
         stru1::to_json(outj, local_vars);
     }
-    extern char const *template_docker_yaml;
-    vex::expand(out, template_docker_yaml, local_vars, global_vars);
+    extern std::string get_template_docker_yaml();
+    vex::expand(out, get_template_docker_yaml(), local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -224,8 +224,8 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             groups[group(n)].insert(n);
         }
 
-    extern char const *template_kubernetes_yaml;
-    extern char const *template_kubernetes_group_yaml;
+    extern std::string get_template_kubernetes_yaml();
+    extern std::string get_template_kubernetes_group_yaml();
 
     std::map<int, std::string> ports;
     // grab all pre-defined ports
@@ -302,7 +302,7 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
         set(local_vars, "G_INIT_COUNT", init_count? std::to_string(init_count): std::string());
         set(local_vars, "G_VOLUME_COUNT", volume_count? std::to_string(volume_count): std::string());
     }
-    vex::expand(out, template_kubernetes_yaml, g_group_vars[main_group_name], alln_vars, global_vars);
+    vex::expand(out, get_template_kubernetes_yaml(), g_group_vars[main_group_name], alln_vars, global_vars);
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("k8s-yaml-global.json"));
         stru1::to_json(outg, global_vars);
@@ -314,9 +314,8 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
             stru1::to_json(outj, g_group_vars[g.first]);
         }
-        vex::expand(out, template_kubernetes_group_yaml, g_group_vars[g.first], alln_vars, global_vars);
+        vex::expand(out, get_template_kubernetes_group_yaml(), g_group_vars[g.first], alln_vars, global_vars);
     }
-
     DEBUG_LEAVE;
     return 0;
 }
@@ -331,11 +330,11 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     std::ostringstream yaml;
     error_count += genc_dcs_conf(yaml, local_vars);
     set(local_vars, "DOCKER_COMPOSE_YAML",  yaml.str());
-    extern char const *rr_keys_sh;
-    set(local_vars, "RR_KEYS_SH", rr_keys_sh);
-    extern char const *rr_get_sh;
+    extern std::string get_rr_keys_sh();
+    set(local_vars, "RR_KEYS_SH", get_rr_keys_sh());
+    extern std::string get_rr_get_sh();
     yaml.str("");
-    vex::expand(yaml, rr_get_sh, local_vars);
+    vex::expand(yaml, get_rr_get_sh(), local_vars);
     set(local_vars, "RR_GET_SH",  yaml.str());
     yaml.str("");
     error_count += genc_k8s_conf(yaml);
@@ -359,8 +358,8 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
         OFSTREAM_SE(outj, ofj);
         stru1::to_json(outj, local_vars);
     }
-    extern char const *template_driver_sh; 
-    vex::expand(out, template_driver_sh, local_vars, global_vars);
+    extern std::string get_template_driver_sh(); 
+    vex::expand(out, get_template_driver_sh(), local_vars, global_vars);
 
     if(error_count == 0) {
         out.close();
