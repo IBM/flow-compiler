@@ -11,10 +11,10 @@ char const *get_build_id() {
 char const *get_default_runtime() {
     return BASE_IMAGE;
 }
-extern std::map<std::string, char const *> template_runtime_Dockerfile;
+extern std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile;
 std::set<std::string> available_runtimes() {
     std::set<std::string> runtimes;
-    for(auto &ss: template_runtime_Dockerfile) 
+    for(auto &ss: ztemplate_runtime_Dockerfile) 
         runtimes.insert(ss.first);
     return runtimes;
 }
