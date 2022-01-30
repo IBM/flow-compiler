@@ -116,6 +116,9 @@ int parse(char const *hlp, int &argc, char ** &argv) {
     argc-=optind-1;
     return errors;
 }
+int parse(std::string const &hlp, int &argc, char ** &argv) {
+    return parse(hlp.c_str(), argc, argv);
+}
 std::vector<std::string> const &operator[] (unsigned o) const {
     return option_values[o-1];
 }
