@@ -6,9 +6,9 @@ user root
 
 COPY runtimes/redhat-ubi8/RPM-GPG-KEY-CentOS-Official /etc/pki/rpm-gpg/
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-Official
-RUN echo -e "[centos8-powertools]\nname=centos8-powertools\nbaseurl=http://mirror.centos.org/centos-8/8/PowerTools/x86_64/os/\ngpgcheck=1\nenabled=1" > /etc/yum.repos.d/centos8.repo && \
-    echo -e "[centos8-appstream]\nname=centos8-appstream\nbaseurl=http://mirror.centos.org/centos-8/8/AppStream/x86_64/os/\ngpgcheck=1\nenabled=1" >> /etc/yum.repos.d/centos8.repo && \
-    echo -e "[centos8-baseos]\nname=centos8-appstream\nbaseurl=http://mirror.centos.org/centos/8/BaseOS/x86_64/os/\ngpgcheck=1\nenabled=1" >> /etc/yum.repos.d/centos8.repo
+RUN echo -e "[centos8-powertools]\nname=centos8-powertools\nbaseurl=http://vault.centos.org/centos/8/PowerTools/x86_64/os/\ngpgcheck=1\nenabled=1" > /etc/yum.repos.d/centos8.repo && \
+    echo -e "[centos8-appstream]\nname=centos8-appstream\nbaseurl=http://vault.centos.org/centos/8/AppStream/x86_64/os/\ngpgcheck=1\nenabled=1" >> /etc/yum.repos.d/centos8.repo && \
+    echo -e "[centos8-baseos]\nname=centos8-appstream\nbaseurl=http://vault.centos.org/centos/8/BaseOS/x86_64/os/\ngpgcheck=1\nenabled=1" >> /etc/yum.repos.d/centos8.repo
 
 RUN yum -y install vim curl jq bc tar unzip binutils \
  git make autoconf automake pkgconfig libtool libtool-ltdl gdb cmake \
