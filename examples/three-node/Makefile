@@ -13,7 +13,7 @@ $(GRPC_GENERATED): three-node.proto
 	$(PYTHON) -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. $^
 
 nodes-image: $(GRPC_GENERATED) nodes.py nodes.Dockerfile
-	cat ubuntu-grpc-py3.Dockerfile nodes.Dockerfile | docker build -t $(NODES_IMAGE) -f - .
+	cat py3.Dockerfile nodes.Dockerfile | docker build -t $(NODES_IMAGE) -f - .
 
 nodes: $(GRPC_GENERATED) nodes.py
 	@echo "to run: python3 nodes.py"
