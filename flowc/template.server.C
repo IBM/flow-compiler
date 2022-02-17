@@ -740,7 +740,7 @@ static void update_addresses(std::string const &entry, std::set<std::string> con
 
     if(changed) {
         std::get<2>(asp->second) = last_changed_iteration = current_iteration;
-        FLOGC(flowc::trace_connections) << "ADDRESESS for " << entry << " version=" << std::get<2>(asp->second) << ", " << std::get<0>(asp->second) << "\n";
+        FLOGC(flowc::trace_connections) << "ADDRESSES for " << entry << " version=" << std::get<2>(asp->second) << ", " << std::get<0>(asp->second) << "\n";
     }
 }
 static void callback(void *arg, int status, int timeouts, struct hostent *host) {
