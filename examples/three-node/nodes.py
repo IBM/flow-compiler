@@ -3,18 +3,25 @@
 #  Command line option '-p'
 #  environment variable GRPC_PORT
 
-from __future__ import print_function
-import sys
-import os
-from three_node_pb2_grpc import ThreeNodeExampleServicer
-import three_node_pb2_grpc
+import sys, os, time, string, re, json, argparse
+from concurrent import futures
+import grpc
 
+try:
+    import three_node_pb2_grpc
+except:
+    import grpc_tools.protoc
+    sdir = os.path.dirname(sys.argv[0])
+    if sdir == '':
+        sdir = '.'
+    pfile = os.path.join(sdir, 'three-node.proto')
+    grpc_tools.protoc.main([f'--python_out={sdir}', f'--grpc_python_out={sdir}', pfile])
+    import three_node_pb2_grpc
+
+from three_node_pb2_grpc import ThreeNodeExampleServicer
 from three_node_pb2 import SplitResponse
 from three_node_pb2 import LabelResponse
 from three_node_pb2 import ToiResponse
-
-import json
-import re,string
 
 def find_word_boundaries(s, ignore_punctuation=False):
     p = 0
@@ -89,19 +96,12 @@ class ThreeNodeExampleServer(ThreeNodeExampleServicer):
         return result
     
 
-from concurrent import futures
-import time, grpc, sys
 
-from optparse import OptionParser
-def serve():
-    parser = OptionParser()
-    parser.add_option("-p", "--port", dest="port", type="int", default=int(os.environ.get('GRPC_PORT', '50666')))
-    (options, args) = parser.parse_args()
-
+def serve(port):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     three_node_pb2_grpc.add_ThreeNodeExampleServicer_to_server(ThreeNodeExampleServer(), server)
-    server.add_insecure_port('[::]:%d' % options.port)
-    print("ThreeNodeExample gRPC listening on port %d" % int(options.port))
+    server.add_insecure_port('[::]:%d' % port)
+    print("ThreeNodeExample gRPC listening on port %d" % port)
     server.start()
     try:
         while True:
@@ -111,4 +111,9 @@ def serve():
         server.stop(0)
 
 if __name__ == '__main__':
-    serve()
+    from argparse import RawTextHelpFormatter
+    parser = argparse.ArgumentParser(description='ThreeNodeExample gRPC server\nusing gRPC version {}'.format(grpc.__version__), formatter_class=RawTextHelpFormatter)
+    parser.add_argument('-p', '--port', dest='port', type='int', default=int(os.environ.get('GRPC_PORT', '50666')), help='Server port')
+    args = parser.parse_args()
+    serve(int(args.port))
+
