@@ -317,7 +317,7 @@ inline static std::ostream &operator << (std::ostream &out, std::chrono::steady_
     auto td = double(time_diff.count()) * std::chrono::steady_clock::period::num / std::chrono::steady_clock::period::den;
     char const *unit = "s";
     if(td < 1.0) { td *= 1000; unit = "ms"; }
-    if(td < 1.0) { td *= 1000; unit = "µs"; }
+    if(td < 1.0) { td *= 1000; unit = "\\u00B5s"; }
     if(td < 1.0) { td *= 1000; unit = "ns"; }
     if(td < 1.0) { td = 0; unit = ""; }
     return out << td << unit;
