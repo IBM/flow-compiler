@@ -24,7 +24,7 @@ node numbers {
 node labels {
     image = "three-node-example-nodes:latest";
     output label(
-        word: input@sentence
+        word: tokens@tokens.token
     );
     environment {
         GRPC_PORT="{{labels.port}}";
