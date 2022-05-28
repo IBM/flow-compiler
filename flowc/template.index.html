@@ -12,9 +12,6 @@
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- Fonts
-    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-
     <!-- CSS 
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.0/themes/smoothness/jquery-ui.css">
@@ -68,7 +65,7 @@
     –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <div id="pr-header-id" class="pr-header">
         <nav class="navbar ms-4 me-4">
-            <span class="navbar-brand"><b>{{MAIN_DESCRIPTION/html+NAME/upper/decamelize/html}}</b>{A:HAVE_ACTIVE_NODE{ <span><i>{{MAIN_ENTRY_NAME/upper}}</i></span>}A}</span>
+            <span class="navbar-brand"><b>{{MAIN_DESCRIPTION/html+NAME/upper/decamelize/html}}</b></span>
             <div class="navbar-expand me-auto" id="advanced-menu">
                 <ul id="pr-nav-links" class="nav navbar-nav navbar-expand">
                     <li class="nav-item dropdown">
@@ -175,40 +172,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-json-editor/1.1.0/jquery-json-editor.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@2.6.1/dist/jsoneditor.min.js"></script>
     <script>
-    var ui_data = {
-        "request-schema": {{MAIN_ENTRY_INPUT_SCHEMA_JSON}},
-        "request-defaults": {{MAIN_ENTRY_DEFAULTS}},
-        "methods": [
-            {
-                "name": "{{MAIN_ENTRY_NAME}}",
-                "url": "{{MAIN_ENTRY_URL}}",
-                "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
-            }
-{I:ALT_ENTRY_NAME{               ,{
-                "name": "{{ALT_ENTRY_NAME}}",
-                "url": "{{ALT_ENTRY_URL}}",
-                "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}},
-            }
-}I}
-        ]
-                ,
-        "nodes": [
-{C:CLI_NODE_NAME{
-            {
-                "request-schema": {{CLI_INPUT_SCHEMA_JSON}},
-                "response-schema": {{CLI_OUTPUT_SCHEMA_JSON}},
-                "name": "{{CLI_NODE_NAME/lower/id/option}}",
-                "url": "/-node/{{CLI_NODE_NAME/id/option}}"
-             },
-}C}
-            {
-                "name": ".",
-                 "url": "/"
-            }
-        ]
-    };
     window.PR = {
-        main_page: 1 {A:HAVE_ACTIVE_NODE{-1}A},
         ui_data: null,
         form: null,
         current_node: '',
@@ -663,7 +627,16 @@
         afterRender: function() {
         }
     };
-    PR.init(ui_data);
+                    try { 
+                        var xhr = $.ajax({
+                            type: "GET",
+                            url: '/-info',
+                            cache: false,
+                            beforeSend: function(request) {
+                            },
+                            success: function(reply_obj, sts, jqxhr) {
+                                        ui_info = reply_obj;
+    PR.init(ui_info);
     PR.makeForm("");
     PR.connectButtons();
 
@@ -677,6 +650,14 @@
     } else {
         $("#dark-light-view").prop("checked", 0).trigger("change");
     }
+                            },
+							error: function(jqXHR, sts, exc) {
+                                PR.printError('cannot download UI information', exc);
+                            }
+                        });
+					} catch (ae) {
+						PR.printError("system error");
+					}
     </script>
 </body>
 </html>
