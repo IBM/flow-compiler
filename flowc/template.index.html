@@ -52,15 +52,15 @@
 
         #pr-response { font-size: 90%;  white-space: normal; }
         .pr-sticky, .pr-JSON-boolean, .pr-JSON-number, .pr-JSON-null { margin-right: 12px;  display: inline-block; }
-        .pr-JSON-boolean { color: orange; }
+        .pr-JSON-boolean { }
         .pr-JSON-number { font-weight: bold; }
-        .pr-JSON-null { color: red; }
+        .pr-JSON-null { }
         .pr-JSON-string { white-space: pre; }
-        .pr-JSON-key { font-weight: bold; font-style: italic; }
+        .pr-JSON-key { }
         .pr-JSON-array {  }
         .pr-JSON-object { margin-left: 24px;  }
         #pr-stage-time { font-weight: normal; font-size: 75% }
-        .pr-stage-time { margin-left: 24px; }
+        .pr-stage-time { margin-left: 24px; }        
     </style>
 </head>
 <body>
@@ -311,7 +311,7 @@
         },
         renderJSON: function(schema, container, label, objectID, jo, replace, keyO) {
             if(typeof jo === 'boolean') {
-                PR.appendOrReplace(container, '<div class="pr-JSON-boolean" id="'+objectID+'">'+jo+"</div>", replace);
+                PR.appendOrReplace(container, '<div class="pr-JSON-boolean text-warning" id="'+objectID+'">'+jo+"</div>", replace);
                 if(keyO) keyO.addClass("pr-sticky");
                 $("#"+objectID).addClass(label);
             } else 
@@ -329,7 +329,7 @@
                 $("#"+objectID).addClass(label);
              } else 
              if(typeof jo === 'number' && isFinite(jo)) {
-                 PR.appendOrReplace(container, '<div class="pr-JSON-number" id="'+objectID+'">'+jo+"</div>", replace);
+                 PR.appendOrReplace(container, '<div class="pr-JSON-number text-info" id="'+objectID+'">'+jo+"</div>", replace);
                  if(keyO) keyO.addClass("pr-sticky");
                  $("#"+objectID).addClass(label);
              } else 
@@ -375,7 +375,7 @@
                              var val = jo[key];
                              var localIDk = objectID+'-k'+lc;
                              var localIDv = objectID+'-v'+lc;
-                             PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
+                             PR.appendOrReplace(container, '<div class="pr-JSON-key text-muted" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
                              var ko = $("#"+localIDk);
                              ko.text(key); 
                              ko.addClass('k' + label + '-' + key);
@@ -391,7 +391,7 @@
                          lc = lc + 1;
                          var localIDk = objectID+'-k'+lc;
                          var localIDv = objectID+'-v'+lc;
-                         PR.appendOrReplace(container, '<div class="pr-JSON-key" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
+                         PR.appendOrReplace(container, '<div class="pr-JSON-key text-muted" id="'+localIDk+'"></div><div id="'+localIDv+'"></div>', false);
                          var ko = $("#"+localIDk);
                          ko.text(key); 
                          ko.addClass('k' + label + '-' + key);
@@ -406,7 +406,7 @@
                      }
                  }
              } else {
-                 PR.appendOrReplace(container, '<div class="pr-JSON-null" id="'+objectID+'">null</div>', replace);
+                 PR.appendOrReplace(container, '<div class="pr-JSON-null text-danger" id="'+objectID+'">null</div>', replace);
              }
         },
 
