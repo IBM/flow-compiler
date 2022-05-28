@@ -521,13 +521,15 @@
             });
             var submit_buttons = [];
             for(const m of PR.ui_data.methods) {
+                m.cat = 'main';
                 submit_buttons.push(m);
             }
             for(const n of PR.ui_data.node) {
+                n.cat = 'node';
                 submit_buttons.push(n);
             }
             submit_buttons.map(function(m) {
-                $("#"+m.name+"-submit").on("click", function(e) { 
+                $("#"+m.cat+'-'+m.name+"-submit").on("click", function(e) { 
                     $('html, body').animate({
                         scrollTop: $("#pr-view").offset().top
                     }, 2000);
