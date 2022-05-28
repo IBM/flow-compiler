@@ -1286,21 +1286,40 @@ static int bad_request_error(struct mg_connection *conn) {
 }
 static int get_info(struct mg_connection *conn, void *cbdata) {
     std::string info = flowc::sfmt() << "{"
-        {I:ENTRY_NAME{
-            << "\"/{{ENTRY_NAME}}\": {"
-               "\"timeout\": " << flowc::entry_{{ENTRY_NAME}}_timeout << ","
-               "\"input-schema\": " << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second << "," 
-               "\"output-schema\": " << flowinfo::schema_map.find("/-output/{{ENTRY_NAME}}")->second << "" 
-               "},"
-        }I}
-        {I:CLI_NODE_NAME{
-          <<   "\"/-node/{{CLI_NODE_NAME/id/option}}\": {"
-               "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
-               "\"input-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << "," 
-               "\"output-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME/id/option}}")->second << "" 
-               "},"
-        }I}
-        "\"/-info\": {}"
+        << "\"request-schema\": " << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second  << ","
+        << "\"request-defaults\": " << {{MAIN_ENTRY_DEFAULTS/c}} << ","
+        << "\"methods\": [" 
+            "{"
+                "\"advanced\":false,"
+                "\"name\": \"{{MAIN_ENTRY_NAME}}\","
+                "\"url\": \"{{MAIN_ENTRY_URL}}\","
+                "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{MAIN_ENTRY_NAME}}")->second  
+        <<   "}"
+{I:ALT_ENTRY_NAME{            << ",{"
+                "\"advanced\": true,"
+                "\"timeout\": " << flowc::entry_{{ALT_ENTRY_NAME}}_timeout << ","
+                "\"name\": \"{{ALT_ENTRY_NAME}}\","
+                "\"url\": \"{{ALT_ENTRY_URL}}\","
+                "\"response-schema\": " << {{ALT_ENTRY_OUTPUT_SCHEMA_JSON/c}}
+        <<    "}"
+}I}
+        << "],"
+                
+        << "\"nodes\": ["
+{C:CLI_NODE_NAME{
+        << "   {"
+                "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
+                "\"request-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << ","
+                "\"response-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME/id/option}}")->second << ","
+                "\"name\": \"{{CLI_NODE_NAME/lower/id/option}}\","
+                "\"url\": \"/-node/{{CLI_NODE_NAME/id/option}}\""
+            " },"
+}C}
+        << "{"
+                 "\"name\": \".\","
+                 "\"url\": \"/\""
+            "}"
+        "]"
     "}";
     return json_reply(conn, info.c_str(), info.length());
 }
