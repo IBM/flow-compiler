@@ -59,7 +59,7 @@ BASE_IMAGE?=redhat-ubi8
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image
-.PHONY: ubuntu-18.04 ubuntu-20.04 redhat-ubi7 redhat-ubi8 alpine-3.15 alpine-3.14
+.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.15 
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
@@ -206,7 +206,15 @@ alpine-3.15:
 	@rm -f flow-templatez.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
+alpine-3.16:
+	@rm -f flow-templatez.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
+
 ubuntu-20.04:
+	@rm -f flow-templatez.C
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
+
+ubuntu-22.04:
 	@rm -f flow-templatez.C
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
