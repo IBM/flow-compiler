@@ -76,7 +76,7 @@ if __name__ == '__main__':
             pfile = os.path.join(sdir, '{{NAME}}.proto')
             with open(pfile, 'w') as pf:
                 print(PROTO, file=pf)
-            grpc_tools.protoc.main(['--python_out='+sdir, '--grpc_python_out='+sdir, pfile])
+            grpc_tools.protoc.main([f'--proto_path={sdir}', f'--python_out={sdir}', f'--grpc_python_out={sdir}', pfile])
             import {{NAME}}_pb2
             import {{NAME}}_pb2_grpc
         with grpc.insecure_channel(target=args.endpoint, options=CHANNEL_OPTIONS) as channel:

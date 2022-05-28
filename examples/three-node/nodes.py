@@ -15,7 +15,7 @@ except:
     if sdir == '':
         sdir = '.'
     pfile = os.path.join(sdir, 'three-node.proto')
-    grpc_tools.protoc.main([f'--python_out={sdir}', f'--grpc_python_out={sdir}', pfile])
+    grpc_tools.protoc.main([f'--proto_path={sdir}', f'--python_out={sdir}', f'--grpc_python_out={sdir}', pfile])
     import three_node_pb2_grpc
 
 from three_node_pb2_grpc import ThreeNodeExampleServicer
@@ -112,8 +112,9 @@ def serve(port):
 
 if __name__ == '__main__':
     from argparse import RawTextHelpFormatter
+    grpc_port = int(os.environ.get('GRPC_PORT', '50666'))
     parser = argparse.ArgumentParser(description='ThreeNodeExample gRPC server\nusing gRPC version {}'.format(grpc.__version__), formatter_class=RawTextHelpFormatter)
-    parser.add_argument('-p', '--port', dest='port', type='int', default=int(os.environ.get('GRPC_PORT', '50666')), help='Server port')
+    parser.add_argument('-p', '--port', dest='port', default=grpc_port, help='Server port')
     args = parser.parse_args()
     serve(int(args.port))
 
