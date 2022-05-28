@@ -66,11 +66,10 @@ if __name__ == '__main__':
         rc = 1
     else:
         try:
-            import combiner_pb2
-            import combiner_pb2_grpc
+            import {{NAME}}_pb2
+            import {{NAME}}_pb2_grpc
         except:
-            import os, grpc_tools.protoc
-            #python3 -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. "{{NAME}}.proto"
+            import grpc_tools.protoc
             sdir = os.path.dirname(sys.argv[0])
             if sdir == '':
                 sdir = '.'
