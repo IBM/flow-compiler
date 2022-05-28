@@ -152,12 +152,11 @@ bool is_enum(::google::protobuf::FieldDescriptor const *fd) {
     return fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM;
 }
 typedef std::string (*get_prop_f)(std::string const &, std::string const &);
-std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop); 
+std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop, int indent=0); 
 inline static std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description) {
     std::function<std::string (std::string const &field, std::string const &prop)> egpf;
-    return json_schema(dp, title, description, egpf);
+    return json_schema_p(dp, title, description, egpf, 0);
 }
-//std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, get_prop_f const get_prop=nullptr); 
 std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp);
 std::string gen_proto(std::set<::google::protobuf::MethodDescriptor const *> const &mdps);
 std::string grpc_error_code(int c);

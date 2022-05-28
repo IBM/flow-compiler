@@ -184,14 +184,14 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
     buf << eos << "}";
 }
-std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop) {
+std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop, int indent) {
     std::ostringstream buf;
     buf << "{";
     if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";
     std::string descr = description.empty()? get_description(dp): description;
     if(!descr.empty()) 
         buf << "\"description\":" << c_escape(descr) << ",";
-    json_schema_buf(buf, dp, "", get_prop, 4);
+    json_schema_buf(buf, dp, "", get_prop, indent);
     buf << "}";
     return buf.str();
 }
