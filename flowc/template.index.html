@@ -627,37 +627,36 @@
         afterRender: function() {
         }
     };
-                    try { 
-                        var xhr = $.ajax({
-                            type: "GET",
-                            url: '/-info',
-                            cache: false,
-                            beforeSend: function(request) {
-                            },
-                            success: function(reply_obj, sts, jqxhr) {
-                                        ui_info = reply_obj;
-    PR.init(ui_info);
-    PR.makeForm("");
-    PR.connectButtons();
+    try { 
+        var xhr = $.ajax({
+            type: "GET",
+            url: '/-info',
+            cache: false,
+            beforeSend: function(request) {
+            },
+            success: function(reply_obj, sts, jqxhr) {
+                PR.init(reply_obj);
+                PR.makeForm("");
+                PR.connectButtons();
 
-    if(PR.advanced_view != 0) {
-        $("#advanced-view").prop("checked", 1).trigger("change");
-    } else {
-        $("#advanced-view").prop("checked", 0).trigger("change");
-    }
-    if(PR.dark_view != 0) {
-        $("#dark-light-view").prop("checked", 1).trigger("change");
-    } else {
-        $("#dark-light-view").prop("checked", 0).trigger("change");
-    }
-                            },
-							error: function(jqXHR, sts, exc) {
-                                PR.printError('cannot download UI information', exc);
-                            }
-                        });
-					} catch (ae) {
-						PR.printError("system error");
-					}
+                if(PR.advanced_view != 0) {
+                    $("#advanced-view").prop("checked", 1).trigger("change");
+                } else {
+                    $("#advanced-view").prop("checked", 0).trigger("change");
+                }
+                if(PR.dark_view != 0) {
+                    $("#dark-light-view").prop("checked", 1).trigger("change");
+                } else {
+                    $("#dark-light-view").prop("checked", 0).trigger("change");
+                }
+            },
+            error: function(jqXHR, sts, exc) {
+                PR.printError('cannot download UI information', exc);
+            }
+        });
+    } catch (ae) {
+		PR.printError("system error");
+	}
     </script>
 </body>
 </html>
