@@ -174,11 +174,13 @@
         "request-defaults": {{MAIN_ENTRY_DEFAULTS}},
         "methods": [
             {
+                "cat": "main",
                 "name": "{{MAIN_ENTRY_NAME}}",
                 "url": "{{MAIN_ENTRY_URL}}",
                 "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
             }
 {I:ALT_ENTRY_NAME{               ,{
+                "cat": "main",
                 "name": "{{ALT_ENTRY_NAME}}",
                 "url": "{{ALT_ENTRY_URL}}",
                 "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}},
@@ -186,9 +188,10 @@
 }I}
         ]
                 ,
-        "node": [
+        "nodes": [
 {C:CLI_NODE_NAME{
             {
+                "cat": "node", 
                 "request-schema": {{CLI_INPUT_SCHEMA_JSON}},
                 "response-schema": {{CLI_OUTPUT_SCHEMA_JSON}},
                 "name": "{{CLI_NODE_NAME/lower/id/option}}",
@@ -221,7 +224,7 @@
                 if(typeof localStorage.advanced_view !== "undefined")
                     PR.advanced_view = localStorage.advanced_view;        
             }
-            PR.ui_data.node.pop();
+            PR.ui_data.nodes.pop();
         },
         prepareSchema: function(schema) {
             if('type' in schema && !('format' in schema) && schema['type'] === 'string' && !('enum' in schema)) {
@@ -268,7 +271,7 @@
             }
             var rqt_schema = PR.ui_data["request-schema"];
             var rqt_defaults = PR.ui_data["request-defaults"];
-            for(const n of PR.ui_data.node) if(n.name == node_name) {
+            for(const n of PR.ui_data.nodes) if(n.name == node_name) {
                 rqt_schema = n["request-schema"];
                 rqt_defaults = {};
             }
@@ -540,11 +543,9 @@
             });
             var submit_buttons = [];
             for(const m of PR.ui_data.methods) {
-                m.cat = 'main';
                 submit_buttons.push(m);
             }
-            for(const n of PR.ui_data.node) {
-                n.cat = 'node';
+            for(const n of PR.ui_data.nodes) {
                 submit_buttons.push(n);
             }
             submit_buttons.map(function(m) {
