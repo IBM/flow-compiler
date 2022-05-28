@@ -138,7 +138,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
                 };
 
         std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
-        std::string input_schema = json_schema(mdp->input_type(), to_upper(to_option(main_name)), description(1), pfr);
+        std::string input_schema = json_schema_p(mdp->input_type(), to_upper(to_option(main_name)), description(1), pfr);
 
         entry_mdps.insert(mdp); all_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
