@@ -1215,6 +1215,15 @@ static int not_found(struct mg_connection *conn, std::string const &message) {
 	mg_printf(conn, "%s", j_message.c_str());
     return 404;
 }
+static int text_reply(struct mg_connection *conn, char const *content, size_t length=0, char const *xtra_headers="Content-Type: text/plain\r\n") {
+    if(xtra_headers == nullptr) xtra_headers = "";
+	mg_printf(conn, "HTTP/1.1 200 OK\r\n"
+              "%s"
+              "Content-Length: %lu\r\n"
+              "\r\n", xtra_headers, length == 0? strlen(content): length);
+	mg_printf(conn, "%s", content);
+	return 200;
+}
 static int json_reply(struct mg_connection *conn, int code, char const *msg, char const *content, size_t length=0, char const *xtra_headers=nullptr) {
     if(xtra_headers == nullptr) xtra_headers = "";
 	mg_printf(conn, "HTTP/1.1 %d %s\r\n"
@@ -1323,12 +1332,19 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
     "}";
     return json_reply(conn, info.c_str(), info.length());
 }
-static int get_schema(struct mg_connection *conn, void *) {
+static int get_schema(struct mg_connection *conn, void*) {
 	char const *local_uri = mg_get_request_info(conn)->local_uri;
     auto sp = flowinfo::schema_map.find(local_uri);
     if(sp == flowinfo::schema_map.end()) 
         return not_found(conn, "Name not recognized");
     return json_reply(conn, sp->second);
+}
+static int get_proto(struct mg_connection *conn, void*) {
+	char const *local_uri = mg_get_request_info(conn)->local_uri;
+    auto sp = flowinfo::schema_map.find(local_uri);
+    if(sp == flowinfo::schema_map.end()) 
+        return not_found(conn, "Name not recognized");
+    return text_reply(conn, sp->second);
 }
 struct form_data_t {
     std::multimap<std::string, std::string> form;
@@ -1696,10 +1712,10 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
     if(!rest_only) {
 	    mg_set_request_handler(ctx, "/-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-output", get_schema, 0);
-	    mg_set_request_handler(ctx, "/-proto", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-proto", get_proto, 0);
 	    mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
-	    mg_set_request_handler(ctx, "/-node-proto", get_schema, 0);
+	    mg_set_request_handler(ctx, "/-node-proto", get_proto, 0);
 	    mg_set_request_handler(ctx, "/-info", get_info, 0);
 {I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME/id/option}}", rest_api::N_{{CLI_NODE_NAME/id}}, (void *) "/-node/{{CLI_NODE_NAME/id/option}}");
 }I}
