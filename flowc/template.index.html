@@ -127,7 +127,12 @@
                     style="width: 200px; border-radius: 20px;">{{CLI_METHOD_NAME/decamelize}}</button>
                 </div>
 }C}
+                <!--div class="form-group float-right non-advanced-button">
+                    <button class="btn btn-outline-danger btn-sm me-2 mb-2" id="clear-response-m" style="display: none;" type="button"><span class="oi oi-circle-x"> Clear</span></button>
+                </div-->
             </div>
+
+
         </div>
     </div>
     <!-- Messages Section
@@ -147,6 +152,7 @@
                 <div class="col-xl-4 float-right">
                     <button class="btn btn-outline-success btn-sm ms-auto mb-2 ms-2" id="download-request" style="display: none;" type="button"><span class="oi oi-data-transfer-download"> Request</span></button>
                     <button class="btn btn-outline-success btn-sm me-2 mb-2" id="download-response" style="display: none;" type="button"><span class="oi oi-data-transfer-download"> Response</span></button>
+                    <button class="btn btn-outline-danger btn-sm me-2 mb-2" id="clear-response" style="display: none;" type="button"><span class="oi oi-circle-x"> Clear</span></button>
                 </div>
             </div>
 
@@ -174,13 +180,11 @@
         "request-defaults": {{MAIN_ENTRY_DEFAULTS}},
         "methods": [
             {
-                "cat": "main",
                 "name": "{{MAIN_ENTRY_NAME}}",
                 "url": "{{MAIN_ENTRY_URL}}",
                 "response-schema": {{MAIN_ENTRY_OUTPUT_SCHEMA_JSON}}
             }
 {I:ALT_ENTRY_NAME{               ,{
-                "cat": "main",
                 "name": "{{ALT_ENTRY_NAME}}",
                 "url": "{{ALT_ENTRY_URL}}",
                 "response-schema": {{ALT_ENTRY_OUTPUT_SCHEMA_JSON}},
@@ -191,7 +195,6 @@
         "nodes": [
 {C:CLI_NODE_NAME{
             {
-                "cat": "node", 
                 "request-schema": {{CLI_INPUT_SCHEMA_JSON}},
                 "response-schema": {{CLI_OUTPUT_SCHEMA_JSON}},
                 "name": "{{CLI_NODE_NAME/lower/id/option}}",
@@ -224,7 +227,8 @@
                 if(typeof localStorage.advanced_view !== "undefined")
                     PR.advanced_view = localStorage.advanced_view;        
             }
-            PR.ui_data.nodes.pop();
+            if(PR.ui_data.nodes.length > 0 && PR.ui_data.nodes[PR.ui_data.nodes.length-1].name == ".")
+                PR.ui_data.nodes.pop();
         },
         prepareSchema: function(schema) {
             if('type' in schema && !('format' in schema) && schema['type'] === 'string' && !('enum' in schema)) {
@@ -480,6 +484,7 @@
                         // Show alternate entries when not in node mode
                         $(".advanced-button").show();
                     }
+                    $(".non-advanced-button").hide();
                     // Show hide field labels and values in the reply
                     if(PR.hiddenLabels.length > 0) 
                         $(".km-"+PR.hiddenLabels.join(',.km-')).show();
@@ -499,6 +504,7 @@
                     $("#pr-message-panel").hide();
                     $("#advanced-menu").hide();
                     $(".advanced-button").hide();
+                    $(".non-advanced-button").show();
                              
                     if(PR.hiddenLabels.length > 0) 
                         $(".km-"+PR.hiddenLabels.join(',.km-')).hide();
@@ -533,19 +539,21 @@
                 a.click();
                 document.body.removeChild(a);
             });
-            $("#clear-button").on("click", function(e) { 
-                PR.acedoc = {};
+            $("#clear-response,#clear-response-m").on("click", function(e) { 
                 $("#pr-message").html('');
+                $("#pr-response").html('');
                 $("#pr-stage-time").html('');
-                $("#acedoc-view").html('');
                 $("#download-response").hide();
                 $("#download-request").hide();
+                $('#clear-response,#clear-response-m').hide();
             });
             var submit_buttons = [];
             for(const m of PR.ui_data.methods) {
+                m.cat = "main";
                 submit_buttons.push(m);
             }
             for(const n of PR.ui_data.nodes) {
+                n.cat = "node";
                 submit_buttons.push(n);
             }
             submit_buttons.map(function(m) {
@@ -576,6 +584,7 @@
                                 $("#pr-message").html('<p class="pr-message-good">Sending request...</p>');
                                 $("#download-response").hide();
                                 $("#download-request").hide();
+                                $('#clear-response,#clear-response-m').show();
                             },
                             success: function(reply_obj, sts, jqxhr) {
                                 $("#pr-message").html('');
@@ -586,6 +595,7 @@
                                 $("#advanced-view").prop("checked", $("#advanced-view").prop("checked")).trigger("change");
                                 $('#download-request').show();
                                 $('#download-response').show();
+                                $('#clear-response,#clear-response-m').show();
                                 try {
                                     call_times = jqxhr.getResponseHeader('x-flow-call-times');
                                     call_times = JSON.parse(call_times);
