@@ -1296,7 +1296,6 @@ static int bad_request_error(struct mg_connection *conn) {
 static int get_info(struct mg_connection *conn, void *cbdata) {
     std::string info = flowc::sfmt() << "{"
         << "\"request-schema\": " << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second  << ","
-        << "\"request-defaults\": " << {{MAIN_ENTRY_DEFAULTS/c}} << ","
         << "\"methods\": [" 
             "{"
                 "\"advanced\":false,"
@@ -1309,25 +1308,29 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
                 "\"timeout\": " << flowc::entry_{{ALT_ENTRY_NAME}}_timeout << ","
                 "\"name\": \"{{ALT_ENTRY_NAME}}\","
                 "\"url\": \"{{ALT_ENTRY_URL}}\","
-                "\"response-schema\": " << {{ALT_ENTRY_OUTPUT_SCHEMA_JSON/c}}
+                "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{ALT_ENTRY_NAME}}")->second
         <<    "}"
 }I}
         << "],"
-                
         << "\"nodes\": ["
-{C:CLI_NODE_NAME{
-        << "   {"
+{C:-CLI_NODE_NAME-1{
+        << "{"
                 "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
                 "\"request-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << ","
                 "\"response-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME/id/option}}")->second << ","
                 "\"name\": \"{{CLI_NODE_NAME/lower/id/option}}\","
                 "\"url\": \"/-node/{{CLI_NODE_NAME/id/option}}\""
-            " },"
-}C}
-        << "{"
-                 "\"name\": \".\","
-                 "\"url\": \"/\""
             "}"
+}C}
+{C:CLI_NODE_NAME+2{
+        << ",{"
+                "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
+                "\"request-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << ","
+                "\"response-schema\": " << flowinfo::schema_map.find("/-node-output/{{CLI_NODE_NAME/id/option}}")->second << ","
+                "\"name\": \"{{CLI_NODE_NAME/lower/id/option}}\","
+                "\"url\": \"/-node/{{CLI_NODE_NAME/id/option}}\""
+            "}"
+}C}
         "]"
     "}";
     return json_reply(conn, info.c_str(), info.length());
