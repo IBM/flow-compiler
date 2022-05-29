@@ -11,6 +11,7 @@ struct macro_descr {
     std::string name;
     int count = -1;
     int min_max = 0;
+    int start = -1;
     char const *before = nullptr;
     char const *after = nullptr;
     char const *begin = nullptr;
@@ -22,6 +23,7 @@ struct macro_descr {
         label.clear();
         name.clear();
         count = -1;
+        start = -1;
         min_max = 0;
         begin = nullptr;
         end = nullptr;
@@ -40,26 +42,26 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
  *      1. left1 left2 name [ / transforms ]* [ + name [/ transforms]* ]* - default right1 right2
  *      2. left1 label left2 template right1 label right2
  *      3. left1 label : [-|+] left2 template right1 label right2
- *      4. left1 label : [-|+] name [+ name]* [ - integer ] left2 template right1 label right2
- *      5. left1 label : [-|+] integer left2 template right1 label right2
- *      6. left1 label ? name [| name]* [& name]* left2 template right1 label right2
+ *      4. left1 label : [-|+] name [+name]* [-integer ] [+integer] left2 template right1 label right2
+ *      5. left1 label : [-|+] integer [+integer] left2 template right1 label right2
+ *      6. left1 label ? name [|name]* [&name]* left2 template right1 label right2
  *
  *      In case 1 the name is looked up and and applied any transforms that follow. 
  *      Subsequent names will be looked up if the first name is not found. 
  *      If no name is found the default value will be used if given.
- *      When a default value is not given the output will be an empty string.
+ *      When a default value is not given the output will be the macro itself.
  *
  *      Cases 2,3,4,5 render 'template' repeatedly in a loop.
- *      In the cases 2, and 3 with -, the template is repeated until one of the variables referenced within are not found.
- *      In the case 3 with +, the template is repeated until all variables in referenced in the template are not found.
+ *      In case 2, and case 3 with -, the template is repeated until one of the variables referenced within are not found.
+ *      In case 3 with +, the template is repeated until all variables in referenced in the template are not found.
  *
  *      In case 4 the number of repetitions is computed from the sizes of the named variables:
  *           when - is prepended, the minimum of the sizes chosen, missing variables will have size 0
  *           when + is prepended, the maximum of the sizes will be used
  *           when no - or + is present the first non-zero size will be used
- *
  *      In case 5 the integer value will be used as a loop counter
- *      In case 6 are evaluated as a boolean expression: empty string, no value, 0, or false for fales, anything else for true.
+ *      In cases 4 and 5 if a [+integer] is given, indexing will start there (1 based)
+ *      In case 6 variables are evaluated as a boolean expression: empty string, no value, 0, or false for fales, anything else for true.
  *
  * Populates a descriptor structure and returns the number of errors encountered.
  * Errors are printed to the error stream.
@@ -193,10 +195,21 @@ struct macro_parser {
                 if(p == templ_end) 
                     continue;
                 if(std::isdigit(*p)) {
-                    // match default number
+                    // match maximum count
                     e = match_integer(p, templ_end);
                     std::string value(p, e);
                     md.count = std::atoi(value.c_str());
+                    p = e;
+                }
+                if(*p == '+') 
+                    ++p;
+                if(p == templ_end) 
+                    continue;
+                if(std::isdigit(*p)) {
+                    // match start counter
+                    e = match_integer(p, templ_end);
+                    std::string value(p, e);
+                    md.start = std::atoi(value.c_str());
                     p = e;
                 }
             } else if(*p == '?') {
@@ -318,42 +331,43 @@ struct macro_parser {
     }
     std::pair<int, std::string> get_value(std::string const &names, int index) {
         auto r = get_value_c(names, index);
-        //std::cerr << "V:"<< names  << "#" << index << ": " << r.first << ", " << r.second << "\n";
         return r;
     } 
 
     /***
      *  Return the number of substitutions and the number of misses.
      */
-    std::pair<int, int> render_varsub_r(std::ostream &out, char const *templ, char const *templ_end, int index) {
+    std::pair<int, int> render_varsub_r(std::ostream &out, char const *templ, char const *templ_end, int index, int start) {
         if(templ_end == nullptr) templ_end = templ + strlen(templ);
         macro_descr md;
         int mprc = find_macro(md, templ, templ_end);
         char const *pos = templ;
         int missed = 0, found = 0;
         while(mprc == 0 && !(md.name.empty() && md.label.empty())) {
-            out << std::string(pos, md.before);
+            if(start < 0 || index >= start)
+                out << std::string(pos, md.before);
             pos = md.after;
             if(md.label.empty()) {
                 // regular variable reference
                 auto fv = get_value(md.name, (index < 0? 0: index));
+                std::string value;
                 if(fv.first == 0) { 
-                    out << fv.second;
+                    value = fv.second;
                     ++found;
                 } else if(fv.first == 1 && md.has_default) {
                     ++missed;
-                    out << md.default_value;
+                    value = md.default_value;
                 } else {
                     ++missed;
-                    out << std::string(md.before, md.after);
+                    value = std::string(md.before, md.after);
                 }
+                if(start < 0 || index >= start)
+                    out << value;
             } else if(md.count == -2) {
                 // conditional reference
-                std::ostringstream sout;
                 bool cond = false;
                 std::string bexp = md.name;
                 for(auto op = bexp.find_first_of('&'); op != std::string::npos; op = bexp.find_first_of('&')) {
-                    //std::cout << "BEXPa: " << op << ":"  << bexp << "\n";
                     auto lb = bexp.substr(0, op).find_last_of('|');
                     if(lb == std::string::npos) lb = 0;
                     else ++lb;
@@ -361,7 +375,6 @@ struct macro_parser {
                     auto fe = bexp.find_first_of("&|", op+1);
                     if(fe == std::string::npos) fe = bexp.length();
                     std::string right = bexp.substr(op+1, fe-op-1);
-                    //std::cout << "CHK " << left << " & " << right << "\n";
                     auto fv = get_value(left, (index < 0? 0: index));
                     if(fv.first == 1 || fv.second.empty()) {
                         bexp = bexp.substr(0, lb) + left + bexp.substr(fe);
@@ -370,7 +383,6 @@ struct macro_parser {
                     bexp = bexp.substr(0, lb) + right + bexp.substr(fe);
                 }
                 for(auto op = bexp.find_first_of('|'); op != std::string::npos; op = bexp.find_first_of('|')) {
-                    //std::cout << "BEXPo: " << op << ":"  << bexp << "\n";
                     std::string left = bexp.substr(0, op);
                     auto fe = bexp.find_first_of("&|", op+1);
                     if(fe == std::string::npos) fe = bexp.length();
@@ -388,8 +400,10 @@ struct macro_parser {
                     cond = fv.first == 0 && !fv.second.empty();
                 }
                 if(cond) {
-                    render_varsub_r(sout, md.begin, md.end, index);
-                    out << sout.str(); 
+                    std::ostringstream sout;
+                    render_varsub_r(sout, md.begin, md.end, index,  md.start > 0? md.start-1: 0);
+                    if(start < 0 || index >= start)
+                        out << sout.str(); 
                 }
             } else {
                 // loop reference
@@ -397,12 +411,14 @@ struct macro_parser {
                 int mima = md.name.empty()? (md.min_max > 0? 1: -1) : 0;
                 std::ostringstream sout;
                 for(int i = 0; maxx < 0 || i < maxx; ++i) {
-                    auto rok = render_varsub_r(sout, md.begin, md.end, i);
+                    auto rok = render_varsub_r(sout, md.begin, md.end, i, md.start > 0? md.start-1: 0);
                     if(mima < 0 && rok.second > 0)
                         break;
                     if(mima > 0 && rok.first == 0)
                         break;
-                    out << sout.str(); sout.str("");
+                    if(start < 0 || index >= start)
+                        out << sout.str(); 
+                    sout.str("");
                     // prevent infinite loops for templates without variable references
                     if(rok.first == 0 && rok.second == 0 && maxx <= 0)
                         break;
@@ -410,13 +426,14 @@ struct macro_parser {
             }
             mprc = find_macro(md, pos, templ_end);
         }
-        out << std::string(md.before, md.after);
+        if(start < 0 || index >= start)
+            out << std::string(md.before, md.after);
         return std::make_pair(found, missed);
     }
 };
 std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, std::function<int(std::string const &)> fgc) {
     macro_parser mp(fgv, fgc);
-    return mp.render_varsub_r(out, templ, templ_end, -1); 
+    return mp.render_varsub_r(out, templ, templ_end, -1, -1); 
 }
 }
 
