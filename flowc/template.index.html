@@ -191,8 +191,7 @@
                 if(typeof localStorage.advanced_view !== "undefined")
                     PR.advanced_view = localStorage.advanced_view;        
             }
-            if(PR.ui_data.nodes.length > 0 && PR.ui_data.nodes[PR.ui_data.nodes.length-1].name == ".")
-                PR.ui_data.nodes.pop();
+            PR.ui_data['request-schema'].title = ' ';
         },
         prepareSchema: function(schema) {
             if('type' in schema && !('format' in schema) && schema['type'] === 'string' && !('enum' in schema)) {
@@ -221,7 +220,8 @@
                 PR.findAdvancedFields(schema['items'], prefix);
             } else 
             if('type' in schema && 'default' in schema) {
-                PR.advancedFields.push(prefix);
+                if(!('show' in schema) || !schema.show)
+                    PR.advancedFields.push(prefix);
             }
         },
         makeForm: function(node_name) {
@@ -238,10 +238,8 @@
                $('.node-button').hide();
             }
             var rqt_schema = PR.ui_data["request-schema"];
-            var rqt_defaults = PR.ui_data["request-defaults"];
             for(const n of PR.ui_data.nodes) if(n.name == node_name) {
                 rqt_schema = n["request-schema"];
-                rqt_defaults = {};
             }
             rqt_schema["format"] = "grid";
             PR.prepareSchema(rqt_schema);
@@ -264,11 +262,6 @@
                } else {
                    $('#node-'+PR.current_node+'-button').show();
                }
-           }
-           for(const [key, value] of Object.entries(rqt_defaults)) {
-               $('*[data-schemapath="root.'+key+'"] input').val(value);
-               $('*[data-schemapath="root.'+key+'"] select').val(value);
-               PR.advancedFields.push('root.'+key);
            }
            PR.setDarkView(PR.dark_view);
         },
