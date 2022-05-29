@@ -1,4 +1,7 @@
+#include <algorithm>
 #include <sstream>
+#include <vector>
+
 #include <grpc++/grpc++.h>
 #include "grpc-helpers.H"
 #include "stru1.H"
@@ -95,7 +98,23 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
     buf << "\"type\":\"object\",";
     buf << "\"properties\":{";
 
+    std::vector<std::pair<int, int>> order;
     for(int f = 0, fc = dp->field_count(); f != fc; ++f) {
+        FieldDescriptor const *fd = dp->field(f);
+        std::string ffname = prefix.empty()? std::string(fd->name()): prefix + "." + fd->name();
+        int cor = (f+1) * 2;
+        if(get_prop) {
+            std::string fpv = get_prop(ffname, "order");
+            int nor = 0;
+            if(!fpv.empty() && (nor = std::atoi(fpv.c_str())) > 0) 
+                cor = nor * 2 -1;
+        }
+        order.push_back(std::make_pair(cor, f));
+    }
+    std::stable_sort(order.begin(), order.end());
+
+    for(int i = 0, fc = dp->field_count(); i != fc; ++i) {
+        int f = order[i].second;
         FieldDescriptor const *fd = dp->field(f);
         std::string ffname = prefix.empty()? std::string(fd->name()): prefix + "." + fd->name();
         std::string ftitle, fdescription;
@@ -109,20 +128,37 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         ++level;
         if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
         buf << eos;
-        std::string fpv;
+        std::string default_value, minimum_value, maximum_value;
         if(get_prop) {
             fdescription = get_prop(ffname, "description");
             ftitle = get_prop(ffname, "label");
-            fpv = get_prop(ffname, "order");
-            if(!fpv.empty()) {
-                buf << "\"propertyOrder\":" << fpv << "," << eos;
-            } else {
-                buf << "\"propertyOrder\":" << f << "," << eos;
-            }
-            fpv = get_prop(ffname, "format");
+            std::string fpv = get_prop(ffname, "format");
+            // TODO: check for known formats and issue a warning
+            // starrating rating
+            // (autocomplete) 
+            // checkbox 
+            // datetime-local date time
+            // jodit -- wysywig editor
+            // xhtml, bbcode -- editor
+            // select2
+            // selectize 
+            // markdown
+            // upload
+            // uuid 
+            // color 
+            // type = info -- editor
+            // textarea
+            // string 
             if(!fpv.empty()) 
                 buf << "\"format\":" << c_escape(fpv) << "," << eos;
+            fpv = get_prop(ffname, "show");
+            if(!fpv.empty())
+                buf << "\"show\":" << (stru1::string_to_bool(fpv) ? "true" : "false") << "," << eos;
+            default_value = get_prop(ffname, "default");
+            minimum_value = get_prop(ffname, "minimum");
+            maximum_value = get_prop(ffname, "maximum");
         }
+        buf << "\"propertyOrder\":" << (i+1) << "," << eos;
         if(ftitle.empty()) ftitle = decamelize(fd->name());
         buf << "\"title\":" << c_escape(ftitle) << "," << eos;
         if(fdescription.empty()) fdescription = get_description(fd);
@@ -138,6 +174,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
                 buf << "\"type\":\"number\"";
+                if(!default_value.empty()) buf << ",\"default\":" << std::atof(default_value.c_str());
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
@@ -150,18 +187,27 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
                 buf << "\"type\":\"integer\"";
+                if(!default_value.empty()) buf << ",\"default\":" << std::atoll(default_value.c_str());
+                if(!minimum_value.empty()) buf << ",\"minimum\":" << std::atoll(minimum_value.c_str());
+                if(!maximum_value.empty()) buf << ",\"maximum\":" << std::atoll(maximum_value.c_str());
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
             case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
                 buf << "\"type\":\"string\"";
+                if(!default_value.empty()) buf << ",\"default\":" << c_escape(default_value);
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
                 buf << "\"type\":\"boolean\"";
+                if(!default_value.empty()) buf << ",\"default\":" << (stru1::string_to_bool(default_value) ? "true" : "false");
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
                 buf << "\"type\":\"string\",\"enum\":[";
                 enum_as_strings(buf, fd->enum_type());
                 buf << "]";
+                if(!default_value.empty()) {
+                    // TODO: check for valid default value
+                    buf << ",\"default\":" << c_escape(default_value);
+                }
                 break; 
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
                 json_schema_buf(buf, fd->message_type(), ffname, get_prop, indent, level+1);
