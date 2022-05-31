@@ -105,18 +105,20 @@
                 <div id="pr-form-editor" class="m-4"></div>
             </form>
             <div id="pr-form-submit" class="m-4 pr-stick-on">
+{E:ENTRY_NAME-1{              
                 <div class="form-group pr-button main-button">
-                    <button type="button" class="btn btn-primary btn-block" value="{{MAIN_ENTRY_NAME}}" id="main-{{MAIN_ENTRY_NAME/lower/id/option}}-submit" 
-                    style="width: 200px; border-radius: 20px;">{{MAIN_ENTRY_NAME/decamelize}}</button>
-                    <span class="pr-button-text">{{MAIN_ENTRY_DESCRIPTION/html}}</span>
+                    <button type="button" class="btn btn-primary btn-block" value="{{ENTRY_NAME}}" id="main-{{ENTRY_NAME/lower/id/option}}-submit" 
+                    style="width: 200px; border-radius: 20px;">{{ENTRY_NAME/decamelize}}</button>
+                    <span class="pr-button-text">{{ENTRY_DESCRIPTION/html}}</span>
                 </div>
-{I:ALT_ENTRY_NAME{              
+}E}
+{E:ENTRY_NAME+2{              
                 <div class="form-group pr-button main-button advanced-button">
-                    <button type="button" class="btn btn-primary btn-block" value="{{ALT_ENTRY_NAME}}" id="main-{{ALT_ENTRY_NAME/lower/id/option}}-submit" 
-                    style="width: 200px; border-radius: 20px;">{{ALT_ENTRY_NAME/decamelize}}</button>
-                    <span class="pr-button-text">{{ALT_ENTRY_DESCRIPTION/html}}</span>
+                    <button type="button" class="btn btn-primary btn-block" value="{{ENTRY_NAME}}" id="main-{{ENTRY_NAME/lower/id/option}}-submit" 
+                    style="width: 200px; border-radius: 20px;">{{ENTRY_NAME/decamelize}}</button>
+                    <span class="pr-button-text">{{ENTRY_DESCRIPTION/html}}</span>
                 </div>
-}I}
+}E}
 {C:CLI_NODE_NAME{
                 <div class="form-group pr-button node-button" id="node-{{CLI_NODE_NAME/lower/id/option}}-button">
                     <button type="button" class="btn btn-primary btn-block" value="{{CLI_METHOD_NAME}}" id="node-{{CLI_NODE_NAME/lower/id/option}}-submit" 

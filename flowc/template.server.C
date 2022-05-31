@@ -1297,20 +1297,22 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
     std::string info = flowc::sfmt() << "{"
         << "\"request-schema\": " << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second  << ","
         << "\"methods\": [" 
-            "{"
-                "\"advanced\":false,"
-                "\"name\": \"{{MAIN_ENTRY_NAME}}\","
-                "\"url\": \"{{MAIN_ENTRY_URL}}\","
-                "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{MAIN_ENTRY_NAME}}")->second  
-        <<   "}"
-{I:ALT_ENTRY_NAME{            << ",{"
-                "\"advanced\": true,"
-                "\"timeout\": " << flowc::entry_{{ALT_ENTRY_NAME}}_timeout << ","
-                "\"name\": \"{{ALT_ENTRY_NAME}}\","
-                "\"url\": \"{{ALT_ENTRY_URL}}\","
-                "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{ALT_ENTRY_NAME}}")->second
+{E:ENTRY_NAME-1{        << "{"
+                "\"advanced\": false,"
+                "\"timeout\": " << flowc::entry_{{ENTRY_NAME}}_timeout << ","
+                "\"name\": \"{{ENTRY_NAME}}\","
+                "\"url\": \"{{ENTRY_URL}}\","
+                "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{ENTRY_NAME}}")->second
         <<    "}"
-}I}
+}E}
+{E:ENTRY_NAME+2{        << ",{"
+                "\"advanced\": true,"
+                "\"timeout\": " << flowc::entry_{{ENTRY_NAME}}_timeout << ","
+                "\"name\": \"{{ENTRY_NAME}}\","
+                "\"url\": \"{{ENTRY_URL}}\","
+                "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{ENTRY_NAME}}")->second
+        <<    "}"
+}E}
         << "],"
         << "\"nodes\": ["
 {C:-CLI_NODE_NAME-1{
