@@ -298,7 +298,6 @@ public:
     // Entry related info
     int set_entry_vars(decltype(global_vars) &vars);
     int set_cli_node_vars(decltype(global_vars) &vars);
-    int set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node);
     // Grab all deployment vars related to the node or group
     int node_info(int node, std::map<std::string, std::vector<std::string>> &local_vars, std::string const &prefix="");
     int group_info(int node, std::map<std::string, std::vector<std::string>> &local_vars, std::string const &prefix="");

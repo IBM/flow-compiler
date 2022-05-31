@@ -14,30 +14,6 @@
 #include "stru1.H"
 
 using namespace stru1;
-
-int flow_compiler::set_cli_active_node_vars(decltype(global_vars) &vars, int cli_node) {
-    int error_count = 0;
-    assert(refcount(cli_node) > 0);
-    std::string const &node_name = name(cli_node);
-
-    clear(global_vars, "ALT_ENTRY_NAME");
-
-    append(vars, "HAVE_ACTIVE_NODE", "");
-    append(vars, "MAIN_ENTRY_DESCRIPTION", description(cli_node));
-    append(vars, "MAIN_ENTRY_NAME", node_name);
-    append(vars, "MAIN_ENTRY_URL", sfmt() << "/-node/" << node_name);
-    auto mdp = method_descriptor(cli_node);
-    append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-    append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-    std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(cli_node));
-    append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-    std::string input_schema = json_schema(mdp->input_type(), node_name, description(cli_node));
-    append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
-    append(vars, "MAIN_ENTRY_METHOD_NAME", mdp->name());
-    append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(cli_node, default_node_timeout)));
-    append(vars, "MAIN_ENTRY_PROTO", gen_proto(mdp));
-    return error_count;
-}
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     int error_count = 0, node_count = 0, cli_count = 0, cc_value = 0;
     std::set<std::string> all_nodes;
@@ -170,33 +146,6 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         }
         buf << "}";
         std::string default_vals = buf.str();
-
-        if(entry_count == 1) {
-            append(vars, "MAIN_ENTRY_PROTO", gen_proto(mdp));
-            append(vars, "MAIN_ENTRY_FULL_NAME", mdp->full_name());
-            append(vars, "MAIN_ENTRY_NAME", mdp->name());
-            append(vars, "MAIN_ENTRY_URL", sfmt() << "/" << mdp->name());
-            append(vars, "MAIN_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
-            append(vars, "MAIN_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-            append(vars, "MAIN_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-            append(vars, "MAIN_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(block, default_entry_timeout)));
-            append(vars, "MAIN_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-            append(vars, "MAIN_ENTRY_INPUT_SCHEMA_JSON", input_schema);
-            append(vars, "MAIN_ENTRY_DESCRIPTION", description(entry_node));
-            append(vars, "MAIN_ENTRY_DEFAULTS", default_vals);
-        } else {
-            append(vars, "ALT_ENTRY_PROTO", gen_proto(mdp));
-            append(vars, "ALT_ENTRY_FULL_NAME", mdp->full_name());
-            append(vars, "ALT_ENTRY_NAME", mdp->name());
-            append(vars, "ALT_ENTRY_URL", sfmt() << "/" << mdp->name());
-            append(vars, "ALT_ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
-            append(vars, "ALT_ENTRY_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-            append(vars, "ALT_ENTRY_INPUT_TYPE", get_full_name(mdp->input_type()));
-            append(vars, "ALT_ENTRY_TIMEOUT", std::to_string(get_blck_timeout(block, default_entry_timeout)));
-            append(vars, "ALT_ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
-            append(vars, "ALT_ENTRY_INPUT_SCHEMA_JSON", input_schema);
-            append(vars, "ALT_ENTRY_DESCRIPTION", description(entry_node));
-        }
     }
     if(entry_count > 1)
         set(vars, "HAVE_ALT_ENTRY", "");
