@@ -91,7 +91,7 @@ static std::string get_description(::google::protobuf::Descriptor const *fd) {
     }
     return fdescription;
 }
-static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, std::string const &prefix, std::function<std::tuple<std::string, int, std::string, int> (std::string const &field, std::string const &prop)> get_prop, int indent, int level=1) {
+static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, std::string const &prefix, std::function<std::tuple<std::string, int, std::string> (std::string const &field, std::string const &prop)> get_prop, int indent, int level=1) {
     std::string eos;
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
 
@@ -117,7 +117,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         int f = order[i].second;
         FieldDescriptor const *fd = dp->field(f);
         std::string ffname = prefix.empty()? std::string(fd->name()): prefix + "." + fd->name();
-        std::string ftitle, fdescription;
+        std::string ftitle, fdescription; bool vftitle = false, vfdescription = false;
         if(fdescription.empty()) fdescription = get_description(fd);
         bool is_repeated = fd->is_repeated();
 
@@ -128,12 +128,16 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         ++level;
         if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
         buf << eos;
-        std::string default_value, minimum_value, maximum_value;
+        std::string default_value, minimum_value, maximum_value, format;
+        bool vdefault = false, vminimum = false, vmaximum = false, vformat = false;
         if(get_prop) {
-            std::string value, varname; int node, vnode;
-            std::tie(fdescription, node, varname, vnode) = get_prop(ffname, "description");
-            std::tie(ftitle, node, varname, vnode) = get_prop(ffname, "label");
-            std::tie(value, node, varname, vnode) = get_prop(ffname, "format");
+            std::string value, varname; int node;
+            std::tie(fdescription, node, varname) = get_prop(ffname, "description");
+            if(!varname.empty()) { fdescription = varname; vfdescription = true; }
+            std::tie(ftitle, node, varname) = get_prop(ffname, "label");
+            if(!varname.empty()) { ftitle = varname; vftitle = true; }
+            std::tie(format, node, varname) = get_prop(ffname, "format");
+            if(!varname.empty()) { format = varname; vformat = true; }
 
             // Maybe check for known formats and issue a warning
             // (autocomplete) 
@@ -149,23 +153,43 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
            
             // textarea, xhtml, bbcode, jodit, markdown -- string
            
-            if(node != 0) 
-                buf << "\"format\":" << c_escape(value) << "," << eos;
+            if(node != 0) {
+                if(vformat) 
+                    buf << "\"format\":<{" << format << "/s}>," << eos;
+                else
+                    buf << "\"format\":" << c_escape(format) << "," << eos;
+            }
 
-            std::tie(value, node, varname, vnode)  = get_prop(ffname, "show");
-            if(node != 0)
-                buf << "\"show\":" << (stru1::string_to_bool(value) ? "true" : "false") << "," << eos;
+            std::tie(value, node, varname) = get_prop(ffname, "show");
+            if(node != 0) {
+                if(varname.empty())
+                    buf << "\"show\":" << (stru1::string_to_bool(value) ? "true" : "false") << "," << eos;
+                else
+                    buf << "\"show\":<{"<< value << "/b}," << eos;
+            }
 
-            std::tie(default_value, node, varname, vnode) = get_prop(ffname, "default");
-            std::tie(minimum_value, node, varname, vnode) = get_prop(ffname, "minimum");
-            std::tie(maximum_value, node, varname, vnode) = get_prop(ffname, "maximum");
-
+            std::tie(default_value, node, varname) = get_prop(ffname, "default");
+            if(!varname.empty()) { default_value = varname; vdefault = true; }
+            std::tie(minimum_value, node, varname) = get_prop(ffname, "minimum");
+            if(!varname.empty()) { minimum_value = varname; vminimum = true; }
+            std::tie(maximum_value, node, varname) = get_prop(ffname, "maximum");
+            if(!varname.empty()) { maximum_value = varname; vmaximum = true; }
         }
         buf << "\"propertyOrder\":" << (i+1) << "," << eos;
         if(ftitle.empty()) ftitle = decamelize(fd->name());
-        buf << "\"title\":" << c_escape(ftitle) << "," << eos;
+        if(vftitle) 
+            buf << "\"title\":<{" << ftitle << "/s}>," << eos;
+        else
+            buf << "\"title\":" << c_escape(ftitle) << "," << eos;
+
         if(fdescription.empty()) fdescription = get_description(fd);
-        if(!fdescription.empty()) buf << "\"description\":" << c_escape(fdescription) << "," << eos;
+
+        if(!fdescription.empty()) {
+            if(vfdescription)
+                buf << "\"description\":<{" << fdescription << "/s}>," << eos;
+            else
+                buf << "\"description\":" << c_escape(fdescription) << "," << eos;
+        }
 
         if(is_repeated) {
             buf << "\"type\":\"array\"," << "\"items\":{";
@@ -177,7 +201,12 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
             case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
                 buf << "\"type\":\"number\"";
-                if(!default_value.empty()) buf << ",\"default\":" << std::atof(default_value.c_str());
+                if(!default_value.empty()) {
+                    if(vdefault)
+                        buf << ",\"default\":" << "<{" << default_value << "/f}>";
+                    else
+                        buf << ",\"default\":" << std::atof(default_value.c_str());
+                }
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
@@ -190,25 +219,53 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
             case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
                 buf << "\"type\":\"integer\"";
-                if(!default_value.empty()) buf << ",\"default\":" << std::atoll(default_value.c_str());
-                if(!minimum_value.empty()) buf << ",\"minimum\":" << std::atoll(minimum_value.c_str());
-                if(!maximum_value.empty()) buf << ",\"maximum\":" << std::atoll(maximum_value.c_str());
+                if(!default_value.empty()) {
+                    if(vdefault)
+                        buf << ",\"default\":" << "<{" << default_value << "/i}>";
+                    else 
+                        buf << ",\"default\":" << std::atoll(default_value.c_str());
+                }
+                if(!minimum_value.empty()) {
+                    if(vminimum)
+                        buf << ",\"minimum\":" << "<{" << minimum_value << "/i}>";
+                    else
+                        buf << ",\"minimum\":" << std::atoll(minimum_value.c_str());
+                }
+                if(!maximum_value.empty()) {
+                    if(vmaximum)
+                        buf << ",\"minimum\":" << "<{" << maximum_value << "/i}>";
+                    else
+                        buf << ",\"maximum\":" << std::atoll(maximum_value.c_str());
+                }
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
             case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
                 buf << "\"type\":\"string\"";
-                if(!default_value.empty()) buf << ",\"default\":" << c_escape(default_value);
+                if(!default_value.empty()) {
+                    if(vdefault)
+                        buf << ",\"default\":<{" << default_value << "/s}>";
+                    else
+                        buf << ",\"default\":" << c_escape(default_value);
+                }
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
                 buf << "\"type\":\"boolean\"";
-                if(!default_value.empty()) buf << ",\"default\":" << (stru1::string_to_bool(default_value) ? "true" : "false");
+                if(!default_value.empty()) {
+                    if(vdefault)
+                        buf << ",\"default\":<{" << default_value << "/b}>";
+                    else
+                        buf << ",\"default\":" << (stru1::string_to_bool(default_value) ? "true" : "false");
+                }
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
                 buf << "\"type\":\"string\",\"enum\":[";
                 enum_as_strings(buf, fd->enum_type());
                 buf << "]";
                 if(!default_value.empty()) {
-                    buf << ",\"default\":" << c_escape(default_value);
+                    if(vdefault)
+                        buf << ",\"default\":<{" << default_value << "/s}>";
+                    else
+                        buf << ",\"default\":" << c_escape(default_value);
                 }
                 break; 
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
@@ -232,7 +289,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
     buf << eos << "}";
 }
-std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::tuple<std::string, int, std::string, int> (std::string const &field, std::string const &prop)> get_prop, int indent) {
+std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::tuple<std::string, int, std::string> (std::string const &field, std::string const &prop)> get_prop, int indent) {
     std::ostringstream buf;
     buf << "{";
     if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";

@@ -152,9 +152,9 @@ bool is_enum(::google::protobuf::FieldDescriptor const *fd) {
     return fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM;
 }
 
-std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::tuple<std::string, int, std::string, int> (std::string const &field, std::string const &prop)> get_prop, int indent=0); 
+std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::tuple<std::string, int, std::string> (std::string const &field, std::string const &prop)> get_prop, int indent=0); 
 inline static std::string json_schema(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description) {
-    std::function<std::tuple<std::string, int, std::string, int> (std::string const &field, std::string const &prop)> egpf;
+    std::function<std::tuple<std::string, int, std::string> (std::string const &field, std::string const &prop)> egpf;
     return json_schema_p(dp, title, description, egpf, 0);
 }
 std::string gen_proto(::google::protobuf::MethodDescriptor const *mdp);
