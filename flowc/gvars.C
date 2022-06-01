@@ -157,7 +157,11 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         if(mdp != nullptr)
             all_mdps.insert(mdp);
     }
-    for(auto mdp: entry_mdps) {
+    std::vector<MethodDescriptor const *> mdpvec(entry_mdps.begin(), entry_mdps.end());
+    for(auto mdp: all_mdps) if(!cot::contains(entry_mdps, mdp)) 
+        mdpvec.push_back(mdp);
+    for(unsigned i = 0, e = entry_mdps.size(), f = mdpvec.size(); i < f; ++i) {
+        auto mdp = mdpvec[i];
         std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
         std::string input_schema = json_schema(mdp->input_type(), decamelize(mdp->input_type()->name()), "");
         append(vars, "MDP_PROTO", gen_proto(mdp));
@@ -171,23 +175,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "MDP_INPUT_TYPE", get_full_name(mdp->input_type()));
         append(vars, "MDP_OUTPUT_SCHEMA_JSON", output_schema);
         append(vars, "MDP_INPUT_SCHEMA_JSON", input_schema);
-        append(vars, "MDP_IS_ENTRY", "1");
-    }
-    for(auto mdp: all_mdps) if(!cot::contains(entry_mdps, mdp)) {
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
-        std::string input_schema = json_schema(mdp->input_type(), decamelize(mdp->input_type()->name()), "");
-        append(vars, "MDP_PROTO", gen_proto(mdp));
-        append(vars, "MDP_FULL_NAME", mdp->full_name());
-        append(vars, "MDP_NAME", mdp->name());
-        append(vars, "MDP_SERVICE_SHORT_NAME", get_name(mdp->service()));
-        append(vars, "MDP_SERVICE_NAME", get_full_name(mdp->service()));
-        append(vars, "MDP_OUTPUT_SHORT_TYPE", get_name(mdp->output_type()));
-        append(vars, "MDP_OUTPUT_TYPE", get_full_name(mdp->output_type()));
-        append(vars, "MDP_INPUT_SHORT_TYPE", get_name(mdp->input_type()));
-        append(vars, "MDP_INPUT_TYPE", get_full_name(mdp->input_type()));
-        append(vars, "MDP_OUTPUT_SCHEMA_JSON", output_schema);
-        append(vars, "MDP_INPUT_SCHEMA_JSON", input_schema);
-        append(vars, "MDP_IS_ENTRY", "0");
+        append(vars, "MDP_IS_ENTRY", i < e? "1": "0");
     }
     set(vars, "MDP_COUNT", sfmt() << all_mdps.size());
     set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
