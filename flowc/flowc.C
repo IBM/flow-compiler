@@ -128,7 +128,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      * Add all the import directories to the search path - check if they are valid
      */ 
     protocc = sfmt() << "protoc --cpp_out=" << output_filename(".") << " ";
-    grpccc = sfmt() << "protoc --grpc_out=" << output_filename(".") << " --plugin=protoc-gen-grpc=" << search_path("grpc_cpp_plugin");
+    grpccc = sfmt() << "protoc --grpc_out=" << output_filename(".") << " --plugin=protoc-gen-grpc=" << filu::search_path("grpc_cpp_plugin");
     { 
         struct stat sb;
         if(stat(input_filename.c_str(), &sb) != 0 || S_ISDIR(sb.st_mode) || (sb.st_mode & S_IREAD) == 0) {

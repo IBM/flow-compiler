@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <sys/stat.h>
 
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wlogical-op-parentheses"
