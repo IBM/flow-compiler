@@ -319,6 +319,8 @@ struct macro_parser {
                     value = stru1::decamelize(value);
                 } else if(transf == "underscore") {
                     value = stru1::to_underscore(value);
+                } else if(transf == "cevs") {
+                    value = stru1::cevs_transform(value);
                 } else if(transf == "json") {
                     value = stru1::json_escape(value);
                 } else {

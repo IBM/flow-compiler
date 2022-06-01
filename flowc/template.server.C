@@ -1171,18 +1171,24 @@ public:
     
 };
 namespace flowinfo {
+#if !defined(NO_REST) || !(NO_REST)
+
+std::string input_schema = flowc::sfmt() {I:ENTRY_NAME-1{{{ENTRY_INPUT_SCHEMA_JSON/cevs}}}I};
+
+#endif
+
 std::map<std::string, char const *> schema_map = {
 {I:CLI_NODE_NAME{    
-#if !defined(NO_REST) || !(NO_REST)    
+#if !defined(NO_REST) || !(NO_REST)
     { "/-node-output/{{CLI_NODE_NAME/id/option}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
     { "/-node-input/{{CLI_NODE_NAME/id/option}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
 #endif
     { "/-node-proto/{{CLI_NODE_NAME/id/option}}", {{CLI_PROTO/c}} }, 
 }I}
 {I:ENTRY_NAME{    
-#if !defined(NO_REST) || !(NO_REST)    
+#if !defined(NO_REST) || !(NO_REST)
     { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
-    { "/-input/{{ENTRY_NAME}}", {{ENTRY_INPUT_SCHEMA_JSON/c}} }, 
+    { "/-input/{{ENTRY_NAME}}", input_schema.c_str() }, 
 #endif
     { "/-proto/{{ENTRY_NAME}}", {{ENTRY_PROTO/c}} }, 
 }I}
@@ -1190,7 +1196,7 @@ std::map<std::string, char const *> schema_map = {
     { "/-all-proto/", {{ALL_NODES_PROTO/c}} },
 };
 }
-#if !defined(NO_REST) || !(NO_REST)    
+#if !defined(NO_REST) || !(NO_REST)
 namespace rest {
 std::string gateway_endpoint;
 std::string app_directory("./app");
