@@ -9,10 +9,12 @@
 #include <cassert>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <vector>
 #include <unistd.h>
 #include <zlib.h>
 
 #include "filu.H"
+#include "stru1.H"
 
 namespace filu {
 std::string gwd() {
@@ -189,7 +191,7 @@ long gunzip(std::ostream &dest, std::istream &source, bool gz) {
     bool rc = gunzipx(dest, source_size, source, gz) == Z_OK;
     return rc? source_size: -1;
 }
-
+/*
 static std::string zerr(int ret) {
     std::string s;
     switch(ret) {
@@ -213,5 +215,18 @@ static std::string zerr(int ret) {
     }
     return s;
 }
-
+*/
+std::string search_path(std::string const &bin) {
+    struct stat  st;
+    char const *pathv = std::getenv("PATH");
+    if(pathv == nullptr) 
+        return bin;
+    std::vector<std::string> buf;
+    for(auto const &path: stru1::split(buf, pathv, ":")) {
+        std::string file(path+"/"+bin);
+        if(stat(file.c_str(), &st) >= 0 && (st.st_mode & S_IEXEC) != 0)
+            return file;
+    }
+    return bin;
+}
 }

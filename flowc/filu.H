@@ -19,6 +19,7 @@ int write_file(std::string const &fn, std::string const &source_fn, std::string 
 long gzip(std::ostream &dest, std::istream &source, bool gz=false);
 long gunzip(std::ostream &dest, std::istream &source, bool gz=false);
 
+std::string search_path(std::string const &bin);
 }
 #endif
 
