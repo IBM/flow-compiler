@@ -91,7 +91,7 @@ static std::string get_description(::google::protobuf::Descriptor const *fd) {
     }
     return fdescription;
 }
-static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, std::string const &prefix, std::function<std::string (std::string const &field, std::string const &prop)> get_prop, int indent, int level=1) {
+static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor const *dp, std::string const &prefix, std::function<std::tuple<std::string, int, std::string, int> (std::string const &field, std::string const &prop)> get_prop, int indent, int level=1) {
     std::string eos;
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
 
@@ -104,7 +104,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         std::string ffname = prefix.empty()? std::string(fd->name()): prefix + "." + fd->name();
         int cor = (f+1) * 2;
         if(get_prop) {
-            std::string fpv = get_prop(ffname, "order");
+            std::string fpv = std::get<0>(get_prop(ffname, "order"));
             int nor = 0;
             if(!fpv.empty() && (nor = std::atoi(fpv.c_str())) > 0) 
                 cor = nor * 2 -1;
@@ -130,33 +130,36 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         buf << eos;
         std::string default_value, minimum_value, maximum_value;
         if(get_prop) {
-            fdescription = get_prop(ffname, "description");
-            ftitle = get_prop(ffname, "label");
-            std::string fpv = get_prop(ffname, "format");
-            // TODO: check for known formats and issue a warning
-            // starrating rating
+            std::string value, varname; int node, vnode;
+            std::tie(fdescription, node, varname, vnode) = get_prop(ffname, "description");
+            std::tie(ftitle, node, varname, vnode) = get_prop(ffname, "label");
+            std::tie(value, node, varname, vnode) = get_prop(ffname, "format");
+
+            // Maybe check for known formats and issue a warning
             // (autocomplete) 
             // checkbox 
-            // datetime-local date time
-            // jodit -- wysywig editor
-            // xhtml, bbcode -- editor
             // select2
             // selectize 
-            // markdown
+           
             // upload
             // uuid 
             // color 
-            // type = info -- editor
-            // textarea
-            // string 
-            if(!fpv.empty()) 
-                buf << "\"format\":" << c_escape(fpv) << "," << eos;
-            fpv = get_prop(ffname, "show");
-            if(!fpv.empty())
-                buf << "\"show\":" << (stru1::string_to_bool(fpv) ? "true" : "false") << "," << eos;
-            default_value = get_prop(ffname, "default");
-            minimum_value = get_prop(ffname, "minimum");
-            maximum_value = get_prop(ffname, "maximum");
+            // datetime-local, date, time
+            // starrating, rating 
+           
+            // textarea, xhtml, bbcode, jodit, markdown -- string
+           
+            if(node != 0) 
+                buf << "\"format\":" << c_escape(value) << "," << eos;
+
+            std::tie(value, node, varname, vnode)  = get_prop(ffname, "show");
+            if(node != 0)
+                buf << "\"show\":" << (stru1::string_to_bool(value) ? "true" : "false") << "," << eos;
+
+            std::tie(default_value, node, varname, vnode) = get_prop(ffname, "default");
+            std::tie(minimum_value, node, varname, vnode) = get_prop(ffname, "minimum");
+            std::tie(maximum_value, node, varname, vnode) = get_prop(ffname, "maximum");
+
         }
         buf << "\"propertyOrder\":" << (i+1) << "," << eos;
         if(ftitle.empty()) ftitle = decamelize(fd->name());
@@ -205,7 +208,6 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 enum_as_strings(buf, fd->enum_type());
                 buf << "]";
                 if(!default_value.empty()) {
-                    // TODO: check for valid default value
                     buf << ",\"default\":" << c_escape(default_value);
                 }
                 break; 
@@ -230,7 +232,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
     if(indent > 0) eos = std::string("\n") + std::string(indent*level, ' ');
     buf << eos << "}";
 }
-std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::string (std::string const &field, std::string const &prop)> get_prop, int indent) {
+std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::tuple<std::string, int, std::string, int> (std::string const &field, std::string const &prop)> get_prop, int indent) {
     std::ostringstream buf;
     buf << "{";
     if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";

@@ -108,13 +108,15 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         for(int n: *this) if(at(n).type == FTK_INPUT && name(n) == input_name) {
             input_block = at(n).children.back(); break;
         }
-        auto pfr = [&](std::string const &field_name, std::string const &prop_name) -> std::string { 
+        auto get_info_prop = [&](std::string const &field_name, std::string const &prop_name) -> std::tuple<std::string, int, std::string, int> { 
                     int n = get_nblck_value(input_block, field_name, prop_name); 
-                    return n? get_value(n): std::string();
+                    return n? 
+                        std::tuple<std::string, int, std::string, int>{get_value(n), n, "", 0}:
+                        std::tuple<std::string, int, std::string, int>{"", 0, "", 0}; 
                 };
 
         std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
-        std::string input_schema = json_schema_p(mdp->input_type(), to_upper(to_option(main_name)), description(1), pfr);
+        std::string input_schema = json_schema_p(mdp->input_type(), to_upper(to_option(main_name)), description(1), get_info_prop);
 
         entry_mdps.insert(mdp); all_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
@@ -132,20 +134,6 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "ENTRY_DESCRIPTION", description(entry_node));
         append(vars, "ENTRY_ORDER", sfmt() << entry_count);
-
-        std::ostringstream buf;
-        buf << "{";
-        int pc = 0;
-        for(auto fn: get_field_names(mdp->input_type(), ".", false)) {
-            auto dv = pfr(fn, "default");
-            if(dv.empty()) dv = pfr(camelize(fn), "default");
-            if(dv.empty()) continue;
-
-            if(pc++ != 0) buf << ",";
-            buf << c_escape(camelize(fn)) << ":" << c_escape(dv);
-        }
-        buf << "}";
-        std::string default_vals = buf.str();
     }
     if(entry_count > 1)
         set(vars, "HAVE_ALT_ENTRY", "");
