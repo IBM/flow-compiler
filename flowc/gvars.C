@@ -108,15 +108,17 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         for(int n: *this) if(at(n).type == FTK_INPUT && name(n) == input_name) {
             input_block = at(n).children.back(); break;
         }
-        auto get_info_prop = [&](std::string const &field_name, std::string const &prop_name) -> std::tuple<std::string, int, std::string, int> { 
+        auto get_inpfilprp = [&](std::string const &field_name, std::string const &prop_name) -> std::tuple<std::string, int, std::string> { 
                     int n = get_nblck_value(input_block, field_name, prop_name); 
-                    return n? 
-                        std::tuple<std::string, int, std::string, int>{get_value(n), n, "", 0}:
-                        std::tuple<std::string, int, std::string, int>{"", 0, "", 0}; 
+                    return n? (
+                        name.has(n)?
+                            std::tuple<std::string, int, std::string>{get_value(n), n, name(n)}:
+                            std::tuple<std::string, int, std::string>{get_value(n), n, ""}):
+                        std::tuple<std::string, int, std::string>{"", 0, ""}; 
                 };
 
         std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
-        std::string input_schema = json_schema_p(mdp->input_type(), to_upper(to_option(main_name)), description(1), get_info_prop);
+        std::string input_schema = json_schema_p(mdp->input_type(), to_upper(to_option(main_name)), description(1), get_inpfilprp);
 
         entry_mdps.insert(mdp); all_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
