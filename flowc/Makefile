@@ -63,12 +63,13 @@ INSTALL_PREFIX?=/usr/local/bin
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
+ifeq ($(TAR), )
 HOST_OS:=$(shell uname -s)
 ifeq ($(HOST_OS), Darwin)
 ifeq ($(shell which gnutar), )
 ifeq ($(shell which gtar), )
 $(warning GNU tar is needed to build the Docker image)
-$(warning Either install it with 'sudo port install gnutar' or with 'brew install gnu-tar',)
+$(warning Either install it with 'brew install gnu-tar',)
 $(warning or set TAR to a GNU tar compatible executable in 'makefile.local'.)
 else
 TAR?=gtar
@@ -78,6 +79,7 @@ TAR?=gnutar
 endif
 else
 TAR?=tar
+endif
 endif
 
 # lemon is needed only if changes are made to the parser
