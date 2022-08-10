@@ -131,12 +131,12 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
         std::string default_value, minimum_value, maximum_value, format;
         bool vdefault = false, vminimum = false, vmaximum = false, vformat = false;
         if(get_prop) {
-            std::string value, varname; int node;
-            std::tie(fdescription, node, varname) = get_prop(ffname, "description");
+            std::string value, varname; int value_type;
+            std::tie(fdescription, value_type, varname) = get_prop(ffname, "description");
             if(!varname.empty()) { fdescription = varname; vfdescription = true; }
-            std::tie(ftitle, node, varname) = get_prop(ffname, "label");
+            std::tie(ftitle, value_type, varname) = get_prop(ffname, "label");
             if(!varname.empty()) { ftitle = varname; vftitle = true; }
-            std::tie(format, node, varname) = get_prop(ffname, "format");
+            std::tie(format, value_type, varname) = get_prop(ffname, "format");
             if(!varname.empty()) { format = varname; vformat = true; }
 
             // Maybe check for known formats and issue a warning
@@ -153,26 +153,26 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
            
             // textarea, xhtml, bbcode, jodit, markdown -- string
            
-            if(node != 0) {
+            if(value_type != 0) {
                 if(vformat) 
                     buf << "\"format\":<{" << format << "/s}>," << eos;
                 else
                     buf << "\"format\":" << c_escape(format) << "," << eos;
             }
 
-            std::tie(value, node, varname) = get_prop(ffname, "show");
-            if(node != 0) {
+            std::tie(value, value_type, varname) = get_prop(ffname, "show");
+            if(value_type != 0) {
                 if(varname.empty())
                     buf << "\"show\":" << (stru1::string_to_bool(value) ? "true" : "false") << "," << eos;
                 else
                     buf << "\"show\":<{"<< value << "/b}," << eos;
             }
 
-            std::tie(default_value, node, varname) = get_prop(ffname, "default");
+            std::tie(default_value, value_type, varname) = get_prop(ffname, "default");
             if(!varname.empty()) { default_value = varname; vdefault = true; }
-            std::tie(minimum_value, node, varname) = get_prop(ffname, "minimum");
+            std::tie(minimum_value, value_type, varname) = get_prop(ffname, "minimum");
             if(!varname.empty()) { minimum_value = varname; vminimum = true; }
-            std::tie(maximum_value, node, varname) = get_prop(ffname, "maximum");
+            std::tie(maximum_value, value_type, varname) = get_prop(ffname, "maximum");
             if(!varname.empty()) { maximum_value = varname; vmaximum = true; }
         }
         buf << "\"propertyOrder\":" << (i+1) << "," << eos;

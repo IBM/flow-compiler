@@ -112,8 +112,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
                     int n = get_nblck_value(input_block, field_name, prop_name); 
                     return n? (
                         name.has(n)?
-                            std::tuple<std::string, int, std::string>{get_value(n), n, name(n)}:
-                            std::tuple<std::string, int, std::string>{get_value(n), n, ""}):
+                            std::tuple<std::string, int, std::string>{get_value(n), at(n).type, name(n)}:
+                            std::tuple<std::string, int, std::string>{get_value(n), at(n).type, ""}):
                         std::tuple<std::string, int, std::string>{"", 0, ""}; 
                 };
 
