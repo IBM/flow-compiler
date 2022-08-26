@@ -59,7 +59,7 @@ BASE_IMAGE?=redhat-ubi8
 INSTALL_PREFIX?=/usr/local/bin
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image
-.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.15 
+.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
@@ -109,7 +109,7 @@ OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-template
 MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y 
 
 %.o: %.C
-	${CXX} -std=c++11 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $< 
+	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
@@ -117,12 +117,12 @@ flowc: $(OBJS)
 	@./flowc --version
 
 version.o:
-	${CXX} -std=c++11 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ version.C
+	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ version.C
 
 flow-compiler.o: flow-parser.c
 
 flowc.o: flowc.C
-	${CXX} -std=c++11 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
+	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 flow-parser.h: flow-parser.c
 	touch -r $^ $@
@@ -204,9 +204,6 @@ image:
 	@rm -f flow-templatez.C 
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
 
-alpine-3.15:
-	@rm -f flow-templatez.C
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
 alpine-3.16:
 	@rm -f flow-templatez.C
@@ -231,10 +228,10 @@ redhat-ubi8:
 all-images: $(RUNTIMES)
 
 recli: recli.C
-	$(CXX) -std=c++11 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
+	$(CXX) -std=c++17 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
 
-vex: vex.C vex.H stru1.H veximpl.C
-	$(CXX) -std=c++11 -O3 -o vex vex.C veximpl.C
+vex: vex.C vex.H stru1.H veximpl.C strtrs.C
+	$(CXX) -std=c++17 -O3 -o vex vex.C veximpl.C strtrs.C
 
 TOOLS=recli vex
 
