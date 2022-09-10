@@ -499,7 +499,7 @@ int flow_compiler::compile_fldx(int node) {
         std::string id(get_id(f));
         FieldDescriptor const *fidp = dp->FindFieldByName(id);
         if(fidp == nullptr) {
-            pcerr.AddError(main_file, at(f), sfmt() << "field name \"" << id << "\" not found in message of tyoe \"" << dp->full_name() << "\"");
+            pcerr.AddError(main_file, at(f), sfmt() << "field name \"" << id << "\" not found in message of type \"" << dp->full_name() << "\"");
             return error_count + 1;
         }
         field_descriptor.put(f, fidp);
