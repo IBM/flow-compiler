@@ -1,7 +1,18 @@
 #include <fstream>
 #include <iostream>
 #include "stru1.H"
+#include "ansi-escapes.H"
+#include "helpo.H"
 #include "vex.H"
+
+#define VEX_NAME "vex"
+bool ansi::use_escapes = true;
+char const *get_version() {
+    return BUILD_VERSION;
+}
+char const *get_build_id() {
+    return BUILD_ID;
+}
 
 struct environment {
     std::vector<std::string> end() const {
@@ -19,15 +30,6 @@ struct environment {
         return r;
     }
 };
-
-static int usage(char const *bpath, int rc = 0) {
-    std::cout << "Variable substitution from environment and configuration files\n\n";
-    std::cout << "Usage: " << bpath << " <TEMPLATE-FILE> [VAR-FILE | --environment...]\n\n";
-    std::cout << "\n";
-    std::cout << "--environment, --env, -e  Use the enviroanment variables\n";
-    std::cout << "\n";
-    return rc;
-}
 
 int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istream &is) {
     int rc = 0;
@@ -90,9 +92,29 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
     return rc;
 }
 
+extern std::string get_vex_help();
+
 int main(int argc, char *argv[]) {
-    if(argc < 2) 
-        return usage(argv[0], 0);
+    helpo::opts opts;
+    if(opts.parse(get_vex_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc <= 2) {
+        ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
+
+        if(opts.have("version")) {
+            std::cout << VEX_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
+#if defined(__clang__)          
+            std::cout << "clang++ " << __clang_version__ << " (" << __cplusplus << ")\n";
+#elif defined(__GNUC__) 
+            std::cout << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n";
+#else
+#endif
+        } else if(opts.have("help") || argc <= 2) {
+            ansi::emphasize(std::cout, ansi::emphasize(get_vex_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "--", " \r\n\t =,;/", true, true) << "\n";
+            return opts.have("help")? 0: 1;
+        } else {
+            std::cout << "Use --help to see the command line usage and all available options\n\n";
+            return 1;
+        }
+    }
 
     int stdin_used = 1;
     std::ifstream fin;
