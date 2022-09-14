@@ -1,0 +1,66 @@
+vex - variable expansion tool
+
+USAGE  
+       vex [options] template [ variables.json | --environment ]+
+
+DESCRIPTION
+
+       "vex" replaces variable references in a "template file" with the values defined in the
+       "variable files" or the "environment". Variables are looked up from left to right in 
+       the list of definitions.
+
+OPTIONS
+
+       --begin-first STRING
+              First escape string that defines a substitution. The default is "{".
+
+       --begin-second STRING
+              The second escape string in a substitution. The default is "{".
+
+       --color=YES/NO
+              Force or disable ANSI coloring regardless of whether output is to a terminal or not.
+              By default coloring is enabled only when output is to a terminal.
+
+       --end-first STRING
+              First escape string that defines the and of a substitution. The default is "}".
+
+       --end-second STRING
+              The second escape string that ends a substitution. The default is "}".
+
+       --help, -h
+              Print this screen and exit
+
+       --version 
+              Display version and build information and exit
+
+
+SYNTAX
+
+       "vex" scans for macro references in one of the forms below:
+
+       1. begin1 begin2 "name" [ / transforms ]* [ + "name" [/ transforms]* ]* - default end1 end2
+       
+       "name" is looked up and its immediate following transforms are applied. Subsequent "name"s
+       are looked up until a value is found. If no lookup is successful, the default value is used.
+       If no default value is given, the macro is left unexpanded in the output.
+
+       2. begin1 "label" begin2 "template" right1 "label" end2
+       3. begin1 "label" : [-|+] begin2 "template" end1 "label" end2
+       4. begin1 "label" : [-|+] "name" [+"name"]* [-integer ] [+integer] begin2 "template" end1 "label" end2
+       5. begin1 "label" : [-|+] integer [+integer] begin2 "template" end1 "label" end2
+
+       In the cases 2,3,4 and 5, the "template" is rendered repeatedly in a loop.
+       In case 2 and 3 with "-" the "template" is repeated until any one variable referenced within has no value.
+       In case 3 with "+" the "template" is repeated until all variables have no value.
+
+       In case 4 the number of repetitions is computed from the sizes of the "name"d variables:
+            when - is prepended, the minimum of the sizes is chosen, missing variables will have size 0
+            when + is prepended, the maximum of the sizes will be used
+            when no - or + is present the first non-zero size will be used
+       In case 5 the integer value will be used as a loop counter
+       In cases 4 and 5 if a [+integer] is given, indexing will start there (1 based)
+
+       6. begin1 "label" ? "name" [|"name"]* [&"name"]* begin2 "template" end1 "label" end2
+       
+       In case 6, all "name"  variables are evaluated as a boolean expression: empty string, no value, 0, or false for false, anything else for true.
+
