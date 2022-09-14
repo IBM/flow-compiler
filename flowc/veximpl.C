@@ -37,7 +37,7 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
     return o;
 }
 /** 
- * Scan for a macro reference in one of the three forms below
+ * Scan for a macro reference in one of the forms below
  *      
  *      1. left1 left2 name [ / transforms ]* [ + name [/ transforms]* ]* - default right1 right2
  *      2. left1 label left2 template right1 label right2
@@ -56,12 +56,12 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
  *      In case 3 with +, the template is repeated until all variables in referenced in the template are not found.
  *
  *      In case 4 the number of repetitions is computed from the sizes of the named variables:
- *           when - is prepended, the minimum of the sizes chosen, missing variables will have size 0
+ *           when - is prepended, the minimum of the sizes is chosen, missing variables will have size 0
  *           when + is prepended, the maximum of the sizes will be used
  *           when no - or + is present the first non-zero size will be used
  *      In case 5 the integer value will be used as a loop counter
  *      In cases 4 and 5 if a [+integer] is given, indexing will start there (1 based)
- *      In case 6 variables are evaluated as a boolean expression: empty string, no value, 0, or false for fales, anything else for true.
+ *      In case 6 variables are evaluated as a boolean expression: empty string, no value, 0, or false for false, anything else for true.
  *
  * Populates a descriptor structure and returns the number of errors encountered.
  * Errors are printed to the error stream.
