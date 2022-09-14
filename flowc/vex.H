@@ -249,7 +249,24 @@ int dict_value_count(std::string const &name, M&& dict, MM&&... args) {
     return dict_value_count(name, std::forward<MM>(args)...);
 }
 
-std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, std::function<int(std::string const &)> fgc);
+std::pair<int, int> render_varsub(std::ostream &out, 
+        char const *templ, char const *templ_end, 
+        std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, 
+        std::function<int(std::string const &)> fgc,
+        char const *b1, char const *b2, char const *e1, char const *e2);
+
+extern char const *default_escape_strings[4];
+
+static inline 
+std::pair<int, int> render_varsub(std::ostream &out, 
+        char const *templ, char const *templ_end, 
+        std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, 
+        std::function<int(std::string const &)> fgc,
+        char const *escape_strings[4]=nullptr) {
+    if(escape_strings == nullptr)
+        escape_strings = default_escape_strings;
+    return render_varsub(out, templ, templ_end, fgv, fgc, escape_strings[0], escape_strings[1], escape_strings[2], escape_strings[3]);
+}
 
 template <typename... MM> 
 static 

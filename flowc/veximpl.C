@@ -6,6 +6,9 @@
 #include "stru1.H"
 
 namespace vex {
+
+char const *default_escape_strings[4] = { "{", "{", "}", "}" };
+
 struct macro_descr {
     std::string label;
     std::string name;
@@ -67,10 +70,10 @@ std::ostream &operator << (std::ostream &o, macro_descr const &m) {
  * Errors are printed to the error stream.
  */
 struct macro_parser {
-    char const *left1 = "{";
-    char const *right1 = "}";
-    char const *left2 = "{";
-    char const *right2 = "}";
+    char const *left1;
+    char const *right1;
+    char const *left2;
+    char const *right2;
 
     std::ostream *errp = nullptr;
     long lc = 0;
@@ -78,7 +81,9 @@ struct macro_parser {
     std::function<std::pair<bool, std::string>(std::string const &, int)> gv_value;
     std::function<int(std::string const &)> gv_count;
 
-    macro_parser(decltype(gv_value) gvf, decltype(gv_count) gcf):gv_value(gvf), gv_count(gcf) {
+    macro_parser(decltype(gv_value) gvf, decltype(gv_count) gcf, 
+            char const *b1 = "{", char const *e1 = "}", char const *b2 = "{", char const *e2 = "}"
+            ):gv_value(gvf), gv_count(gcf), left1(b1), right1(e1), left2(b2), right2(e2) {
     }
     static bool match(char const *obj, char const *heap, char const *end_heap) {
         char const *bo = obj, *bh = heap;
@@ -433,8 +438,12 @@ struct macro_parser {
         return std::make_pair(found, missed);
     }
 };
-std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, std::function<int(std::string const &)> fgc) {
-    macro_parser mp(fgv, fgc);
+std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, 
+        std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, 
+        std::function<int(std::string const &)> fgc,
+        char const *b1, char const *b2, char const *e1, char const *e2
+        ) {
+    macro_parser mp(fgv, fgc, b1, e1, b2, e2);
     return mp.render_varsub_r(out, templ, templ_end, -1, -1); 
 }
 }

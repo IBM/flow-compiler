@@ -107,6 +107,7 @@ int main(int argc, char *argv[]) {
             std::cout << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n";
 #else
 #endif
+            return 0;
         } else if(opts.have("help") || argc <= 2) {
             ansi::emphasize(std::cout, ansi::emphasize(get_vex_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "--", " \r\n\t =,;/", true, true) << "\n";
             return opts.have("help")? 0: 1;
