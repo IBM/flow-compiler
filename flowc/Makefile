@@ -146,7 +146,7 @@ flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 clean:
-	rm -f flowc $(TOOLS) cdmp  $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
+	rm -f flowc $(TOOLS) cdmp  $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz vex.help.C
 
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
