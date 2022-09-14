@@ -58,7 +58,7 @@ BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help
 .PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
 .PHONY: tools 
 
@@ -111,6 +111,21 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 %.o: %.C
 	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
+%.help.C: %.help
+	echo "#include <string>" > $@
+	echo "#include <sstream>" >> $@
+	echo "#include \"filu.H\"" >> $@
+	echo "unsigned char const $(shell echo "$<" | tr -- '-./' '___')_z[] = {" >> $@
+	cat "$<" | gzip -c | xxd -i >> $@
+	echo '};' >> $@
+	echo "unsigned const $(shell echo "$<" | tr -- '-./' '___')_zlen = " >> $@
+	cat "$<" | gzip -c | wc -c >> $@
+	echo ";" >> $@
+	echo "std::string get_$(shell echo "$<" | tr -- '-./' '___')() { std::ostringstream buf; std::istringstream zbuf(std::string((char const *)$(shell echo "$<" | tr -- '-./' '___')_z, $(shell echo "$<" | tr -- '-./' '___')_zlen)); filu::gunzip(buf, zbuf, true); return buf.str();}"  >> $@
+
+%.helpx.C: %.helpx
+	./help2c.sh $@ $<
+
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
 	@echo "====================================================================="
@@ -135,6 +150,8 @@ clean:
 
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
+
+
 
 flow-templatez.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	echo "#include <string>" > $@
@@ -230,8 +247,8 @@ all-images: $(RUNTIMES)
 recli: recli.C
 	$(CXX) -std=c++17 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
 
-vex: vex.C vex.H stru1.H veximpl.C strtrs.C
-	$(CXX) -std=c++17 -O3 -o vex vex.C veximpl.C strtrs.C
+vex: vex.C vex.H stru1.H veximpl.C strtrs.C vex.help.C filu.C 
+	$(CXX) -std=c++17  "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  -O3 -o vex vex.C veximpl.C strtrs.C vex.help.C filu.C -lz 
 
 TOOLS=recli vex
 
