@@ -256,47 +256,46 @@ std::pair<int, int> render_varsub(std::ostream &out,
         char const *b1, char const *b2, char const *e1, char const *e2);
 
 extern char const *default_escape_strings[4];
-
+typedef std::pair< std::function<std::pair<bool, std::string>(std::string const &, int)>, std::function<int(std::string const &)> > dict_fppt;
 static inline 
 std::pair<int, int> render_varsub(std::ostream &out, 
         char const *templ, char const *templ_end, 
-        std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, 
-        std::function<int(std::string const &)> fgc,
+        dict_fppt dict_fp,
         char const *escape_strings[4]=nullptr) {
     if(escape_strings == nullptr)
         escape_strings = default_escape_strings;
-    return render_varsub(out, templ, templ_end, fgv, fgc, escape_strings[0], escape_strings[1], escape_strings[2], escape_strings[3]);
+    return render_varsub(out, templ, templ_end, dict_fp.first, dict_fp.second, escape_strings[0], escape_strings[1], escape_strings[2], escape_strings[3]);
 }
-
-template <typename... MM> 
-static 
-int expandp(std::ostream &out, char const *in, char const *end_in, MM&&... maps) {
+static inline 
+std::pair<int, int> render_varsub(std::ostream &out, 
+        std::istream &is, dict_fppt fpp,
+        char const *escape_strings[4]=nullptr) {
+    std::istreambuf_iterator<char> eos;
+    std::string templ(std::istreambuf_iterator<char>(is), eos);
+    return render_varsub(out, templ.c_str(), templ.c_str()+templ.length(), fpp, escape_strings); 
+}
+static inline 
+std::pair<int, int> render_varsub(std::ostream &out, 
+        std::string const &in, dict_fppt fpp,
+        char const *escape_strings[4]=nullptr) {
+    return render_varsub(out, in.c_str(), in.c_str()+in.length(), fpp, escape_strings); 
+}
+template <typename... MM>
+static inline
+dict_fppt make_dict(MM&&... maps) {
     auto fgv = [&](std::string const &name, int index) -> std::pair<bool, std::string> {
         return get_dict_value(name, index, std::forward<MM>(maps)...);
     };
     auto fgc = [&](std::string const &name) -> int {
         return dict_value_count(name, std::forward<MM>(maps)...);
     };
-    auto rc = render_varsub(out, in, end_in, fgv, fgc); 
+    return std::make_pair(fgv, fgc);
+}
+template <typename... MM> 
+static inline
+int expand(std::ostream &out, std::string const &in, MM&&... maps) {
+    auto rc = render_varsub(out, in, make_dict(std::forward<MM>(maps)...)); 
     return rc.second;
 }
-template <typename... MM> 
-static 
-int expand(std::ostream &out, char const *in, MM&&... maps) {
-    return expandp(out, in, strchr(in, '\0'), std::forward<MM>(maps)...); 
-}
-template <typename... MM> 
-static 
-int expand(std::ostream &out, std::string const &in, MM&&... maps) {
-    return expandp(out, in.c_str(), in.c_str()+in.length(), std::forward<MM>(maps)...); 
-}
-template <typename... MM> 
-static 
-int expand(std::ostream &out, std::istream &is, MM&&... maps) {
-    std::istreambuf_iterator<char> eos;
-    std::string templ(std::istreambuf_iterator<char>(is), eos);
-    return expand(out, templ, std::forward<MM>(maps)...);
-}
-
 }
 #endif
