@@ -177,8 +177,9 @@ int main(int argc, char *argv[]) {
         if(rc != 0) 
             return rc;
     }
-    int rc = env_used? 
-        vex::expand(std::cout, *in, mv1, environment(), mv2):
-        vex::expand(std::cout, *in, mv1);
-    return rc;
+    auto fp = env_used?
+        vex::make_dict(mv1, environment(), mv2):
+        vex::make_dict(mv1);
+    auto rc = vex::render_varsub(std::cout, *in, fp);
+    return rc.second;
 }
