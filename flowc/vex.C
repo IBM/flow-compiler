@@ -32,38 +32,53 @@ struct environment {
 };
 
 int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istream &is) {
-    int rc = 0;
+    int errc = 0;
     auto jit = std::make_pair(std::istreambuf_iterator<char>(is), std::istreambuf_iterator<char>());
     
     bool accept = 0;
     int state = 0;
-    std::string t, vn;
+    std::string t, vn, ts;
     std::vector<std::string> vv;
 
-    while(!accept && rc == 0 && (t = stru1::scan_json(jit)) != "") {switch(state) {
+    while(!accept && errc == 0 && (t = stru1::scan_json(jit)) != "") {
+        std::cerr << state << ": " << t << "[" << stru1::strip1(t, "\"") <<  "]" << "\n";
+        ts = stru1::json_unescape(stru1::strip1(t, "\""));
+        switch(state) {
+        // accept '{' and wait for variable name    
         case 0:
             state = 1;
-            if(t != "{") ++rc;
+            if(t != "{") ++errc;
             break;
+        // accept variable name nd wait for ':' separator
         case 1:
-            vn = stru1::json_unescape(stru1::strip(t, "\""));
+            vn = ts;
             state = 2;
             break;
+        // accept ':' and wait for variable value
         case 2:
             state = 3;
-            if(t != ":") ++rc;
+            if(t != ":") ++errc;
             break;
+        // accept begginning of a value list or a value
         case 3:
-            state  = 4;
-            if(t != "[") ++rc;
             vv.clear();
-            break;
-        case 4:
-            if(t != "]") {
-                state = 5;
-                vv.push_back(stru1::json_unescape(stru1::strip(t, "\"")));
-                break;
+            if(t == "[") {
+                state  = 4;
+            } else {
+                state = 6;
+                vv.push_back(ts);
             }
+            break;
+        // accept the end of the value list or an element of the value list
+        case 4:
+            if(t == "]") {
+                state = 6;
+            } else {
+                vv.push_back(ts);
+                state = 8;
+            }
+            break;
+        // accept a name value pair separator and expect another name value pair or the map end
         case 5:
             if(t == ",") {
                 state = 4;
@@ -71,25 +86,36 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
                 state = 6;
                 m[vn] = vv;
             } else {
-                ++rc;
+                ++errc;
             }
             break;
+        // accept a name value separator ',' or the end of the map '}'
         case 6:
             if(t == ",") {
                 state = 1;
+                m[vn] = vv;
             } else if(t == "}") {
                 state = 7;
+                m[vn] = vv;
             } else {
-                ++rc;
+                ++errc;
             }
             break;
         case 7:
             accept = true;
             break;
-
+        // aceept a list separator or the end of list
+        case 8:
+            if(t == "]") {
+                state = 6;
+            } else if(t == ",") {
+                state = 4;
+            }
+            break;
     }
     }
-    return rc;
+    std::cerr << "m: " << m << "\n";
+    return errc;
 }
 
 extern std::string get_vex_help();
