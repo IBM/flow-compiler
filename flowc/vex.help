@@ -1,13 +1,13 @@
 vex - variable expansion tool
 
 USAGE  
-       vex [options] template [ variables.json | --environment ]+
+       vex [options] template [ variables.json | :env ]+
 
 DESCRIPTION
 
        "vex" replaces variable references in a "template file" with the values defined in the
        "variable files" or the "environment". Variables are looked up from left to right in 
-       the list of definitions.
+       the order of the command line arguments.
 
 OPTIONS
 
