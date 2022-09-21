@@ -146,6 +146,20 @@ bool ends_with(std::string const &str, std::string const &with, std::string *pre
     return true;
 }
 inline static
+std::string strip1(std::string const &str, std::string const &strip_left, std::string const &strip_right) {
+    if(str.length() == 0) return str;
+    std::string s = str;
+    if(s.length() > 0 && strip_left.length() > 0 && strip_left.find(s[0]) >= 0)
+        s = s.substr(1);
+    if(s.length() > 0 && strip_right.length() > 0 && strip_right.find(s[s.length()-1]) >= 0)
+        s = s.substr(0, s.length()-1);
+    return s;
+}
+inline static
+std::string strip1(std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
+    return strip1(str, strip_chars, strip_chars);
+}
+inline static
 std::string strip(std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
     auto b = str.find_first_not_of(strip_chars);
     if(b == std::string::npos) b = 0;
