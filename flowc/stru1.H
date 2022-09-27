@@ -149,9 +149,9 @@ inline static
 std::string strip1(std::string const &str, std::string const &strip_left, std::string const &strip_right) {
     if(str.length() == 0) return str;
     std::string s = str;
-    if(s.length() > 0 && strip_left.length() > 0 && strip_left.find(s[0]) >= 0)
+    if(s.length() > 0 && strip_left.length() > 0 && strip_left.find(s[0]) != std::string::npos)
         s = s.substr(1);
-    if(s.length() > 0 && strip_right.length() > 0 && strip_right.find(s[s.length()-1]) >= 0)
+    if(s.length() > 0 && strip_right.length() > 0 && strip_right.find(s[s.length()-1]) != std::string::npos)
         s = s.substr(0, s.length()-1);
     return s;
 }
