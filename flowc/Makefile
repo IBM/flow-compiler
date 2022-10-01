@@ -15,7 +15,7 @@
 
 -include makefile.local
 
-BUILD_VERSION?=0.19.0
+BUILD_VERSION?=0.20.0
 
 ifndef BUILD_ID
 
@@ -45,7 +45,7 @@ endif
 
 DBG?=no
 ifeq ($(DBG), yes) 
-CCFLAGS?=-Og -g
+CCFLAGS?=-O0 -g
 STACK_TRACE?=1
 BUILD_ID:=$(BUILD_ID) dbg
 else
@@ -245,10 +245,10 @@ redhat-ubi8:
 all-images: $(RUNTIMES)
 
 recli: recli.C
-	$(CXX) -std=c++17 -O3 -o recli recli.C $(shell pkg-config --libs libcurl)
+	$(CXX) -std=c++17 $(CCFLAGS) -o recli recli.C $(shell pkg-config --libs libcurl)
 
 vex: vex.C vex.H stru1.H veximpl.C strtrs.C vex.help.C filu.C 
-	$(CXX) -std=c++17  "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  -O3 -o vex vex.C veximpl.C strtrs.C vex.help.C filu.C -lz 
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex vex.C veximpl.C strtrs.C vex.help.C filu.C -lz
 
 TOOLS=recli vex
 
