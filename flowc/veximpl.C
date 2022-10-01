@@ -1,123 +1,221 @@
+#include <map>
 #include <cctype>
 #include <cstring>
 #include <sstream>
 #include <string>
 #include <functional>
 #include "stru1.H"
+#include "strsli.H"
+
+#include <iostream>
 
 namespace vex {
 
 char const *default_escape_strings[4] = { "{", "{", "}", "}" };
-
-struct macro_descr {
-    std::string label;
-    std::string name;
-    int count = -1;
-    int min_max = 0;
-    int start = -1;
-    char const *before = nullptr;
-    char const *after = nullptr;
-    char const *begin = nullptr;
+struct macrodef {
+    char const *ref = nullptr;
+    char const *begin = nullptr; 
     char const *end = nullptr;
+    char const *outer_begin = nullptr;
+    char const *outer_end = nullptr;
     std::string default_value;
+    std::string label;
+    std::string expr;
+    int start_index = 1;
+    int default_count = -1;
     bool has_default = false;
-
-    void clear(char const *b=nullptr, char const *a=nullptr) {
-        label.clear();
-        name.clear();
-        count = -1;
-        start = -1;
-        min_max = 0;
-        begin = nullptr;
-        end = nullptr;
-        before = b;
-        after = a;
+    char counter_type = ' ';
+    char type = '\0';
+    int line = 0;
+    int pos = 0;
+    void setpos() {
+        if(line == 0 && ref != nullptr && outer_begin != nullptr) {
+            for(auto cp = ref; cp != outer_begin; ++cp) 
+                if(*cp == '\n') {
+                    ++line; 
+                    pos = outer_begin - cp;
+                }
+            ++line;
+        }
     }
 };
 inline static
-std::ostream &operator << (std::ostream &o, macro_descr const &m) {
-    o << "{" << m.label << "("<< m.name << ") c: "<< m.count << ", mm: " << m.min_max << ", len: " << (m.end-m.begin) << ", has-default: " << m.has_default << "}";
+std::ostream &operator << (std::ostream &o, macrodef const &m) {
+    o << m.outer_begin-m.ref << " " << m.type << ":" << m.label  << "[" << m.expr << "]("<< m.default_value << ") " 
+        << "start: "<< m.start_index << ", ct: " << m.counter_type 
+        << ", dc: " << m.default_count
+        << ", len: " << (m.end-m.begin) << ", has-default: " << m.has_default;
     return o;
+}
+static 
+bool stringtobool(std::string const &s, bool bias=false) {
+    if(s.empty()) return false;
+    std::string so(s.length(), ' ');
+    std::transform(s.begin(), s.end(), so.begin(), ::tolower);
+    if(!bias) {
+        return so == "yes" || so == "y" || so == "t" || so == "true" || so == "on" || so == "1";
+    } else {
+        return !(so == "no" || so == "n" || so == "f" || so == "false" || so == "off" || so == "0");
+    }
+}
+/**
+ * Variable reference container type
+ */
+class vref_ct {
+    std::vector<std::pair<std::string, int>> store;
+public:
+    auto begin() const {
+        return store.cbegin();
+    }
+    auto end() const {
+        return store.cend();
+    }
+    void add(std::string str, int val) {
+        for(auto p: store) 
+            if(p.first == str)
+                return;
+        store.push_back(std::make_pair(str, val));
+    }
+    void add(vref_ct const &rhs) {
+        for(auto p: rhs)
+            add(p.first, p.second);
+    }
+};
+static std::ostream &operator << (std::ostream &s, vref_ct &m) {
+    s << "{";
+    int c = 0;
+    for(auto const &p: m) {
+        if(++c > 1) s << ", ";
+        s << p.first << ": "  << p.second;
+    }
+    return s << "}";
 }
 /** 
  * Scan for a macro reference in one of the forms below
  *      
  *      1. left1 left2 name [ / transforms ]* [ + name [/ transforms]* ]* - default right1 right2
- *      2. left1 label left2 template right1 label right2
- *      3. left1 label : [-|+] left2 template right1 label right2
- *      4. left1 label : [-|+] name [+name]* [-integer ] [+integer] left2 template right1 label right2
- *      5. left1 label : [-|+] integer [+integer] left2 template right1 label right2
- *      6. left1 label ? name [|name]* [&name]* left2 template right1 label right2
+ *      2. left1 label [: [-|+] [name [+name]*] [-integer] [+integer] ] left2 template right1 label right2
+ *      3. left1 label ? name [|name]* [&name]* left2 template right1 label right2
  *
- *      In case 1 the name is looked up and and applied any transforms that follow. 
- *      Subsequent names will be looked up if the first name is not found. 
- *      If no name is found the default value will be used if given.
- *      When a default value is not given the output will be the macro itself.
+ *      Case 1 is a variable reference: a '+' separated list of identifiers optionally followed by a list of
+ *      text transform functions, and followed by an optional default value. Evaluation stops at the first
+ *      defined variable. If no default value is given then the macro is left as is in the output.
  *
- *      Cases 2,3,4,5 render 'template' repeatedly in a loop.
- *      In case 2, and case 3 with -, the template is repeated until one of the variables referenced within are not found.
- *      In case 3 with +, the template is repeated until all variables in referenced in the template are not found.
+ *      Case 2 renders 'template' repeatedly in a loop. The loop variable can be referenced in the template and yields 
+ *      the current index, one based. The leading '+' or '-' determines how the loop count. If missing, the size of 
+ *      the first macro referenced is used as counter. The smallest or the larger of the size of all referenced macros 
+ *      is used when - or + are prepended, respectively. A '+' separated list of variables, followed by a default value
+ *      can be supplied to be used instead of the referenced macros. A start index (one based) can be given as a '+' 
+ *      prefixed integer.
  *
- *      In case 4 the number of repetitions is computed from the sizes of the named variables:
- *           when - is prepended, the minimum of the sizes is chosen, missing variables will have size 0
- *           when + is prepended, the maximum of the sizes will be used
- *           when no - or + is present the first non-zero size will be used
- *      In case 5 the integer value will be used as a loop counter
- *      In cases 4 and 5 if a [+integer] is given, indexing will start there (1 based)
- *      In case 6 variables are evaluated as a boolean expression: empty string, no value, 0, or false for false, anything else for true.
+ *      In case 3 variables are evaluated as a boolean expression: empty string, no value, 0, or false for false, 
+ *      anything else for true.
  *
  * Populates a descriptor structure and returns the number of errors encountered.
  * Errors are printed to the error stream.
  */
+#define DBG if(debug) dbg() 
 struct macro_parser {
     char const *left1;
-    char const *right1;
     char const *left2;
+    char const *right1;
     char const *right2;
 
-    std::ostream *errp = nullptr;
-    long lc = 0;
+    std::ostream *errp;
     std::string label;
-    std::function<std::pair<bool, std::string>(std::string const &, int)> gv_value;
-    std::function<int(std::string const &)> gv_count;
+    std::function<std::pair<int, std::string>(std::string const &, int)> da_getv;
+    bool debug = false;
 
-    macro_parser(decltype(gv_value) gvf, decltype(gv_count) gcf, 
-            char const *b1 = "{", char const *e1 = "}", char const *b2 = "{", char const *e2 = "}"
-            ):gv_value(gvf), gv_count(gcf), left1(b1), right1(e1), left2(b2), right2(e2) {
+    // loop variable stack
+    std::vector<std::pair<std::string, std::string>> loop_var_stack;
+    std::pair<int, std::string> lvs_get_value(std::string const &name, int index) const {
+        for(auto p = loop_var_stack.rbegin(), e = loop_var_stack.rend(); p != e; ++p) 
+            if(p->first == name)
+                return std::make_pair(1, p->second);
+        return std::make_pair(-1, "");
     }
-    static bool match(char const *obj, char const *heap, char const *end_heap) {
-        char const *bo = obj, *bh = heap;
-        while(*bo != '\0' && bh != end_heap && *bo == *bh) ++bo, ++bh;
-        return *bo == '\0';
+
+    macro_parser(decltype(da_getv) gvf, 
+            char const *b1 = default_escape_strings[0], 
+            char const *b2 = default_escape_strings[1],
+            char const *e1 = default_escape_strings[2],
+            char const *e2 = default_escape_strings[3],
+            std::string a_label = "vex", 
+            std::ostream *a_errp = &std::cerr
+            ):da_getv(gvf), left1(b1), right1(e1), left2(b2), right2(e2), errp(a_errp), label(a_label) {
     }
-    static char const *find(char const *obj, char const *heap, char const *end_heap) {
-        while(heap != end_heap) {
-            while(heap != end_heap && *heap != *obj) ++heap;
-            if(heap != end_heap) {
-                if(matchs(obj+1, heap+1, end_heap)) return heap;
-                ++heap;
-            }
-        }
-        return nullptr;
+    void err(std::string const &message) const {
+        if(errp != nullptr) *errp << label << ": " << message << "\n";
     }
+    void err(macrodef &m, std::string const &message) const {
+        m.setpos();
+        if(errp != nullptr) *errp << label << "(" << m.line << ":" << m.pos << ") error: " << message << "\n";
+    }
+    std::ostream &dbg() const {
+        std::ostream &ds = errp == nullptr? std::cerr: *errp;
+        ds << label << ": debug: ";
+        return ds;
+    }
+    /**
+     * Match the 'obj' string at the start of the 'heap'. 
+     * Returns a pointer past the match or nullptr for no match. 
+     * Empty obj strings always match.
+     */
     static char const *matchs(char const *obj, char const *heap, char const *end_heap) {
         if(obj == nullptr || heap == nullptr) return nullptr;
         char const *bo = obj, *bh = heap;
         while(*bo != '\0' && bh != end_heap && *bo == *bh) ++bo, ++bh;
         return *bo == '\0'? bh: nullptr;
     }
+    /**
+     * Look for the fist occurence of 'obj' in the 'heap'.
+     * Returns the position of the match.
+     * Empty 'obj' strings are never found.
+     */
+    static char const *find(char const *obj, char const *heap, char const *end_heap) {
+        if(obj == nullptr || *obj == '\0')
+            return nullptr;
+        while(heap != end_heap) {
+            // scan for the first character
+            while(heap != end_heap && *heap != *obj) 
+                ++heap;
+            if(heap == end_heap) 
+                break;
+            if(obj[1] == '\0' || matchs(obj+1, heap+1, end_heap)) 
+                return heap;
+            ++heap;
+        }
+        return nullptr;
+    }
+    /**
+     * Match an id at the current position:  [a-z][_a-z.]*
+     * Return a pointer past the match, or nullptr on no match.
+     */
     static char const *match_id(char const *begin, char const *end) {
         if(begin == nullptr || begin == end || !std::isalpha(*begin)) return nullptr;
         char const *start = begin+1;
         while(start != end && (std::isalnum(*start) || *start == '_' || *start == '.')) ++start;
         return start;
     }
-    static char const *match_integer(char const *begin, char const *end) {
+    /**
+     * Match an integer at the current position [0-9]+
+     * Return a pointer past the match or nullptr on no match.
+     */
+    static char const *match_integer(char const *begin, char const *end, int *vptr=nullptr) {
         if(begin == nullptr) return nullptr;
         char const *e = begin;
         while(e != end && std::isdigit(*e)) ++e;
-        return e == begin? nullptr: e;
+        if(e == begin) return nullptr;
+        if(vptr != nullptr) {
+            std::string value(begin, e);
+            *vptr = std::atoi(value.c_str());
+        }
+        return e;
     }
+    /**
+     * Match a list of ids, at the current position, separated by any of the characters in 'sep'.
+     * Return a pointer past the match or nullptr for no match.
+     */
     static char const *match_id_list(char const *begin, char const *end, char const *sep) {
         auto p = match_id(begin, end); 
         if(p != nullptr) while(p != end) {
@@ -130,321 +228,370 @@ struct macro_parser {
         }
         return p;
     }
-    int find_macro(macro_descr &md, char const *templ, char const *templ_end) {
-        char const *mp = templ-1, *p = nullptr, *e = nullptr;
-
-        while(++mp != templ_end) {
-            md.clear(templ, templ_end);
-            // scan and match for first1
-            mp = find(left1, mp, templ_end);
-            p = matchs(left1, mp, templ_end);
-            if(mp == nullptr || p == templ_end) { 
-                // either not found or no room for the rest of the macro
-                break;
-            }
-            if(*p == *left2) { // match type 1
-                p = matchs(left2, p, templ_end);
-                if(p == nullptr || p == templ_end)
-                    continue;
-                e = match_id_list(p, templ_end, "+/");
-                if(e == nullptr || e == templ_end)
-                    continue;
-                md.name = std::string(p, e);
-                p = e;
-                if(*p == '-') {
-                    std::string right(right1); right += right2;
-                    e = find(right.c_str(), p+1, templ_end);
-                    if(e == nullptr) 
-                        continue;
-                    md.default_value = std::string(p+1, e);
-                    md.has_default = true;
-                    p = e;
-                }
-                e = matchs(right2, matchs(right1, p, templ_end), templ_end);
-                if(e == nullptr) 
-                    continue;
-                md.before = mp;
-                md.after = e;
-                md.begin = md.end = nullptr;
-                return 0;
-            }
-            if(!std::isalpha(*p)) 
-                continue;
-            // match loop types
-            e = match_id(p, templ_end);
-            if(e == nullptr || e == templ_end)
-                continue;
-            md.label = std::string(p, e);
-            p = e;
-            if(*p == ':') { 
-                // match types 2 and 3
-                if(++p == templ_end)
-                    continue;
-                // match stop condition
-                if(*p == '+' || *p == '-') {
-                    md.min_max = *p == '+'? 1: -1;
-                    if(++p == templ_end) 
-                        continue;
-                } else {
-                    md.min_max = 0;
-                }
-                e = match_id_list(p, templ_end, "+");
-                if(e == templ_end)
-                    continue;
-                if(e != nullptr) {
-                    md.name = std::string(p, e);
-                    p = e;
-                }
-                if(*p == '-') 
-                    ++p;
-                if(p == templ_end) 
-                    continue;
-                if(std::isdigit(*p)) {
-                    // match maximum count
-                    e = match_integer(p, templ_end);
-                    std::string value(p, e);
-                    md.count = std::atoi(value.c_str());
-                    p = e;
-                }
-                if(*p == '+') 
-                    ++p;
-                if(p == templ_end) 
-                    continue;
-                if(std::isdigit(*p)) {
-                    // match start counter
-                    e = match_integer(p, templ_end);
-                    std::string value(p, e);
-                    md.start = std::atoi(value.c_str());
-                    p = e;
-                }
-            } else if(*p == '?') {
-                if(++p == templ_end)
-                    continue;
-                // expect a list of ids separated by &, |, + or *
-                e = match_id_list(p, templ_end, "&|");
-                if(e == nullptr || e == templ_end)
-                    continue;
-                md.name = std::string(p, e);
-                p = e;
-                md.count = -2;
-            }
-            p = matchs(left2, p, templ_end);
-            if(p == nullptr || p == templ_end)
-                continue;
-            // scan for right1 label right2
-            std::string right(right1); right += md.label; right += right2;
-            e = find(right.c_str(), p, templ_end);
-            if(e != nullptr) {
-                md.before = mp;
-                md.after = e + right.length();
-                md.begin = p;
-                md.end = e;
-                return 0;
-            }
-        }
-        md.clear(templ, templ_end);
-        return 0;
-    }
-    int gets(std::string const &name, int min_max) const {
-        int s = 0;
-        std::string::size_type nb = 0;
-        while(nb < name.length()) {
-            auto ne = name.find_first_of('+', nb);
-            if(ne == std::string::npos) ne = name.length();
-            std::string n = name.substr(nb, ne - nb);
-            int ns = gv_count(n);
-            if(ns >= 0) {
-                if(min_max == 0 || (min_max < 0 && s < 0)) {
-                    s = ns;
-                } else if(min_max < 0) {
-                    s = std::min(ns, s);
-                } else {
-                    s = std::max(ns, s);
-                }
-                if(min_max == 0)
-                    break;
-            }
-            nb = ne + 1; 
-        }
-        return s;
-    }
-    std::pair<int, std::string> get_value_c(std::string const &names, int index) {
-        std::string::size_type tb = 0;
-        while(tb < names.length()) {
-            auto te = names.find_first_of('+', tb);
-            if(te == std::string::npos) te = names.length();
-            std::string namet = names.substr(tb, te - tb);
-            tb = te+1;
-            auto ne = namet.find_first_of('/');
-            if(ne == std::string::npos) ne = namet.length();
-            std::string name = namet.substr(0, ne);
-            auto fv = gv_value(name, index);
-            if(!fv.first) 
-                continue;
-            std::string value(fv.second);
-            while(ne < namet.length()) {
-                auto te = namet.find_first_of('/', ++ne);
-                if(te == std::string::npos) te = namet.length();
-                std::string transf = namet.substr(ne, te - ne);
-                ne = te;
-                // apply transform here
-                if(transf == "lower") {
-                    value = stru1::to_lower(value);
-                } else if(transf == "upper") {
-                    value = stru1::to_upper(value);
-                } else if(transf == "option" || transf == "cname") {
-                    value = stru1::to_option(value, false);
-                } else if(transf == "id" || transf == "identifier") {
-                    value = stru1::to_identifier(value);
-                } else if(transf == "html") {
-                    value = stru1::html_escape(value);
-                } else if(transf == "C" || transf == "c" || transf == "string") {
-                    value = stru1::c_escape(value);
-                } else if(transf == "shell" || transf == "sh") {
-                    value = stru1::sh_escape(value);
-                } else if(transf == "shell_comment" || transf == "shcom") {
-                    value = stru1::to_line_comment(value, "# ");
-                } else if(transf == "C_comment" || transf == "ccom" || transf == "c_comment") {
-                    value = stru1::to_line_comment(value, "// ");
-                } else if(transf == "trim") {
-                    value = stru1::strip(value);
-                } else if(transf == "ltrim") {
-                    value = stru1::lstrip(nullptr, value, "\t\r\a\b\v\f\n ");
-                } else if(transf == "rtrim") {
-                    value = stru1::rstrip(nullptr, value, "\t\r\a\b\v\f\n ");
-                } else if(transf == "lchop") {
-                    value = value.length() <= 1? std::string(): value.substr(1);
-                } else if(transf == "rchop") {
-                    value = value.length() <= 1? std::string(): value.substr(1, value.length()-1);
-                } else if(transf == "chop") {
-                    value = value.length() <= 2? std::string(): value.substr(1, value.length()-2);
-                } else if(transf == "camelize") {
-                    value = stru1::camelize(value);
-                } else if(transf == "decamelize") {
-                    value = stru1::decamelize(value);
-                } else if(transf == "underscore") {
-                    value = stru1::to_underscore(value);
-                } else if(transf == "cevs") {
-                    value = stru1::cevs_transform(value);
-                } else if(transf == "json") {
-                    value = stru1::json_escape(value);
-                } else {
-                    return std::make_pair(2, std::string());
-                }
-            }
-            return std::make_pair(0, value);
-        }
-        return std::make_pair(1, std::string());
-    }
-    std::pair<int, std::string> get_value(std::string const &names, int index) {
-        auto r = get_value_c(names, index);
-        return r;
-    } 
-
-    /***
-     *  Return the number of substitutions and the number of misses.
+    /**
+     * Match a macro begining at the outer begin separator.
+     * Return the macro type found, or 0 for no match.
      */
-    std::pair<int, int> render_varsub_r(std::ostream &out, char const *templ, char const *templ_end, int index, int start) {
-        if(templ_end == nullptr) templ_end = templ + strlen(templ);
-        macro_descr md;
-        int mprc = find_macro(md, templ, templ_end);
-        char const *pos = templ;
-        int missed = 0, found = 0;
-        while(mprc == 0 && !(md.name.empty() && md.label.empty())) {
-            if(start < 0 || index >= start)
-                out << std::string(pos, md.before);
-            pos = md.after;
-            if(md.label.empty()) {
-                // regular variable reference
-                auto fv = get_value(md.name, (index < 0? 0: index));
-                std::string value;
-                if(fv.first == 0) { 
-                    value = fv.second;
-                    ++found;
-                } else if(fv.first == 1 && md.has_default) {
-                    ++missed;
-                    value = md.default_value;
-                } else {
-                    ++missed;
-                    value = std::string(md.before, md.after);
-                }
-                if(start < 0 || index >= start)
-                    out << value;
-            } else if(md.count == -2) {
-                // conditional reference
-                bool cond = false;
-                std::string bexp = md.name;
-                for(auto op = bexp.find_first_of('&'); op != std::string::npos; op = bexp.find_first_of('&')) {
-                    auto lb = bexp.substr(0, op).find_last_of('|');
-                    if(lb == std::string::npos) lb = 0;
-                    else ++lb;
-                    std::string left = bexp.substr(lb, op-lb);
-                    auto fe = bexp.find_first_of("&|", op+1);
-                    if(fe == std::string::npos) fe = bexp.length();
-                    std::string right = bexp.substr(op+1, fe-op-1);
-                    auto fv = get_value(left, (index < 0? 0: index));
-                    if(fv.first == 1 || fv.second.empty()) {
-                        bexp = bexp.substr(0, lb) + left + bexp.substr(fe);
-                        continue;
+    static char const *match_macro_begin(char const *begin, char const *end, char const *outer_begin, char const *inner_begin, macrodef *mdptr=nullptr) {
+        char const *cp = matchs(outer_begin, begin, end);
+        if(cp == nullptr)
+            return nullptr;
+
+        char const *tp = nullptr;
+        macrodef m;
+        if(mdptr != nullptr) m = *mdptr;
+        m.type = '\0';
+        m.outer_begin = begin;
+
+        tp = match_id(cp, end);
+        if(tp != nullptr) {
+            m.label = std::string(cp, tp);
+            cp = tp;
+            // assume type loop
+            if(cp != end && cp+1 != end) switch(*cp) {
+                case ':': 
+                    ++cp;
+                    // counter type '+' max, '-' min default first
+                    m.type = 'L';
+                    if(matchs("+", cp, end) || matchs("-", cp, end)) 
+                        m.counter_type = *cp++;
+
+                    // match an id list separated by +
+                    tp = match_id_list(cp, end, "+");
+                    if(tp != nullptr) {
+                        m.expr = std::string(cp, tp);
+                        cp = tp;
                     }
-                    bexp = bexp.substr(0, lb) + right + bexp.substr(fe);
-                }
-                for(auto op = bexp.find_first_of('|'); op != std::string::npos; op = bexp.find_first_of('|')) {
-                    std::string left = bexp.substr(0, op);
-                    auto fe = bexp.find_first_of("&|", op+1);
-                    if(fe == std::string::npos) fe = bexp.length();
-                    std::string right = bexp.substr(op+1, fe-op-1);
-                    auto fv = get_value(left, index < 0? 0: index);
-                    if(fv.first == 1 || fv.second.empty()) {
-                        bexp = bexp.substr(op+1);
-                        continue;
+                    // match a counter possibly preceded by '-'
+                    if(!matchs("@", cp, end)) {
+                        int ofs = matchs("-", cp, end)? 1: 0;
+                        if((tp = match_integer(cp+ofs, end, &m.default_count)) == nullptr) 
+                            break;
+                        cp = tp;
                     }
-                    cond = true;
+                    if(matchs("@", cp, end)) {
+                        if((tp = match_integer(cp+1, end, &m.start_index)) == nullptr) 
+                            break;
+                        cp = tp;
+                    }
+                    break;
+                case '?': 
+                    // expect a list of ids separated by & or |
+                    tp = match_id_list(cp+1, end, "&|");
+                    if(tp == nullptr)
+                        break;
+                    m.type = 'C';
+                    m.expr = std::string(cp+1, tp);
+                    cp = tp;
+                    break;
+                default:
+                    m.type = 'L';
+                    break;
+            }
+        } else {
+            // assume type reference
+            m.type = 'R';
+        }
+        tp = matchs(inner_begin, cp, end);
+        if(tp != nullptr) {
+            m.begin = tp;
+            // save the md
+            if(mdptr != nullptr) *mdptr = m;
+        }
+        return tp;
+    }
+    static char const *match_macro(char const *begin, char const *end, 
+            char const *outer_begin, char const *inner_begin, 
+            char const *inner_end, char const *outer_end,
+            macrodef *mdptr=nullptr) {
+        macrodef m; 
+        char const *cp = match_macro_begin(begin, end, outer_begin, inner_begin, &m);
+        if(cp == nullptr)
+            return nullptr;
+        // find the end of the macro
+        std::string endm = std::string(inner_end) + m.label + outer_end;
+        cp = find(endm.c_str(), m.begin, end);
+        if(cp == nullptr)
+            return nullptr;
+        m.outer_end = cp + endm.length();
+        m.end = cp;
+        if(m.type == 'R') {
+            // make sure the reference data is valid
+            cp = match_id_list(m.begin, m.end, "+/");
+
+            // expect a possible default value
+            if(cp == nullptr)
+                return nullptr;
+
+            if(cp != m.end) {
+                if(matchs("-", cp, m.end) == nullptr)
+                    return nullptr;
+                m.default_value = std::string(cp+1, m.end);
+                m.has_default = true;
+            }
+            m.expr = std::string(m.begin, cp);
+        }
+        if(mdptr != nullptr)
+            *mdptr = m;
+        return m.outer_end;
+    }
+    char const *get_macro(char const *begin, char const *end, macrodef *mptr, char const *ref=nullptr) {
+        macrodef m;
+        char const *cp = nullptr; 
+        if(begin != nullptr && begin != end) {
+            cp = begin; 
+            while(cp != end) {
+                char const *tp = find(*left1 != '\0'? left1: left2, cp, end);
+                cp = tp;
+                if(tp == nullptr)
+                    break;
+                ++cp;
+                tp = match_macro(tp, end, left1, left2, right1, right2, &m);
+                m.ref = ref == nullptr? begin: ref;
+                if(tp != nullptr) {
+                    cp = tp;
                     break;
                 }
-                if(!cond) {
-                    auto fv = get_value(bexp, (index < 0? 0: index));
-                    cond = fv.first == 0 && !fv.second.empty();
-                }
-                if(cond) {
-                    std::ostringstream sout;
-                    render_varsub_r(sout, md.begin, md.end, index,  md.start > 0? md.start-1: 0);
-                    if(start < 0 || index >= start)
-                        out << sout.str(); 
-                }
-            } else {
-                // loop reference
-                int maxx = md.count >= 0? md.count: (md.name.empty()? -1: gets(md.name, md.min_max));
-                int mima = md.name.empty()? (md.min_max > 0? 1: -1) : 0;
-                std::ostringstream sout;
-                for(int i = 0; maxx < 0 || i < maxx; ++i) {
-                    auto rok = render_varsub_r(sout, md.begin, md.end, i, md.start > 0? md.start-1: 0);
-                    if(mima < 0 && rok.second > 0)
-                        break;
-                    if(mima > 0 && rok.first == 0)
-                        break;
-                    if(start < 0 || index >= start)
-                        out << sout.str(); 
-                    sout.str("");
-                    // prevent infinite loops for templates without variable references
-                    if(rok.first == 0 && rok.second == 0 && maxx <= 0)
-                        break;
-                }
             }
-            mprc = find_macro(md, pos, templ_end);
         }
-        if(start < 0 || index >= start)
-            out << std::string(md.before, md.after);
-        return std::make_pair(found, missed);
+        *mptr = m;
+        return cp;
+    }
+    std::string transform(macrodef &m, std::string const &transf, std::string value, int &errc) {
+        // apply transform here
+        if(transf == "lower") {
+            value = stru1::to_lower(value);
+        } else if(transf == "upper") {
+            value = stru1::to_upper(value);
+        } else if(transf == "option" || transf == "cname") {
+            value = stru1::to_option(value, false);
+        } else if(transf == "id" || transf == "identifier") {
+            value = stru1::to_identifier(value);
+        } else if(transf == "html") {
+            value = stru1::html_escape(value);
+        } else if(transf == "C" || transf == "c" || transf == "string") {
+            value = stru1::c_escape(value);
+        } else if(transf == "shell" || transf == "sh") {
+            value = stru1::sh_escape(value);
+        } else if(transf == "shell_comment" || transf == "shcom") {
+            value = stru1::to_line_comment(value, "# ");
+        } else if(transf == "C_comment" || transf == "ccom" || transf == "c_comment") {
+            value = stru1::to_line_comment(value, "// ");
+        } else if(transf == "trim") {
+            value = stru1::strip(value);
+        } else if(transf == "ltrim") {
+            value = stru1::lstrip(nullptr, value, "\t\r\a\b\v\f\n ");
+        } else if(transf == "rtrim") {
+            value = stru1::rstrip(nullptr, value, "\t\r\a\b\v\f\n ");
+        } else if(transf == "lchop") {
+            value = value.length() <= 1? std::string(): value.substr(1);
+        } else if(transf == "rchop") {
+            value = value.length() <= 1? std::string(): value.substr(1, value.length()-1);
+        } else if(transf == "chop") {
+            value = value.length() <= 2? std::string(): value.substr(1, value.length()-2);
+        } else if(transf == "camelize") {
+            value = stru1::camelize(value);
+        } else if(transf == "bool") {
+            value = stringtobool(value)? "true": "false";
+        } else if(transf == "decamelize") {
+            value = stru1::decamelize(value);
+        } else if(transf == "underscore") {
+            value = stru1::to_underscore(value);
+        } else if(transf == "cevs") {
+            value = stru1::cevs_transform(value);
+        } else if(transf == "json") {
+            value = stru1::json_escape(value);
+        } else {
+            // unrecognized transform function
+            err(m, stru1::sfmt() << "unrecognized transform '" << transf << "'");
+            ++errc;
+        }
+        return value;
+    }
+    auto get_value(std::string const &name, int index) const {
+        auto vi = lvs_get_value(name, 0);
+        if(vi.first == 1)
+            return vi;
+        vi = da_getv(name, index);
+        DBG << name << "[" << index << "]: " << vi.first << " (" << vi.second << ")\n";
+        return vi.first != 1 || index == 0? vi: da_getv(name, 0);
+    }
+    int vex_value(std::string &value, macrodef &m, std::string names, int index, vref_ct *vref_cp) {
+        int errc = 0; 
+        bool have_value = false;
+        for(auto varr: stru1::splitter(names, "+")) {
+            auto nt = stru1::splitter(varr, "/");
+            std::string name(nt.first());
+            auto fv = get_value(name, index);
+            if(fv.first <= 0) 
+                continue;
+            if(vref_cp != nullptr)
+                vref_cp->add(name, fv.first);
+            value = fv.second;
+            for(auto transf: stru1::splitter(nt.second(), "/"))
+                value = transform(m, transf, value, errc);
+            have_value = true;
+            break;
+        }
+        if(!have_value && m.has_default) {
+            value = m.default_value;
+            have_value = true;
+        }
+        if(!have_value)
+            err(m, stru1::sfmt() << "variable(s) '" << m.expr << "' not found");
+        return have_value? errc: errc+1;
+    }
+    // Evaluate a simple boolean expression, 
+    // missing variables are allowed.
+    // TODO allow for parenthesized expressions
+    bool eval_condition(std::string cexpr, int index, vref_ct *vref_cp=nullptr) {
+        bool res = false;
+        for(auto orex: stru1::splitter(cexpr, "|")) {
+            bool orterm = true;
+            for(auto andterm: stru1::splitter(orex, "&")) {
+                auto vv = get_value(andterm, index);
+                bool bv = vv.first >= 0 && index <= vv.first && stringtobool(vv.second, true);
+                if(!(orterm = orterm && bv))
+                    break;
+            }
+            if(!!(res = res || orterm))
+                break;
+        }
+        return true;
+    }
+    int count_from_refs(vref_ct const &vref_c, char counter_type, std::string *chosenp=nullptr) {
+        int count = -1;
+        std::string chosen;
+        for(auto vs: vref_c) {
+            switch(counter_type) {
+                case '+':
+                    if(vs.second > count) {
+                        count = vs.second;
+                        chosen = vs.first;
+                    }
+                    break;
+                case '-':
+                    if(count < 0 || vs.second < count) {
+                        count = vs.second;
+                        chosen = vs.first;
+                    }
+                    break;
+                default:
+                    if(count < 0) {
+                        count = vs.second;
+                        chosen = vs.first;
+                    }
+            }
+        }
+        if(chosenp != nullptr)
+            *chosenp = chosen;
+        return count;
+    }
+    int vex_count(int &count, macrodef &m, std::string vars, vref_ct *vref_cp=nullptr) {
+        std::string chosen;
+        vref_ct vref_c;
+        int errcnt = 0;
+        for(auto name: stru1::splitter(vars, "+")) {
+            auto vv = get_value(name, 0);
+            if(vv.first > 0)
+                vref_c.add(name, vv.first);
+            else
+                ++errcnt, err(m, stru1::sfmt() << "counter variable '" << name << "' not found");
+        }
+        if(m.default_count >= 0)
+            vref_c.add("", m.default_count);
+        count = count_from_refs(vref_c, m.counter_type);
+        if(!chosen.empty() && vref_cp != nullptr)
+            vref_cp->add(chosen, count);
+        return errcnt;
+    }
+    int vex_r(std::ostream &out, char const *templ, char const *templ_end, int index, vref_ct *vref_cp=nullptr) {
+        if(templ_end == nullptr) templ_end = templ + strlen(templ);
+        int errcnt = 0;
+        macrodef m;
+        std::string vval;
+        std::ostringstream buff;
+        char const *prevb = templ;
+        while(get_macro(prevb, templ_end, &m, templ) != nullptr) {
+            out << std::string(prevb, m.outer_begin);
+            switch(m.type) {
+                case 'R':
+                    // expand variable reference
+                    {
+                        int rc = vex_value(vval, m, m.expr, index, vref_cp);
+                        errcnt += rc;
+                        out << (rc == 0? vval: std::string(m.outer_begin, m.outer_end));
+                        //if(rc != 0) DBG << m.expr << ": " << rc << " error(s)\n";
+                    }
+                    break;
+                case 'C':
+                    // check condition and render template
+                    if(eval_condition(m.expr, index, vref_cp)) {
+                        buff.str("");
+                        errcnt += vex_r(buff, m.begin, m.end, index, vref_cp);
+                        out << buff.str();
+                    }
+                    break;
+                case 'L':
+                    // loop and render template
+                    {
+                        vref_ct vref_c;
+                        int count = 0;
+                        errcnt += vex_count(count, m, m.expr, &vref_c);
+                        int cx = std::max(m.start_index, 1)-1;
+                        buff.str("");
+                        loop_var_stack.push_back(std::make_pair(m.label, std::to_string(cx+1)));
+                        errcnt += vex_r(buff, m.begin, m.end, cx, &vref_c);
+                        loop_var_stack.pop_back();
+                        // if the count is not set, compute it from the references
+                        if(count < 0) 
+                            count = count_from_refs(vref_c, m.counter_type);
+                        if(cx < count) {
+                            out << buff.str();
+                            if(vref_cp != nullptr)
+                                vref_cp->add(vref_c);
+                        }
+                        for(++cx; cx < count; ++cx) {
+                            buff.str("");
+                            loop_var_stack.push_back(std::make_pair(m.label, std::to_string(cx+1)));
+                            errcnt += vex_r(buff, m.begin, m.end, cx, &vref_c);
+                            loop_var_stack.pop_back();
+                            out << buff.str();
+                            if(vref_cp != nullptr)
+                                vref_cp->add(vref_c);
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+            prevb = m.outer_end;
+        }
+        out << std::string(prevb, templ_end);
+        return errcnt;
+    }
+    int vex_r(std::ostream &out, char const *templ, char const *templ_end) {
+        vref_ct vref_c;
+        loop_var_stack.clear();
+        int rc = vex_r(out, templ, templ_end, 0, &vref_c);
+        DBG << "refs: " << vref_c << "\n";
+        if(rc != 0)
+            err(stru1::sfmt() << rc << " error(s)");
+        return rc;
     }
 };
-std::pair<int, int> render_varsub(std::ostream &out, char const *templ, char const *templ_end, 
-        std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, 
-        std::function<int(std::string const &)> fgc,
-        char const *b1, char const *b2, char const *e1, char const *e2
+int pand(
+        std::ostream &out, 
+        char const *templ, char const *templ_end, 
+        std::function<std::pair<int, std::string>(std::string const &, int)> fgv, 
+        std::string label, bool debug,
+        char const *bo, char const *bi, char const *ei, char const *eo, 
+        std::ostream *eout
         ) {
-    macro_parser mp(fgv, fgc, b1, e1, b2, e2);
-    return mp.render_varsub_r(out, templ, templ_end, -1, -1); 
+    macro_parser mp(fgv, bo, bi, ei, eo, label, eout);
+    mp.debug = debug;
+    int rc = mp.vex_r(out, templ, templ_end);
+    return rc;
 }
 }
 

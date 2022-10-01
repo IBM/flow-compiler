@@ -1,6 +1,12 @@
 #ifndef H_VEX_H
 #define H_VEX_H
 
+#if defined(VEX_DEBUG) 
+#define VEX_DEBUG_DEFAULT true
+#else
+#define VEX_DEBUG_DEFAULT false
+#endif
+
 #include <type_traits>
 #include <functional>
 #include <string>
@@ -84,7 +90,9 @@ static inline std::string get_ra_value(SC&& sc, int index) {
         case 1:
             return sc[0];
     }
-    return sc[index >= count? 0: index];
+    if(index >= count)
+        return "";
+    return sc[index];
 }
 template<class SC>
 static inline std::string get_it_value(SC&& sc, int index) {
@@ -95,24 +103,31 @@ static inline std::string get_it_value(SC&& sc, int index) {
         case 1:
             return *sc.begin();
     }
-    if(index >= count) index = 0;
+    if(index >= count) 
+        return "";
     for(auto p = sc.begin(), e = sc.end(); p != e; ++p) 
         if(index-- == 0) return *p;
     return "";
 }
-template<class SC, bool is_s, bool is_ra, bool it_it>
+template<class SC, bool is_singleton, bool is_random_access, bool is_iterator>
 struct get_value_impl {
     static_assert(is_value_type<SC>::value, STR_VALUE_NEEDED_ERRM);
     static std::string value(SC&& sc, int index) { 
         return "";
     }
 };
+/**
+ * String convertible singleton
+ */
 template<class SC>
 struct get_value_impl<SC, true, false, false> {
     static std::string value(SC&& sc, int index) { 
         return sc;
     }
 };
+/**
+ * Random access string container
+ */
 template<class SC>
 struct get_value_impl<SC, false, true, false> {
     static std::string value(SC&& sc, int index) {
@@ -125,12 +140,18 @@ struct get_value_impl<SC, false, true, true> {
         return get_ra_value<SC>(std::forward<SC>(sc), index);
     }
 };
+/**
+ * Iterable string container 
+ */
 template<class SC>
 struct get_value_impl<SC, false, false, true> {
     static std::string value(SC&& sc, int index) {
         return get_it_value<SC>(std::forward<SC>(sc), index);
     }
 };
+/**
+ * Get value from a string container
+ */
 template<class SC>
 static inline std::string get_value(SC&& sc, int index) {
     return get_value_impl<SC, is_string_type<SC>::value, is_string_vector<SC>::value, is_string_container<SC>::value>::value(std::forward<SC>(sc), index);
@@ -170,55 +191,70 @@ struct is_value_store: std::integral_constant<bool, is_value_dictionary<SC>::val
 #define VALUE_STORE_NEEDED_ERRM "Must be a map from string to single or multiple strings, or a container of such maps"
 #define VALUE_MAP_NEEDED_ERRM "Must be a map from string to single or multiple strings"
 #define VALUE_MAP_CONTAINER_NEEDED_ERRM "Must be a container of maps from string to single or multiple strings"
-template<class VS, bool is_m, bool is_a, bool is_s>
+template<class VS, bool is_map, bool is_array, bool is_container_container>
 struct get_dict_value_impl {
     static_assert(is_value_store<VS>::value, VALUE_STORE_NEEDED_ERRM);
-    static std::pair<bool, std::string> value(VS&& s, std::string const &name, int index) { 
-        return std::make_pair(false, "");
+    static std::pair<int, std::string> getv(VS&& s, std::string const &name, int index) { 
+        return std::make_pair(-1, "");
     }
     static int count(VS&& s, std::string const &name) { 
         return -1;
     }
 };
+/**
+ * Container with std::map like accessors
+ */
 template<class VS>
 struct get_dict_value_impl<VS, true, false, false> {
     static_assert(is_value_dictionary<VS>::value, VALUE_MAP_NEEDED_ERRM);
-    static std::pair<bool, std::string> value(VS&& sc, std::string const &name, int index) {
+    static std::pair<int, std::string> getv(VS&& sc, std::string const &name, int index) { 
         auto &&fp = sc.find(name.c_str());
-        return fp == sc.end()? std::make_pair(false, ""):
-            std::make_pair(true, get_value(fp->second, index));
+        return fp == sc.end()? std::make_pair(-1, ""):
+            std::make_pair(value_count(fp->second), get_value(fp->second, index));
     }
     static int count(VS&& sc, std::string const &name) { 
         auto &&fp = sc.find(name.c_str());
         return fp == sc.end()? -1: value_count(fp->second);
     }
 };
+/**
+ * Container with get() accessor
+ */
 template<class VS>
 struct get_dict_value_impl<VS, false, true, false> {
     static_assert(is_value_accessor<VS>::value, VALUE_MAP_NEEDED_ERRM);
-    static std::pair<bool, std::string> value(VS&& sc, std::string const &name, int index) {
+    static std::pair<int, std::string> getv(VS&& sc, std::string const &name, int index) { 
         auto &&fp = sc.get(name.c_str());
-        return fp == sc.end()? std::make_pair(false, ""):
-            std::make_pair(true, get_value(fp, index));
+        return fp == sc.end()? std::make_pair(-1, ""):
+            std::make_pair(value_count(fp), get_value(fp, index));
     }
-    static int count(VS&& sc, std::string const &name) { 
+    static int count(VS&& sc, std::string const &name) {
         auto &&fp = sc.get(name.c_str());
         return fp == sc.end()? -1: value_count(fp);
     }
 };
+/**
+ * Container iterable with begin() and end() of other containers
+ */
 template<class VS>
 struct get_dict_value_impl<VS, false, false, true> {
     static_assert(is_value_dictionary_container<VS>::value, VALUE_MAP_CONTAINER_NEEDED_ERRM);
-    static std::pair<bool, std::string> value(VS&& sc, std::string const &name, int index) {
+    static std::pair<int, std::string> getv(VS&& sc, std::string const &name, int index) { 
         for(auto p = sc.begin(), e = sc.end(); p != e; ++p) {
-            auto r = get_dict_value_impl<decltype(*p), is_value_dictionary<decltype(*p)>::value, is_value_accessor<decltype(*p)>::value, is_value_dictionary_container<decltype(*p)>::value>::value(*p, name, index);
-            if(r.first) return r;
+            auto r = get_dict_value_impl<decltype(*p), 
+                 is_value_dictionary<decltype(*p)>::value, 
+                 is_value_accessor<decltype(*p)>::value, 
+                 is_value_dictionary_container<decltype(*p)>::value>::getv(*p, name, index);
+            if(r.first >= 0) return r;
         }
-        return std::make_pair(false, "");
+        return std::make_pair(-1, "");
     }
     static int count(VS&& sc, std::string const &name) { 
         for(auto p = sc.begin(), e = sc.end(); p != e; ++p) {
-            auto r = get_dict_value_impl<decltype(*p), is_value_dictionary<decltype(*p)>::value, is_value_accessor<decltype(*p)>::value, is_value_dictionary_container<decltype(*p)>::value>::count(*p, name);
+            auto r = get_dict_value_impl<decltype(*p), 
+                 is_value_dictionary<decltype(*p)>::value, 
+                 is_value_accessor<decltype(*p)>::value, 
+                 is_value_dictionary_container<decltype(*p)>::value>::count(*p, name);
             if(r >= 0) return r;
         }
         return -1;
@@ -226,76 +262,51 @@ struct get_dict_value_impl<VS, false, false, true> {
 };
 template<typename M>
 static inline 
-std::pair<bool, std::string> get_dict_value(std::string const &name, int index, M&& dict) {
-    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_accessor<M>::value, is_value_dictionary_container<M>::value>::value(std::forward<M>(dict), name, index);
+std::pair<int, std::string> dict_value_get(std::string const &name, int index, M&& dict) {
+    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_accessor<M>::value, is_value_dictionary_container<M>::value>::getv(std::forward<M>(dict), name, index);
 }
 template<typename M, typename... MM>
 static inline 
-std::pair<bool, std::string> get_dict_value(std::string const &name, int index, M&& dict, MM&&... args) {
-    auto r = get_dict_value(name, index, std::forward<M>(dict));
-    if(r.first) return r;
-    return get_dict_value(name, index, std::forward<MM>(args)...);
-}
-template<typename M>
-static inline 
-int dict_value_count(std::string const &name, M&& dict) {
-    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_accessor<M>::value, is_value_dictionary_container<M>::value>::count(std::forward<M>(dict), name);
-}
-template<typename M, typename... MM>
-static inline 
-int dict_value_count(std::string const &name, M&& dict, MM&&... args) {
-    auto r = dict_value_count(name, std::forward<M>(dict));
-    if(r >= 0) return r;
-    return dict_value_count(name, std::forward<MM>(args)...);
+std::pair<int, std::string> dict_value_get(std::string const &name, int index, M&& dict, MM&&... args) {
+    auto r = dict_value_get(name, index, std::forward<M>(dict));
+    if(r.first >= 0) return r;
+    return dict_value_get(name, index, std::forward<MM>(args)...);
 }
 
-std::pair<int, int> render_varsub(std::ostream &out, 
-        char const *templ, char const *templ_end, 
-        std::function<std::pair<bool, std::string>(std::string const &, int)> fgv, 
-        std::function<int(std::string const &)> fgc,
-        char const *b1, char const *b2, char const *e1, char const *e2);
-
-extern char const *default_escape_strings[4];
-typedef std::pair< std::function<std::pair<bool, std::string>(std::string const &, int)>, std::function<int(std::string const &)> > dict_fppt;
-static inline 
-std::pair<int, int> render_varsub(std::ostream &out, 
-        char const *templ, char const *templ_end, 
-        dict_fppt dict_fp,
-        char const *escape_strings[4]=nullptr) {
-    if(escape_strings == nullptr)
-        escape_strings = default_escape_strings;
-    return render_varsub(out, templ, templ_end, dict_fp.first, dict_fp.second, escape_strings[0], escape_strings[1], escape_strings[2], escape_strings[3]);
-}
-static inline 
-std::pair<int, int> render_varsub(std::ostream &out, 
-        std::istream &is, dict_fppt fpp,
-        char const *escape_strings[4]=nullptr) {
-    std::istreambuf_iterator<char> eos;
-    std::string templ(std::istreambuf_iterator<char>(is), eos);
-    return render_varsub(out, templ.c_str(), templ.c_str()+templ.length(), fpp, escape_strings); 
-}
-static inline 
-std::pair<int, int> render_varsub(std::ostream &out, 
-        std::string const &in, dict_fppt fpp,
-        char const *escape_strings[4]=nullptr) {
-    return render_varsub(out, in.c_str(), in.c_str()+in.length(), fpp, escape_strings); 
-}
 template <typename... MM>
 static inline
-dict_fppt make_dict(MM&&... maps) {
-    auto fgv = [&](std::string const &name, int index) -> std::pair<bool, std::string> {
-        return get_dict_value(name, index, std::forward<MM>(maps)...);
+std::function<std::pair<int, std::string>(std::string const &, int)> make_da(MM&&... maps) {
+    auto fgv = [&](std::string const &name, int index) -> std::pair<int, std::string> {
+        return dict_value_get(name, index, std::forward<MM>(maps)...);
     };
-    auto fgc = [&](std::string const &name) -> int {
-        return dict_value_count(name, std::forward<MM>(maps)...);
-    };
-    return std::make_pair(fgv, fgc);
+    return fgv;
 }
+extern char const *default_escape_strings[4];
+/**
+ * Expand variables in a template into the output stream.
+ * Returns the number of errror encountered.
+ * 
+ * out  -- the output stream
+ * templ, templ_end  -- the template endpoints
+ * fgv  -- the variable accessor that returns the value and the number of available values
+ * label -- label to display in error messages
+ * bo, bi, ei, eo  -- macro delimiters
+ * esp  -- pointer to the errorstream set to nullptr to disable error reporting
+ *
+ */
+int pand(std::ostream &out,     // output stream
+        char const *templ, char const *templ_end,  // template
+        std::function<std::pair<int, std::string>(std::string const &, int)> fgv, // variable accessor
+        std::string label = "vex", 
+        bool debug=VEX_DEBUG_DEFAULT,
+        char const *bo=vex::default_escape_strings[0], char const *bi=vex::default_escape_strings[1], char const *ei=vex::default_escape_strings[2], char const *eo=vex::default_escape_strings[3], // macro delimiters 
+        std::ostream *esp = &std::cerr
+        );
 template <typename... MM> 
 static inline
 int expand(std::ostream &out, std::string const &in, MM&&... maps) {
-    auto rc = render_varsub(out, in, make_dict(std::forward<MM>(maps)...)); 
-    return rc.second;
+    auto rc = pand(out, in, make_da(std::forward<MM>(maps)...)); 
+    return rc;
 }
 }
 #endif

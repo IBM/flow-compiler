@@ -3,6 +3,7 @@
 #include "stru1.H"
 #include "ansi-escapes.H"
 #include "helpo.H"
+#define VEX_DEBUG
 #include "vex.H"
 
 #define VEX_NAME "vex"
@@ -31,6 +32,8 @@ struct environment {
     }
 };
 
+// TODO: Check the eval order, HOSTNAME disappeared
+
 int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istream &is) {
     int errc = 0;
     auto jit = std::make_pair(std::istreambuf_iterator<char>(is), std::istreambuf_iterator<char>());
@@ -41,88 +44,89 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
     std::vector<std::string> vv;
 
     while(!accept && errc == 0 && (t = stru1::scan_json(jit)) != "") {
-        std::cerr << state << ": " << t << "[" << stru1::strip1(t, "\"") <<  "]" << "\n";
         ts = stru1::json_unescape(stru1::strip1(t, "\""));
         switch(state) {
-        // accept '{' and wait for variable name    
-        case 0:
-            state = 1;
-            if(t != "{") ++errc;
-            break;
-        // accept variable name nd wait for ':' separator
-        case 1:
-            vn = ts;
-            state = 2;
-            break;
-        // accept ':' and wait for variable value
-        case 2:
-            state = 3;
-            if(t != ":") ++errc;
-            break;
-        // accept begginning of a value list or a value
-        case 3:
-            vv.clear();
-            if(t == "[") {
-                state  = 4;
-            } else {
-                state = 6;
-                vv.push_back(ts);
-            }
-            break;
-        // accept the end of the value list or an element of the value list
-        case 4:
-            if(t == "]") {
-                state = 6;
-            } else {
-                vv.push_back(ts);
-                state = 8;
-            }
-            break;
-        // accept a name value pair separator and expect another name value pair or the map end
-        case 5:
-            if(t == ",") {
-                state = 4;
-            } else if(t == "]") {
-                state = 6;
-                m[vn] = vv;
-            } else {
-                ++errc;
-            }
-            break;
-        // accept a name value separator ',' or the end of the map '}'
-        case 6:
-            if(t == ",") {
+            // accept '{' and wait for variable name    
+            case 0:
                 state = 1;
-                m[vn] = vv;
-            } else if(t == "}") {
-                state = 7;
-                m[vn] = vv;
-            } else {
-                ++errc;
-            }
-            break;
-        case 7:
-            accept = true;
-            break;
-        // aceept a list separator or the end of list
-        case 8:
-            if(t == "]") {
-                state = 6;
-            } else if(t == ",") {
-                state = 4;
-            }
-            break;
+                if(t != "{") ++errc;
+                break;
+            // accept variable name nd wait for ':' separator
+            case 1:
+                vn = ts;
+                state = 2;
+                break;
+            // accept ':' and wait for variable value
+            case 2:
+                state = 3;
+                if(t != ":") ++errc;
+                break;
+            // accept begginning of a value list or a value
+            case 3:
+                vv.clear();
+                if(t == "[") {
+                    state  = 4;
+                } else {
+                    state = 6;
+                    vv.push_back(ts);
+                }
+                break;
+            // accept the end of the value list or an element of the value list
+            case 4:
+                if(t == "]") {
+                    state = 6;
+                } else {
+                    vv.push_back(ts);
+                    state = 8;
+                }
+                break;
+            // accept a name value pair separator and expect another name value pair or the map end
+            case 5:
+                if(t == ",") {
+                    state = 4;
+                } else if(t == "]") {
+                    state = 6;
+                    m[vn] = vv;
+                } else {
+                    ++errc;
+                }
+                break;
+            // accept a name value separator ',' or the end of the map '}'
+            case 6:
+                if(t == ",") {
+                    state = 1;
+                    m[vn] = vv;
+                } else if(t == "}") {
+                    state = 7;
+                    m[vn] = vv;
+                } else {
+                    ++errc;
+                }
+                break;
+            case 7:
+                accept = true;
+                break;
+            // aceept a list separator or the end of list
+            case 8:
+                if(t == "]") {
+                    state = 6;
+                } else if(t == ",") {
+                    state = 4;
+                }
+                break;
+            default:
+                break;
+        }
     }
-    }
-    std::cerr << "m: " << m << "\n";
     return errc;
 }
 
 extern std::string get_vex_help();
 
+
 int main(int argc, char *argv[]) {
     helpo::opts opts;
-    if(opts.parse(get_vex_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc <= 2) {
+    if(opts.parse(get_vex_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc < 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
 
         if(opts.have("version")) {
@@ -135,7 +139,7 @@ int main(int argc, char *argv[]) {
 #endif
             return 0;
         } else if(opts.have("help") || argc <= 2) {
-            ansi::emphasize(std::cout, ansi::emphasize(get_vex_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "--", " \r\n\t =,;/", true, true) << "\n";
+            std::cout << ansi::emphasize(get_vex_help(), ansi::escape(ANSI_BLUE),  ansi::escape(ANSI_BOLD)) << "\n";
             return opts.have("help")? 0: 1;
         } else {
             std::cout << "Use --help to see the command line usage and all available options\n\n";
@@ -146,9 +150,11 @@ int main(int argc, char *argv[]) {
     int stdin_used = 1;
     std::ifstream fin;
     std::istream *in = &std::cin;
+    std::string template_label("<stdin>");
     if(strcmp(argv[1], "-") != 0) {
         stdin_used = 0;
         fin.open(argv[1]);
+        template_label = argv[1];
         if(!fin.is_open()) {
             std::cerr << argv[1] << ": error reading file\n";
             return 1;
@@ -156,14 +162,15 @@ int main(int argc, char *argv[]) {
         in = &fin;
     } 
 
-    bool env_used = false;
+    bool env_used = argc == 2;
 
     std::vector<std::map<std::string, std::vector<std::string>>> mv1;
     std::vector<std::map<std::string, std::vector<std::string>>> mv2;
 
+    int rc;
     for(int i = 2; i < argc; ++i) {
-        int rc = 0;
-        if(strcmp(argv[i], "--environment") == 0 || strcmp(argv[i], "--env") == 0 || strcmp(argv[i], "-e") == 0) {
+        rc = 0;
+        if(strcmp(argv[i], "env:") == 0) {
             if(env_used) {
                 std::cerr << "environment has already been used once\n";
                 rc = 1;
@@ -203,9 +210,18 @@ int main(int argc, char *argv[]) {
         if(rc != 0) 
             return rc;
     }
-    auto fp = env_used?
-        vex::make_dict(mv1, environment(), mv2):
-        vex::make_dict(mv1);
-    auto rc = vex::render_varsub(std::cout, *in, fp);
-    return rc.second;
+    auto da = env_used?
+        vex::make_da(mv1, environment(), mv2):
+        vex::make_da(mv1);
+
+    std::istreambuf_iterator<char> eos;
+    std::string templ(std::istreambuf_iterator<char>(*in), eos);
+    std::string bo = opts.opt("outer-begin", vex::default_escape_strings[0]);
+    std::string bi = opts.opt("inner-begin", vex::default_escape_strings[1]);
+    std::string ei = opts.opt("inner-end", vex::default_escape_strings[2]);
+    std::string eo = opts.opt("outer-end", vex::default_escape_strings[3]);
+    rc = vex::pand(std::cout, templ.c_str(), templ.c_str()+templ.length(), da, template_label, opts.have("debug"), 
+            bo.c_str(), bi.c_str(), ei.c_str(), eo.c_str()
+            );
+    return rc;
 }
