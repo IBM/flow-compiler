@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <cstdlib>
 #include "stru1.H"
 #include "ansi-escapes.H"
 #include "helpo.H"
@@ -14,7 +15,6 @@ char const *get_version() {
 char const *get_build_id() {
     return BUILD_ID;
 }
-
 struct environment {
     std::vector<std::string> end() const {
         return std::vector<std::string>();
@@ -31,9 +31,6 @@ struct environment {
         return r;
     }
 };
-
-// TODO: Check the eval order, HOSTNAME disappeared
-
 int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istream &is) {
     int errc = 0;
     auto jit = std::make_pair(std::istreambuf_iterator<char>(is), std::istreambuf_iterator<char>());
@@ -123,8 +120,7 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
 
 extern std::string get_vex_help();
 
-
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[], char **envp) {
     helpo::opts opts;
     if(opts.parse(get_vex_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc < 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
