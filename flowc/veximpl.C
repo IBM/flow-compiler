@@ -114,7 +114,8 @@ static std::ostream &operator << (std::ostream &s, vref_ct &m) {
  * Populates a descriptor structure and returns the number of errors encountered.
  * Errors are printed to the error stream.
  */
-#define DBG if(debug) dbg() 
+#define DBGC(c) if((c)) dbg()
+#define DBG DBGC(debug) 
 struct macro_parser {
     char const *left1;
     char const *left2;
@@ -438,7 +439,7 @@ struct macro_parser {
             have_value = true;
         }
         if(!have_value)
-            err(m, stru1::sfmt() << "variable(s) '" << m.expr << "' not found");
+            err(m, stru1::sfmt() << "variable " << stru1::joint(stru1::splitter(m.expr, "+"), [](std::string s) -> std::string { return std::string("'") + stru1::splitter(s, "/").first() + "'";}, ", ")  << " not found");
         return have_value? errc: errc+1;
     }
     // Evaluate a simple boolean expression, 
@@ -457,7 +458,7 @@ struct macro_parser {
             if(!!(res = res || orterm))
                 break;
         }
-        return true;
+        return res;
     }
     int count_from_refs(vref_ct const &vref_c, char counter_type, std::string *chosenp=nullptr) {
         int count = -1;
@@ -495,24 +496,28 @@ struct macro_parser {
             auto vv = get_value(name, 0);
             if(vv.first > 0)
                 vref_c.add(name, vv.first);
+            /*
             else
                 ++errcnt, err(m, stru1::sfmt() << "counter variable '" << name << "' not found");
+                */
         }
         if(m.default_count >= 0)
             vref_c.add("", m.default_count);
         count = count_from_refs(vref_c, m.counter_type);
         if(!chosen.empty() && vref_cp != nullptr)
             vref_cp->add(chosen, count);
+        if(count < 0 && !vars.empty())
+            count = 0;
         return errcnt;
     }
-    int vex_r(std::ostream &out, char const *templ, char const *templ_end, int index, vref_ct *vref_cp=nullptr) {
+    int vex_r(std::ostream &out, char const *templ, char const *templ_end, int index, vref_ct *vref_cp, char const *ref) {
         if(templ_end == nullptr) templ_end = templ + strlen(templ);
         int errcnt = 0;
         macrodef m;
         std::string vval;
         std::ostringstream buff;
         char const *prevb = templ;
-        while(get_macro(prevb, templ_end, &m, templ) != nullptr) {
+        while(get_macro(prevb, templ_end, &m, ref) != nullptr) {
             out << std::string(prevb, m.outer_begin);
             switch(m.type) {
                 case 'R':
@@ -526,23 +531,29 @@ struct macro_parser {
                     break;
                 case 'C':
                     // check condition and render template
-                    if(eval_condition(m.expr, index, vref_cp)) {
-                        buff.str("");
-                        errcnt += vex_r(buff, m.begin, m.end, index, vref_cp);
-                        out << buff.str();
+                    {
+                        bool eval = eval_condition(m.expr, index, vref_cp);
+                        DBG << "cond: " << m.expr << "[" << index << "]:" << eval << "\n";
+                        if(eval) {
+                            buff.str("");
+                            errcnt += vex_r(buff, m.begin, m.end, index, vref_cp, ref);
+                            out << buff.str();
+                        }
                     }
                     break;
                 case 'L':
                     // loop and render template
                     {
                         vref_ct vref_c;
-                        int count = 0;
+                        int count = -1;
                         errcnt += vex_count(count, m, m.expr, &vref_c);
                         int cx = std::max(m.start_index, 1)-1;
-                        buff.str("");
-                        loop_var_stack.push_back(std::make_pair(m.label, std::to_string(cx+1)));
-                        errcnt += vex_r(buff, m.begin, m.end, cx, &vref_c);
-                        loop_var_stack.pop_back();
+                        if(count > 0 && cx < count || count < 0) {
+                            buff.str("");
+                            loop_var_stack.push_back(std::make_pair(m.label, std::to_string(cx+1)));
+                            errcnt += vex_r(buff, m.begin, m.end, cx, &vref_c, ref);
+                            loop_var_stack.pop_back();
+                        }
                         // if the count is not set, compute it from the references
                         if(count < 0) 
                             count = count_from_refs(vref_c, m.counter_type);
@@ -554,7 +565,7 @@ struct macro_parser {
                         for(++cx; cx < count; ++cx) {
                             buff.str("");
                             loop_var_stack.push_back(std::make_pair(m.label, std::to_string(cx+1)));
-                            errcnt += vex_r(buff, m.begin, m.end, cx, &vref_c);
+                            errcnt += vex_r(buff, m.begin, m.end, cx, &vref_c, ref);
                             loop_var_stack.pop_back();
                             out << buff.str();
                             if(vref_cp != nullptr)
@@ -573,7 +584,7 @@ struct macro_parser {
     int vex_r(std::ostream &out, char const *templ, char const *templ_end) {
         vref_ct vref_c;
         loop_var_stack.clear();
-        int rc = vex_r(out, templ, templ_end, 0, &vref_c);
+        int rc = vex_r(out, templ, templ_end, 0, &vref_c, templ);
         DBG << "refs: " << vref_c << "\n";
         if(rc != 0)
             err(stru1::sfmt() << rc << " error(s)");
