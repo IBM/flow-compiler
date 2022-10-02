@@ -112,16 +112,17 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 %.help.C: %.help
-	echo "#include <string>" > $@
-	echo "#include <sstream>" >> $@
-	echo "#include \"filu.H\"" >> $@
-	echo "unsigned char const $(shell echo "$<" | tr -- '-./' '___')_z[] = {" >> $@
-	cat "$<" | gzip -c | xxd -i >> $@
-	echo '};' >> $@
-	echo "unsigned const $(shell echo "$<" | tr -- '-./' '___')_zlen = " >> $@
-	cat "$<" | gzip -c | wc -c >> $@
-	echo ";" >> $@
-	echo "std::string get_$(shell echo "$<" | tr -- '-./' '___')() { std::ostringstream buf; std::istringstream zbuf(std::string((char const *)$(shell echo "$<" | tr -- '-./' '___')_z, $(shell echo "$<" | tr -- '-./' '___')_zlen)); filu::gunzip(buf, zbuf, true); return buf.str();}"  >> $@
+	@echo "#include <string>" > $@
+	@echo "#include <sstream>" >> $@
+	@echo "#include \"filu.H\"" >> $@
+	@echo "unsigned char const $(shell echo "$<" | tr -- '-./' '___')_z[] = {" >> $@
+	@cat "$<" | gzip -c | xxd -i >> $@
+	@echo '};' >> $@
+	@echo "unsigned const $(shell echo "$<" | tr -- '-./' '___')_zlen = " >> $@
+	@cat "$<" | gzip -c | wc -c >> $@
+	@echo ";" >> $@
+	@echo "std::string get_$(shell echo "$<" | tr -- '-./' '___')() { std::ostringstream buf; std::istringstream zbuf(std::string((char const *)$(shell echo "$<" | tr -- '-./' '___')_z, $(shell echo "$<" | tr -- '-./' '___')_zlen)); filu::gunzip(buf, zbuf, true); return buf.str();}"  >> $@
+	@echo "created $< from $@"
 
 %.helpx.C: %.helpx
 	./help2c.sh $@ $<
