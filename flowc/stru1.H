@@ -383,8 +383,8 @@ std::string join(ITER begin, ITER end, std::string const &j1, std::string const 
     }
     return r.str();
 }
-template <class BECONTAINER> inline static
-std::string join(BECONTAINER const &buf, std::string const &j1, std::string const &j_last="", std::string const &j_begin="",std::string const &prefix="", std::string const &suffix="", std::string const &j_end="") {
+template <class ITERABLE> inline static
+std::string join(ITERABLE buf, std::string const &j1, std::string const &j_last="", std::string const &j_begin="",std::string const &prefix="", std::string const &suffix="", std::string const &j_end="") {
     return join(buf.begin(), buf.end(), j1, j_last, j_begin, prefix, suffix, j_end);
 }
 template <class ITER, class UNOP> inline static
@@ -399,8 +399,8 @@ std::string joint(ITER begin, ITER end, UNOP unary_op, std::string const &j1, st
     }
     return r.str();
 }
-template <class BECONTAINER, class UNOP> inline static
-std::string joint(BECONTAINER const &buf, UNOP unary_op, std::string const &j1, std::string const &j_last="") {
+template <class ITERABLE, class UNOP> inline static
+std::string joint(ITERABLE buf, UNOP unary_op, std::string const &j1, std::string const &j_last="") {
     return joint(buf.begin(), buf.end(), unary_op, j1, j_last);
 }
 /**
