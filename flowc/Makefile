@@ -58,7 +58,7 @@ BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help recli.help
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help recli.help flowc.help
 .PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
 .PHONY: tools 
 
@@ -96,20 +96,18 @@ IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C template.help \
+TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C  \
 	template.driver.sh template.docker-compose.yaml template.kubernetes.group.yaml template.kubernetes.yaml \
 	template.server.C template.syntax template.index.html template.server.pem template.client.py \
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
 
-OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templatez.o flowc.o gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o gvars.o print-graph.o print-pseu.o strtrs.o tree-accessors.o veximpl.o version.o
+OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templatez.o flowc.o gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o gvars.o print-graph.o print-pseu.o strtrs.o tree-accessors.o veximpl.o version.o flowc.help.o
 
 ## Minimal set of files to portably build flow-compiler. 
 ## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y 
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y flowc.help
 
-%.o: %.C
-	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 %.help.C: %.help
 	@echo "#include <string>" > $@
@@ -122,7 +120,10 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 	@cat "$<" | gzip -c | wc -c >> $@
 	@echo ";" >> $@
 	@echo "std::string get_$(shell echo "$<" | tr -- '-./' '___')() { std::ostringstream buf; std::istringstream zbuf(std::string((char const *)$(shell echo "$<" | tr -- '-./' '___')_z, $(shell echo "$<" | tr -- '-./' '___')_zlen)); filu::gunzip(buf, zbuf, true); return buf.str();}"  >> $@
-	@echo "created $< from $@"
+	@echo "created $@ from $<"
+
+%.o: %.C
+	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 %.helpx.C: %.helpx
 	./help2c.sh $@ $<
@@ -147,7 +148,7 @@ flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 clean:
-	rm -f flowc $(TOOLS) cdmp  $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz vex.help.C
+	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz vex.help.C recli.help.C flowc.help.C
 
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
@@ -164,7 +165,7 @@ flow-templatez.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	for RUNTL in $(RUNTIMES); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "get_runtimes/$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
 	echo "};" >> $@
 
-flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[Hy]) $(TEMPLATE_FILES) flow-compiler.C
+flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[Hy]) $(TEMPLATE_FILES) flow-compiler.C flowc.help
 	$(TAR) -czf $@ $^ --transform 's,^,flow-compiler/,'
 
 tar: flow-compiler-src.tgz 
@@ -219,28 +220,28 @@ flowc-image: image-info-$(HOST_OS)
 	@echo "--------------------------------------------------------------------"
 
 image:
-	@rm -f flow-templatez.C 
+	@rm -f flow-templatez.C flowc.help.C 
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
 
 
 alpine-3.16:
-	@rm -f flow-templatez.C
+	@rm -f flow-templatez.C flowc.help.C 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
 ubuntu-20.04:
-	@rm -f flow-templatez.C
+	@rm -f flow-templatez.C flowc.help.C 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 ubuntu-22.04:
-	@rm -f flow-templatez.C
+	@rm -f flow-templatez.C flowc.help.C 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 debian-bullseye:
-	@rm -f flow-templatez.C
+	@rm -f flow-templatez.C flowc.help.C 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 redhat-ubi8:
-	@rm -f flow-templatez.C
+	@rm -f flow-templatez.C flowc.help.C 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 all-images: $(RUNTIMES)

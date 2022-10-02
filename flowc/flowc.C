@@ -638,7 +638,7 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     DEBUG_LEAVE;
     return error_count;
 }
-extern std::string get_template_help();
+extern std::string get_flowc_help();
 extern std::string get_template_syntax();
 static std::map<std::string, std::vector<std::string>> all_targets = {
     {"dockerfile",        {"makefile", "ssl-certificates"}},
@@ -667,7 +667,7 @@ int main(int argc, char *argv[]) {
     signal(SIGSEGV, handler);
     helpo::opts opts;
     int main_argc = argc;
-    if(opts.parse(get_template_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
+    if(opts.parse(get_flowc_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
         ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
         if(opts.have("help-syntax")) {
             std::cout << ansi::emphasize(get_template_syntax(), ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n\n";
@@ -693,7 +693,7 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         } else if(opts.have("help") || main_argc == 1) {
-            ansi::emphasize(std::cout, ansi::emphasize(get_template_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
+            ansi::emphasize(std::cout, ansi::emphasize(get_flowc_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
             return opts.have("help")? 0: 1;
         } else {
             if(argc != 2) 
