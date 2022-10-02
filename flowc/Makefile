@@ -58,7 +58,7 @@ BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help recli.help
 .PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
 .PHONY: tools 
 
