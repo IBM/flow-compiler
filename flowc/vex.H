@@ -304,8 +304,14 @@ int pand(std::ostream &out,     // output stream
         );
 template <typename... MM> 
 static inline
-int expand(std::ostream &out, std::string const &in, MM&&... maps) {
+int expandx(std::ostream &out, std::string const &in, MM&&... maps) {
     auto rc = pand(out, in.c_str(), in.c_str()+in.length(), make_da(std::forward<MM>(maps)...)); 
+    return rc;
+}
+template <typename... MM> 
+static inline
+int expand(std::ostream &out, std::string const &in, std::string const &label, MM&&... maps) {
+    auto rc = pand(out, in.c_str(), in.c_str()+in.length(), make_da(std::forward<MM>(maps)...), label); 
     return rc;
 }
 }

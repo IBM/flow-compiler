@@ -159,8 +159,6 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
    
     /****************************************************************
      */
-    clear(global_vars, "SERVER_XTRA_H");
-    clear(global_vars, "SERVER_XTRA_C");
     {
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
@@ -180,8 +178,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         buffer[std::strftime(buffer, sizeof(buffer)-1, "%a, %e %b %Y %T %z", std::localtime(&a_file_stat.st_mtime))] = '\0';
         set(global_vars, "MAIN_FILE_TS", buffer);
 
+        // Add any NAME-xtra.H to the build directory
         std::string xtra_h = path_join(dirname(real_input_filename), orchestrator_name+"-xtra.H");
-        if(cot::contains(targets, "server") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
+        if(cot::contains(targets, "makefile") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
             filu::cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
             append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
         }
@@ -340,11 +339,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     for(auto const &s: opts["image-pull-secret"]) 
         image_pull_secrets.insert(s);
     
-    clear(global_vars, "HAVE_IMAGE_PULL_SECRETS");
-    for(auto const &s: image_pull_secrets) {
+    for(auto const &s: image_pull_secrets) 
         append(global_vars, "IMAGE_PULL_SECRET", s);
-        set(global_vars, "HAVE_IMAGE_PULL_SECRETS", "");
-    }
+    
 
     /********************************************************************
      * Generate C files for proto and grpc
@@ -455,9 +452,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
         if(pt == ".") {
-            vex::expand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", global_vars);
+            vex::expand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", "inline",  global_vars);
         } else if(pt == "-") {
-            vex::expand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", global_vars);
+            vex::expand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", "inline", global_vars);
         } else {
             // look for a matching entry name
             int en = 0;
@@ -595,7 +592,7 @@ int flow_compiler::genc_www() {
     }
     if(error_count == 0) {
         extern std::string get_template_index_html();
-        vex::expand(outf, get_template_index_html(), global_vars);
+        vex::expand(outf, get_template_index_html(), "index.html", global_vars);
     }
     DEBUG_LEAVE;
     return error_count;
@@ -607,7 +604,7 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
     OFSTREAM_SE(makf, fn);
     if(error_count == 0) {
         extern std::string get_template_Makefile();
-        vex::expand(makf, get_template_Makefile(), global_vars);
+        vex::expand(makf, get_template_Makefile(), "Makefile", global_vars);
     }
     // Create a link to this makefile if Makefile isn't in the way
     std::string mp = output_filename("Makefile");
@@ -628,15 +625,15 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     if(error_count == 0) {
         extern std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile;
         std::string c_template_runtime_Dockerfile = ztemplate_runtime_Dockerfile.find(runtime)->second();
-        vex::expand(outf, c_template_runtime_Dockerfile, global_vars);
+        vex::expand(outf, c_template_runtime_Dockerfile, runtime+".Dockerfile", global_vars);
         extern std::string get_template_Dockerfile();
-        vex::expand(outf, get_template_Dockerfile(), global_vars);
+        vex::expand(outf, get_template_Dockerfile(), "Dockerfile", global_vars);
     }
     std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
     OFSTREAM_SE(outf2, fn2);
     if(error_count == 0) {
         extern std::string get_template_slim_Dockerfile();
-        vex::expand(outf2, get_template_slim_Dockerfile(), global_vars);
+        vex::expand(outf2, get_template_slim_Dockerfile(), ".slim.Dockerfile", global_vars);
     }
     DEBUG_LEAVE;
     return error_count;
@@ -644,7 +641,7 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
 extern std::string get_template_help();
 extern std::string get_template_syntax();
 static std::map<std::string, std::vector<std::string>> all_targets = {
-    {"dockerfile",        {"makefile"}},
+    {"dockerfile",        {"makefile", "ssl-certificates"}},
     {"client",            {"grpc-files", "makefile", "dockerfile", "docs"}},
     {"server",            {"grpc-files", "makefile", "dockerfile", "www-files", "ssl-certificates", "docs"}},
     {"grpc-files",        {"protobuf-files"}},

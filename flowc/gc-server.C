@@ -1400,7 +1400,7 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
         stru1::to_json(outj, local_vars);
     }
 
-    vex::expand(out, get_template_server_C(), local_vars, global_vars);
+    vex::expand(out, get_template_server_C(), "server.C", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }

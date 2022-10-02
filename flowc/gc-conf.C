@@ -135,7 +135,7 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
                 }
         } else {
             std::ostringstream os;
-            vex::expand(os, value, env_vars);
+            vex::expand(os, value, "env", env_vars);
             env.push_back(std::make_pair(nv.first, os.str()));
         }
     }
@@ -209,7 +209,7 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         stru1::to_json(outj, local_vars);
     }
     extern std::string get_template_docker_yaml();
-    vex::expand(out, get_template_docker_yaml(), local_vars, global_vars);
+    vex::expand(out, get_template_docker_yaml(), "docker.yaml", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -302,7 +302,7 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
         set(local_vars, "G_INIT_COUNT", init_count? std::to_string(init_count): std::string());
         set(local_vars, "G_VOLUME_COUNT", volume_count? std::to_string(volume_count): std::string());
     }
-    vex::expand(out, get_template_kubernetes_yaml(), g_group_vars[main_group_name], alln_vars, global_vars);
+    vex::expand(out, get_template_kubernetes_yaml(), "kubernetes.yaml", g_group_vars[main_group_name], alln_vars, global_vars);
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("k8s-yaml-global.json"));
         stru1::to_json(outg, global_vars);
@@ -314,7 +314,7 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
             stru1::to_json(outj, g_group_vars[g.first]);
         }
-        vex::expand(out, get_template_kubernetes_group_yaml(), g_group_vars[g.first], alln_vars, global_vars);
+        vex::expand(out, get_template_kubernetes_group_yaml(), "kubernetes.group.yaml", g_group_vars[g.first], alln_vars, global_vars);
     }
     DEBUG_LEAVE;
     return 0;
@@ -334,7 +334,7 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     set(local_vars, "RR_KEYS_SH", get_rr_keys_sh());
     extern std::string get_rr_get_sh();
     yaml.str("");
-    vex::expand(yaml, get_rr_get_sh(), local_vars);
+    vex::expand(yaml, get_rr_get_sh(), "rr-get.sh", local_vars);
     set(local_vars, "RR_GET_SH",  yaml.str());
     yaml.str("");
     error_count += genc_k8s_conf(yaml);
@@ -359,7 +359,7 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
         stru1::to_json(outj, local_vars);
     }
     extern std::string get_template_driver_sh(); 
-    vex::expand(out, get_template_driver_sh(), local_vars, global_vars);
+    vex::expand(out, get_template_driver_sh(), "driver.sh", local_vars, global_vars);
 
     if(error_count == 0) {
         out.close();
