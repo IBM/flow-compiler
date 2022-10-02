@@ -17,16 +17,20 @@ spec:
         app: {{NAME/id/option/lower}}-{{G_NODE_GROUP/id/option/lower}}
         flow-group: {{NAME/id/option/lower}}
     spec:
-{X:HAVE_IMAGE_PULL_SECRETS{
-      imagePullSecrets:{{HAVE_IMAGE_PULL_SECRETS}}}X}
+{X?IMAGE_PULL_SECRET{
+      imagePullSecrets:
 {S:IMAGE_PULL_SECRET{
       - name: "{{IMAGE_PULL_SECRET}}"
 }S}
+}X}
 {X?G_INIT_COUNT|G_VOLUME_COUNT{
       initContainers:}X}
+{J?G_INIT_COUNT{
 {I:G_INIT_CONTAINER{
       - {{G_INIT_CONTAINER}}
 }I}
+}J}
+{J?G_VOLUME_COUNT{
 {W:G_VOLUME_NAME{
 ${{{G_VOLUME_NAME/id/upper}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{G_VOLUME_NAME/id/upper}}_URL}' -d /etc/cos-access -u -o /to-1"]
 ${{{G_VOLUME_NAME/id/upper}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
@@ -45,6 +49,7 @@ ${{{G_VOLUME_NAME/id/upper}}_COS}          readOnly: true
           mountPath: "/to-1"
           readOnly: false
 }W}
+}J}
       containers:
 {N:G_NODE_NAME{{I?G_NODE_IMAGE{
       - name: {{G_NODE_NAME/id/option}}
@@ -64,7 +69,6 @@ ${{{G_VOLUME_NAME/id/upper}}_COS}          readOnly: true
 }N}
 {V?G_VOLUME_COUNT{
       volumes:
-}V}
 {W:G_VOLUME_NAME{
 ${{{G_VOLUME_NAME/id/upper}}_PVC}        - name: {{G_VOLUME_NAME/option}}
 ${{{G_VOLUME_NAME/id/upper}}_PVC}          persistentVolumeClaim:
@@ -75,6 +79,7 @@ ${{{G_VOLUME_NAME/id/upper}}_COS}            secretName: ${{{G_VOLUME_NAME/id/up
         - name: scratch-{{G_VOLUME_NAME/option}}
           emptyDir: {}
 }W}
+}V}
 ---
 apiVersion: v1
 kind: Service

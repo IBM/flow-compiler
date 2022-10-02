@@ -16,16 +16,20 @@ spec:
         app: {{NAME/id/option/lower}}
         flow-group: {{NAME/id/option/lower}}
     spec:
-{X:HAVE_IMAGE_PULL_SECRETS{
-      imagePullSecrets:{{HAVE_IMAGE_PULL_SECRETS}}}X}
+{X?IMAGE_PULL_SECRET{
+      imagePullSecrets:
 {S:IMAGE_PULL_SECRET{
       - name: "{{IMAGE_PULL_SECRET}}"
 }S}
+}X}
 {X?G_INIT_COUNT|G_VOLUME_COUNT{
-      initContainers:}X}
+      initContainers:
+{J?G_INIT_COUNT{
 {I:G_INIT_CONTAINER{
       - {{G_INIT_CONTAINER}}
 }I}
+}J}
+{J?G_VOLUME_COUNT{
 {W:G_VOLUME_NAME{
 ${{{G_VOLUME_NAME/id/upper}}_COS}      - command: ["/bin/sh", "-c", "/usr/local/bin/rr-get.sh '${{{G_VOLUME_NAME/id/upper}}_URL}' -d /etc/cos-access -u -o /to-1"]
 ${{{G_VOLUME_NAME/id/upper}}_PVC}      - command: ["/bin/sh", "-c", "rsync -vrtlog /from-1/. /to-1"] 
@@ -43,6 +47,8 @@ ${{{G_VOLUME_NAME/id/upper}}_COS}          readOnly: true
           mountPath: "/to-1"
           readOnly: false
 }W}
+}J}
+}X}
       containers:
       - name: {{NAME}}
         image: "{{PUSH_REPO-}}{{IMAGE}}"
@@ -100,7 +106,7 @@ $enable_custom_app$htdocs_COS          secret:
 $enable_custom_app$htdocs_COS            secretName: ${{{NAME/id/upper}}_HTDOCS_SECRET_NAME}
 $enable_custom_app$htdocs_COS        - name: scratch-{{HTDOCS_VOLUME_NAME}}
 $enable_custom_app$htdocs_COS          emptyDir: {}
-
+{J?G_VOLUME_COUNT{
 {W:G_VOLUME_NAME{
 ${{{G_VOLUME_NAME/id/upper}}_PVC}        - name: {{G_VOLUME_NAME/option}}
 ${{{G_VOLUME_NAME/id/upper}}_PVC}          persistentVolumeClaim:
@@ -111,7 +117,7 @@ ${{{G_VOLUME_NAME/id/upper}}_COS}            secretName: ${{{G_VOLUME_NAME/id/up
 ${{{G_VOLUME_NAME/id/upper}}_COS}        - name: scratch-{{G_VOLUME_NAME/option}}
 ${{{G_VOLUME_NAME/id/upper}}_COS}          emptyDir: {}
 }W}
-
+}J}
 ---
 apiVersion: v1
 kind: Service

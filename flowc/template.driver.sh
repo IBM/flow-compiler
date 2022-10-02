@@ -22,10 +22,12 @@ fi}I}
 export replicas_{{NAME/id/upper}}=${{{NAME/id/upper}}_REPLICAS-{{MAIN_SCALE}}}
 {G:GROUP{export replicas_{{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}=${{{NAME/id/upper}}_GROUP_{{GROUP/id/upper}}_REPLICAS-{{GROUP_SCALE}}}
 }G}
+{V?VOLUME_COUNT{
 {A:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-{{VOLUME_LOCAL}}}"
 export {{VOLUME_NAME/id/upper}}_SECRET_NAME=${{{VOLUME_NAME/id/upper}}_SECRET_NAME-{{VOLUME_SECRET}}}
 export {{VOLUME_NAME/id/upper}}_URL=${{{VOLUME_NAME/id/upper}}_URL-{{VOLUME_COS}}}
 }A}
+}V}
 export use_MODE=compose
 export use_COMPOSE=
 export use_SWARM="#"
@@ -40,7 +42,7 @@ dd_display_help() {
 echo "Docker Compose/Swarm and Kubernetes configuration generator for {{NAME}}"
 echo "From {{MAIN_FILE}} ({{MAIN_FILE_TS}})"
 echo ""
-echo "Usage $(basename "$0") <up|down|config|logs|run> [-p] [-r] [-s] [-C] [-T] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}"
+echo "Usage $(basename "$0") <up|down|config|logs|run> [-p] [-r] [-s] [-C] [-T] [--project-name NAME] [--grpc-port PORT] [--rest-port PORT] [--htdocs DIRECTORY] {V?VOLUME_COUNT{{O:VOLUME_NAME{[--mount-{{VOLUME_NAME/option}} DIRECTORY] }O}}V}"
 echo "   or $(basename "$0") <up|down|config> -S [--project-name NAME] [--grpc-port PORT] [--rest-port PORT]"
 echo "   or $(basename "$0") -K [--project-name NAME] <delete|deploy|show|config>"
 echo "   or $(basename "$0") [-T] <run|logs>"
@@ -111,6 +113,7 @@ echo "    --htdocs-secret-name <SECRET-NAME>  (or set {{NAME/id/upper}}_HTDOCS_S
 echo "        Secret name for COS access for the custom application files, if a COS URL was given."
 [ ! -z "${{NAME/id/upper}}_HTDOCS_SECRET_NAME" ] && echo "        Currently set to \"${{NAME/id/upper}}_HTDOCS_SECRET_NAME\""
 echo ""
+{V?VOLUME_COUNT{
 {O:VOLUME_NAME{
 echo "    --mount-{{VOLUME_NAME/option-}} <DIRECTORY>  (or set {{VOLUME_NAME/id/upper}})"
 echo "        Override the path to be mounted for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}})"
@@ -123,6 +126,7 @@ echo "    --remote-{{VOLUME_NAME/option-}} <URL> (or set {{VOLUME_NAME/id/upper}
 echo "        Set the URL to the remote resource for {{VOLUME_NAME}} (default is ${{VOLUME_NAME/id/upper}}_URL)"
 echo ""
 }O}
+}V}
 echo "    --{{NAME}}-replicas <NUMBER>  (or set {{NAME/id/upper}}_REPLICAS)"
 echo "        Number of replicas for the main pod in Kubernetes mode or for the aggregator image in Docker Swarm mode."
 echo "        The default is $replicas_{{NAME/id/upper}}."
@@ -163,6 +167,7 @@ case "$1" in
     dd_display_help
     exit 0
     ;;
+{V?VOLUME_COUNT{
 {A:VOLUME_NAME{
     --mount-{{VOLUME_NAME/option}})
     export {{VOLUME_NAME/id/upper}}="$2"
@@ -180,6 +185,7 @@ case "$1" in
     shift
     ;;
 }A}
+}V}
     --{{NAME}}-replicas)
     export replicas_{{NAME/id/upper}}="$2"
     shift
@@ -315,12 +321,14 @@ case "$1" in
 esac
 done
 set -- "${args[@]}"
+{V?VOLUME_COUNT{
 {O:VOLUME_NAME{export {{VOLUME_NAME/id/upper}}="${{{VOLUME_NAME/id/upper}}-$flow_{{VOLUME_NAME/id/upper}}}"
 if [ "${{{VOLUME_NAME/id/upper}}:0:1}" != "/" ]
 then
     export {{VOLUME_NAME/id/upper}}="${{{NAME/id/upper}}_DATA_DIR-$(pwd)}/${{VOLUME_NAME/id/upper}}"
 fi
 }O}
+}V}
 
 if ! which envsubst > /dev/null 2>&1 
 then

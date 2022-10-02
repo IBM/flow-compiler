@@ -41,9 +41,8 @@ $use_SWARM        replicas: $scale_{{NODE_NAME/id/upper}}
 {{NODE_HAVE_MAX_CPUS}}$use_SWARM                    cpus: {{NODE_MAX_CPUS}}
 }I}
 }N}
-{V?VOLUME_COUNT{
+{V?VOLUME_NAME{
 volumes:
-}V}
 {W:VOLUME_NAME{
     {{VOLUME_NAME}}:
         driver_opts:
@@ -51,3 +50,4 @@ volumes:
             o: bind
             device: ${{{VOLUME_NAME/upper}}}
 }W}
+}V}

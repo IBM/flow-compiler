@@ -1311,7 +1311,7 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
                 "\"response-schema\": " << flowinfo::schema_map.find("/-output/{{ENTRY_NAME}}")->second
         <<    "}"
 }E}
-{E:ENTRY_NAME+2{        << ",{"
+{E:ENTRY_NAME@2{        << ",{"
                 "\"advanced\": true,"
                 "\"timeout\": " << flowc::entry_{{ENTRY_NAME}}_timeout << ","
                 "\"name\": \"{{ENTRY_NAME}}\","
@@ -1330,7 +1330,7 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
                 "\"url\": \"/-node/{{CLI_NODE_NAME/id/option}}\""
             "}"
 }C}
-{C:CLI_NODE_NAME+2{
+{C:CLI_NODE_NAME@2{
         << ",{"
                 "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
                 "\"request-schema\": " << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << ","

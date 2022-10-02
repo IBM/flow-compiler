@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('-j', '--ignore-json-errors', action='store_true', dest='ignore_json_errors', default=False, help='ignore requests that fail conversion from JSON to protobuf')
     parser.add_argument('-T', '--timeout', metavar='SECONDS', dest='grpc_timeout', type=int, default=3600, help='Timeout for gRPC calls')
     parser.add_argument('-t', '--time-calls', action='store_true', dest='time_calls', default=False, help='return time information from the server')
-    parser.add_argument('-r', '--rpc', metavar='RPC', dest='entry_name', default='{{MAIN_ENTRY_FULL_NAME}}', help='remote procedure to call, one of: {}'.format(', '.join(RPCS)))
+    parser.add_argument('-r', '--rpc', metavar='RPC', dest='entry_name', default='{{ENTRY_FULL_NAME}}', help='remote procedure to call, one of: {}'.format(', '.join(RPCS)))
     parser.add_argument('-P', '--proto', dest='show_proto', action='store_true', default=False, help='display proto file')
     parser.add_argument('-i', '--input', metavar='FILE', dest='infn', default='-', help='input file, use - for stdin')
     parser.add_argument('-o', '--output', metavar='FILE', dest='outfn', default='-', help='output file, use - for stdout')

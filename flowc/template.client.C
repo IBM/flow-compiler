@@ -515,7 +515,7 @@ int main(int argc, char *argv[]) {
     int rc = 0;
     switch(eip->id) {
 {I:MDP_FULL_NAME{        case {{MDP_FULL_NAME/id/upper}}: {
-            // rpc {{METHOD_FULL_NAME}}
+            // rpc {{MDP_FULL_NAME}}
             std::unique_ptr<{{MDP_SERVICE_NAME}}::Stub> client_stub({{MDP_SERVICE_NAME}}::NewStub(channel));
             auto prep_lambda  = [&client_stub](grpc::ClientContext *ctx, {{MDP_INPUT_TYPE}} &request, grpc::CompletionQueue *cq) -> std::unique_ptr<grpc::ClientAsyncResponseReader<{{MDP_OUTPUT_TYPE}}>> { 
                 return client_stub->PrepareAsync{{MDP_NAME}}(ctx, request, cq);
