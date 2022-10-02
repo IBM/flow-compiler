@@ -20,6 +20,14 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#define RECLI_NAME "recli"
+char const *get_version() {
+    return BUILD_VERSION;
+}
+char const *get_build_id() {
+    return BUILD_ID;
+}
+
 template <class FE>
 inline static std::ostream &operator << (std::ostream &out, std::vector<FE> const &c) {
     char const *sep = "";
@@ -60,6 +68,7 @@ bool reuse_connections = true;
 bool flush_outputs = false;
 int poll_timeout_ms = 1000;
 bool show_help = false;
+bool show_version = false;
 int connections = 1;
 std::vector<std::string> request_headers;
 std::vector<std::tuple<std::string, std::string, unsigned, bool>> save_headers;
@@ -317,6 +326,7 @@ int do_curls(std::vector<std::ostream *> const &ous, std::istream &ins, std::str
 static struct option long_opts[] {
     { "help",                 no_argument, nullptr, 'h' },
     { "verbose",              no_argument, nullptr, 'v' },
+    { "version",              no_argument, nullptr, 'V' },
     { "connections",          required_argument, nullptr, 'n' },
     { "header",               required_argument, nullptr, 'H' },
     { "label",                required_argument, nullptr, 'l' },
@@ -335,6 +345,7 @@ static bool parse_command_line(int &argc, char **&argv) {
     while((ch = getopt_long(argc, argv, "hvn:H:l:r:R:s:t:c:T:", long_opts, nullptr)) != -1) {
         switch (ch) {
             case 'h': show_help = true; break;
+            case 'V': show_version = true; break;
             case 'v': verbose_curl = true; break;
             case 'n': connections = atoi(optarg); break;
             case 'H': request_headers.push_back(optarg); break;
@@ -370,27 +381,38 @@ static bool parse_command_line(int &argc, char **&argv) {
 }
 
 int main(int argc, char *argv[]) {
-    if(!parse_command_line(argc, argv) || show_help || argc > 4 || argc < 2) {
-        std::cerr << "REST client -- curl wrapper for concurrent REST requests.\n";
-        std::cerr << curl_version() << "\n";
-        std::cerr << "\n";
-        std::cerr << "Usage: " << argv[0] << " [OPTIONS] URL [INPUT-FILE [OUTPUT-FILE]]\n";
-        std::cerr << "    or " << argv[0] << " --help\n";
-        std::cerr << "\n";
-        std::cerr << "Options:\n";
-        std::cerr << "  -n, --connections INTEGER   Number of concurrent calls to make\n";
-        std::cerr << "  -H, --header STRING         Add header to the request\n";
-        std::cerr << "  -h, --help                  Display this help\n";
-        std::cerr << "  -l, --label STRING          Send string along with the line number in call ids\n";
-        std::cerr << "  -r, --response FILE         Save the HTTP response into FILE\n";
-        std::cerr << "  -R, --response-code FILE    Save the HTTP response code into FILE\n";
-        std::cerr << "  -s, --save HEADER:FILE      Save value of HEADER into FILE\n";
-        std::cerr << "  -t, --time FILE             Save wall clock time information into FILE\n";
-        std::cerr << "  -c, --time-calls FILE       Save detailed time information into FILE\n";
-        std::cerr << "  -T, --timeout SECONDS       Limit each call to the given amount of time\n";
-        std::cerr << "  -v, --verbose               Enable curl's verbose flag\n";
-        std::cerr << "\n";
-        return show_help? 1: 0;
+    if(!parse_command_line(argc, argv) || show_version || show_help || argc > 4 || argc < 2) {
+        if(show_version) {
+            std::cout << RECLI_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
+#if defined(__clang__)          
+            std::cout << "clang++ " << __clang_version__ << " (" << __cplusplus << ")\n";
+#elif defined(__GNUC__) 
+            std::cout << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n";
+#else
+#endif
+            std::cout << curl_version() << "\n";
+        } else {
+            std::cout << "REST client -- curl wrapper for concurrent REST requests.\n"
+                         "\n"
+                         "Usage: " << argv[0] << " [OPTIONS] URL [INPUT-FILE [OUTPUT-FILE]]\n"
+                         "    or " << argv[0] << " --help\n"
+                         "\n"
+                         "Options:\n"
+                         "  -n, --connections INTEGER   Number of concurrent calls to make\n"
+                         "  -H, --header STRING         Add header to the request\n"
+                         "  -h, --help                  Display this help\n"
+                         "  -l, --label STRING          Send string along with the line number in call ids\n"
+                         "  -r, --response FILE         Save the HTTP response into FILE\n"
+                         "  -R, --response-code FILE    Save the HTTP response code into FILE\n"
+                         "  -s, --save HEADER:FILE      Save value of HEADER into FILE\n"
+                         "  -t, --time FILE             Save wall clock time information into FILE\n"
+                         "  -c, --time-calls FILE       Save detailed time information into FILE\n"
+                         "  -T, --timeout SECONDS       Limit each call to the given amount of time\n"
+                         "  -v, --verbose               Enable curl's verbose flag\n"
+                         "  --version                   Display version and build information and exit\n"
+                         "\n";
+        }
+        return show_help||show_version? 0: 1;
     }
 
     save_headers.insert(save_headers.begin(), argc < 4? 
