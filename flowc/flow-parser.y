@@ -145,17 +145,19 @@ elem(A) ::= ID(B) rexp(C) SEMICOLON.                           { ast->chtype(C, 
                                                                  A = ast->node(FTK_elem, B, C); 
                                                                  ast->expect(C, FTK_RETURN, "expected \"return\" keyword here"); 
                                                                }          
-rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_elem, B); }              
-rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_elem, ast->node(FTK_fldx, B)); }              
+rexp(A) ::= OPENPAR fldm(B) CLOSEPAR.                          { A = ast->node(FTK_elem, B); }
+rexp(A) ::= OPENPAR ID(B) AT CLOSEPAR.                         { A = ast->node(FTK_elem, ast->node(FTK_fldx, B)); }
+rexp(A) ::= OPENPAR CLOSEPAR.                                  { A = ast->node(FTK_elem, ast->node(FTK_fldm)); }
 oexp(A) ::= dtid(B) OPENPAR ID(C) AT CLOSEPAR .                { A = ast->node(FTK_elem, B, ast->node(FTK_fldx, C)); }           
-oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_elem, B, C); }    
+oexp(A) ::= dtid(B) OPENPAR fldm(C) CLOSEPAR .                 { A = ast->node(FTK_elem, B, C); }
+oexp(A) ::= dtid(B) OPENPAR CLOSEPAR.                          { A = ast->node(FTK_elem, B, ast->node(FTK_fldm)); }
 
 elem(A) ::= elem(B) SEMICOLON.                                 { A = B; }                                  // Skip over extraneous semicolons
 
 lblk(A) ::= ID(B) blck(C).                                     { A = ast->node(FTK_lblk, B, C); ast->name.put(A, ast->get_id(B)); }
 
 // valc: any integer or id
-valc(A) ::= INTEGER(B).                                        { A = B; } 
+valc(A) ::= INTEGER(B).                                        { A = B; }
 valc(A) ::= ID(B).                                             { A = B; }
 // valn: any numeric literal
 

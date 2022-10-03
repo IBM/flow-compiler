@@ -250,9 +250,13 @@ struct flow_ast {
         store.back().token = token;
         return (int) store.size();
     }
-    int node(int type, int child) {
+    int node(int type) {
         store.push_back(flow_ast_node());
         store.back().type = type;
+        return (int) store.size();
+    }
+    int node(int type, int child) {
+        auto r = node(type);
         store.back().token.line = store[child-1].token.line;
         store.back().token.column = store[child-1].token.column;
         store.back().token.end_column = store[child-1].token.end_column;
