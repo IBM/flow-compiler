@@ -484,6 +484,7 @@ static char const *get_cfg(std::vector<std::string> const &cfg, std::string cons
     }
     return nullptr;
 }
+{D?CLI_NODE_NAME{
 enum cli_nodes {
     cn_{{NO_NODE_NAME/id/upper-NO_NODE}} = 0 {I:CLI_NODE_NAME{, cn_{{CLI_NODE_NAME/id/upper}}}I}
 };
@@ -509,6 +510,7 @@ struct node_cfg {
     bool read_from_cfg(std::vector<std::string> const &cfg);
     bool check_option(std::string const &) const;
 };
+}D}
 {I:CLI_NODE_NAME{node_cfg ns_{{CLI_NODE_NAME/lower/id}}(cn_{{CLI_NODE_NAME/id/upper}}, "{{CLI_NODE_NAME/lower/id}}", /*maxcc*/{{CLI_NODE_MAX_CONCURRENT_CALLS}}, /*timeout*/{{CLI_NODE_TIMEOUT-DEFAULT_NODE_TIMEOUT}}, "{{CLI_NODE_ENDPOINT-}}", "{{CLI_NODE_CERTFN-}}");
 }I}
 {I:ENTRY_NAME{long entry_{{ENTRY_NAME}}_timeout = {{ENTRY_TIMEOUT-DEFAULT_ENTRY_TIMEOUT}};
@@ -936,6 +938,7 @@ class {{NAME/id}}_service *{{NAME/id}}_service_ptr = nullptr;
     << ") started after " << call_elapsed_time << " and took " << stage_duration << " for " << calls << " call(s)\n"; \
     }
 
+{D?CLI_NODE_NAME{
 template<class CSERVICE> class connector {
     typedef typename CSERVICE::Stub Stub_t;
     typedef decltype(std::chrono::system_clock::now()) ts_t;
@@ -1048,8 +1051,8 @@ public:
         }
     }
 };
+}D}
 }
-
 {I:SERVER_XTRA_H{#include "{{SERVER_XTRA_H}}"
 }I}
 #ifndef GRPC_RECEIVED
@@ -1081,7 +1084,7 @@ public:
 //
 // to use, define REST_CHECK_{{ENTRY_NAME/id/upper}}_BEFORE and/or REST_CHECK_{{ENTRY_NAME/id/upper}}_AFTER with the name of function
 }I}
-
+#if WITH_GRPC
 class {{NAME/id}}_service final: public {{CPP_SERVER_BASE}}::Service {
 public:
     bool Async_Flag = flowc::asynchronous_calls;
@@ -1188,8 +1191,8 @@ public:
         return s;
     }
 }I}
-    
 };
+#endif
 namespace flowinfo {
 #if WITH_REST
 
@@ -1746,9 +1749,11 @@ int start_civetweb(std::vector<std::string> &cfg, bool rest_only) {
 	    mg_set_request_handler(ctx, "/-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-output", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-proto", get_proto, 0);
+{D?CLI_NODE_NAME{
 	    mg_set_request_handler(ctx, "/-node-input", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-output", get_schema, 0);
 	    mg_set_request_handler(ctx, "/-node-proto", get_proto, 0);
+}D}
 	    mg_set_request_handler(ctx, "/-info", get_info, 0);
 {I:CLI_NODE_NAME{        mg_set_request_handler(ctx, "/-node/{{CLI_NODE_NAME/id/option}}", rest_api::N_{{CLI_NODE_NAME/id}}, (void *) "/-node/{{CLI_NODE_NAME/id/option}}");
 }I}
@@ -1812,6 +1817,7 @@ static bool read_keycert(std::string &kc, std::string const &fn, std::string con
     }
     return tc != 0 && tc % 2 == 0;
 }
+{D?CLI_NODE_NAME{
 bool node_cfg::read_from_cfg(std::vector<std::string> const &cfg) {
     trace = strtobool(get_cfg(cfg, std::string("node_") + id + "_trace"), trace);
     maxcc = (int) strtolong(get_cfg(cfg, std::string("node_") + id + "_maxcc"), maxcc);
@@ -1852,6 +1858,7 @@ static bool check_node_option(std::string const &opt) {
 }I}
     ;    
 }
+}D}
 static bool check_entry_option(std::string const &opt) {
     static std::set<std::string> valid_options = { "_timeout" };
     for(auto const &suff: valid_options) {
@@ -1877,11 +1884,13 @@ static bool check_option(std::string const &opt, bool print_message, std::string
         }
 #endif        
     } else if(opt.substr(0, strlen("node_")) == "node_") {
+{D?CLI_NODE_NAME{
         if(!flowc::check_node_option(opt)) {
             if(print_message)
                 std::cerr << location << "Invalid node option: '" << opt << "'\n";
             return false;
         }
+}D}
     } else if(opt.substr(0, strlen("entry_")) == "entry_") {
         if(!flowc::check_entry_option(opt)) {
             if(print_message)
@@ -2101,10 +2110,12 @@ struct ansiesc_out {
     ansiesc_out(std::ostream &o, bool force_escapes=isatty(fileno(stderr)) && isatty(fileno(stdout))):out(o), use_escapes(force_escapes) {}
 };
 }
+{D?CLI_NODE_NAME{
 inline static std::ostream &operator <<(std::ostream &out, flowc::node_cfg const &nc) {
     out << "node [" << nc.id << "] timeout " << nc.timeout << " maxcc " << nc.maxcc << " " << nc.endpoint;
     return out;
 }
+}D}
 inline static flowc::ansiesc_out &operator <<(flowc::ansiesc_out &out, char const *s) {
     char const *b = s; size_t e;
     do {
