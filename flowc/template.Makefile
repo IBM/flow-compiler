@@ -35,23 +35,34 @@ else
 GRPC_LIBS?=$(shell pkg-config --libs-only-L grpc++ protobuf) -Wl,--no-as-needed -Wl,--whole-archive  -lgrpc++_reflection -ldl -Wl,--no-whole-archive -Wl,--as-needed $(shell pkg-config --libs grpc++ protobuf) 
 endif
 
+ifeq ($(REST), no)
+SERVER_CFLAGS+= -DNO_REST
+WITH_CARES=yes
+else ifeq ($(REST), only)
+SERVER_CFLAGS+= -DREST_ONLY
+WITH_CIVETWEB=yes
+WITH_CARES=yes
+else
+WITH_CIVETWEB=yes
+WITH_CARES=yes
+endif
+
+ifeq ($(WITH_CIVETWEB), yes)
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
 CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
+SERVER_LFLAGS+= $(CIVETWEB_LIBS)
+SERVER_CFLAGS+= $(CIVETWEB_INCS)
+endif
 
+ifeq ($(WITH_CARES), yes)
 CARES_INCS?=$(shell pkg-config --cflags libcares) 
 CARES_LIBS?=$(shell pkg-config --libs libcares)
-
 SERVER_LFLAGS+= $(CARES_LIBS) 
 SERVER_CFLAGS+= $(CARES_INCS)
 CLIENT_LFLAGS+= $(CARES_LIBS) 
 CLIENT_CFLAGS+= $(CARES_INCS)
-
-ifeq ($(REST), no)
-SERVER_CFLAGS+= -DNO_REST
-else 	
-SERVER_LFLAGS+= $(CIVETWEB_LIBS)
-SERVER_CFLAGS+= $(CIVETWEB_INCS)
 endif
+
 
 ifeq ($(FLOWC_UUID), OSSP)
 SERVER_LFLAGS+= $(shell pkg-config --libs ossp-uuid)
@@ -91,11 +102,12 @@ info:
 	@echo "Note that the gRPC and CivetWeb libraries are searched for with pkg-config."
 	@echo "Alternatively set GRPC_LIBS, GRPC_INCS, CIVETWEB_LIBS and CIVETWEB_INCS with the desired link and  cflags options respectively."
 	@echo ""
-	@echo "To build a debug version of the \"client\", \"server\" or \"image\" set DBG to 'yes':"
+	@echo "To build a debug version of the \"client\", \"server\" or \"image\" set DBG to 'yes'."
 	@echo ""
 	@echo "make -f $(THIS_FILE) DBG=yes server"
 	@echo ""
-	@echo "To build the server without REST support, set REST to 'no' (will not link with CivetWeb):"
+	@echo "To build the server without REST support, set REST to 'no' (will not link with CivetWeb)."
+	@echo "To build as a REST to gRPC gateway, set REST to 'only'."
 	@echo ""
 	@echo "make -f $(THIS_FILE) REST=no server"
 	@echo ""

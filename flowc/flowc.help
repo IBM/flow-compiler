@@ -159,8 +159,9 @@ OPTIONS
        --python-client
               Generate "Python" code for a client that can be used in debugging and testing the application
 
-       --rest-api=YES/NO
-              Generate "REST" interface. Enabled by default.
+       --rest-api=YES/NO/ONLY
+              Generate "REST" interface. Set to yes by default. When set to only, the server will act as
+              a "REST" "gRPC" gateway.
 
        --rest-port=PORT, -r PORT
               Make "REST" available on "PORT". Must not conflict with the aggregator "gRPC" port.

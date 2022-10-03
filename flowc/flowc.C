@@ -314,10 +314,12 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     orchestrator_tag = opts.opt("image-tag", "v1");
     orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
     orchestrator_debug_image = opts.optb("debug-image", false);
-    orchestrator_no_rest = !opts.optb("rest-api", true);
+    orchestrator_rest_api = to_lower(opts.opt("rest-api", "yes"));
+    if(orchestrator_rest_api != "no" && orchestrator_rest_api != "only")
+        orchestrator_rest_api = "yes";
 
     set(global_vars, "DEBUG_IMAGE", orchestrator_debug_image? "yes":"no");
-    set(global_vars, "REST_API", orchestrator_no_rest? "no":"yes");
+    set(global_vars, "REST_API", orchestrator_rest_api);
     set(global_vars, "IMAGE_TAG", orchestrator_tag);
 
     if(!orchestrator_image.empty()) {
@@ -538,7 +540,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count == 0 && cot::contains(targets, "build-image")) {
         std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
-            << (orchestrator_no_rest? " REST=no": "") 
+            << " REST=" << orchestrator_rest_api
             << " image";
         if(system(makec.c_str()) != 0) {
             pcerr.AddError(main_file, -1, 0, "failed to build docker image");
@@ -548,7 +550,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     if(error_count == 0 && (cot::contains(targets, "build-server") || cot::contains(targets, "build-client"))) {
         std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
-            << (orchestrator_no_rest? " REST=no": "") 
+            << " REST=" << orchestrator_rest_api
             << " ";
         if(cot::contains(targets, "build-server") && cot::contains(targets, "build-client")) 
             makec += "-j2 all";
@@ -567,7 +569,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_deployment_driver(output_filename(orchestrator_name + "-dd.sh"));
     if(error_count == 0 && cot::contains(targets, "graph-files")) 
         error_count += genc_graph(cot::contains(targets, "svg-files"));
-    if(error_count == 0 && cot::contains(targets, "www-files") && !orchestrator_no_rest) 
+    if(error_count == 0 && cot::contains(targets, "www-files") && orchestrator_rest_api != "no") 
         error_count += genc_www();
     
     if(error_count != 0) 

@@ -44,8 +44,28 @@
 
 #include <ares.h>
 extern char **environ;
+#if !defined(NO_REST) || !(NO_REST)
+#undef WITH_REST
+#define WITH_REST 1
+#else 
+#undef WITH_REST
+#define WITH_REST 0
+#endif
 
-#if !defined(NO_REST) || !(NO_REST)    
+#if defined(REST_ONLY)
+#if !(WITH_REST)
+#error "Can't have REST_ONLY and NO_REST"
+#endif
+#undef WITH_GRPC
+#define WITH_GRPC 0
+#else
+#undef WITH_GRPC
+#define WITH_GRPC 1
+#endif
+
+#define WITH_NODES (0{D?CLI_NODE_NAME{+1}D})
+
+#if WITH_REST 
 extern "C" {
 #include <civetweb.h>
 }
@@ -269,7 +289,7 @@ N min(A first, As... args) {
     return std::min((N) first, min(args...));
 }
 }
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
 /**********************************************************************************************************
  * REST headers 
  */
@@ -546,7 +566,7 @@ struct call_info {
     std::chrono::system_clock::time_point start_time;
     std::chrono::system_clock::time_point deadline;
 
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
     call_info(std::string const &entry, long num, struct mg_connection *A_conn, long default_timeout): 
             entry_name(entry), id(num), start_time(std::chrono::system_clock::now()) {
 
@@ -1171,7 +1191,7 @@ public:
     
 };
 namespace flowinfo {
-#if !defined(NO_REST) || !(NO_REST)
+#if WITH_REST
 
 std::string input_schema = flowc::sfmt() {I:ENTRY_NAME-1{{{ENTRY_INPUT_SCHEMA_JSON/cevs}}}I};
 
@@ -1179,14 +1199,14 @@ std::string input_schema = flowc::sfmt() {I:ENTRY_NAME-1{{{ENTRY_INPUT_SCHEMA_JS
 
 std::map<std::string, char const *> schema_map = {
 {I:CLI_NODE_NAME{    
-#if !defined(NO_REST) || !(NO_REST)
+#if WITH_REST
     { "/-node-output/{{CLI_NODE_NAME/id/option}}", {{CLI_OUTPUT_SCHEMA_JSON/c}} },
     { "/-node-input/{{CLI_NODE_NAME/id/option}}", {{CLI_INPUT_SCHEMA_JSON/c}} },
 #endif
     { "/-node-proto/{{CLI_NODE_NAME/id/option}}", {{CLI_PROTO/c}} }, 
 }I}
 {I:ENTRY_NAME{    
-#if !defined(NO_REST) || !(NO_REST)
+#if WITH_REST
     { "/-output/{{ENTRY_NAME}}", {{ENTRY_OUTPUT_SCHEMA_JSON/c}} }, 
     { "/-input/{{ENTRY_NAME}}", input_schema.c_str() }, 
 #endif
@@ -1196,7 +1216,7 @@ std::map<std::string, char const *> schema_map = {
     { "/-all-proto/", {{ALL_NODES_PROTO/c}} },
 };
 }
-#if !defined(NO_REST) || !(NO_REST)
+#if WITH_REST
 namespace rest {
 std::string gateway_endpoint;
 std::string app_directory("./app");
@@ -1321,6 +1341,7 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
 }E}
         << "],"
         << "\"nodes\": ["
+{D?CLI_NODE_NAME{
 {C:-CLI_NODE_NAME-1{
         << "{"
                 "\"timeout\": " << flowc::ns_{{CLI_NODE_NAME/id}}.timeout << ","
@@ -1339,6 +1360,7 @@ static int get_info(struct mg_connection *conn, void *cbdata) {
                 "\"url\": \"/-node/{{CLI_NODE_NAME/id/option}}\""
             "}"
 }C}
+}D}
         "]"
     "}";
     return json_reply(conn, info.c_str(), info.length());
@@ -1847,7 +1869,7 @@ static std::set<std::string> valid_options = {"grpc_listening_ports", "webapp_di
 };
 static bool check_option(std::string const &opt, bool print_message, std::string const &location="") {
     if(opt.substr(0, strlen("rest_")) == "rest_") {
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         if(mg_get_option(nullptr, opt.c_str()+strlen("rest_")) == nullptr) {
             if(print_message) 
                 std::cerr << location << "Invalid civetweb option: '" << opt.c_str()+strlen("rest_") << "'\n";
@@ -1976,7 +1998,7 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int
         } else if((startsw(argv[a], "--node") || startsw(argv[a], "--entry")) && endsw(argv[1], "-proto")) {
             rc = 4;
             ++a;
-#if !defined(NO_REST)
+#if WITH_REST
         } else if((startsw(argv[a], "--node") || startsw(argv[a], "--entry")) && (endsw(argv[1], "-input") || endsw(argv[1], "-output"))) {
             rc = 4;
             ++a;
@@ -1999,7 +2021,7 @@ static int parse_args(int argc, char *argv[], std::vector<std::string> &cfg, int
                 case 1:
                     cfg.push_back("grpc_listening_ports");
                     break;
-#if !defined(NO_REST)
+#if WITH_REST
                 case 2:
                     cfg.push_back("rest_listening_ports");
                     break;
@@ -2028,8 +2050,12 @@ static int parse_listening_port_list(std::set<std::string> &list, std::string co
     return casd::parse_endpoint_list(dnames, dendpoints, list, slist)? 0: 1;
 }
 static void print_banner(std::ostream &out) {
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST
+#if WITH_GRPC
     out << "{{NAME}} gRPC/REST server" << std::endl;
+#else 
+    out << "{{NAME}} REST to gRPC gateway" << std::endl;
+#endif
 #else
     out << "{{NAME}} gRPC server" << std::endl;
 #endif
@@ -2037,7 +2063,7 @@ static void print_banner(std::ostream &out) {
         << "{{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
         <<  "grpc " << grpc::Version() 
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         << ", civetweb " << mg_version() 
 #endif        
         << ", c-ares " << ares_version(nullptr) << "\n"
@@ -2055,6 +2081,7 @@ static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const
     return out;
 }
 static std::unique_ptr<grpc::Server> grpc_server_ptr;
+static bool terminate_service = false;
 static void signal_shutdown_handler(int sig) {
     std::cerr << "Signal " << sig << " received";
     if(grpc_server_ptr) {
@@ -2063,6 +2090,7 @@ static void signal_shutdown_handler(int sig) {
     } else {
         std::cout << std::endl;
     }
+    terminate_service = true;
 }
 struct ansiesc_out {
     bool use_escapes;
@@ -2118,8 +2146,12 @@ int main(int argc, char *argv[]) {
         flowc::ansiesc_out aout(std::cout);
         if(cmd == 1) aout << "Use `--help` to see the command line help and the list of valid options.\n";  
         if(cmd == 2) aout << "\nUSAGE\n"
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST
+#if WITH_GRPC
         "\t" << argv0 << " GRPC-LISTENING-PORTS [REST-LISTENING-PORTS [WEBAPP-DIRECTORY]] [OPTIONS]\n"
+#else 
+        "\t" << argv0 << " GRPC-ENDPOINT REST-LISTENING-PORTS [WEBAPP-DIRECTORY] [OPTIONS]\n"
+#endif
 #else
         "\t" << argv0 << " GRPC-LISTENING-PORTS [OPTIONS]\n"
 #endif
@@ -2128,10 +2160,15 @@ int main(int argc, char *argv[]) {
         " Additionally options can be set in environment variables prefixed with '{{NAME/id/upper}}_'.\n"
         "\n"
         "ARGUMENTS\n\n"
+#if WITH_GRPC        
         "\tGRPC-LISTENING-PORTS\n\t\tA comma separated list of ports in the form '[(HOSTNAME|IPv6):]PORT[s]' or 'unix:PATH' or 'unix:///ABSOLUTE-PATH'.\n"
         "\t\tAppend 's' for secure connections. Set port to '0' to allocate a random port. IP numbers must be in IPv6 format.\n"
         "\n"
-#if !defined(NO_REST) || !(NO_REST)    
+#else 
+        "\tGRPC-ENDPOINT\n\t\tEndpoint to redirect REST calls to, in the form 'HOST:PORT'`*`\n"
+        "\n"
+#endif
+#if WITH_REST    
         "\tREST-LISTENING-PORTS\n\t\tA comma separated list of ports in the form '[(HOSTNAME|IP):]PORT[s|r]'\n"
         "\t\tAppend 's' for secure connections. Append 'r' to redirect to the next secure specified address.\n"
         "\n"
@@ -2139,25 +2176,34 @@ int main(int argc, char *argv[]) {
 #endif
         "\n"
         "OPTIONS\n\n"
+{D?CLI_NODE_NAME{
         "\t`--async-calls` TRUE/FALSE\n\t\tSet to false to disable asynchronous client calls. Default is enabled.\n\n"
+}D}
         "\t`--cares-refresh` SECONDS\n\t\tSet the number of seconds between DNS lookup calls. Default is '" << DEFAULT_CARES_REFRESH << "' seconds.\n\n"
         "\t`--cfg`\n\t\tDisplay current configuration and exit\n\n"
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         "\t`--enable-webapp` TRUE/FALSE\n\t\tSet to false to disable the webapp. The webapp is automatically enabled when a webapp directory is provided.\n\n"
 #endif
+#if WITH_GRPC
         "\t`--grpc-num-threads` NUMBER\n\t\tNumber of threads to run in the gRPC server. Set to '0' to use the default gRPC value.\n\n"
+#endif
         "\t`--grpc-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the ssl certificate. Default is '{{NAME}}-grpc.pem' and '{{NAME}}.pem' in the current directory.\n\n"
         "\t`--help`\n\t\tShow this screen and exit\n\n"
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         "\t`--rest-num-threads` NUMBER\n\t\tNumber of threads to run in the REST server. Default is '" << DEFAULT_REST_THREADS << "'.\n\n"
         "\t`--rest-ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the SSL certificates. Default is '{{NAME}}-rest.pem' and '{{NAME}}.pem' in the current directory.\n\n"
 #endif
         "\t`--server-id` STRING\n\t\tString to use as an idendifier for this server. If not set a random string will automatically be generated.\n\n"
+{D?CLI_NODE_NAME{
         "\t`--send-id` TRUE/FALSE\n\t\tSet to false to disable sending the node id in replies. Enabled by default.\n\n"
+}D}
         "\t`--ssl-certificate` FILE\n\t\tFull path to a '.pem' file with the SSL certificates to be used by either gRPC or REST\n\n"
+{D?CLI_NODE_NAME{
         "\t`--trace-calls` TRUE/FALSE\n\t\tEnable trace mode\n\n"
         "\t`--trace-connectios` TRUE/FALSE\n\t\tEnable the trace flag in all node calls\n\n"
+}D}
         "\t`--version`\n\t\tDisplay version information\n\n"
+{D?CLI_NODE_NAME{
         "NODE SPECIFIC OPTIONS\n\n"
 {I:CLI_NODE_NAME{    
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-certificate` FILE\n\t\tSSL server certificate for node '{{CLI_NODE_NAME}}'\n\n"
@@ -2165,15 +2211,16 @@ int main(int argc, char *argv[]) {
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-maxcc` NUMBER\n\t\tMaximum number of concurrent requests that can be send to '{{CLI_NODE_NAME}}'. Default is '" << flowc::ns_{{CLI_NODE_NAME/lower/id}}.maxcc << "'.\n\n"
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-timeout` MILLISECONDS\n\t\tTimeout for calls to node '{{CLI_NODE_NAME}}'. Default is '" << flowc::ns_{{CLI_NODE_NAME/lower/id}}.timeout << "'.\n\n"
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-trace` TRUE/FALSE\n\t\tEnable the trace flag in calls to node '{{CLI_NODE_NAME}}'\n\n"
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-input`\n\t\tDisplay input schema for '{{CLI_NODE_NAME}}'\n\n"
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-output`\n\t\tDisplay output schema for '{{CLI_NODE_NAME}}'\n\n"
 #endif
         "\t`--node-{{CLI_NODE_NAME/id/lower/option}}-proto`\n\t\tDisplay minimal proto file for '{{CLI_NODE_NAME}}'\n\n"
 }I}
+}D}
         "ENTRY SPECIFIC OPTIONS\n\n"
 {I:ENTRY_NAME{    "\t`--entry-{{ENTRY_NAME/lower/option}}-timeout` MILLISECONDS\n\t\tTimeout for calls to the '{{ENTRY_NAME}}' entry. Default is '" << flowc::entry_{{ENTRY_NAME}}_timeout << "'.\n\n"
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         "\t`--entry-{{ENTRY_NAME/lower/option}}-input`\n\t\tDisplay input schema for '{{ENTRY_NAME}}'\n\n"
         "\t`--entry-{{ENTRY_NAME/lower/option}}-output`\n\t\tDisplay output schema for '{{ENTRY_NAME}}'\n\n"
 #endif
@@ -2185,11 +2232,12 @@ int main(int argc, char *argv[]) {
         "\t`--fd-{{DEFN/option}}` {{DEFT}}\n\t\tOverride the value of variable '{{DEFN}}' ('" << flowdef::v{{DEFN}} << "')\n\n"
 }I}
 }H}
+#if (WITH_NODES || !WITH_GRPC)
         "Note `*`\n"
         "Node endpoints in the form 'HOST:PORT' will be sent directly to the gRPC interface.\n"
         "Node endpoints in the form '@HOST:PORT' will be looked up every '30' seconds to produce an IP list that will be used with the gRPC calls.\n"
         "Node endpoints in the form '(command)' will run 'command' every '30' seconds to produce the IP list to be used with the gRPC calls.\n"
-        "\n"
+#endif
         "\n"
         ;
         return cmd == 1? 1 :0;
@@ -2198,7 +2246,7 @@ int main(int argc, char *argv[]) {
     if(cmd == 4) {
         for(int a = 1; a < argc; ++a) {
 {I:CLI_NODE_NAME{
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         if(strcmp(argv[a], "--node-{{CLI_NODE_NAME/id/lower/option}}-input") == 0) {
             std::cout << flowinfo::schema_map.find("/-node-input/{{CLI_NODE_NAME/id/option}}")->second << "\n";
             continue;
@@ -2214,7 +2262,7 @@ int main(int argc, char *argv[]) {
         }
 }I}
 {I:ENTRY_NAME{
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         if(strcmp(argv[a], "--entry-{{ENTRY_NAME/lower/option}}-input") == 0) {
             std::cout << flowinfo::schema_map.find("/-input/{{ENTRY_NAME}}")->second << "\n";
             continue;
@@ -2256,7 +2304,7 @@ int main(int argc, char *argv[]) {
     }
     struct stat buffer;   
     std::string ssl_certificate;
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
     ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "rest_ssl_certificate"), "");
     if(ssl_certificate.empty()) {
         ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "ssl_certificate"), "");
@@ -2288,7 +2336,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::set<std::string> rest_listening, grpc_listening;
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
     bool rest_need_certificate = false;
     flowc::parse_listening_port_list(rest_listening, flowc::strtostring(flowc::get_cfg(cfg, "rest_listening_ports"), ""));
     for(auto const &s: rest_listening) if(!s.empty() && s.back() == 's') {
@@ -2305,6 +2353,7 @@ int main(int argc, char *argv[]) {
         }
     }
 #endif
+#if WITH_GRPC
     bool grpc_need_certificate = false;
     flowc::parse_listening_port_list(grpc_listening, flowc::strtostring(flowc::get_cfg(cfg, "grpc_listening_ports"), ""));
     for(auto const &s: grpc_listening) if(!s.empty() && s.back() == 's') {
@@ -2320,6 +2369,7 @@ int main(int argc, char *argv[]) {
             ++error_count;
         }
     }
+#endif
     if(cmd == 3) {
         std::cout << "# {{NAME}}.cfg\n";
         flowc::print_cfg(std::cout, cfg);
@@ -2338,7 +2388,6 @@ int main(int argc, char *argv[]) {
 {I:DEFN{
     std::cout << "{{DEFN}}=" << flowdef::v{{DEFN}} << "\n";
 }I}
-
     flowc::global_node_ID = flowc::strtostring(flowc::get_cfg(cfg, "server_id"), flowc::server_id());
     flowc::asynchronous_calls = flowc::strtobool(flowc::get_cfg(cfg, "async_calls"), flowc::asynchronous_calls);
     flowc::trace_calls = flowc::strtobool(flowc::get_cfg(cfg, "trace_calls"), flowc::trace_calls);
@@ -2360,9 +2409,11 @@ int main(int argc, char *argv[]) {
          casd::keep_looking(dnames, cares_refresh, 0);
     });
 
+    std::vector<std::string> server_address(grpc_listening.size()+1);
+    std::vector<std::pair<int, bool>> grpc_server_ports(grpc_listening.size()+1);
+    unsigned ap = 0, gateway_ap = grpc_listening.size()+1;
+#if WITH_GRPC
     int grpc_threads = (int) flowc::strtolong(flowc::get_cfg(cfg, "grpc_num_threads"), -1);
-
-
     grpc::ServerBuilder builder;
     if(grpc_threads > 0) {
         grpc::ResourceQuota grq("{{NAME/id/upper}}");
@@ -2372,10 +2423,6 @@ int main(int argc, char *argv[]) {
     }
     {{NAME/id}}_service service;
     flowc::{{NAME/id}}_service_ptr = &service;
-    bool enable_webapp = flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true);
-    std::vector<std::pair<int, bool>> grpc_server_ports(grpc_listening.size()+1);
-    std::vector<std::string> server_address(grpc_listening.size()+1);
-    unsigned ap = 0, gateway_ap = grpc_listening.size()+1;
     for(auto const &a: grpc_listening) {
         ssl_certificate = flowc::strtostring(flowc::get_cfg(cfg, "grpc_ssl_certificate"), "");
         std::string p(a.empty()? std::string("0"): a);
@@ -2423,7 +2470,6 @@ int main(int argc, char *argv[]) {
     // Register services
     builder.RegisterService(&service);
     flowc::grpc_server_ptr = builder.BuildAndStart();
-
     for(unsigned a = 0; a < ap; ++a) {
         if(grpc_server_ports[a].first == 0) {
             std::cout << "failed to start {{NAME}} gRPC service at " << server_address[a] << "\n";
@@ -2434,10 +2480,11 @@ int main(int argc, char *argv[]) {
             std::cout << "\n";
         }
     }
+#endif
     if(error_count == 0) {
         std::cout << "server id: " << flowc::global_node_ID << "\n";
         std::cout << "start time: " << flowc::global_start_time << "\n";
-#if !defined(NO_REST) || !(NO_REST)    
+#if WITH_REST    
         // Set up the REST gateway if enabled
         rest::gateway_endpoint = server_address[gateway_ap];
         if(strncmp(rest::gateway_endpoint.c_str(), "unix:", strlen("unix:")) == 0 || strncmp(rest::gateway_endpoint.c_str(), "unix-abstract:", strlen("unix-abstract:")) == 0) {
@@ -2460,7 +2507,7 @@ int main(int argc, char *argv[]) {
                 cfg.push_back("rest_num_threads"); 
                 cfg.push_back(std::to_string(DEFAULT_REST_THREADS));
             }
-            if(rest::start_civetweb(cfg, !enable_webapp) != 0) {
+            if(rest::start_civetweb(cfg, !flowc::strtobool(flowc::get_cfg(cfg, "enable_webapp"), true) ) != 0) {
                 std::cout << "failed to start REST gateway service\n";
                 ++error_count;
             }
@@ -2471,13 +2518,20 @@ int main(int argc, char *argv[]) {
         std::cout 
             << "call id: " << (flowc::send_global_ID ? "yes": "no") 
             << ", trace: " << (flowc::trace_calls? "yes": "no")
+#if (WITH_NODES && WITH_GRPC)           
             << ", asynchronous client calls: " << (flowc::asynchronous_calls? "yes": "no") 
+#endif
             << "\n";
         std::cout << std::endl;
+#if WITH_GRPC        
         // Wait for the server to shutdown. This can only be stopped from the signal handler.
         flowc::grpc_server_ptr->Wait();
         std::cout << "gRPC server exited" << std::endl;
-#if !defined(NO_REST) || !(NO_REST)    
+#else 
+        while(!flowc::terminate_service) 
+            sleep(10000);
+#endif
+#if WITH_REST    
         rest::stop_civetweb();
 #endif        
     } else {
