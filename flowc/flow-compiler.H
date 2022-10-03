@@ -62,7 +62,8 @@ private:
     std::string orchestrator_image;
     std::string orchestrator_tag;
     bool orchestrator_debug_image;
-    bool orchestrator_no_rest;
+    // Set from the command line option: yes, no, only
+    std::string orchestrator_rest_api;  
     std::string main_name;
     std::string main_group_name;
     // Orchestrator image name with repository (as it appears in composer or kube config)
