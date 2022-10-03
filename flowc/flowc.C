@@ -163,7 +163,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::string real_input_filename;
         source_tree.VirtualFileToDiskFile(main_file, &real_input_filename);
 
-        if(cot::contains(targets, "docs") || cot::contains(targets, "graph-files")) {
+        if(cot::contains(targets, "docs")) {
             std::string docs_directory = output_filename("docs");
             mkdir(docs_directory.c_str(), 0777);
             if(cot::contains(targets, "docs")) {
@@ -426,7 +426,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     // Check/generate the entry list for the rest gateway
     // Do this if we have rest and generated config files
-    if(error_count == 0 && cot::contains(targets, "server")) {
+    if(error_count == 0) {
+    //if(error_count == 0 && cot::contains(targets, "server")) {
         // use a set to avoid duplicates
         std::set<std::string> rest_entries(all(global_vars, "REST_ENTRY").begin(), all(global_vars, "REST_ENTRY").end()); 
         for(int n: *this) if(at(n).type == FTK_ENTRY) {
@@ -567,8 +568,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_py_client(output_filename(client_bin + ".py"));
     if(error_count == 0 && cot::contains(targets, "driver")) 
         error_count += genc_deployment_driver(output_filename(orchestrator_name + "-dd.sh"));
-    if(error_count == 0 && cot::contains(targets, "graph-files")) 
-        error_count += genc_graph(cot::contains(targets, "svg-files"));
+    
     if(error_count == 0 && cot::contains(targets, "www-files") && orchestrator_rest_api != "no") 
         error_count += genc_www();
     

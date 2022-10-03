@@ -206,7 +206,6 @@ public:
     int encode_expression(int fldr_node, int expected_type, int dim_change, int et_node=0);
     int populate_message(std::string const &lv_name, struct lrv_descriptor const &lvd, int arg_node, std::map<int, int> &node_ip, int loop_level);
 
-
     int compile_flow_graph(int entry_blck_node, std::vector<std::set<int>> const &node_stages, std::set<int> const &node_set);
     int fop_compare(fop const &left, fop const &right) const;
     void print_pseudocode(std::ostream &out) const;
@@ -231,7 +230,6 @@ public:
         if(!suffix.empty()) id = id + "_" + suffix;
         return id;
     }
-
     // Name generators for case sensitive languagages C, Python, etc.
     // [prefix_]label[_stage][_suffix]                when the label is given
     // [prefix_]I_input label[_stage][_suffix]        for the input node
@@ -307,22 +305,16 @@ public:
     
     // Webapp interface
     int genc_www();
-    // DOT and SVG files
-    int genc_graph(bool gen_svgs);
     // Makefile
     int genc_makefile(std::string const &filename);
     int genc_dockerfile(std::string const &orchestrator_name);
-
 
     // Main call sequence
     int process(std::string const &input_filename, std::string const &orchestrator_name, std::set<std::string> const &targets, struct helpo::opts const &opts);
 
     static bool debug_enable;
-
     int get_unna(std::string &name, int hint=1);
 };
-
-
 
 #ifndef DEBUG_GENC
 #define DEBUG_GENC flow_compiler::debug_enable

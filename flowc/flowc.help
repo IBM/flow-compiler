@@ -84,11 +84,6 @@ OPTIONS
        --grpc-certificate=FILE
               SSL certificate for the gRPC server
 
-       --graph-files
-              Print the flow graph files for each entry in "dot" format. The "dot" utility can be used to render 
-              the graph. For example, to generate a graph in ".svg" format, pipe the output through "dot -Tsvg".
-              See --print-graph for generating only one graph.
-
        --help, -h
               Print this screen and exit
 
