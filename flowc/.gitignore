@@ -4,3 +4,4 @@ template.runtime.Dockerfile
 base.Dockerfile
 makefile.local
 flow-compiler-minsrc.tgz
+*.help.C
