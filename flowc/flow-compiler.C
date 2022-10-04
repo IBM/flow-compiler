@@ -5,11 +5,6 @@
 #include <map>
 #include <algorithm>
 #include <cmath>
-
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wlogical-op-parentheses"
-#endif
-
 #include "flow-compiler.H"
 #include "stru1.H"
 #include "grpc-helpers.H"
@@ -59,74 +54,6 @@ int flow_compiler::fixup_vt(int node) {
         value_type.put(node, value_type(at(node).children[1]));
     return 0;
 
-}
-struct function_info {
-    int return_type;
-    std::vector<int> arg_type;
-    unsigned required_argc;
-    int dim;      
-    char const *help;
-};
-/** 
- * function signature table:
- *      return_type: Either a basic grpc compiler type, or FTK_ACCEPT for a type that is deduced from the argument types. A negative value denotes a repeated field.
- *      arg_type: Either a basic grpc compiler type or FTK_ACCEPT for any type. A negative value means the argument *must* be a repeated field.
- *      required_argc: The number of required arguments. The number of accepted arguments is the size of arg_type.
- *      dim: The change in dimension when compared to the argument dimension.
- */
-static const std::map<std::string, function_info> function_table = {
-    // string substr(string s, int begin, int end)
-    { "strslice",    { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
-    { "substr",   { FTK_STRING,  { FTK_STRING, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
-    // int length(string s)
-    { "length",   { FTK_INTEGER, { FTK_STRING }, 1, 0, "Returns the number of utf-8 characters in the argument string.\n"}},
-    { "size",  { FTK_INTEGER, { FTK_STRING }, 1, 0, "Returns the size of the string argument in bytes.\n"}},
-    // string *trim(string s, string strip_chars)
-    { "trim",     { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Deletes all the characters in the second argument string from both ends of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
-    { "ltrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Deletes all the characters in the second argument string from the beginning of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
-    { "rtrim",    { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Deletes all the characters in the second argument string from the end of the first argument string.\nIf no second argument is given, white-space is deleted.\n"}},
-    // string to*(string s)
-    { "toupper",    { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts all characters in the argument string to upper case (ASCII only).\n"}},
-    { "tolower",    { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts all characters in the argument string to lower case (ASCII only).\n"}},
-    { "toid",       { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts the string argument to a string that can be used as an identifier, by replacing all illegal character runs with an underscore('_').\n"}},
-    { "tocname",    { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character runs with a dash('-').\n"}},
-    { "camelize",   { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts the string in the argument to a camel-cased identifier string.\n"}},
-    { "decamelize", { FTK_STRING,  { FTK_STRING }, 1, 0, "Converts a camel-cased string to a readable string.\n"}},
-    // string tr(string s, string match_list, string replace_list)
-    { "tr",       { FTK_STRING,  { FTK_STRING, FTK_STRING, FTK_STRING }, 2, 0, "Returns the transformation of the string given as first argument by replacing all the characters in the second argument with the corresponding character in the third argument.\nIf there is no corresponding character, the character is deleted.\n"}},
-    // string getenv(name, default_value)
-    { "getenv",   { FTK_STRING,  { FTK_STRING, FTK_STRING }, 1, 0, "Returns the value of the environment variable named by the first argument. If the environment variable is missing, the value of the second argument is returned.\n"}},
-    // string join(elements, separator, last_separator)
-    { "join",     { FTK_STRING,  { -FTK_ACCEPT, FTK_STRING, FTK_STRING }, 1, -1, "Returns the concatenation of the elements of the repeated field, after converstion to string.\nThe second argument is used as separator, and the third, if given as the last separator.\n"}},
-    { "split",    { -FTK_STRING, { FTK_STRING, FTK_STRING }, 1, 1, "Splits the first argument by any character in the second argument. By default it splits on ASCII whitespace.\n"}},
-    { "slice",    { -FTK_ACCEPT, { -FTK_ACCEPT, FTK_INTEGER, FTK_INTEGER }, 2, 0, "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
-};
-
-static std::string ftk2s(int ftk) {
-    switch(ftk) {
-        case FTK_STRING: return "string";
-        case FTK_INTEGER: return "int";
-        case -FTK_ACCEPT: return "repeated ANY";
-        case -1: return "ANY";
-        default: break;
-    }
-    return "?";
-}
-void show_builtin_help(std::ostream &out) {
-    for(auto const &fe: function_table) {
-        out << ftk2s(fe.second.return_type) << " \"~" << fe.first << "\"(";
-        if(fe.second.arg_type.size() == fe.second.required_argc) {
-            out << stru1::joint(fe.second.arg_type, ftk2s, ", ");
-        } else {
-            out << stru1::joint(fe.second.arg_type.begin(), fe.second.arg_type.begin()+fe.second.required_argc, ftk2s, ", ");
-            out << "[";
-            if(fe.second.required_argc > 0) out << ", ";
-            out << stru1::joint(fe.second.arg_type.begin()+fe.second.required_argc, fe.second.arg_type.end(), ftk2s, ", ");
-            out << "]";
-        }
-        out << ");\n";
-        out << fe.second.help << "\n";
-    }
 }
 int flow_compiler::compile_expression(int node) {
     int error_count = 0;
@@ -180,24 +107,11 @@ int flow_compiler::compile_fldr(int fldr_node) {
     auto const &ff = at(fldr.children[0]);
     switch(ff.type) {
         case FTK_ID: {  // function call
-            std::string fname(get_id(fldr.children[0])); 
-            auto funp = function_table.find(fname);
-            // check the function name
-            if(funp == function_table.end()) {
+            int vt = check_function(get_id(fldr.children[0]), fldr_node, fldr_node);
+            if(vt < 0) 
                 ++error_count;
-                pcerr.AddError(main_file, at(fldr_node), sfmt() << "unknown function \"" << fname << "\"");
-            } else if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc + 1 != fldr.children.size()) {
-                // check the number of arguments
-                ++error_count;
-                pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << (fldr.children.size() - 1) << " were given");
-            } else if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc + 1 > fldr.children.size() || funp->second.arg_type.size() + 1 < fldr.children.size()) {
-                ++error_count;
-                pcerr.AddError(main_file, at(fldr_node), sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc << " and at most " << funp->second.arg_type.size() << " arguments but " << (fldr.children.size() - 1) << " were given");
-            }
-            if(funp->second.return_type < 0) 
-                value_type.put(fldr_node, abs(value_type(fldr.children[abs(funp->second.return_type)])));
-            else
-                value_type.put(fldr_node, funp->second.return_type);
+            else 
+                value_type.put(fldr_node, vt);
         } break;
         case FTK_HASH:
             assert(fldr.children.size() == 2);
@@ -442,8 +356,7 @@ int flow_compiler::update_dimensions(int node) {
                     int dim = 0;
                     for(unsigned a = 0; a+1 < children.size(); ++a) 
                         dim = std::max(dim, dimension(children[a+1]));
-                    auto funp = function_table.find(get_id(children[0]));
-                    dimension.put(node, dim + funp->second.dim);
+                    dimension.put(node, dim + get_fdimchange(get_id(children[0])));
                 } break;
                 case FTK_HASH:
                     dimension.put(node, std::max(0, dimension(children[1])-1));
@@ -1058,7 +971,7 @@ int flow_compiler::get_field_refs_r(std::set<std::pair<int, int>> &refs, int exp
         case FTK_fldr: {
             switch(at(node.children[0]).type) {
                 case FTK_ID: // function call
-                    lv_dim -= function_table.find(get_id(node.children[0]))->second.dim;
+                    lv_dim -= get_fdimchange(get_id(node.children[0]));
                     break;
                 case FTK_HASH:
                     ++lv_dim;         
@@ -1120,14 +1033,15 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
     switch(at(fldr_node).type) {
         case FTK_fldr: 
             if(at(fields[0]).type == FTK_ID) {
-                auto funp = function_table.find(get_id(fields[0]));
+                auto fati = get_fargtypes(get_id(fields[0]));
+                int dimc = get_fdimchange(get_id(fields[0]));
                 for(unsigned a = 0; a+1 < fields.size(); ++a) {
-                    if(funp->second.arg_type[a] < 0) 
+                    auto const &fat = fati[a];
+                    if(fat.second)
                         icode.push_back(fop(CLLS, a));
-                    int evt = abs(funp->second.arg_type[a]);
-                    error_count += encode_expression(fields[a+1], (evt == FTK_ACCEPT? 0: evt), funp->second.dim);
-                    if(funp->second.arg_type[a] < 0) 
-                        icode.push_back(fop(DACC, funp->second.dim));
+                    error_count += encode_expression(fields[a+1], fat.first, dimc);
+                    if(fat.second)
+                        icode.push_back(fop(DACC, dimc));
                 }
             }
             MASSERT(operator_precedence.find(at(fields[0]).type) != operator_precedence.end()) << "precedence not defined for type " << at(fields[0]).type << ", at " << at(fields[0]).type << "\n";

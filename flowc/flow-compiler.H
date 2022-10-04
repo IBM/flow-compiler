@@ -48,6 +48,14 @@ var_store_t &set_all(var_store_t &vars, std::string const &name, CITER begin, CI
     vars[name].assign(begin, end);
     return vars;
 }
+
+/** return the dimensional change for a built-in function
+ */
+int get_fdimchange(std::string fname);
+/** return argument type information for a built-in function
+ */
+std::vector<std::pair<int, bool>> get_fargtypes(std::string fname);
+
 class flow_compiler: public flow_ast {
 private:    
     FErrorPrinter pcerr;
@@ -201,6 +209,8 @@ public:
 
     // Type check if the the assignment left = right
     int check_assign(int error_node, struct lrv_descriptor const &left, struct lrv_descriptor const &right);
+    // Function match - returns the return type as a value_type attribute value
+    int check_function(std::string fname, int funcnode, int error_node);
 
     std::string fldx_mname(int fldx_node, int context_dim) const;
     int encode_expression(int fldr_node, int expected_type, int dim_change, int et_node=0);
