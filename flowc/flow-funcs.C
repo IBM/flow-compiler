@@ -12,25 +12,25 @@
 #include "massert.H"
 
 enum function_arg_type {
-        A_NONE = 0,
-        A_ARG = 128,    // argument's type flag
-        A_REP = 64,     // repeated bit flag
-        A_ANY = 1,      // any type
-        A_STR,          // string
-        A_INT,          // integer 
-        A_FLT,          // float
-        A_NUM,          // either integer or float
-        A_PRI,          // primitive type: integer, float or string
-        A_MSG,          // any message type
-                        
-        A_RANY = A_ANY+A_REP,  
-        A_RSTR = A_STR+A_REP,
-        A_RINT = A_INT+A_REP,
-        A_RFLT = A_FLT+A_REP,
-        A_RNUM = A_NUM+A_REP,
-        A_RPRI = A_PRI+A_REP,
-        A_RMSG = A_MSG+A_REP
-    };
+    A_NONE = 0,
+    A_ARG = 128,    // argument's type flag
+    A_REP = 64,     // repeated bit flag
+    A_ANY = 1,      // any type
+    A_STR,          // string
+    A_INT,          // integer 
+    A_FLT,          // float
+    A_NUM,          // either integer or float
+    A_PRI,          // primitive type: integer, float or string
+    A_MSG,          // any message type
+
+    A_RANY = A_ANY+A_REP,  
+    A_RSTR = A_STR+A_REP,
+    A_RINT = A_INT+A_REP,
+    A_RFLT = A_FLT+A_REP,
+    A_RNUM = A_NUM+A_REP,
+    A_RPRI = A_PRI+A_REP,
+    A_RMSG = A_MSG+A_REP
+};
 struct function_info {
     int return_type;
     std::vector<int> arg_type;
@@ -91,7 +91,7 @@ static const std::map<std::string, function_info> function_table = {
     { "join",        { A_STR,  { A_RPRI, A_STR, A_STR }, 1, -1, 
       "Returns the concatenation of the elements of the repeated field, after converstion to string.\n"
       "The second argument is used as separator, and the third, if given as the last separator.\n"}},
-    { "split",       { A_STR,  { A_STR, A_STR }, 1, 1, 
+    { "split",       { A_RSTR,  { A_STR, A_STR }, 1, 1, 
       "Splits the first argument by any character in the second argument. By default it splits on ASCII whitespace.\n"}},
     { "slice",       { A_ARG+1, { A_RANY, A_INT, A_INT }, 2, 0, 
       "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
@@ -101,6 +101,10 @@ static const std::map<std::string, function_info> function_table = {
       "Returns a sequence of subsequences of the repeated field, no longer than the argument.\n"}},
     { "cat",         { A_ARG+1, { A_RANY, A_ARG+1 }, 2, 0, 
       "Returns the concatenation of arguments.\n"}},
+    { "sum",       { A_ARG+1, { A_RNUM }, 1, -1,
+      "Returns the sum of the numeric repeated field, preserving type.\n"}},
+    { "uniq",         { A_ARG+1, { A_RPRI }, 1, 0, 
+      "Removes duplicates from a repeated field.\n"}},
 };
 
 static std::string at2s(int t) {
@@ -143,7 +147,6 @@ void show_builtin_help(std::ostream &out) {
         out << fe.second.help << "\n";
     }
 }
-
 static int at2ftk(function_arg_type t) {
     switch(t & (A_REP-1)) {
         case A_STR: 
@@ -155,11 +158,16 @@ static int at2ftk(function_arg_type t) {
         case A_ANY:
             return 0;
         default:
-            assert(false);
+            break;
     }
     return 0;
 }
-
+static bool compare_atype(function_arg_type fat, int ftk) {
+    return fat == A_ANY ||
+        fat == A_PRI && (ftk == FTK_INTEGER || ftk == FTK_FLOAT || ftk == FTK_STRING) ||
+        fat == A_NUM && (ftk == FTK_INTEGER || ftk == FTK_FLOAT) ||
+        fat == ftk;
+}
 int flow_compiler::check_function(std::string fname, int funcnode, int errnode) {
     std::string errmsg;
     auto const &args = at(funcnode).children;
@@ -174,7 +182,8 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
         if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc != argc) 
             errmsg = stru1::sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << argc << " were given";
         else if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc > argc || funp->second.arg_type.size() < argc) 
-            errmsg = stru1::sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc << " and at most " << funp->second.arg_type.size() << " arguments but " << argc << " were given";
+            errmsg = stru1::sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc 
+                << " and at most " << funp->second.arg_type.size() << " arguments but " << argc << " were given";
         else 
             rc = 0;
     }
@@ -182,14 +191,18 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
         // check the argument types
         for(int i = 0; i < argc; ++i) {
             auto atype = function_arg_type(funp->second.arg_type[i]);
+            if(atype & A_ARG)
+                atype = function_arg_type(funp->second.arg_type[(atype & (A_ARG-1))-1]);
             auto ntype = value_type(args[i+1]);
-            
-            if(at2ftk(atype) == ntype) {
-            } else {
+
+            bool repeated = atype & A_REP;
+            atype = function_arg_type(atype & (A_REP-1));
+             
+            if(!compare_atype(atype, ntype)) {
                 if(errnode != 0)
                     errnode = args[i+1];
                 errmsg = stru1::sfmt() << "argument must be of type \"" << at2s(atype) << "\"";
-                rc = 1;
+                rc = -1;
             }
         }
     }
@@ -206,7 +219,6 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
     int type = at2ftk(function_arg_type(funp->second.return_type));
     return type;
 }
-
 int get_fdimchange(std::string fname) {
     auto funp = function_table.find(fname);
     return funp->second.dim;

@@ -727,7 +727,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::vector<std::string> cur_loop_tmp; cur_loop_tmp.push_back("");
     std::vector<std::set<std::string>> loop_c;
     std::string rvl, lvl;   // Left and right value expressions
-    std::vector<std::pair<std::string, int>> tvl; // Values stack
+    std::vector<std::pair<std::string, int>> tvl; // Values stack of <value, priority>
     std::vector<std::string> flvs; // Field length values stack
     // 
     int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0;
@@ -1231,7 +1231,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case RVF: 
                 rvl = cpp_var(loop_c, op.arg1, op.arg[0], RIGHT_VALUE);
                 tvl.push_back(std::make_pair(rvl, 0));
-                //OUT << "auto GJ" << i << " = " << rvl << ";\n";
                 break;
 
             case DACC: {
@@ -1239,11 +1238,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     while(flvs.size() > 0 && flvs.back() != "") {
                         lxset.insert(flvs.back()); flvs.pop_back();
                     }
-                    std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::min(", "", "", ")");
+                    std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::vmin(", "", "", ")");
+                    rvl = sfmt() << lenx << ", [&] (int " << cpp_index_prefix << op.arg[1] << ") -> auto { return " << tvl.back().first << "; }";
                     if(flvs.size() > 0) 
                         flvs.pop_back();
-
-                    rvl = sfmt() << lenx << ", [&] (int I1) -> auto { return " << tvl[tvl.size()-1].first << "; }";
                     tvl.pop_back();
                     tvl.push_back(std::make_pair(rvl, 0));
                 }

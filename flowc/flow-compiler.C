@@ -1037,11 +1037,17 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                 int dimc = get_fdimchange(get_id(fields[0]));
                 for(unsigned a = 0; a+1 < fields.size(); ++a) {
                     auto const &fat = fati[a];
+                    if(fat.second) {
+                        if(dimension(fields[a+1]) + dimc < 0) {
+                            ++error_count;
+                            pcerr.AddError(main_file, at(fields[a+1]), sfmt() << "function argument must be a repeated value");
+                        }
+                    }
                     if(fat.second)
                         icode.push_back(fop(CLLS, a));
                     error_count += encode_expression(fields[a+1], fat.first, dimc);
                     if(fat.second)
-                        icode.push_back(fop(DACC, dimc));
+                        icode.push_back(fop(DACC, dimc, dimension(fields[a+1])));
                 }
             }
             MASSERT(operator_precedence.find(at(fields[0]).type) != operator_precedence.end()) << "precedence not defined for type " << at(fields[0]).type << ", at " << at(fields[0]).type << "\n";

@@ -282,12 +282,21 @@ template <class T> inline static
 std::string join(int acc_max, T&& acc, std::string const &sep="") {
     return join(acc_max, acc, sep, sep);
 }
-template <typename N, typename A> inline static
-N min(A l) { return (N)l; }
-template<typename N, typename A, typename... As> inline static 
-N min(A first, As... args) {
-    return std::min((N) first, min(args...));
+template <class T> inline static 
+auto sum(int acc_max, T&& acc) {
+    auto s = acc_max > 0? acc(0): 0;
+    for(int i = 1; i < acc_max; ++i) 
+        s += acc(i);
+    return s;
 }
+
+template <typename N, typename A> inline static
+N vmin(A l) { return (N)l; }
+template<typename N, typename A, typename... As> inline static 
+N vmin(A first, As... args) {
+    return std::min((N) first, vmin(args...));
+}
+
 }
 #if WITH_REST    
 /**********************************************************************************************************
