@@ -189,13 +189,14 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
     auto funp = function_table.find(fname);
     // check the function name
     if(funp == function_table.end() || !funp->second.enable) {
-        errmsg = stru1::sfmt() << "unknown function \"" << fname << "\"";
+        errmsg = stru1::sfmt() << "unknown function \"~" << fname << "\"";
+        funp = function_table.end();
     } else {
         // check the number of arguments
         if(funp->second.required_argc == funp->second.arg_type.size() && funp->second.required_argc != argc) 
-            errmsg = stru1::sfmt() << "function \"" << fname << "\" takes " << funp->second.required_argc << " arguments but " << argc << " were given";
+            errmsg = stru1::sfmt() << "function \"~" << fname << "\" takes " << funp->second.required_argc << " arguments but " << argc << " were given";
         else if(funp->second.required_argc != funp->second.arg_type.size() && funp->second.required_argc > argc || funp->second.arg_type.size() < argc) 
-            errmsg = stru1::sfmt() << "function \"" << fname << "\" takes at least " << funp->second.required_argc 
+            errmsg = stru1::sfmt() << "function \"~" << fname << "\" takes at least " << funp->second.required_argc 
                 << " and at most " << funp->second.arg_type.size() << " arguments but " << argc << " were given";
         else 
             rc = 0;
