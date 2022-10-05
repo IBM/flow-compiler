@@ -1054,7 +1054,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
             op_precedence = operator_precedence.find(at(fields[0]).type)->second;
             switch(at(fields[0]).type) {
                 case FTK_ID: 
-                    icode.push_back(fop(FUNC, get_id(fields[0]), fields.size()-1, op_precedence));
+                    icode.push_back(fop(FUNC, get_id(fields[0]), fields.size()-1, dimension(fldr_node), get_isinline(get_id(fields[0]))));
                     break;
                 case FTK_HASH:
                     if(dimension(fields[1]) == 0) {

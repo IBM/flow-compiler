@@ -94,7 +94,7 @@ static const std::map<std::string, function_info> function_table = {
       "The second argument is used as separator, and the third, if given as the last separator.\n"}},
     { "split",       { A_RSTR,  { A_STR, A_STR }, 1, 1, false,
       "Splits the first argument by any character in the second argument. By default it splits on ASCII whitespace.\n"}},
-    { "slice",       { A_ARG+1, { A_RANY, A_INT, A_INT }, 2, 0, false,
+    { "slice",       { A_ARG+1, { A_RANY, A_INT, A_INT }, 2, 0, true,
       "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
     { "partition",   { A_ARG+1, { A_RANY, A_INT }, 2, 1, false,
       "Returns a sequence of subsequences of the repeated field. The second argument is the number of sequences to divide into.\n"}},
@@ -108,8 +108,10 @@ static const std::map<std::string, function_info> function_table = {
       "Returns the minimum of the numeric repeated field, preserving type. It returns 0 if the field is empty.\n"}},
     { "max",         { A_ARG+1, { A_RNUM }, 1, -1, true, 
       "Returns the maximum of the numeric repeated field, preserving type. It returns 0 if the field is empty.\n"}},
-    { "uniq",        { A_ARG+1, { A_RPRI }, 1, 0, false, 
+    { "uniq",        { A_ARG+1, { A_RPRI }, 1, 0, true, 
       "Removes duplicates from a repeated field.\n"}},
+    { "sort",        { A_ARG+1, { A_RPRI, A_NUM }, 1, 0, true, 
+      "Sort the repeated field. Sorts in reverse if the second paramer is non-zero.\n"}},
 };
 
 static std::string at2s(int t) {
@@ -213,7 +215,7 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
             atype = function_arg_type(atype & (A_REP-1));
              
             if(!compare_atype(atype, ntype)) {
-                print_ast(std::cout, funcnode);
+                //print_ast(std::cout, funcnode);
                 if(errnode != 0)
                     errnode = args[i+1];
                 errmsg = stru1::sfmt() << "argument " << (i+1) << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
@@ -240,6 +242,13 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
 int get_fdimchange(std::string fname) {
     auto funp = function_table.find(fname);
     return funp->second.dim;
+}
+bool get_isinline(std::string fname) {
+    auto funp = function_table.find(fname);
+    int type = ((funp->second.return_type & A_ARG) == A_ARG)?
+        funp->second.arg_type[(funp->second.return_type & (A_ARG-1))-1]:
+        funp->second.return_type;
+    return (type & A_REP) == 0 || funp->second.dim < 0;
 }
 std::vector<std::pair<int, bool>> get_fargtypes(std::string fname) {
     std::vector<std::pair<int, bool>> argtypes;

@@ -55,6 +55,9 @@ int get_fdimchange(std::string fname);
 /** return argument type information for a built-in function
  */
 std::vector<std::pair<int, bool>> get_fargtypes(std::string fname);
+/** return true the function can be inlined.
+ */
+bool get_isinline(std::string fname);
 
 class flow_compiler: public flow_ast {
 private:    

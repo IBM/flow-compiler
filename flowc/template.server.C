@@ -26,6 +26,7 @@
 #include <string>
 #include <thread>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -294,27 +295,73 @@ auto max(int acc_max, T&& acc) {
     auto v = acc_max > 0? acc(0): 0;
     for(int i = 1; i < acc_max; ++i) 
         v = std::max(v, acc(i));
-    return s;
+    return v;
 }
 template <class T> inline static 
 auto min(int acc_max, T&& acc) {
     auto v = acc_max > 0? acc(0): 0;
     for(int i = 1; i < acc_max; ++i) 
         v = std::min(v, acc(i));
-    return s;
+    return v;
 }
-template <typename N, typename A> inline static
-N vmin(A l) { return (N)l; }
-template<typename N, typename A, typename... As> inline static 
-N vmin(A first, As... args) {
-    return std::min((N) first, vmin(args...));
+template <typename A> inline static
+A vmin(A l) { return l; }
+template<typename A, typename... As> inline static 
+A vmin(A first, As... args) {
+    return std::min(first, vmin(args...));
 }
-template <typename N, typename A> inline static
-N vsum(A l) { return (N)l; }
-template<typename N, typename A, typename... As> inline static 
-N vsum(A first, As... args) {
-    return (N) first + vsum(args...);
-}
+template <typename ACC> 
+struct uniq {
+    typedef typename std::invoke_result<ACC, int>::type  ELEM;
+    std::vector<ELEM> elems;
+    uniq(int acc_max, ACC&& acc) {
+        std::set<ELEM> uset;
+        for(int i = 0; i < acc_max; ++i) {
+            ELEM e = acc(i);
+            if(uset.find(e) == uset.end()) {
+                uset.insert(e); elems.push_back(e);
+            }
+        }
+    }
+    typename decltype(elems)::size_type size() const { return elems.size(); }
+    auto operator[](int i) { return elems[i]; }
+};
+template <typename ACC> 
+struct sort {
+    typedef typename std::invoke_result<ACC, int>::type ELEM;
+    std::vector<ELEM> elems;
+    sort(int acc_max, ACC&& acc, bool reverse=false) {
+        for(int i = 0; i < acc_max; ++i) 
+            elems.push_back(acc(i));
+        if(reverse)
+            std::sort(elems.begin(), elems.end(), std::greater<ELEM>());
+        else
+            std::sort(elems.begin(), elems.end());
+    }
+    typename decltype(elems)::size_type size() const { return elems.size(); }
+    auto operator[](int i) { return elems[i]; }
+};
+template <typename ACC> 
+struct slice {
+    ACC acc;
+    int acc_max, offset;
+    void set_limits(int a_acc_max, int left, int right) {
+        if(left < 0) left += a_acc_max;
+        if(right < 0) right += a_acc_max;
+        if(left >= right || left >= a_acc_max || right < 0)
+            left = right = 0;
+        acc_max = right;
+        offset = left;
+    }
+    slice(int a_acc_max, ACC&& a_acc, int left, int right):acc(a_acc) {
+        set_limits(a_acc_max, left, right);
+    }
+    slice(int a_acc_max, ACC&& a_acc, int left):acc(a_acc) {
+        set_limits(a_acc_max, left, a_acc_max);
+    }
+    std::vector<int>::size_type size() const { return acc_max - offset; }
+    auto operator[](int i) { return acc(i+offset); }
+};
 }
 #if WITH_REST    
 /**********************************************************************************************************
