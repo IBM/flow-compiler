@@ -296,7 +296,12 @@ template<typename N, typename A, typename... As> inline static
 N vmin(A first, As... args) {
     return std::min((N) first, vmin(args...));
 }
-
+template <typename N, typename A> inline static
+N vsum(A l) { return (N)l; }
+template<typename N, typename A, typename... As> inline static 
+N vsum(A first, As... args) {
+    return (N) first + vsum(args...);
+}
 }
 #if WITH_REST    
 /**********************************************************************************************************
