@@ -101,7 +101,7 @@ static const std::map<std::string, function_info> function_table = {
       "Returns a sequence of subsequences of the repeated field, no longer than the argument.\n"}},
     { "cat",         { A_ARG+1, { A_RANY, A_ARG+1 }, 2, 0, 
       "Returns the concatenation of arguments.\n"}},
-    { "sum",       { A_NUM, { A_RNUM }, 1, -1,
+    { "sum",       { A_ARG+1, { A_RNUM }, 1, -1,
       "Returns the sum of the numeric repeated field, preserving type.\n"}},
     { "uniq",         { A_ARG+1, { A_RPRI }, 1, 0, 
       "Removes duplicates from a repeated field.\n"}},
@@ -131,8 +131,11 @@ static std::string at2sq(int t) {
 static std::string func_proto(std::string fname, function_info const &fe, bool quote=false) {
     std::ostringstream out;
     auto rtype = fe.return_type;
-    if(rtype & A_ARG) 
+    if(rtype & A_ARG) {
         rtype = fe.arg_type[ (rtype & (A_ARG-1)) -1 ];
+        if((rtype & A_REP) && fe.dim < 0)
+            rtype = rtype & (A_REP-1);
+    }
     out << (quote?at2sq(rtype):at2s(rtype)) << " \"~" << fname << "\"(";
     if(fe.arg_type.size() == fe.required_argc) {
         out << stru1::joint(fe.arg_type, quote?at2sq:at2s, ", ");
@@ -204,9 +207,10 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
             atype = function_arg_type(atype & (A_REP-1));
              
             if(!compare_atype(atype, ntype)) {
+                print_ast(std::cout, funcnode);
                 if(errnode != 0)
                     errnode = args[i+1];
-                errmsg = stru1::sfmt() << "argument " << i+1 << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
+                errmsg = stru1::sfmt() << "argument " << (i+1) << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
                 rc = -1;
             }
         }
