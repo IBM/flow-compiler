@@ -1124,7 +1124,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 loop_c.back().insert(stem);
             } break;
             case BLP:
-                OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
+                OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " 
+                    << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
                 if(op.arg[0]) {
                     OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
                     cur_loop_tmp.push_back(sfmt() << "T" << loop_c.size());
@@ -1138,31 +1139,30 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 acinf.decr_loop_level();
                 OUT << unindent() << "}\n";
                 break;
-            case FUNC: { // args: number of args, precedence, is inline 
-                
-                assert(tvl.size() >= op.arg[0]);
-                std::string tmpvar = sfmt() << "TACC" << tacc_count;
-                rvl = sfmt() << "flowrt::" << op.arg1 << " " << (!op.arg[2]? tmpvar: std::string()) << "(";
-                for(int i = tvl.size() - op.arg[0]; i < tvl.size(); ++i) {
-                    rvl += tvl[i].first; 
-                    if(i + 1 != tvl.size()) rvl += ", ";
-                }
-                rvl += ")";
-                for(int i = 0; i < op.arg[0]; ++i)
-                    tvl.pop_back();
-                if(!op.arg[2]) {
-                    OUT << rvl << ";\n";
-                    rvl = sfmt() << tmpvar << "[" << cpp_index_prefix << op.arg[1] << "]";
-                    ++tacc_count;
-                    // remove all the sizes used by the subexpressions and replace them with
-                    // the size of this object
-                    std::vector<std::string> ss; ss.push_back(sfmt() << tmpvar << ".size()");
-                    if(flvs.size() > 0) {
-                        flvs.back().clear();
-                        flvs.back().insert(ss);
+            case FUNC: { // args: number of args, function's dimension, is inline 
+                    assert(tvl.size() >= op.arg[0]);
+                    std::string tmpvar = sfmt() << "TACC" << tacc_count;
+                    rvl = sfmt() << "flowrt::" << op.arg1 << " " << (!op.arg[2]? tmpvar: std::string()) << "(";
+                    for(int i = tvl.size() - op.arg[0]; i < tvl.size(); ++i) {
+                        rvl += tvl[i].first; 
+                        if(i + 1 != tvl.size()) rvl += ", ";
                     }
-                }
-                tvl.push_back(std::make_pair(rvl, 0));
+                    rvl += ")";
+                    for(int i = 0; i < op.arg[0]; ++i)
+                        tvl.pop_back();
+                    if(!op.arg[2]) {
+                        OUT << rvl << ";\n";
+                        rvl = sfmt() << tmpvar << "[" << cpp_index_prefix << op.arg[1] << "]";
+                        ++tacc_count;
+                        // remove all the sizes used by the subexpressions and replace them with
+                        // the size of this object
+                        std::vector<std::string> ss; ss.push_back(sfmt() << tmpvar << ".size()");
+                        if(flvs.size() > 0) {
+                            flvs.back().clear();
+                            flvs.back().insert(ss);
+                        }
+                    }
+                    tvl.push_back(std::make_pair(rvl, 0));
                 } break;
             case IOP: // arg[0]: number of operands, arg[1]: operator priority
                 assert(tvl.size() >= op.arg[0]);
