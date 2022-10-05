@@ -1045,7 +1045,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                     }
                     if(fat.second)
                         icode.push_back(fop(CLLS, a));
-                    error_count += encode_expression(fields[a+1], fat.first, dimc);
+                    error_count += encode_expression(fields[a+1], fat.first, dimc+dim_change);
                     if(fat.second)
                         icode.push_back(fop(DACC, dimc, dimension(fields[a+1])));
                 }
@@ -1149,8 +1149,14 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
             break;
         case FTK_fldx:
             icode.push_back(fop(RVF, fldx_mname(fldr_node, 1000), dimension(fields[0])));
-            if(dim_change < 0 && dimension(fldr_node) > 0)
-                icode.push_back(fop(STOL, fldx_mname(fldr_node, dimension(fldr_node)), dimension(fields[0])));
+            if(dim_change < 0 && dimension(fldr_node) > 0) {
+                std::string stols;
+                for(int d = dim_change+1; d <= 0; ++d) {
+                    if(!stols.empty()) stols += "#";
+                    stols += fldx_mname(fldr_node, dimension(fldr_node)+d);
+                }
+                icode.push_back(fop(STOL, stols, dimension(fields[0]), dimension(fldr_node), dim_change));
+            }
             break;
         case FTK_STRING: 
             if(name.has(fldr_node)) 
@@ -1199,11 +1205,12 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
 /**
  * Generate code to set up the all the fields in the input grpc messsage 
  *
- * lv_name: the left-value name
- *     1 - either the name of a message reference that is the input to a node call
- *     2 - the name of a message reference that is the return value for a node
- *     3 - one of the above followed by a list of field names
- *     5 - the name of a temporary variable of a basic type (integer, float or string)
+ * lv_name: the left-value name is either 
+ *     - the name of a message reference that is either the input to a node call or 
+ *       the return value for a node, possibly followed by a list of field names
+ *     or  
+ *     - the name of a temporary variable of a basic type (integer, float or string)
+ *
  * lvd: message descriptor associated with the left value
  * lvfd: descriptor associated with the case number 3 of lv_name
  * arg_node: current node
