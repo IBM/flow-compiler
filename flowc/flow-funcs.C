@@ -101,7 +101,7 @@ static const std::map<std::string, function_info> function_table = {
       "Returns a sequence of subsequences of the repeated field, no longer than the argument.\n"}},
     { "cat",         { A_ARG+1, { A_RANY, A_ARG+1 }, 2, 0, 
       "Returns the concatenation of arguments.\n"}},
-    { "sum",       { A_ARG+1, { A_RNUM }, 1, -1,
+    { "sum",       { A_NUM, { A_RNUM }, 1, -1,
       "Returns the sum of the numeric repeated field, preserving type.\n"}},
     { "uniq",         { A_ARG+1, { A_RPRI }, 1, 0, 
       "Removes duplicates from a repeated field.\n"}},

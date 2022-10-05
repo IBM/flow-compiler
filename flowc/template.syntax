@@ -22,13 +22,13 @@ below is spcified using 'Extended Backus-Naur Form (EBNF)' with the following no
 
 Terminals are "emphasized".
 
-A "node" definition is an abstraction of a gRPC service. 
+A "node" definition is an abstraction of a gRPC service. If a condition is present, the node
+is evaluated ony if the condition evaluates to true. The contions for nodes of the same type 
+are evaluated in the file order.
 
-"node" identifier "{"  
+"node" identifier '['"("conditional-expression")"']' "{"  
     "output" full_identifier "(" message_mapping ")" ";"
     '{'option_definition'}'
-    '['environment']'
-    '{'volume_mounts'}'
 "}"
 
 An "entry" is the implementation of one service method. Its name must match the service.method 
@@ -38,6 +38,11 @@ that it implements.
     "return" "(" message_mapping ")" ";"
     '{'option_definition'}'
 "}"
+
+Error check statements generate a gRPC error whn the condition is evaluated to true. Like node
+conditions, error checks are evaluated in file order.
+
+"error" "("conditional-expression")" '['integer-expression","']' string-expression 
 
 "container" is used to define any auxiliary "non-gRPC" service that is needed by the system. 
 The syntax is identical to the "node" except that no "output" statement is allowed.
