@@ -17,6 +17,10 @@
 
 BUILD_VERSION?=0.21.2
 
+# Versions to use inside the image
+GRPC_VERSION?=1.49.1
+CIVETWEB_VERSION?=1.15
+
 ifndef BUILD_ID
 
 GIT_TS:=$(shell git show -s --format=%cD)
@@ -190,7 +194,16 @@ endif
 flow-base-image-info.json: runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE)  > /dev/null 2>&1
 	$(TAR) -czf flow-compiler-minsrc.tgz  --transform 's,^,flow-compiler/,' $(MINSRC_FILES)
-	cat runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm --build-arg "STACK_TRACE=$(STACK_TRACE)" --build-arg "RUNTIME=$(RUNTIMES)" --build-arg "DEBUG_FLOWC=$(DBG)" --build-arg "BUILD_ID=$(BUILD_ID)" --build-arg "BUILD_VERSION=$(BUILD_VERSION)" --build-arg "BASE_IMAGE=$(BASE_IMAGE)" -t $(IMAGE) -f - .
+	cat runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile | docker build --pull --force-rm \
+		--build-arg "STACK_TRACE=$(STACK_TRACE)" \
+		--build-arg "RUNTIME=$(RUNTIMES)" \
+		--build-arg "DEBUG_FLOWC=$(DBG)" \
+		--build-arg "BUILD_ID=$(BUILD_ID)" \
+		--build-arg "BUILD_VERSION=$(BUILD_VERSION)" \
+		--build-arg "BASE_IMAGE=$(BASE_IMAGE)" \
+		--build-arg "GRPC_VERSION=$(GRPC_VERSION)" \
+		--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)" \
+		-t $(IMAGE) -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > $@
 
