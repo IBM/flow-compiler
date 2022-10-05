@@ -289,7 +289,20 @@ auto sum(int acc_max, T&& acc) {
         s += acc(i);
     return s;
 }
-
+template <class T> inline static 
+auto max(int acc_max, T&& acc) {
+    auto v = acc_max > 0? acc(0): 0;
+    for(int i = 1; i < acc_max; ++i) 
+        v = std::max(v, acc(i));
+    return s;
+}
+template <class T> inline static 
+auto min(int acc_max, T&& acc) {
+    auto v = acc_max > 0? acc(0): 0;
+    for(int i = 1; i < acc_max; ++i) 
+        v = std::min(v, acc(i));
+    return s;
+}
 template <typename N, typename A> inline static
 N vmin(A l) { return (N)l; }
 template<typename N, typename A, typename... As> inline static 
