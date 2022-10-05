@@ -751,6 +751,8 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     int alternate_nodes = 0;        // count of alternate nodes 
     EnumDescriptor const *ledp, *redp;   // left and right enum descriptor needed for conversion check
     int error_count = 0;
+    int dacc_level = 0;
+    int tacc_count = 0;
 
     std::string loop_chk, loop_end;
    
@@ -1136,9 +1138,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 acinf.decr_loop_level();
                 OUT << unindent() << "}\n";
                 break;
-            case FUNC:
+            case FUNC: { // args: number of args, precedence, is inline 
+                
                 assert(tvl.size() >= op.arg[0]);
-                rvl = sfmt() << "flowrt::" << op.arg1 << "(";
+                std::string tmpvar = sfmt() << "TACC" << tacc_count;
+                rvl = sfmt() << "flowrt::" << op.arg1 << " " << (!op.arg[2]? tmpvar: std::string()) << "(";
                 for(int i = tvl.size() - op.arg[0]; i < tvl.size(); ++i) {
                     rvl += tvl[i].first; 
                     if(i + 1 != tvl.size()) rvl += ", ";
@@ -1146,8 +1150,20 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 rvl += ")";
                 for(int i = 0; i < op.arg[0]; ++i)
                     tvl.pop_back();
+                if(!op.arg[2]) {
+                    OUT << rvl << ";\n";
+                    rvl = sfmt() << tmpvar << "[" << cpp_index_prefix << op.arg[1] << "]";
+                    ++tacc_count;
+                    // remove all the sizes used by the subexpressions and replace them with
+                    // the size of this object
+                    std::vector<std::string> ss; ss.push_back(sfmt() << tmpvar << ".size()");
+                    if(flvs.size() > 0) {
+                        flvs.back().clear();
+                        flvs.back().insert(ss);
+                    }
+                }
                 tvl.push_back(std::make_pair(rvl, 0));
-                break;
+                } break;
             case IOP: // arg[0]: number of operands, arg[1]: operator priority
                 assert(tvl.size() >= op.arg[0]);
                 switch(op.arg[0]) { 
@@ -1259,6 +1275,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
                     tvl.pop_back();
                     tvl.push_back(std::make_pair(rvl, 0));
+                    --dacc_level;
                 }
                 break;
 
@@ -1275,6 +1292,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case CLLS: 
                 // Create a new size set
                 flvs.push_back(std::set<std::vector<std::string>>());
+                ++dacc_level;
                 break;
 
             case CALL:
