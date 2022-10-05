@@ -1,16 +1,18 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <set>
-#include <map>
 #include <algorithm>
 #include <ctime>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <set>
+#include <vector>
+
 #include <sys/stat.h>
 
-#include "flow-compiler.H"
-#include "stru1.H"
 #include "cot.H"
+#include "flow-compiler.H"
 #include "grpc-helpers.H"
+#include "strsli.H"
+#include "stru1.H"
 #include "vex.H"
 
 using namespace stru1;
@@ -728,7 +730,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
     std::vector<std::set<std::string>> loop_c;
     std::string rvl, lvl;   // Left and right value expressions
     std::vector<std::pair<std::string, int>> tvl; // Values stack of <value, priority>
-    std::vector<std::string> flvs; // Field length values stack
+    // Field length values stack -- 
+    //      for each subexpression there is a set of lengths that need to be considered
+    //      in the case of dimension resuction we keep all lower dimensions in order
+    std::vector<std::set<std::vector<std::string>>> flvs; 
     // 
     int cur_stage = 0, cur_node = 0, node_dim = 0, stage_nodes = 0;
     std::string cur_stage_name, cur_input_name, cur_output_name, cur_node_name;
@@ -1234,25 +1239,42 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 break;
 
             case DACC: {
+                    assert(flvs.size() > 0);
+                    // args: dimension change of this aggregator, dimension of the right value
                     std::set<std::string> lxset;
-                    while(flvs.size() > 0 && flvs.back() != "") {
-                        lxset.insert(flvs.back()); flvs.pop_back();
+                    std::set<std::vector<std::string>> saves;
+                    for(auto &sv: flvs.back()) {
+                        // keep the length expressions for dimensions after reduction
+                        if(sv.size() > -op.arg[0])
+                            saves.insert(std::vector(sv.begin(), sv.begin()+(sv.size()+op.arg[0])));
+                        lxset.insert(sv.back());
                     }
                     std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::vmin(", "", "", ")");
-                    rvl = sfmt() << lenx << ", [&] (int " << cpp_index_prefix << op.arg[1] << ") -> auto { return " << tvl.back().first << "; }";
+                    rvl = sfmt() << lenx << ",\n\t\t\t[&](int " << cpp_index_prefix << op.arg[1] << ") -> auto {return " << tvl.back().first << ";}";
+                    // Remove the marker from the stack
+                    flvs.pop_back();
+                    // If there is a marker in the stack, propagate the sizes we used
                     if(flvs.size() > 0) 
-                        flvs.pop_back();
+                        flvs.back().insert(saves.begin(), saves.end());
+
                     tvl.pop_back();
                     tvl.push_back(std::make_pair(rvl, 0));
                 }
                 break;
 
             case STOL: 
-                flvs.push_back( cpp_var(loop_c, op.arg1, op.arg[0], SIZE, nullptr) );
+                // args: field's dimension, node's dimension, dimension change 
+                {
+                    std::vector<std::string> sizes;
+                    for(auto vn: stru1::splitter(op.arg1, "#"))
+                        sizes.push_back( cpp_var(loop_c, vn, op.arg[0], SIZE, nullptr) );
+                    flvs.back().insert(sizes);
+                }
                 break;
 
             case CLLS: 
-                flvs.push_back("");
+                // Create a new size set
+                flvs.push_back(std::set<std::vector<std::string>>());
                 break;
 
             case CALL:
