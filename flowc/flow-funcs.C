@@ -126,24 +126,29 @@ static std::string at2s(int t) {
     return ts;
 }
 static std::string at2sq(int t) {
-    return std::string("'") + at2s(t) + "'";
+    return "'" + at2s(t) + "'";
+}
+static std::string func_proto(std::string fname, function_info const &fe, bool quote=false) {
+    std::ostringstream out;
+    auto rtype = fe.return_type;
+    if(rtype & A_ARG) 
+        rtype = fe.arg_type[ (rtype & (A_ARG-1)) -1 ];
+    out << (quote?at2sq(rtype):at2s(rtype)) << " \"~" << fname << "\"(";
+    if(fe.arg_type.size() == fe.required_argc) {
+        out << stru1::joint(fe.arg_type, quote?at2sq:at2s, ", ");
+    } else {
+        out << stru1::joint(fe.arg_type.begin(), fe.arg_type.begin()+fe.required_argc, quote?at2sq:at2s, ", ");
+        out << "[";
+        if(fe.required_argc > 0) out << ", ";
+        out << stru1::joint(fe.arg_type.begin()+fe.required_argc, fe.arg_type.end(), quote?at2sq:at2s, ", ");
+        out << "]";
+    }
+    out << ");";
+    return out.str();
 }
 void show_builtin_help(std::ostream &out) {
     for(auto const &fe: function_table) {
-        auto rtype = fe.second.return_type;
-        if(rtype & A_ARG) 
-            rtype = fe.second.arg_type[ (rtype & (A_ARG-1)) -1 ];
-        out << at2sq(rtype) << " \"~" << fe.first << "\"(";
-        if(fe.second.arg_type.size() == fe.second.required_argc) {
-            out << stru1::joint(fe.second.arg_type, at2sq, ", ");
-        } else {
-            out << stru1::joint(fe.second.arg_type.begin(), fe.second.arg_type.begin()+fe.second.required_argc, at2sq, ", ");
-            out << "[";
-            if(fe.second.required_argc > 0) out << ", ";
-            out << stru1::joint(fe.second.arg_type.begin()+fe.second.required_argc, fe.second.arg_type.end(), at2sq, ", ");
-            out << "]";
-        }
-        out << ");\n";
+        out << func_proto(fe.first, fe.second, true) << "\n";
         out << fe.second.help << "\n";
     }
 }
@@ -201,14 +206,17 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
             if(!compare_atype(atype, ntype)) {
                 if(errnode != 0)
                     errnode = args[i+1];
-                errmsg = stru1::sfmt() << "argument must be of type \"" << at2s(atype) << "\"";
+                errmsg = stru1::sfmt() << "argument " << i+1 << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
                 rc = -1;
             }
         }
     }
     if(rc != 0) {
-        if(errnode != 0)
+        if(errnode != 0) {
             pcerr.AddError(main_file, at(errnode), errmsg);
+            if(funp != function_table.end())
+                pcerr.AddNote(main_file, at(funcnode), stru1::sfmt() << func_proto(funp->first, funp->second));
+        }
         return rc;
     }
     // The return type can be the type of one of the arguments
