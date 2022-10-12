@@ -196,12 +196,15 @@ void flow_compiler::add_comments(int token, std::vector<std::string> const &comm
         description.put(token, stru1::strip(buf2.str()));
 }
 int flow_compiler::parse() {
+    int error_count = 0;
+    DEBUG_ENTER;
     io::ZeroCopyInputStream *zi = source_tree.Open(main_file);
     if(zi == nullptr) {
         pcerr.AddError(main_file, -1, 0, "can't read file");
-        return 1;
+        ++error_count;
+        DEBUG_LEAVE;
+        return error_count;
     }
-    int error_count = 0;
     ErrorPrinter ep(pcerr, main_file);
     io::Tokenizer tokenizer(zi, &ep);
     yyParser *fpp = (yyParser *) flow_parserAlloc(malloc);
@@ -362,6 +365,7 @@ int flow_compiler::parse() {
         flow_parser(fpp, 0, -1, this);
 
     flow_parserFree(fpp, free);
+    DEBUG_LEAVE;
     return error_count;
 }
 int flow_compiler::compile_method(std::string &method, int mthd_node, int max_components) {
