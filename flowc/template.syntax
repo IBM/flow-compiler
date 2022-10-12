@@ -22,9 +22,9 @@ below is spcified using 'Extended Backus-Naur Form (EBNF)' with the following no
 
 Terminals are "emphasized".
 
-A "node" definition is an abstraction of a gRPC service. If a condition is present, the node
-is evaluated ony if the condition evaluates to true. The contions for nodes of the same type 
-are evaluated in the file order.
+A "node" definition is an abstraction of a gRPC service. If a condition is present, the node is
+evaluated only if the condition evaluates to true. The conditions for nodes of the same type are 
+evaluated in file order.
 
 "node" identifier '['"("conditional-expression")"']' "{"  
     "output" full_identifier "(" message_mapping ")" ";"
@@ -40,7 +40,7 @@ that it implements.
 "}"
 
 Error check statements generate a gRPC error whn the condition is evaluated to true. Like node
-conditions, error checks are evaluated in file order.
+conditions, error checks are evaluated as soon as the dependencies are satisfied, in file order.
 
 "error" "("conditional-expression")" '['integer-expression","']' string-expression 
 
