@@ -16,7 +16,7 @@ enum func_type {
     A_ARG = 128,        // argument's type flag
     A_RPR = 64,         // repeated return bit flag
     A_REP = 32,         // repeated flag
-    A_TYPM = (A_REP-1), // mask for getting thee base type
+    A_TYPM = (A_REP-1), // mask for getting the base type
 
     A_ANY = 1,          // any type
     A_STR,              // string
@@ -79,7 +79,7 @@ struct function_info {
         return base_type(func_type(return_type));
     }
     func_type arg_base_type(int i) const {
-        return arg_base_type(func_type(arg_tyna[i].first));
+        return func_type(arg_tyna[i].first & A_TYPM);
     }
     bool return_repeated() const {
         return (return_type & A_RPR) != 0;
@@ -107,9 +107,9 @@ struct function_info {
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
     { "strslice",    {A_STR,   { {A_STR, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, 
-      "Returns the substring indiacted by the byte indices in the second and tird arguents.\n"}},
+      "Returns the substring between the byte indices in the second and tird arguents.\n"}},
     { "substr",      {A_STR,   { {A_STR, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, 
-      "Returns the substring indicated by the utf-8 character indices in the second an third arguments.\n"}},
+      "Returns the substring between the utf-8 character indices in the second an third arguments.\n"}},
     // int length(string s)
     { "length",      {A_INT,  { {A_STR, ""} },  1, 0, true, 
       "Returns the number of utf-8 characters in the argument string.\n"}},
@@ -245,27 +245,30 @@ static bool compare_atype(func_type fat, int ftk) {
         fat == A_NUM && (ftk == FTK_INTEGER || ftk == FTK_FLOAT) ||
         fat == ftk;
 }
-int flow_compiler::check_function(std::string fname, int funcnode, int errnode) {
+int flow_compiler::check_function(int *rvt, std::string fname, int funcnode, int errnode) {
+    int error_count = 0;
+    DEBUG_ENTERA(funcnode << ", " << fname);
     std::string errmsg;
     auto const &args = at(funcnode).children;
     int argc = args.size()-1;   
-    int rc = -1;
     auto funp = function_table.find(fname);
     // check the function name
     if(funp == function_table.end() || !funp->second.enable) {
         errmsg = stru1::sfmt() << "unknown function \"~" << fname << "\"";
         funp = function_table.end();
+        ++error_count;
     } else {
         // check the number of arguments
-        if(funp->second.required_argc == funp->second.arg_count() && funp->second.required_argc != argc) 
+        if(funp->second.required_argc == funp->second.arg_count() && funp->second.required_argc != argc) {
             errmsg = stru1::sfmt() << "function \"~" << fname << "\" takes " << funp->second.required_argc << " arguments but " << argc << " were given";
-        else if(funp->second.required_argc != funp->second.arg_count() && funp->second.required_argc > argc || funp->second.arg_count() < argc) 
+            ++error_count;
+        } else if(funp->second.required_argc != funp->second.arg_count() && funp->second.required_argc > argc || funp->second.arg_count() < argc) {
             errmsg = stru1::sfmt() << "function \"~" << fname << "\" takes at least " << funp->second.required_argc 
                 << " and at most " << funp->second.arg_count() << " arguments but " << argc << " were given";
-        else 
-            rc = 0;
+            ++error_count;
+        }
     }
-    if(rc == 0) {
+    if(error_count == 0) {
         // check the argument types
         for(int i = 0; i < argc; ++i) {
             auto atype = funp->second.arg_base_type(i);
@@ -276,21 +279,24 @@ int flow_compiler::check_function(std::string fname, int funcnode, int errnode) 
                 if(errnode != 0)
                     errnode = args[i+1];
                 errmsg = stru1::sfmt() << "argument " << (i+1) << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
-                rc = -1;
+                ++error_count;
             }
         }
     }
-    if(rc != 0) {
+    if(error_count != 0) {
         if(errnode != 0) {
             pcerr.AddError(main_file, at(errnode), errmsg);
             if(funp != function_table.end())
                 pcerr.AddNote(main_file, at(funcnode), stru1::sfmt() << func_proto(funp->first, funp->second));
         }
-        return rc;
+    } else {
+        // The return type can be the type of one of the arguments
+        int vx = funp->second.return_arg_index();
+        int vt =  vx < 0?  at2ftk(funp->second.return_base_type()): value_type(args[vx+1]);
+        if(rvt != nullptr) *rvt = vt;
     }
-    // The return type can be the type of one of the arguments
-    int vx = funp->second.return_arg_index();
-    return vx < 0?  at2ftk(funp->second.return_base_type()): value_type(args[vx+1]);
+    DEBUG_LEAVE;
+    return error_count;
 }
 int get_fdimchange(std::string fname) {
     auto funp = function_table.find(fname);

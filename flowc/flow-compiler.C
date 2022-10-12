@@ -76,9 +76,12 @@ int flow_compiler::compile_expression(int node) {
     return error_count;
 }
 int flow_compiler::compile_fldr(int fldr_node) {
-    if(fldr_node == 0)
-        return 0;
     int error_count = 0;
+    DEBUG_ENTERA(fldr_node);
+    if(fldr_node == 0) {
+        DEBUG_LEAVE;
+        return 0;
+    }
     auto const &fldr = at(fldr_node);
     //DEBUG_CHECK("at FLDR node " << fldr_node << " of type " << fldr.type);
 
@@ -107,10 +110,9 @@ int flow_compiler::compile_fldr(int fldr_node) {
     auto const &ff = at(fldr.children[0]);
     switch(ff.type) {
         case FTK_ID: {  // function call
-            int vt = check_function(get_id(fldr.children[0]), fldr_node, fldr_node);
-            if(vt < 0) 
-                ++error_count;
-            else 
+            int vt = -1;
+            error_count += check_function(&vt, get_id(fldr.children[0]), fldr_node, fldr_node);
+            if(vt >= 0) 
                 value_type.put(fldr_node, vt);
         } break;
         case FTK_HASH:
@@ -154,16 +156,20 @@ int flow_compiler::compile_fldr(int fldr_node) {
         default: 
             assert(false);
     }
+    DEBUG_LEAVE;
     return error_count;
 }
 /**
  * 'dp' is the message descriptor for for all the fields in the left side of the map.
  */
 int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
-    if(fldm_node == 0) 
-        return 0;
-
     int error_count = 0;
+    DEBUG_ENTERA(fldm_node);
+    if(fldm_node == 0) {
+        DEBUG_LEAVE;
+        return 0;
+    }
+
     auto const &fldm = at(fldm_node);
     assert(fldm.type == FTK_fldm);
     if(!message_descriptor.has(fldm_node))
@@ -184,7 +190,6 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
         }
         field_descriptor.put(d, fidp);
         auto left_type = grpc_type_to_ftk(fidp->type());
-
         switch(at(fldd.children[1]).type) {
             case FTK_fldm:
                 if(left_type == FTK_fldm) {
@@ -230,6 +235,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
                 assert(false);
         }
     }
+    DEBUG_LEAVE;
     return error_count;
 }
 int flow_compiler::update_noderef_dimension(int node) {
@@ -389,9 +395,12 @@ int flow_compiler::update_dimensions(int node) {
     return error_count;
 }
 int flow_compiler::compile_fldx(int node) {
-    if(node == 0)
-        return 0;
     int error_count = 0;
+    DEBUG_ENTERA(node);
+    if(node == 0) {
+        DEBUG_LEAVE;
+        return 0;
+    }
 
     auto const &fldx = at(node);
     assert(fldx.children.size() > 0);
@@ -430,6 +439,7 @@ int flow_compiler::compile_fldx(int node) {
             value_type.put(node, ftkt);
         field_descriptor.put(node, fdp);
     }
+    DEBUG_LEAVE;
     return error_count;
 }
 /*
@@ -1930,6 +1940,7 @@ int flow_compiler::fixup_proto_refs() {
 }
 int flow_compiler::compile_expressions(int node) {
     int error_count = 0;
+    DEBUG_ENTER;
     // action nodes
     for(int n: *this) switch(at(n).type) {
         case FTK_NODE:
@@ -1991,22 +2002,23 @@ int flow_compiler::compile_expressions(int node) {
             }
         }
     }
+    DEBUG_LEAVE;
     return error_count;
 }
 int flow_compiler::compile(std::set<std::string> const &targets, bool ignore_imports) {
+    int error_count = 0;
+    DEBUG_ENTER;
     int root = ast_root();
     if(at(root).type != FTK_ACCEPT || at(root).children.size() != 1)
         return 1;
     root = at(root).children[0];
     if(at(root).type != FTK_flow || at(root).children.size() < 1)
         return 1;
-
-    int error_count = 0;
-
     for(auto const &synerr: syntax_errors) {
         pcerr.AddError(main_file, at(synerr.first), synerr.second);
         ++error_count;
     }
+    DEBUG_CHECK("syntax errors");
     if(error_count > 0) return error_count;
 
     // The main file parsed correctly, now
@@ -2014,23 +2026,29 @@ int flow_compiler::compile(std::set<std::string> const &targets, bool ignore_imp
     for(int n: at(root).children)
         error_count += compile_if_import(n, ignore_imports);
 
+    DEBUG_CHECK("imports");
     // Some import errors might be inconsequential but for now,
     // give up in case of import errors. 
     if(error_count != 0) return error_count;
 
     // Check value types for some reserved define names
     error_count += compile_defines();
+    DEBUG_CHECK("compile defines");
     // Check that node ids are unique, assign ids to the nodes that don't have one and need it.
     error_count += fixup_node_ids();
     if(error_count != 0) return error_count;
+    DEBUG_CHECK("fixup ids");
     // Lookup up grpc messages and methods referenced throughout 
     error_count += fixup_proto_refs();
+    DEBUG_CHECK("fixup proto_refs");
     if(error_count != 0) return error_count;
 
-//    print_ast(std::cout);
+    //print_ast(std::cout);
     error_count += compile_expressions();
+    DEBUG_CHECK("expressions");
     // Fixup value_type for fldr
     error_count += fixup_vt(root);
+    DEBUG_CHECK("fixup value type");
 
     for(int en: *this) if(at(en).type == FTK_ERROR && at(en).children.size() == 3) {
         int cn = at(en).children[1];
@@ -2056,6 +2074,7 @@ int flow_compiler::compile(std::set<std::string> const &targets, bool ignore_imp
     // Build a flow graph for each entry 
     for(int e: *this) if(at(e).type == FTK_ENTRY) 
         error_count += build_flow_graph(e);
+    DEBUG_CHECK("flow graph");
 
     if(error_count > 0) return error_count;
 

@@ -121,6 +121,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     int error_count = 0;
     DEBUG_ENTER;
     main_name = orchestrator_name;
+    DEBUG_CHECK(orchestrator_name);
     set(global_vars, "INPUT_FILE", input_filename);
     set(global_vars, "MAIN_FILE_SHORT", stru1::basename(input_filename));
     set(global_vars, "MAIN_SCALE", "1");
@@ -129,6 +130,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
      */ 
     protocc = sfmt() << "protoc --cpp_out=" << output_filename(".") << " ";
     grpccc = sfmt() << "protoc --grpc_out=" << output_filename(".") << " --plugin=protoc-gen-grpc=" << filu::search_path("grpc_cpp_plugin");
+    DEBUG_CHECK(targets);
     { 
         struct stat sb;
         if(stat(input_filename.c_str(), &sb) != 0 || S_ISDIR(sb.st_mode) || (sb.st_mode & S_IREAD) == 0) {
@@ -148,6 +150,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         protocc += "-I"; protocc += dirname; protocc += " ";
     }
     
+    DEBUG_CHECK(grpccc);
     for(auto const &path: opts["proto-path"]) 
         if(add_to_proto_path(path) != 0) {
             ++error_count;
@@ -204,14 +207,18 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     std::string rest_certificate = orchestrator_name + "-rest.pem";
 
     error_count += parse();
+    DEBUG_CHECK("parsed");
     int imports = 0;
     if(opts.have("import")) for(auto filename: opts["import"]) {
         int ec = compile_proto(filename, ++imports);
         error_count += ec;
     }
+    DEBUG_CHECK(imports);
 
     if(error_count == 0)
         error_count += compile(targets, opts.optb("ignore-imports", false));
+
+    DEBUG_CHECK("compiled");
 
     if(opts.have("print-graph")) {
         std::string entry(opts.opt("print-graph", ""));

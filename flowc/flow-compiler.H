@@ -213,7 +213,7 @@ public:
     // Type check if the the assignment left = right
     int check_assign(int error_node, struct lrv_descriptor const &left, struct lrv_descriptor const &right);
     // Function match - returns the return type as a value_type attribute value
-    int check_function(std::string fname, int funcnode, int error_node);
+    int check_function(int *value_type_p, std::string fname, int funcnode, int error_node);
 
     std::string fldx_mname(int fldx_node, int context_dim) const;
     int encode_expression(int fldr_node, int expected_type, int dim_change, int et_node=0);
@@ -333,10 +333,11 @@ public:
 #define DEBUG_GENC flow_compiler::debug_enable
 #endif
 
-#define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter " << __func__ << " "  << error_count << ", errors\n"
-#define DEBUG_CHECKX(c) if(DEBUG_GENC) std::cerr << "----- check " << (c) << " " << __func__ << " "  << error_count << ", errors\n"
-#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << std::string(stru1::sfmt() << c) << " " << __func__ << " "  << error_count << ", errors\n"
-#define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave " << __func__ << " "  << error_count << ", errors\n"
+#define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter <" << __func__ << ">\n"
+#define DEBUG_ENTERA(c) if(DEBUG_GENC) std::cerr << "----- enter <" << __func__ << "> (" << std::string(stru1::sfmt() << c) <<  ")\n"
+#define DEBUG_CHECKX(c) if(DEBUG_GENC) std::cerr << "----- check " << (c) << " <" << __func__ << "> "  << error_count << ", errors\n"
+#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << std::string(stru1::sfmt() << c) << " <" << __func__ << "> "  << error_count << ", errors\n"
+#define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave <" << __func__ << "> "  << error_count << ", errors\n"
 #define OFSTREAM_SE(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n"; if(!ofs.is_open()) { ++error_count; pcerr.AddError(s, -1, 0, "cannont write file"); }
 
 #endif
