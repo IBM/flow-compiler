@@ -59,6 +59,7 @@ char const *op_name(op o) {
         case COEE: return "COEE";  
         case CON1: return "CON1";
         case CON2: return "CON2";
+        case FLAT: return "FLAT";
     }
     return "?";
 };

@@ -15,6 +15,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -310,36 +311,51 @@ template<typename A, typename... As> inline static
 A vmin(A first, As... args) {
     return std::min(first, vmin(args...));
 }
-template <typename ACC> 
-struct uniq {
-    typedef typename std::invoke_result<ACC, int>::type  ELEM;
-    std::vector<ELEM> elems;
-    uniq(int acc_max, ACC&& acc) {
-        std::set<ELEM> uset;
-        for(int i = 0; i < acc_max; ++i) {
-            ELEM e = acc(i);
-            if(uset.find(e) == uset.end()) {
-                uset.insert(e); elems.push_back(e);
-            }
-        }
+template <typename ACC>
+struct greater_acc {
+    ACC const &acc;
+    greater_acc(ACC const &a_acc): acc(a_acc) {}
+    constexpr bool operator()(int lhs, int rhs) const {
+        return acc(lhs) > acc(rhs); 
     }
-    typename decltype(elems)::size_type size() const { return elems.size(); }
-    auto operator[](int i) { return elems[i]; }
+};
+template <typename ACC>
+struct less_acc {
+    ACC const &acc;
+    less_acc(ACC const &a_acc): acc(a_acc) {}
+    constexpr bool operator()(int lhs, int rhs) const {
+        return acc(lhs) < acc(rhs);
+    }
+};
+template <typename ACC>
+struct accix {
+    ACC acc;
+    std::vector<int> ix;
+    typedef typename std::invoke_result<ACC, int>::type ELEM;
+    accix(ACC &&a_acc): acc(a_acc) {}
+    auto size() const { return ix.size(); }
+    auto operator[](int i) { return acc(ix[i]); }
 };
 template <typename ACC> 
-struct sort {
-    typedef typename std::invoke_result<ACC, int>::type ELEM;
-    std::vector<ELEM> elems;
-    sort(int acc_max, ACC&& acc, bool reverse=false) {
+struct uniq: public accix<ACC> {
+    uniq(int acc_max, ACC &&a_acc):accix<ACC>(std::move(a_acc)) {
+        std::set<int, less_acc<ACC>> uset((less_acc<ACC>(this->acc)));
         for(int i = 0; i < acc_max; ++i) 
-            elems.push_back(acc(i));
-        if(reverse)
-            std::sort(elems.begin(), elems.end(), std::greater<ELEM>());
-        else
-            std::sort(elems.begin(), elems.end());
+            if(uset.find(i) == uset.end()) {
+                uset.insert(i); this->ix.push_back(i);
+            }
     }
-    typename decltype(elems)::size_type size() const { return elems.size(); }
-    auto operator[](int i) { return elems[i]; }
+};
+template <typename ACC> 
+struct sort: public accix<ACC> {
+    sort(int acc_max, ACC &&a_acc, bool reverse=false):accix<ACC>(std::move(a_acc)) {
+        for(int i = 0; i < acc_max; ++i) 
+            this->ix.push_back(i);
+        if(reverse) 
+            std::sort(this->ix.begin(), this->ix.end(), (greater_acc<ACC>(this->acc)));
+        else
+            std::sort(this->ix.begin(), this->ix.end(), (less_acc<ACC>(this->acc)));
+    }
 };
 template <typename ACC> 
 struct slice {
@@ -361,6 +377,41 @@ struct slice {
     }
     std::vector<int>::size_type size() const { return acc_max - offset; }
     auto operator[](int i) { return acc(i+offset); }
+};
+template <typename ACC, typename ACCS> 
+struct flatten2 {
+    ACC acc;
+    ACCS acc_size;
+    int acc_max;
+    std::vector<int>::size_type size2;
+    int index;
+    int i1, i2;
+    std::vector<int>::size_type size() const {
+        return size2;
+    }
+    flatten2(int a_acc_max, ACC&& a_acc, ACCS &&a_acc_size):acc(a_acc), acc_size(a_acc_size), index(-2) {
+        std::vector<int>::size_type sz = 0;
+        for(auto i = 0; i < acc_max; ++i)
+            sz += acc_size(i);
+        size2 = sz;
+    }
+    auto operator[](int i) { 
+        if(i != index+1) {
+            i1 = i2 = 0;
+            index = i;
+            while(i >= acc_size(i1)) {
+                i -= acc_size(i1);
+                ++i1;
+            }
+            i2 = i1;
+        } else {
+            ++i2;
+            while(i2 == acc_size(i1)) {
+                ++i1; i2 = 0;
+            }
+        }
+        return acc(i1)(i2);
+    }
 };
 }
 #if WITH_REST    

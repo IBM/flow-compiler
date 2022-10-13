@@ -1266,19 +1266,23 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         lxset.insert(sv.back());
                     }
                     std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::vmin(", "", "", ")");
-                    rvl = sfmt() << lenx << ",\n\t\t\t[&](int " << cpp_index_prefix << op.arg[1] << ") -> auto {return " << tvl.back().first << ";}";
+                    std::string tmpvar = sfmt() << "TSZ" << tacc_count;
+                    ++tacc_count;
+                    OUT << "auto " << tmpvar << " = " << lenx << ";\n";
+                    rvl = sfmt() << tmpvar << ", [&](int " << cpp_index_prefix << op.arg[1] << ") -> auto {return " << tvl.back().first << ";}";
                     // Remove the marker from the stack
                     flvs.pop_back();
                     // If there is a marker in the stack, propagate the sizes we used
                     if(flvs.size() > 0) 
                         flvs.back().insert(saves.begin(), saves.end());
-
                     tvl.pop_back();
                     tvl.push_back(std::make_pair(rvl, 0));
                     --dacc_level;
                 }
                 break;
-
+            case FLAT: {
+                }
+                break;
             case STOL: 
                 // args: field's dimension, node's dimension, dimension change 
                 {
@@ -1288,13 +1292,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     flvs.back().insert(sizes);
                 }
                 break;
-
             case CLLS: 
                 // Create a new size set
                 flvs.push_back(std::set<std::vector<std::string>>());
                 ++dacc_level;
                 break;
-
             case CALL:
                 node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
@@ -1319,16 +1321,12 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
                 OUT << unindent() << "}\n";
                 break;
-
-
             case NOP: case CON1: case CON2:
                 if(!op.arg1.empty())
                     OUT << "// " << op.arg1 << "\n";
                 if(!op.arg2.empty())
                     OUT << "// " << op.arg2 << "\n";
                 break;
-
-
             case COFB: 
             case COIB: 
                 assert(tvl.size() > 0);
@@ -1339,12 +1337,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 rvl = sfmt() << "!!int(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COSB: 
                 rvl = sfmt() << "stringtobool(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COII: 
                 if(op.arg.size() == 1 || (op.arg.size() > 1 && 
                         strcmp(grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])),
@@ -1352,7 +1348,6 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" <<  tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COFF: 
             case COIF: 
                 if(op.arg.size() < 1)
@@ -1369,33 +1364,27 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COIS: 
             case COFS: 
                 rvl = sfmt() << "std::to_string(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COEE: 
                 rvl = sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << tvl.back().first << "))";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COEF: 
                 rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (int) (" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COSF: 
                 rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") std::atof(" << tvl.back().first << ".c_str())";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COSI: 
                 rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") atol(" << tvl.back().first << ".c_str())";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
-
             case COES: 
                 rvl = sfmt() << get_full_name(op.er) << "_Name(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);

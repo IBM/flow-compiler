@@ -68,6 +68,7 @@ struct function_info {
     int required_argc;
     int dim;
     bool enable;
+    bool inl;
     char const *help;
     int arg_count() const {
         return int(arg_tyna.size());
@@ -106,72 +107,72 @@ struct function_info {
  */
 static const std::map<std::string, function_info> function_table = {
     // string substr(string s, int begin, int end)
-    { "strslice",    {A_STR,   { {A_STR, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, 
+    { "strslice",    {A_STR,   { {A_STR, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, true, 
       "Returns the substring between the byte indices in the second and tird arguents.\n"}},
-    { "substr",      {A_STR,   { {A_STR, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, 
+    { "substr",      {A_STR,   { {A_STR, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, true,
       "Returns the substring between the utf-8 character indices in the second an third arguments.\n"}},
     // int length(string s)
-    { "length",      {A_INT,  { {A_STR, ""} },  1, 0, true, 
+    { "length",      {A_INT,  { {A_STR, ""} },  1, 0, true, true, 
       "Returns the number of utf-8 characters in the argument string.\n"}},
-    { "size",        {A_INT,  { {A_STR, ""} },  1, 0, true,
+    { "size",        {A_INT,  { {A_STR, ""} },  1, 0, true, true,
       "Returns the size of the string argument in bytes.\n"}},
     // string *trim(string s, string strip_chars)
-    { "trim",        {A_STR,   { {A_STR, ""}, {A_STR, "chars"} },   1, 0, true, 
+    { "trim",        {A_STR,   { {A_STR, ""}, {A_STR, "chars"} },   1, 0, true, true, 
       "Deletes all the characters in the second argument string from both ends of the first argument string.\n"
       "If no second argument is given, white-space is deleted.\n"}},
-    { "ltrim",       {A_STR,   { {A_STR, ""}, {A_STR, "chars"} },  1, 0, true, 
+    { "ltrim",       {A_STR,   { {A_STR, ""}, {A_STR, "chars"} },  1, 0, true, true, 
       "Deletes all the characters in the second argument string from the beginning of the first argument string.\n"
       "If no second argument is given, white-space is deleted.\n"}},
-    { "rtrim",       {A_STR,   { {A_STR, ""}, {A_STR, "chars"} },  1, 0, true, 
+    { "rtrim",       {A_STR,   { {A_STR, ""}, {A_STR, "chars"} },  1, 0, true, true,
       "Deletes all the characters in the second argument string from the end of the first argument string.\n"
       "If no second argument is given, white-space is deleted.\n"}},
     // string to*(string s)
-    { "toupper",     {A_STR,   { {A_STR, ""} },  1, 0, true,
+    { "toupper",     {A_STR,   { {A_STR, ""} },  1, 0, true, true,
       "Converts all characters in the argument string to upper case (ASCII only).\n"}},
-    { "tolower",     {A_STR,   { {A_STR, ""} },  1, 0, true, 
+    { "tolower",     {A_STR,   { {A_STR, ""} },  1, 0, true, true,
       "Converts all characters in the argument string to lower case (ASCII only).\n"}},
-    { "toid",        {A_STR,   { {A_STR, ""} },  1, 0, true, 
+    { "toid",        {A_STR,   { {A_STR, ""} },  1, 0, true, true,
       "Converts the string argument to a string that can be used as an identifier, by replacing all illegal character runs with an underscore('_').\n"}},
-    { "tocname",     {A_STR,   { {A_STR, ""} },  1, 0, true, 
+    { "tocname",     {A_STR,   { {A_STR, ""} },  1, 0, true, true,
       "Converts the string in the argument to a cannonical name by replacing all underscore('_') and space(' ') character runs with a dash('-').\n"}},
-    { "camelize",    {A_STR,   { {A_STR, ""} },  1, 0, true, 
+    { "camelize",    {A_STR,   { {A_STR, ""} },  1, 0, true, true,
       "Converts the string in the argument to a camel-cased identifier string.\n"}},
-    { "decamelize",  {A_STR,   { {A_STR, ""} },  1, 0, true, 
+    { "decamelize",  {A_STR,   { {A_STR, ""} },  1, 0, true, true,
       "Converts a camel-cased string to a readable string.\n"}},
     // string tr(string s, string match_list, string replace_list)
-    { "tr",          {A_STR,   { {A_STR, ""}, {A_STR, "set1"}, {A_STR, "set2"} },  2, 0, true, 
+    { "tr",          {A_STR,   { {A_STR, ""}, {A_STR, "set1"}, {A_STR, "set2"} },  2, 0, true, true,
       "Returns the transformation of the string given as first argument by replacing all the characters in the second argument\n"
       "with the corresponding character in the third argument. If there is no corresponding character, the character is deleted.\n"}},
 
     // string getenv(name, default_value)
-    { "getenv",      {A_STR,   { {A_STR, "variable_name"}, {A_STR, "default_value"} },  1, 0, true, 
+    { "getenv",      {A_STR,   { {A_STR, "variable_name"}, {A_STR, "default_value"} },  1, 0, true, true,
       "Returns the value of the environment variable named by the first argument. If the environment variable is missing,\n"
       "the value of the second argument is returned.\n"}},
     // string join(elements, separator, last_separator)
-    { "join",        {A_STR,   { {A_RPRI, ""}, {A_STR, "separator"}, {A_STR, "last_separator"} },  1, -1, true, 
+    { "join",        {A_STR,   { {A_RPRI, ""}, {A_STR, "separator"}, {A_STR, "last_separator"} },  1, -1, true, true,
       "Returns the concatenation of the elements of the repeated field, after converstion to string.\n"
       "The second argument is used as separator, and the third, if given as the last separator.\n"}},
-    { "split",       {A_RRSTR,   { {A_STR, "begin"}, {A_STR, "end"} },  1, 1, false,
+    { "split",       {A_RRSTR,   { {A_STR, "begin"}, {A_STR, "end"} },  1, 1, false, false,
       "Splits the first argument by any character in the second argument. By default it splits on ASCII whitespace.\n"}},
-    { "slice",       {A_RRARG1,  { {A_RANY, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true,
+    { "slice",       {A_RRARG1,  { {A_RANY, ""}, {A_INT, "begin"}, {A_INT, "end"} },  2, 0, true, false,
       "Returns a subsequence of the repeated field. Both begin and end indices can be negative.\n"}},
-    { "partition",   {A_ARG1,  { {A_RANY, ""}, {A_INT, ""} },  2, 1, false,
+    { "partition",   {A_ARG1,  { {A_RANY, ""}, {A_INT, ""} },  2, 1, false, false,
       "Returns a sequence of subsequences of the repeated field. The second argument is the number of sequences to divide into.\n"}},
-    { "batch",       {A_ARG1,  { {A_RANY, ""}, {A_INT, ""} },  2, 1, false, 
+    { "batch",       {A_ARG1,  { {A_RANY, ""}, {A_INT, ""} },  2, 1, false, false,
       "Returns a sequence of subsequences of the repeated field, no longer than the argument.\n"}},
-    { "cat",         {A_RRARG1,  { {A_RANY, ""}, {A_ARG1, ""} },  2, 0, false,
+    { "cat",         {A_RRARG1,  { {A_RANY, ""}, {A_ARG1, ""} },  2, 0, false, false,
       "Returns the concatenation of arguments.\n"}},
-    { "flatten",     {A_RRARG1,  { {A_RANY, ""} },  1, -1, true, 
+    { "flatten",     {A_RRARG1,  { {A_RANY, ""} },  1, -1, true, false,
       "Retruns a one dimensional repeated field from a field of any dimension\n" }},
-    { "sum",         {A_ARG1,  { {A_RNUM, ""} },  1, -1, true, 
+    { "sum",         {A_ARG1,  { {A_RNUM, ""} },  1, -1, true, true,
       "Returns the sum of the numeric repeated field, preserving type.\n"}},
-    { "min",         {A_ARG1,  { {A_RNUM, ""} },  1, -1, true, 
+    { "min",         {A_ARG1,  { {A_RNUM, ""} },  1, -1, true, true,
       "Returns the minimum of the numeric repeated field, preserving type. It returns 0 if the field is empty.\n"}},
-    { "max",         {A_ARG1,  { {A_RNUM, ""} },  1, -1, true, 
+    { "max",         {A_ARG1,  { {A_RNUM, ""} },  1, -1, true, true,
       "Returns the maximum of the numeric repeated field, preserving type. It returns 0 if the field is empty.\n"}},
-    { "uniq",        {A_RRARG1,  { {A_RPRI, ""} },  1, 0, true, 
+    { "uniq",        {A_RRARG1,  { {A_RPRI, ""} },  1, 0, true, false,
       "Removes duplicates from a repeated field.\n"}},
-    { "sort",        {A_RRARG1,  { {A_RPRI, ""}, {A_NUM, "reverse"} },  1, 0, true, 
+    { "sort",        {A_RRARG1,  { {A_RPRI, ""}, {A_NUM, "reverse"} },  1, 0, true, false,
       "Sort the repeated field. Sorts in reverse if the second paramer is non-zero.\n"}},
 };
 /**
@@ -304,7 +305,8 @@ int get_fdimchange(std::string fname) {
 }
 bool get_isinline(std::string fname) {
     auto const &fni = function_table.find(fname)->second;
-    return !fni.return_repeated() || fni.dim < 0;
+    //return !fni.return_repeated() || fni.dim < 0;
+    return fni.inl;
 }
 std::vector<std::pair<int, bool>> get_fargtypes(std::string fname) {
     std::vector<std::pair<int, bool>> argtypes;

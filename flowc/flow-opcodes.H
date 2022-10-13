@@ -68,6 +68,7 @@ enum op {
     RVC,            // Right value constant
     RVV,            // Right value variable
     DACC,           // Dimension accessor arg[0] = dimensions 
+    FLAT,           // Flat accessor
     STOL,           // Stack field length
     CLLS,           // Clear field length stack
 
