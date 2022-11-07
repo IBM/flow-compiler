@@ -1,6 +1,6 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.15
-ARG GRPC_VERSION=1.40.0
+ARG GRPC_VERSION=latest
 
 user root
 
@@ -28,7 +28,12 @@ ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl"
 USER root
 
 ## Build and install grpc for C++
-RUN cd /tmp && git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc && cd grpc && git submodule update --init \
+RUN cd /tmp && if [ "$GRPC_VERSION" == "latest" ]; then \
+        git clone -b  $(git ls-remote --tags --refs https://github.com/grpc/grpc.git | cut -d / -f3  | grep -E 'v[0-9]+\.[0-9]+\.[0-9]+$' | sed "h;p;x" | paste -d ' ' - - | sed -e 's/v//' -e s'/\.//' | sort -n | tail -1 | cut -d ' ' -f2) https://github.com/grpc/grpc; \
+    else \
+        git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc; \
+    fi \
+    && cd /tmp/grpc && git submodule update --init \
     && mkdir -p cmake/build && pushd cmake/build \
     && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
     && cmake -DgRPC_BUILD_TESTS=ON ../.. && make -j$(nproc) grpc_cli && strip grpc_cli && cp grpc_cli /usr/local/bin \

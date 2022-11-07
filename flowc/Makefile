@@ -12,23 +12,23 @@
 #
 #   Base image label - Default base image for when --runtime is not used with flowc 
 #BASE_IMAGE?=alpine-3.15
+#
+# 	Force gRPC or CivetWeb to a certain version instead of using the default in the Dockerfile.
+#GRPC_VERSION?=1.49.1
+#CIVETWEB_VERSION?=1.15
 
 -include makefile.local
 
 BUILD_VERSION?=0.21.2
-
-# Versions to use inside the image
-GRPC_VERSION?=1.49.1
-CIVETWEB_VERSION?=1.15
 
 ifndef BUILD_ID
 
 GIT_TS:=$(shell git show -s --format=%cD)
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
 ifeq ($(GIT_MODIFIED_COUNT), 0)
-	GIT_MODIFIED_COUNT:=
+GIT_MODIFIED_COUNT:=
 else
-	GIT_MODIFIED_COUNT:=m$(GIT_MODIFIED_COUNT)
+GIT_MODIFIED_COUNT:=m$(GIT_MODIFIED_COUNT)
 endif
 GIT_GUID:=$(shell git show -s --format=%h)
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
@@ -39,10 +39,10 @@ ifneq ($(GIT_BRANCH), master)
 endif
 ## if this checkout is tagged set the build version to that
 ifeq ($(GIT_TAG), )
-	BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
+BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
 else
-	BUILD_VERSION:=$(GIT_TAG)
-	BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
+BUILD_VERSION:=$(GIT_TAG)
+BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
 endif
 
 endif 
@@ -61,6 +61,14 @@ endif
 BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
+
+ifneq ($(GRPC_VERSION), )
+DOCKER_ARG_GRPC_VERSION:=--build-arg "GRPC_VERSION=$(GRPC_VERSION)"
+endif
+
+ifneq ($(CIVETWEB_VERSION), )
+DOCKER_ARG_CIVETWEB_VERSION:=--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)"
+endif
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help recli.help flowc.help
 .PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
@@ -159,8 +167,6 @@ clean:
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
-
-
 flow-templatez.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	echo "#include <string>" > $@
 	echo "#include <sstream>" >> $@
@@ -190,6 +196,7 @@ install: flowc
 	cp $^ $(INSTALL_PREFIX)
 endif
 
+
 #################### Docker image builder
 flow-base-image-info.json: runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
 	-docker rmi -f $(IMAGE)  > /dev/null 2>&1
@@ -201,8 +208,8 @@ flow-base-image-info.json: runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile ru
 		--build-arg "BUILD_ID=$(BUILD_ID)" \
 		--build-arg "BUILD_VERSION=$(BUILD_VERSION)" \
 		--build-arg "BASE_IMAGE=$(BASE_IMAGE)" \
-		--build-arg "GRPC_VERSION=$(GRPC_VERSION)" \
-		--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)" \
+		$(DOCKER_ARG_GRPC_VERSION) \
+		$(DOCKER_ARG_CIVETWEB_VERSION) \
 		-t $(IMAGE) -f - .
 	rm -f flow-compiler-minsrc.tgz
 	-docker image inspect $(IMAGE) > /dev/null 2>&1 && docker image inspect $(IMAGE) > $@
