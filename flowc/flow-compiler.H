@@ -123,7 +123,7 @@ public:
     }
     int add_to_proto_path(std::string const &directory, std::string const &mapped_to="");
     /**
-     * Compile a proto file, if file not found and directory is not 0, map the file's directory to directory
+     * Compile a proto file, if file not found and map_directory is not 0, map the file's directory to directory
      */
     int compile_proto(std::string const &file, int map_directory=0);
 
