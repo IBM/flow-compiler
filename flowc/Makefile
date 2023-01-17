@@ -140,7 +140,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C)
 	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 %.helpx.C: %.helpx
-	./help2c.sh $@ $<
+	./help2C.sh $@ $<
 
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 

@@ -75,7 +75,7 @@ OPTIONS
 
        --entry=NAME, -e NAME
               Generate code for this entry only. Can be repeated. By default code is genrated for all entries
-              define in the flow.
+              defined in the flow.
 
        --grpc-files
               Generate ".cc" and ".h" files for both "gRPC" services and "Protocol Buffers" messages.
@@ -108,7 +108,7 @@ OPTIONS
               is set.
 
        --import=FILE
-              Import proto FILE before any other import directive in the flow file is processed. 
+              Import proto FILE before any other import directive in the flow file. 
               See also --ignore-imports.
 
        --input-label=NAME
