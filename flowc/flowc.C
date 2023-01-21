@@ -40,7 +40,13 @@ std::string flow_compiler::output_filename(std::string const &filename) {
     return output_directory+"/"+filename;
 }
 void FErrorPrinter::ShowLine(std::string const filename, int line, int column) {
-    std::ifstream sf(filename.c_str());
+    std::string disk_file;
+    if(source_tree == nullptr) 
+        disk_file = filename;
+    else
+        source_tree->VirtualFileToDiskFile(filename, &disk_file);
+
+    std::ifstream sf(disk_file.c_str());
     if(sf.is_open()) {
         std::string lines;
         for(int i = 0; i <= line; ++i) std::getline(sf, lines);
@@ -62,7 +68,6 @@ void FErrorPrinter::AddMessage(std::string const &type, ANSI_ESCAPE color, std::
 }
 void FErrorPrinter::AddError(std::string const &filename, int line, int column, std::string const &message) {
     AddMessage("error", ANSI_RED, filename, line, column, message);
-    std::cerr << "SHwoing " << line << ", " << column << " ["<< filename << "]\n";
     if(!filename.empty() && line >= 0 && column >= 0)
         ShowLine(filename, line, column);
 }
@@ -100,7 +105,7 @@ char const *get_default_runtime();
 std::set<std::string> available_runtimes();
 #define FLOWC_NAME "flowc"
 
-flow_compiler::flow_compiler(): pcerr(std::cerr), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
+flow_compiler::flow_compiler(): pcerr(std::cerr, &source_tree), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
     input_label = "input";
     rest_port = -1;
     base_port = 53135;                  // the lowest it can be is 49152

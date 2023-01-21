@@ -61,8 +61,8 @@ bool get_isinline(std::string fname);
 
 class flow_compiler: public flow_ast {
 private:    
-    FErrorPrinter pcerr;
     compiler::DiskSourceTree source_tree;
+    FErrorPrinter pcerr;
     compiler::Importer importer;
     // Command line option dependent grpc compiler commands
     std::string grpccc, protocc;
