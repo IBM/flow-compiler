@@ -28,10 +28,6 @@
 #endif
 
 using namespace stru1;
-/** 
- * Set this to false to turn off ANSI coloring 
- */
-bool ansi::use_escapes = true;
 bool flow_compiler::debug_enable = false;
 
 static std::string install_directory;
@@ -43,27 +39,40 @@ std::string flow_compiler::output_filename(std::string const &filename) {
         return output_directory+filename;
     return output_directory+"/"+filename;
 }
-void FErrorPrinter::AddMessage(std::string const &type, std::string const &color, std::string const &filename, int line, int column, std::string const &message) {
-    if(ansi::use_escapes)
-        *outs << ANSI_BOLD;
+void FErrorPrinter::ShowLine(std::string const filename, int line, int column) {
+    std::ifstream sf(filename.c_str());
+    if(sf.is_open()) {
+        std::string lines;
+        for(int i = 0; i <= line; ++i) std::getline(sf, lines);
+        *outs << lines << "\n";
+        if(column > 1) *outs << std::string(column, ' ');
+        *outs << "^" << "\n";
+    }
+}
+void FErrorPrinter::AddMessage(std::string const &type, ANSI_ESCAPE color, std::string const &filename, int line, int column, std::string const &message) {
+    *outs << ANSI_BOLD;
     *outs << filename;
     if(line >= 0) *outs << "(" << line+1;
     if(line >= 0 && column >= 0) *outs << ":" << column+1;
     if(line >= 0) *outs << ")";
     *outs << ": " << color << type << ": ";
-    if(ansi::use_escapes)
-        *outs << ANSI_RESET;
-    ansi::emphasize(*outs, message, ansi::escape(ANSI_BOLD,ANSI_GREEN));
+    *outs << ANSI_RESET;
+    *outs << ansi::emphasize(message, ANSI_BOLD+ANSI_GREEN);
     *outs << "\n";
 }
 void FErrorPrinter::AddError(std::string const &filename, int line, int column, std::string const &message) {
-    AddMessage("error", ansi::escape(ANSI_RED), filename, line, column, message);
+    AddMessage("error", ANSI_RED, filename, line, column, message);
+    std::cerr << "SHwoing " << line << ", " << column << " ["<< filename << "]\n";
+    if(!filename.empty() && line >= 0 && column >= 0)
+        ShowLine(filename, line, column);
 }
 void FErrorPrinter::AddWarning(std::string const &filename, int line, int column, std::string const &message) {
-    AddMessage("warning", ansi::escape(ANSI_MAGENTA), filename, line, column, message);
+    AddMessage("warning", ANSI_MAGENTA, filename, line, column, message);
+    if(!filename.empty() && line >= 0 && column >= 0)
+        ShowLine(filename, line, column);
 }
 void FErrorPrinter::AddNote(std::string const &filename, int line, int column, std::string const &message) {
-    AddMessage("note", ansi::escape(ANSI_BLUE), filename, line, column, message);
+    AddMessage("note", ANSI_BLUE, filename, line, column, message);
 }
 void ErrorPrinter::AddError(int line, int column, std::string const & message) {
     fperr.AddError(filename, line, column, message);
@@ -671,19 +680,19 @@ static int remove_callback(const char *pathname, const struct stat *, int, struc
     return remove(pathname);
 } 
 void show_builtin_help(std::ostream &);
+helpo::opts opts;
 int main(int argc, char *argv[]) {
     signal(SIGABRT, handler);
     signal(SIGSEGV, handler);
-    helpo::opts opts;
     int main_argc = argc;
     if(opts.parse(get_flowc_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
-        ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
+        std::cerr << (opts.optb("color", isatty(fileno(stderr)) && isatty(fileno(stdout)))? ansi::on: ansi::off);
         if(opts.have("help-syntax")) {
-            std::cout << ansi::emphasize(get_template_syntax(), ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n\n";
+            std::cout << ansi::emphasize2(get_template_syntax(), ANSI_BOLD+ANSI_GREEN, ANSI_BOLD+ANSI_MAGENTA) << "\n\n";
             std::ostringstream out;
             show_builtin_help(out);
             std::cout << "Built in functions:\n\n";
-            std::cout << ansi::emphasize(out.str(), ansi::escape(ANSI_BOLD, ANSI_GREEN), ansi::escape(ANSI_BOLD, ANSI_MAGENTA)) << "\n";
+            std::cout << ansi::emphasize2(out.str(), ANSI_BOLD+ANSI_GREEN, ANSI_BOLD+ANSI_MAGENTA) << "\n";
             return 0;
         } else if(opts.have("version")) {
             std::cout << FLOWC_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
@@ -702,7 +711,7 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         } else if(opts.have("help") || main_argc == 1) {
-            ansi::emphasize(std::cout, ansi::emphasize(get_flowc_help(), ansi::escape(ANSI_BLUE)), ansi::escape(ANSI_BOLD), "-", " \r\n\t =,;/", true, true) << "\n";
+            std::cout << ansi::emphasize(ansi::emphasize(get_flowc_help(), ANSI_BLUE), ANSI_BOLD, "-", " \r\n\t =,;/", true, true) << "\n";
             return opts.have("help")? 0: 1;
         } else {
             if(argc != 2) 
@@ -712,7 +721,7 @@ int main(int argc, char *argv[]) {
         }
     }
     // Make sure we use appropriate coloring for errors
-    ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stderr)) && isatty(fileno(stdout)));
+    std::cerr << (opts.optb("color", isatty(fileno(stderr)) && isatty(fileno(stdout)))? ansi::on: ansi::off);
     // Debug flag
     flow_compiler::debug_enable = opts.optb("debug", flow_compiler::debug_enable);
     std::set<std::string> targets;
