@@ -12,6 +12,7 @@
 #include "cot.H"
 #include "flow-parser.c"
 #include "massert.H"
+#include "filu.H"
 
 /**
  * Add the directory to the proto path
@@ -55,7 +56,7 @@ static void get_enums(std::set<EnumValueDescriptor const *> &edset, FileDescript
 int flow_compiler::compile_proto(std::string const &file, int map_file_dir) {
     auto fdp = importer.Import(file);
     if(fdp == nullptr && map_file_dir != 0) {
-        add_to_proto_path(stru1::dirname(file));
+        add_to_proto_path(filu::dirname(file));
         fdp = importer.Import(file);
     }
     if(fdp == nullptr) {

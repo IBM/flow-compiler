@@ -123,7 +123,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     main_name = orchestrator_name;
     DEBUG_CHECK(orchestrator_name);
     set(global_vars, "INPUT_FILE", input_filename);
-    set(global_vars, "MAIN_FILE_SHORT", stru1::basename(input_filename));
+    set(global_vars, "MAIN_FILE_SHORT", filu::basename(input_filename));
     set(global_vars, "MAIN_SCALE", "1");
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid
@@ -142,7 +142,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             ++error_count;
             pcerr.AddError(dirname, -1, 0, "can't find or write to directory");
         }
-        main_file = basename(input_filename, "", &dirname);
+        main_file = filu::basename(input_filename, "", &dirname);
         set(global_vars, "MAIN_FILE", main_file);
         source_tree.MapPath("", dirname);
         if(dirname.empty()) dirname = ".";
@@ -182,17 +182,17 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         set(global_vars, "MAIN_FILE_TS", buffer);
 
         // Add any NAME-xtra.H to the build directory
-        std::string xtra_h = path_join(dirname(real_input_filename), orchestrator_name+"-xtra.H");
+        std::string xtra_h = filu::path_join(filu::dirname(real_input_filename), orchestrator_name+"-xtra.H");
         if(cot::contains(targets, "makefile") && stat(xtra_h.c_str(), &a_file_stat) >= 0 && ((a_file_stat.st_mode & S_IFMT) == S_IFREG || (a_file_stat.st_mode & S_IFMT) == S_IFLNK)) {
             filu::cp_p(xtra_h, output_filename(orchestrator_name+"-xtra.H"));
             append(global_vars, "SERVER_XTRA_H", orchestrator_name+"-xtra.H"); 
         }
     }
     if(opts.have("htdocs")) {
-        std::string htdocs_path(path_join(filu::gwd(), opts.opt("htdocs")));
+        std::string htdocs_path(filu::path_join(filu::gwd(), opts.opt("htdocs")));
         set(global_vars, "HTDOCS_PATH", htdocs_path);
     }
-    set(global_vars, "PROTO_FILES_PATH", path_join(filu::gwd(), output_filename(".")));
+    set(global_vars, "PROTO_FILES_PATH", filu::path_join(filu::gwd(), output_filename(".")));
     set(global_vars, "NAME", orchestrator_name);
     /****************************************************************
      * file names
@@ -331,8 +331,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(!orchestrator_image.empty()) {
         if(orchestrator_image.find_first_of('/') == std::string::npos) 
-            orchestrator_pull_image = path_join(default_repository, orchestrator_image);
-        orchestrator_image = basename(orchestrator_pull_image, "", &push_repository);
+            orchestrator_pull_image = filu::path_join(default_repository, orchestrator_image);
+        orchestrator_image = filu::basename(orchestrator_pull_image, "", &push_repository);
         if(*orchestrator_pull_image.begin() == '/') orchestrator_pull_image = orchestrator_pull_image.substr(1);
         if(push_repository == "/") push_repository.clear();
     }
@@ -740,7 +740,7 @@ int main(int argc, char *argv[]) {
     flow_compiler gfc;
     gfc.trace_on = opts.have("trace");
 
-    std::string orchestrator_name(opts.opt("name", basename(argv[1], ".flow")));
+    std::string orchestrator_name(opts.opt("name", filu::basename(argv[1], ".flow")));
     output_directory = opts.opt("output-directory", ".");
     install_directory = output_directory;
 
