@@ -10,9 +10,12 @@
 #include "flow-parser.h"
 #endif
 
+#define ATK_STRING FTK_STRING
+#define ATK_INTEGER FTK_INTEGER
+#define ATK_FLOAT FTK_FLOAT
+
 #include "ast.H"
 #include "ast-attribute.H"
-#include "stru1.H"
 
 // AST node types 
 enum {
