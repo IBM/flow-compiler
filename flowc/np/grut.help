@@ -1,0 +1,67 @@
+grut - gRPC utility test-tool
+
+USAGE  
+       grut [options] inputfile.proto...
+
+DESCRIPTION
+
+       flowc compiles all argumnet input files and saves re-usable proto-file that uses all 
+       definitions needed by the entries.
+
+OPTIONS
+
+       --color=YES/NO
+              Force or disable ANSI coloring regardless of whether output is to a terminal or not.
+              By default coloring is enabled only when output is to a terminal.
+
+       --debug
+              Enable compiler debug
+
+       --entry=NAME, -e NAME
+              Generate code for this entry only. Can be repeated. By default code is generated for all entries
+              defined in the flow.
+
+       --grpc-files
+              Generate ".cc" and ".h" files for both "gRPC" services and "Protocol Buffers" messages.
+              See --protobuf-files for generating code for messages only.
+
+       --help, -h
+              Print this screen and exit
+
+       --ignore-imports=YES/NO
+              Ignore all import directives in the flow file. See also --import.
+
+       --image=IMAGE:TAG
+              Set the image name and tag for the aggregator image. The default image name is the 
+              aggregator name and the default tag is v1. See --image-tag for changing only the tag.
+
+       --image-pull-secret=NAME
+              Add NAME to the imagePullSecrets section of the kubernetes deployments
+
+       --image-tag=TAG
+              Change the tag but keep the name for the docker image. This option is ignored when --image 
+              is set.
+
+       --import=FILE, -P FILE
+              Import proto FILE before any other import directive in the flow file. 
+              See also --ignore-imports.
+
+       --output-directory=DIRECTORY, -o DIRECTORY
+              Write all the output files in DIRECTORY
+
+       --protobuf-files
+              Generate ".cc" and ".h" files for the "Protocol Buffers" messages using protoc.
+              See --grpc-files for generating code for both messages and services.
+
+       --proto-path=PATH, -I PATH, --proto_path=PATH
+              Specify the directory in which to search for the main file and for imports. May be specified
+              multiple times. Directories will be searched in order. If not given, the current working 
+              directory is used.
+
+       --trace 
+              Very verbose compiler trace
+
+       --version 
+              Display version and build information, list the available runtimes, and exit
+
+
