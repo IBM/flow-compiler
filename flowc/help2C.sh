@@ -32,7 +32,7 @@ echo "unsigned char const ${TID}_z[] = {" >> "$CFILE"
 cat "$TFILE" | gzip -c | xxd -i >> "$CFILE"
 echo '};' >> "$CFILE"
 echo "unsigned const ${TID}_zlen = " >> "$CFILE"
-cat "vex.help" | gzip -c | wc -c >> $CFILE
+cat "$TFILE" | gzip -c | wc -c >> $CFILE
 echo ';' >> "$CFILE"
 echo "std::string get_${TID}() {" >> "$CFILE"
 echo '    std::ostringstream buf;' >> "$CFILE"

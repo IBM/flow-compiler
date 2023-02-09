@@ -229,4 +229,15 @@ std::string search_path(std::string const &bin) {
     }
     return bin;
 }
+std::string basename(std::string const &filename, std::string const &suffix, std::string *dirname) {
+    auto lsl = filename.find_last_of("/");
+    if(dirname != nullptr) 
+        *dirname = lsl == std::string::npos? std::string(): filename.substr(0, lsl);
+    std::string f(lsl == std::string::npos? filename: filename.substr(lsl+1));
+    if(suffix.empty() || suffix.length() > f.length() || 
+            f.substr(f.length()-suffix.length()) != suffix)
+        return f;
+    else
+        return f.substr(0, f.length()-suffix.length());
+}
 }

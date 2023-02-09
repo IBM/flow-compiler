@@ -206,29 +206,9 @@ int split(std::string *left, std::string *right, std::string const &str, std::st
 inline static 
 std::string remove_suffix(std::string const &s, std::string const &suffix) {
     if(suffix.empty() || suffix.length() > s.length() || 
-       s.substr(s.length()-suffix.length()) != suffix)
+            s.substr(s.length()-suffix.length()) != suffix)
         return s;
     return s.substr(0, s.length()-suffix.length());
-}
-inline static 
-std::string basename(std::string const &filename, std::string const &suffix = "", std::string *dirname=nullptr) {
-    auto lsl = filename.find_last_of("/");
-    if(dirname != nullptr) 
-        *dirname = lsl == std::string::npos? std::string(): filename.substr(0, lsl);
-    std::string f(lsl == std::string::npos? filename: filename.substr(lsl+1));
-    return suffix.empty()? f: remove_suffix(f, suffix);
-}
-inline static 
-std::string dirname(std::string const &filename) {
-    std::string dn;
-    basename(filename, "", &dn);
-    return dn;
-}
-inline static 
-std::string path_join(std::string const &base_path, std::string const &path) {
-    if(path.empty()) return base_path;
-    if(base_path.empty() || path[0] == '/') return path;
-    return *base_path.rbegin() == '/'? base_path + path: base_path + '/' + path;
 }
 inline static
 std::vector<std::string> const &split(std::vector<std::string> &buf, std::string const &str, std::string const &separators) {

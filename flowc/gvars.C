@@ -11,6 +11,7 @@
 #include "flow-compiler.H"
 #include "grpc-helpers.H"
 #include "stru1.H"
+#include "filu.H"
 
 using namespace stru1;
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
@@ -272,7 +273,7 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     error_count += get_block_s(image_name, n, "image", "");
     append(vars, prefix+"NODE_ENDPOINT", endpoint);
     if(!image_name.empty() && image_name[0] == '/')
-        image_name = path_join(default_repository, image_name.substr(1));
+        image_name = filu::path_join(default_repository, image_name.substr(1));
     append(vars, prefix+"NODE_IMAGE", image_name);
     std::string grpc_method;
     if(method_descriptor(n) != nullptr) grpc_method = method_descriptor(n)->full_name();
