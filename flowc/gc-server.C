@@ -1261,8 +1261,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     std::set<std::vector<std::string>> saves;
                     for(auto &sv: flvs.back()) {
                         // keep the length expressions for dimensions after reduction
-                        if(sv.size() > -op.arg[0])
-                            saves.insert(std::vector(sv.begin(), sv.begin()+(sv.size()+op.arg[0])));
+                        if(sv.size() > -op.arg[0]) {
+			    auto pb = sv.begin();
+			    auto pe = pb + (sv.size()+op.arg[0]);
+                            saves.insert(std::vector<std::string>(pb, pe));
+			}
                         lxset.insert(sv.back());
                     }
                     std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::vmin(", "", "", ")");
