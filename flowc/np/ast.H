@@ -25,24 +25,9 @@ struct token {
     int type;
     int line, column;
     std::string text;
-    union {
-        int64_t integer_value;
-        double float_value;
-    };
     token(): type(ATK_NONE), line(0), column(0) {
     }
     token(int t, int l=0, int c=0, std::string s=""): type(t), line(l), column(c), text(s) {
-        switch(t) {
-            case ATK_INTEGER:
-                integer_value = atoll(s.c_str());
-                break;
-            case ATK_FLOAT:
-                integer_value = atof(s.c_str());
-                break;
-            default:
-                integer_value = 0;
-                break;
-        }
     }
 };
 struct node {
@@ -150,13 +135,16 @@ struct tree {
                     return false;
             return true;
         }
+        bool operator != (iterator const &that) const {
+            return !(*this == that);
+        }
         void next() {
             while(path.size() > 0) {
-                auto const &node = tree[path.back().first];
-                int &cx = path.back().second;
-                if(node.children.size() <= cx + 1) {
+                auto const &node = tree[path.back().first-1];
+                int cx = path.back().second, px = path.size()-1;
+                if(node.children.size() >= cx + 1) {
                     path.push_back(std::make_pair<int, int>((int) node.children[cx], 0));
-                    cx += 1;
+                    path[px].second = cx + 1;
                     return;
                 }
                 path.pop_back();
@@ -166,10 +154,10 @@ struct tree {
             return path.size() == 0;
         }
         struct node const &operator *() const {
-            return tree[path.back().first];
+            return tree[path.back().first-1];
         }
         struct node const *operator ->() const {
-            return &tree[path.back().first];
+            return &tree[path.back().first-1];
         }
         operator int() const {
             return path.back().first;
