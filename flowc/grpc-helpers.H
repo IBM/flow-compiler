@@ -13,15 +13,18 @@
 
 #include "flow-ast.H"
 #include "stru1.H"
+#include "ansi-escapes.H"
 
 int grpc_type_to_ftk(google::protobuf::FieldDescriptor::Type t);
 
 class FErrorPrinter: public google::protobuf::compiler::MultiFileErrorCollector {
+    google::protobuf::compiler::DiskSourceTree *source_tree;
+    void ShowLine(std::string const filename, int line, int column);
 public:    
     std::ostream *outs;
-    FErrorPrinter(std::ostream &outsr): outs(&outsr) {
+    FErrorPrinter(std::ostream &outsr, google::protobuf::compiler::DiskSourceTree *st): outs(&outsr), source_tree(st) {
     }
-    void AddMessage(std::string const &type, std::string const &color, std::string const &filename, int line, int column, std::string const &message);
+    void AddMessage(std::string const &type, ANSI_ESCAPE color, std::string const &filename, int line, int column, std::string const &message);
     virtual void AddError(std::string const &filename, int line, int column, std::string const &message);
     virtual void AddWarning(std::string const &filename, int line, int column, std::string const &message);
     virtual void AddNote(std::string const &filename, int line, int column, std::string const &message);

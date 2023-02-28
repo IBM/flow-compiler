@@ -1,99 +1,98 @@
 #ifndef H_ANSI_ESCAPES_H
 #define H_ANSI_ESCAPES_H
 
+#include <iosfwd>
 #include <string>
-#include <sstream>
 
 enum ANSI_ESCAPE {
-    ANSI_BOLD,
-    ANSI_RESET,
-    ANSI_RED,
-    ANSI_MAGENTA,
-    ANSI_BLACK,
-    ANSI_GREEN,
-    ANSI_BLUE,
-    ANSI_YELLOW,
-    ANSI_CYAN
+    ANSI_NONE = 0,
+
+    ANSI_BOLD = 1,
+    ANSI_DIM = 2,
+    ANSI_ITALIC = 4,
+    ANSI_UNDERLINE = 8,
+
+    ANSI_STRIKE = 16,
+    ANSI_REVERSE = 32, 
+    ANSI_BLINK = 64,
+    ANSI_RESET = 128,
+
+    ANSI_RED = 1*256,
+    ANSI_GREEN = 2*256,
+    ANSI_YELLOW = 3*256,
+    ANSI_BLUE = 4*256,
+    ANSI_MAGENTA = 5*256,
+    ANSI_CYAN = 6*256,
+    ANSI_LGRAY = 7*256,
+    ANSI_DGRAY = 8*256,
+
+    ANSI_HRED = 9*256,
+    ANSI_HGREEN = 10*256,
+    ANSI_HYELLOW = 11*256,
+    ANSI_HBLUE = 12*256,
+    ANSI_HMAGENTA = 13*256,
+    ANSI_HCYAN = 14*256,
+    ANSI_WHITE = 15*256,
+
+    ANSI_BG_RED = 1*4096,
+    ANSI_BG_GREEN = 2*4096,
+    ANSI_BG_YELLOW = 3*4096,
+    ANSI_BG_BLUE = 4*4096,
+    ANSI_BG_MAGENTA = 5*4096,
+    ANSI_BG_CYAN = 6*4096,
+    ANSI_BG_LGRAY = 7*4096,
+    ANSI_BG_DGRAY = 8*4096,
+
+    ANSI_BG_HRED = 9*4096,
+    ANSI_BG_HGREEN = 10*4096,
+    ANSI_BG_HYELLOW = 11*4096,
+    ANSI_BG_HBLUE = 12*4096,
+    ANSI_BG_HMAGENTA = 13*4096,
+    ANSI_BG_HCYAN = 14*4096,
+    ANSI_BG_WHITE = 15*4096,
+
+    ANSI_COLOR = 15*256,
+    ANSI_BG_COLOR = 15*4096,
+    ANSI_EMPH = 255,
+    ANSI_RGB = uint64_t(256*65536-1) << 16,
+    ANSI_BG_RGB = uint64_t(256*65536-1) << (16+24),
 };
+inline ANSI_ESCAPE operator + (ANSI_ESCAPE e1, ANSI_ESCAPE e2) {
+    return ANSI_ESCAPE(uint64_t(e1) | uint64_t(e2));
+}
 
 namespace ansi {
-extern bool use_escapes;
 
-inline static char const *escape(ANSI_ESCAPE esc, bool use_ansi=use_escapes) {
-    if(use_ansi) switch(esc) {
-        case ANSI_BOLD: return "\x1b[1m";
-        case ANSI_RESET: return "\x1b[0m";
-        case ANSI_RED: return "\x1b[38;5;1m";
-        case ANSI_MAGENTA: return "\x1b[38;5;5m";
-        case ANSI_BLACK: return "\x1b[38;5;0m";
-        case ANSI_GREEN: return "\x1b[38;5;2m";
-        case ANSI_BLUE: return "\x1b[38;5;4m";
-        case ANSI_YELLOW: return "\x1b[38;5;3m";
-        case ANSI_CYAN: return "\x1b[38;5;6m";
-    }
-    return "";
-}
-inline static std::string escape(ANSI_ESCAPE e1, ANSI_ESCAPE e2) {
-    return std::string(escape(e1)) + escape(e2);
-}
+enum class ctl {
+    off = 0,
+    on = 1,
+    toggle = 2
+};
+const ctl on = ctl::on;
+const ctl off = ctl::off;
+const ctl toggle = ctl::toggle;
 
-inline static 
-std::string::size_type find_after_word_boundary(std::string const &string, std::string const &set, std::string::size_type pos=0) {
-    if(pos == std::string::npos) return std::string::npos;
-    if(pos != 0) pos = string.find_first_of("\t\r\a\b\v\f\n ", pos);
-    if(pos == std::string::npos) return std::string::npos;
-    return string.find_first_of(set, pos);
+inline ANSI_ESCAPE rgb(int red, int green, int blue) {
+    return ANSI_ESCAPE( uint64_t((red << 16) | (green << 8) | blue) << 16 );
 }
+inline ANSI_ESCAPE bg_rgb(int red, int green, int blue) {
+    return ANSI_ESCAPE( uint64_t((red << 16) | (green << 8) | blue) << (16+24) );
+}
+std::string escape(ANSI_ESCAPE esc);
 /**
  * Replace any first occurence of [begin] with [em] and any second occurence with ANSI_RESET.
- * [em] should be an ANSI escape sequence.
- * The ANSI esacpes are omitted altogether if [use_ansi_escapes] is false
+ * [em] should be an ANSI escape sequence. ANSI escapes are ignored if use_escapes is false.
  */
-inline static
-std::ostream &emphasize(std::ostream &out, std::string const &message, std::string const &em=escape(ANSI_BOLD, ANSI_BLUE), std::string const &begin="\"", std::string const &end="\"", bool keep_quotes=false, bool start_at_word_boundary=false) {
-    for(size_t qb = message.find_first_of(begin), 
-            qe = qb == std::string::npos? std::string::npos: message.find_first_of(end, qb+1), 
-            p = 0; 
-
-            p != std::string::npos;
-
-            p = qe == std::string::npos? std::string::npos: qe+1, 
-            qb = p == std::string::npos? std::string::npos: (start_at_word_boundary? find_after_word_boundary(message, begin, p):  message.find_first_of(begin, p)), 
-            qe = qb == std::string::npos? std::string::npos: message.find_first_of(end, qb+1)) {
-
-        out << message.substr(p, qb == std::string::npos? message.length(): qb-p);
-        if(qb != std::string::npos && qe != std::string::npos) {
-            if(use_escapes)
-                out << em;
-            if(keep_quotes) 
-                out << message.substr(qb, qe-qb+1); 
-            else
-                out << message.substr(qb+1, qe-qb-1);
-            if(use_escapes)
-                out << escape(ANSI_RESET);
-        }
-    }
-    return out;
-}
+std::string emphasize(std::string const &message, ANSI_ESCAPE em=ANSI_BOLD+ANSI_BLUE, std::string const &begin="\"", std::string const &end="\"", bool keep_quotes=false, bool start_at_word_boundary=false);
 /**
  * Empahsize text between double quotes with [dquot_em] and text between single quotes with [squot_em]
- * This calls [emphasize] above and observes [use_ansi_escapes].
+ * This calls [emphasize] above.
  */
 inline static
-std::string emphasize(std::string const &message, std::string const &dquot_em=escape(ANSI_BOLD, ANSI_BLUE), std::string const &squot_em="") {
-    std::ostringstream s1, s2;
-    if(dquot_em.empty() && squot_em.empty()) 
-        return message;
-    if(!dquot_em.empty())
-        emphasize(s1, message, dquot_em);
-    if(squot_em.empty()) return s1.str();
-    emphasize(s2, dquot_em.empty()? message: s1.str(), squot_em, "'", "'");
-    return s2.str();
+std::string emphasize2(std::string message, ANSI_ESCAPE dquot_em=ANSI_GREEN+ANSI_BLUE, ANSI_ESCAPE squot_em=ANSI_NONE) {
+    return emphasize(emphasize(message, dquot_em, "\"", "\""), squot_em, "'", "'");
 }
 }
-inline static 
-std::ostream &operator << (std::ostream &s, ANSI_ESCAPE esc) {
-    s << ansi::escape(esc);
-    return s;
-}
+std::ostream &operator << (std::ostream &s, ansi::ctl onoff);
+std::ostream &operator << (std::ostream &s, ANSI_ESCAPE esc);
 #endif

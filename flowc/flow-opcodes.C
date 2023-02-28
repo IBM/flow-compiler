@@ -3,6 +3,9 @@
 #include "ansi-escapes.H"
 #include "flow-opcodes.H"
 #include "grpc-helpers.H"
+#include "helpo.H"
+
+extern helpo::opts opts;
 
 char const *op_name(op o) { 
     switch(o) {
@@ -65,48 +68,48 @@ char const *op_name(op o) {
 };
 
 static std::ostream &propc(std::ostream &out, fop const &fop) {
-    bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
+    bool use_ansi = opts.optb("color", &out == &std::cerr && isatty(fileno(stderr)) || &out == &std::cout && isatty(fileno(stdout)));
     switch(fop.code) {
         case BNOD: 
-            out << ansi::escape(ANSI_CYAN, use_ansi) <<  ansi::escape(ANSI_BOLD, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            out << ANSI_CYAN+ANSI_BOLD << op_name(fop.code) << ANSI_RESET  << "  ";
             if(fop.arg[0] != 0) 
-                out << ansi::escape(ANSI_YELLOW, use_ansi) << fop.arg[0] << "x"<<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+                out << ANSI_YELLOW << fop.arg[0] << "x" <<  ANSI_RESET  << "  ";
             if(fop.d1 != nullptr)
-                out << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi);
+                out << ANSI_MAGENTA << fop.d1->full_name() << ANSI_RESET << ":"  << ANSI_BLUE << fop.arg1 << ANSI_RESET;
             if(fop.d2 != nullptr)
-                out << " <- " << ansi::escape(ANSI_MAGENTA, use_ansi) << fop.d2->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ":"  << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg2 << ansi::escape(ANSI_RESET, use_ansi);
-            out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[1] << "/" << fop.arg[2] << ansi::escape(ANSI_RESET, use_ansi);
+                out << " <- " << ANSI_MAGENTA << fop.d2->full_name() << ANSI_RESET << ":"  << ANSI_BLUE << fop.arg2 << ANSI_RESET;
+            out << ANSI_YELLOW << " @" << fop.arg[1] << "/" << fop.arg[2] << ANSI_RESET;
             if(fop.arg[3] != 0) out << " first";
             if(fop.arg[3] != 0 && fop.arg[4] != 0) out << ", ";
             if(fop.arg[4] != 0) out << " output";
             if(fop.arg[5] != 0) out << " alt " << fop.arg[5];
             break;
         case BERC: 
-            out << ansi::escape(ANSI_CYAN, use_ansi) << ansi::escape(ANSI_BOLD, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            out << ANSI_CYAN << ANSI_BOLD << op_name(fop.code) <<  ANSI_RESET  << "  ";
             if(fop.arg[0] != 0) 
-                out << ansi::escape(ANSI_YELLOW, use_ansi) << fop.arg[0] << "x"<<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+                out << ANSI_YELLOW << fop.arg[0] << "x"<<  ANSI_RESET  << "  ";
             
-            out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[1] << "/" << fop.arg[2] << ansi::escape(ANSI_RESET, use_ansi);
+            out << ANSI_YELLOW << " @" << fop.arg[1] << "/" << fop.arg[2] << ANSI_RESET;
             out << ", " << fop.arg[3];
             break;
         case IFNC:
-            out << op_name(fop.code) << "  " << fop.arg1 << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[0] << ansi::escape(ANSI_RESET, use_ansi);;
+            out << op_name(fop.code) << "  " << fop.arg1 << ANSI_YELLOW << " @" << fop.arg[0] << ANSI_RESET;;
             if(fop.arg[1])
-                out << ansi::escape(ANSI_YELLOW, use_ansi) << " *" << fop.arg[1] << ansi::escape(ANSI_RESET, use_ansi);
+                out << ANSI_YELLOW << " *" << fop.arg[1] << ANSI_RESET;
             
             for(unsigned a = 2, e = fop.arg.size(); a < e; ++a)
-                out << ansi::escape(ANSI_YELLOW, use_ansi) << " !" << fop.arg[a] << ansi::escape(ANSI_RESET, use_ansi);
+                out << ANSI_YELLOW << " !" << fop.arg[a] << ANSI_RESET;
             break;
         case BSTG: 
-            out << ansi::escape(ANSI_BOLD, use_ansi) << op_name(fop.code) <<  ansi::escape(ANSI_RESET, use_ansi)  << "  ";
+            out << ANSI_BOLD << op_name(fop.code) <<  ANSI_RESET  << "  ";
             out << fop.arg[0] << " (" << fop.arg1 << ") ";
             for(unsigned a = 3, e = fop.arg.size(); a < e; ++a)
-                out << ansi::escape(ANSI_YELLOW, use_ansi) << " @" << fop.arg[a] << ansi::escape(ANSI_RESET, use_ansi);
+                out << ANSI_YELLOW << " @" << fop.arg[a] << ANSI_RESET;
 
             break;
         case RVF:
             out << op_name(fop.code) << "  ";
-            out << ansi::escape(ANSI_BLUE, use_ansi) << fop.arg1 << ansi::escape(ANSI_RESET, use_ansi);
+            out << ANSI_BLUE << fop.arg1 << ANSI_RESET;
             if(fop.arg.size() > 0 && fop.arg[0] > 0) 
                 out << "[" << fop.arg[0] << "] ";
             else 
@@ -132,15 +135,15 @@ static std::ostream &propc(std::ostream &out, fop const &fop) {
         case COEF:           // Convert right value from enum to float   arg[0] grpc type to    
         case COES:           // Convert right value from enum to string
         case COEE:           // Convert right value from enum to another enum
-            out << ansi::escape(ANSI_GREEN, use_ansi) << ansi::escape(ANSI_BOLD, use_ansi)
-                << op_name(fop.code)  << ansi::escape(ANSI_RESET, use_ansi) << "  ";
+            out << ANSI_GREEN << ANSI_BOLD
+                << op_name(fop.code)  << ANSI_RESET << "  ";
             if(fop.arg.size() > 0) 
-                out << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+                out << ANSI_GREEN << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ANSI_RESET << " ";
             if(fop.arg.size() > 1)
-                out << "<- " << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+                out << "<- " << ANSI_GREEN << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ANSI_RESET << " ";
             break;
             if(fop.er != nullptr) 
-                out << "er: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.er) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+                out << "er: " << ANSI_RED << get_full_name(fop.er) << ANSI_RESET << " ";
         default:
             break;
     }
@@ -175,44 +178,43 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
         default:
             break;
     }
-    bool use_ansi = ansi::use_escapes && (&out == &std::cerr || &out == &std::cout);
 
-    if(fop.code == MTHD || fop.code == BPRP || fop.code == ERR) out << ansi::escape(ANSI_BOLD, use_ansi);
-    if(fop.code == ERR) out << ansi::escape(ANSI_RED, use_ansi);
+    if(fop.code == MTHD || fop.code == BPRP || fop.code == ERR) out << ANSI_BOLD;
+    if(fop.code == ERR) out << ANSI_RED;
     out << op_name(fop.code) << "  ";
-    if(fop.code == MTHD || fop.code == BPRP || fop.code == ERR) out << ansi::escape(ANSI_RESET, use_ansi);
+    if(fop.code == MTHD || fop.code == BPRP || fop.code == ERR) out << ANSI_RESET;
 
     bool escape_string1 = fop.code == RVC && fop.arg.size() > 1 && fop.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     bool escape_string2 = fop.code == RVC && fop.arg.size() > 2 && fop.arg[2] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     if(!fop.arg2.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1)  << ansi::escape(ANSI_RESET, use_ansi) << ", " << ansi::escape(ANSI_BLUE, use_ansi) 
-            << (escape_string2? stru1::c_escape(fop.arg2): fop.arg2) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << ANSI_BLUE << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1)  << ANSI_RESET << ", " << ANSI_BLUE 
+            << (escape_string2? stru1::c_escape(fop.arg2): fop.arg2) << ANSI_RESET << " ";
     } else if(!fop.arg1.empty()) {
-        out << ansi::escape(ANSI_BLUE, use_ansi) << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << ANSI_BLUE << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1) << ANSI_RESET << " ";
     }
     if(fop.d2 != nullptr) {
         if(fop.d1 == nullptr) out << "0, ";
-        else out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << ", ";
-        out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d2: " << fop.d2->full_name() << " " << ansi::escape(ANSI_RESET, use_ansi);
+        else out << ANSI_MAGENTA << "d1: " << fop.d1->full_name() << ANSI_RESET << ", ";
+        out << ANSI_MAGENTA << "d2: " << fop.d2->full_name() << " " << ANSI_RESET;
     } else if(fop.d1 != nullptr) {
-        out << ansi::escape(ANSI_MAGENTA, use_ansi) << "d1: " << fop.d1->full_name() << " " << ansi::escape(ANSI_RESET, use_ansi);
+        out << ANSI_MAGENTA << "d1: " << fop.d1->full_name() << " " << ANSI_RESET;
     }
     if(fop.m1 != nullptr) 
-        out << ansi::escape(ANSI_GREEN, use_ansi) << "m1: " << fop.m1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << ANSI_GREEN << "m1: " << fop.m1->full_name() << ANSI_RESET << " ";
     if(fop.code > CON1 && fop.code < CON2) {
         if(fop.arg.size() > 0) 
-            out << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+            out << ANSI_GREEN << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[0]) << ANSI_RESET << " ";
         if(fop.arg.size() > 1)
-            out << "<- " << ansi::escape(ANSI_GREEN, use_ansi) << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+            out << "<- " << ANSI_GREEN << grpc_type_name((google::protobuf::FieldDescriptor::Type) fop.arg[1]) << ANSI_RESET << " ";
     }
     if(fop.el != nullptr) 
-        out << "el: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.el) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << "el: " << ANSI_RED << get_full_name(fop.el) << ANSI_RESET << " ";
     if(fop.er != nullptr) 
-        out << "er: " << ansi::escape(ANSI_RED, use_ansi) << get_full_name(fop.er) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << "er: " << ANSI_RED << get_full_name(fop.er) << ANSI_RESET << " ";
     if(fop.ev1 != nullptr) 
-        out << "ev1: " << ansi::escape(ANSI_RED, use_ansi) << fop.ev1->full_name() << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << "ev1: " << ANSI_RED << fop.ev1->full_name() << ANSI_RESET << " ";
     if(fop.ext != 0) 
-        out << "ext: " << ansi::escape(ANSI_RED, use_ansi) << node_name(fop.ext) << ansi::escape(ANSI_RESET, use_ansi) << " ";
+        out << "ext: " << ANSI_RED << node_name(fop.ext) << ANSI_RESET << " ";
     bool first = true;
     for(auto a: fop.arg) { 
         if(!first) out << ", ";
