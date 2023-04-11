@@ -1,3 +1,5 @@
+#include <array>
+#include <cassert>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -5,12 +7,15 @@
 #include <fcntl.h>
 #include <fstream>
 #include <ftw.h>
+#include <map>
 #include <string>
-#include <cassert>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <vector>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <unistd.h>
+#include <vector>
 #include <zlib.h>
 
 #include "filu.H"
@@ -26,6 +31,12 @@ bool is_dir(char const *fn) {
     if(stat(fn, &sb) == -1) 
 		return false;	
     return (sb.st_mode & S_IFMT) == S_IFDIR;
+}
+bool is_reg(char const *fn) {
+	struct stat sb;
+    if(stat(fn, &sb) == -1) 
+		return false;	
+    return (sb.st_mode & S_IFMT) == S_IFREG;
 }
 void chmodx(std::string const &fn) {
 	struct stat sb;
@@ -191,31 +202,6 @@ long gunzip(std::ostream &dest, std::istream &source, bool gz) {
     bool rc = gunzipx(dest, source_size, source, gz) == Z_OK;
     return rc? source_size: -1;
 }
-/*
-static std::string zerr(int ret) {
-    std::string s;
-    switch(ret) {
-        case Z_ERRNO:
-            s = "i/o error";
-            break;
-        case Z_STREAM_ERROR:
-            s = "invalid compression level";
-            break;
-        case Z_DATA_ERROR:
-            s = "invalid or incomplete deflate data";
-            break;
-        case Z_MEM_ERROR:
-            s = "out of memory";
-            break;
-        case Z_VERSION_ERROR:
-            s = "zlib version mismatch";
-            break;
-        default:
-            break;
-    }
-    return s;
-}
-*/
 std::string search_path(std::string const &bin) {
     struct stat  st;
     char const *pathv = std::getenv("PATH");
@@ -239,5 +225,181 @@ std::string basename(std::string const &filename, std::string const &suffix, std
         return f;
     else
         return f.substr(0, f.length()-suffix.length());
+}
+std::string gunzip(unsigned char const *buffer, unsigned zlen, bool gz) {
+    std::ostringstream buf;
+    std::istringstream zbuf(std::string((char const *)buffer, zlen));
+    filu::gunzip(buf, zbuf, gz);
+    return buf.str();
+}
+std::string pipe(std::string command, std::string input, int *rc, std::string *err, bool err2out) {
+    // pipe descriptors for each in, out and err streams
+    std::array<int, 6> pipefd;
+    pid_t npid = -1;
+    int prc = 0, rds = 0;
+    std::array<char, 16384> buffer;
+    std::string sout;
+
+    // open the input and output streams
+    ::pipe(pipefd.data());
+    ::pipe(pipefd.data()+2);
+    // open the err stream
+    if(err != nullptr && !err2out)
+        ::pipe(pipefd.data()+4);
+    else
+        pipefd[4] = pipefd[5] = -1;
+
+    npid = ::fork();
+    switch(npid) {
+        case -1:   // failed to fork
+            prc = 1;
+            break;
+        case 0:    // the child process, exec here
+            ::close(pipefd[1]);
+            ::dup2(pipefd[0], STDIN_FILENO);
+            ::close(pipefd[0]);
+            ::close(pipefd[2]);
+            ::dup2(pipefd[3], STDOUT_FILENO);
+            if(pipefd[4] >= 0) ::close(pipefd[4]);
+            if(err2out)
+                ::dup2(pipefd[3], STDOUT_FILENO);
+            else if(pipefd[5] >= 0)
+                ::dup2(pipefd[5], STDOUT_FILENO);
+            ::close(pipefd[3]);
+            if(pipefd[4] >= 0) ::close(pipefd[5]);
+
+            ::execl("/bin/bash", "bash", "-c", command.c_str(), nullptr);
+            // if exec failes
+            _exit(errno);
+            break;
+        default:   // main process, wait here
+            ::close(pipefd[0]); 
+            ::close(pipefd[3]);
+            if(pipefd[5] >= 0) ::close(pipefd[5]);
+            pipefd[0] = pipefd[3] = pipefd[5] = -1;
+
+            if(!input.empty())
+                write(pipefd[1], input.c_str(), input.length());
+            ::close(pipefd[1]);
+            pipefd[1] = -1;
+            while((rds = read(pipefd[2], buffer.data(), buffer.size())) != 0) {
+                sout += std::string(buffer.data(), buffer.data()+rds);
+            }
+            ::close(pipefd[2]); 
+            pipefd[2] = -1;
+            if(err != nullptr)
+                while((rds = read(pipefd[4], buffer.data(), buffer.size())) != 0) {
+                    *err += std::string(buffer.data(), buffer.data()+rds);
+                }
+            ::close(pipefd[4]); 
+            pipefd[4] = -1;
+            wait(&prc);
+    }
+
+    for(int i = 0; i < pipefd.size(); ++i) 
+        if(pipefd[i] >= 0 && ::close(pipefd[i])) {
+            pipefd[i] = -1;
+        }
+
+    if(rc != nullptr) *rc = prc;
+    return sout;
+}
+static 
+bool cfg_line(std::string &name, std::string &value, std::string line, std::string separators, std::string unquote="") {
+    if(stru1::split(&name, &value, line, separators) != 2)
+        return false;
+    name = stru1::strip(name);
+    value = stru1::strip(value);
+    if(!unquote.empty() && !value.empty()) {
+        auto lqp = unquote.find_first_of(*value.begin());
+        if(lqp != std::string::npos && lqp+1 < unquote.length() && *value.rbegin() == unquote[lqp+1]) {
+            if(unquote[lqp] == '"')
+                value = stru1::json_unescape(value);
+            else 
+                value = value.substr(1, value.length()-2);
+        }
+    }
+    return true;
+}
+
+bool config(std::map<std::string, std::string> &cfg, std::istream &ins, std::string comment_triggers, bool case_sensitive, std::string separators) {
+    std::string line;
+    int errors = 0;
+    while(std::getline(ins, line)) {
+        auto p = line.find_first_not_of("\t\r\a\b\v\f\n ");
+        if(p == std::string::npos || comment_triggers.find_first_of(line[p]) != std::string::npos)
+            continue;
+        std::string name, value;
+        if(!cfg_line(name, value, line, separators, "\"\""))
+            ++errors;
+        if(case_sensitive) 
+            cfg[name] = value;
+        else
+            cfg[stru1::to_lower(name)] = value;
+    }
+    return errors == 0;
+}
+
+bool config(std::map<std::string, std::string> &cfg, std::string name, bool search) {
+    std::string filename = name;
+    while(search) {
+        filename = std::string(".")+name;
+        if(is_reg(filename)) 
+            break;
+        filename = name+".cfg";
+        if(is_reg(filename)) 
+            break;
+        auto home = std::getenv("HOME");
+        if(home == nullptr)
+            break;
+        filename = path_join(home, std::string(".")+name);
+        if(is_reg(filename)) 
+            break;
+        filename = path_join(home, name+".cfg");
+        search = false;
+    }
+    std::ifstream inputs(filename.c_str());
+    return inputs.is_open() && config(cfg, inputs);
+}
+std::string reads(std::istream &s) {
+    std::stringstream buffer;
+    buffer << s.rdbuf();
+    return buffer.str();
+}
+
+bool ini_section(std::string &result, std::istream &fs, std::string section) {
+    section = stru1::to_lower(section);
+    std::string line;
+    int errors = 0, section_count = 0;
+    bool found_section = false;
+    std::ostringstream buf;
+    while(std::getline(fs, line)) {
+        auto p = line.find_first_not_of("\t\r\a\b\v\f\n ");
+        if(p == std::string::npos || line[p] == ';') {
+            buf << line << "\n";
+            continue;
+        }
+        std::string secd = stru1::strip(line);
+        if(secd.length() > 2 && *secd.begin()== '[' && *secd.rbegin() == ']') {
+            ++section_count;
+            if(stru1::to_lower(secd.substr(1, secd.length()-2)) == section) {
+                // reset the accumulator buffer
+                buf.str("");
+                found_section = true;
+            } else if(found_section) {
+                result = buf.str();
+                return true;
+            }
+            // avoid accumulationg section defs
+            continue;
+        }
+        buf << line << "\n";
+    }
+
+    if(found_section || section_count == 0 && (section.empty() || section == "default")) {
+        result = buf.str();
+        return true;
+    }
+    return false;
 }
 }

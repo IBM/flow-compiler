@@ -1,6 +1,7 @@
 #ifndef H_FILU_H
 #define H_FILU_H
 
+#include <map>
 #include <string>
 #include <utility>
 
@@ -11,6 +12,11 @@ bool is_dir(char const *fn);
 inline static
 bool is_dir(std::string const &fn) {
     return is_dir(fn.c_str());
+}
+bool is_reg(char const *fn);
+inline static
+bool is_reg(std::string const &fn) {
+    return is_reg(fn.c_str());
 }
 void chmodx(std::string const &fn);
 std::string realpath(std::string const &f);
@@ -46,6 +52,27 @@ std::string path_join(std::string const &base_path, std::string const &path) {
     if(base_path.empty() || path[0] == '/') return path;
     return *base_path.rbegin() == '/'? base_path + path: base_path + '/' + path;
 }
+std::string gunzip(unsigned char const *buffer, unsigned zlen, bool gz=true);
+
+std::string pipe(std::string command, std::string input, int *rc, std::string *err=nullptr, bool err2out=false);
+/** Look for a config file .name, name.cfg in the current directory and in the home directory.
+ *  Read the configuration in a map as below.
+ */
+bool config(std::map<std::string, std::string> &cfg, std::string name, bool search=true);
+/** Read a configuration file in the form:
+ *      name: value 
+ *      name = value 
+ *  Allow <value> to be quoted. Ignore lines that start with #.
+ */
+bool config(std::map<std::string, std::string> &cfg, std::istream &ins, std::string comment_triggers="#", bool case_sensitive=true, std::string separators=":=");
+/** Find an ini file section. 
+ *  If section is 'default' or empty, and there is no section defined, return the entire file.
+ */
+bool ini_section(std::string &section, std::istream &fs, std::string section_name);
+
+/** Read the entire stream into a string
+ */
+std::string reads(std::istream &s);
 }
 #endif
 
