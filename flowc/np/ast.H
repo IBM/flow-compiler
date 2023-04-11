@@ -135,18 +135,9 @@ struct tree {
                     return false;
             return true;
         }
-<<<<<<< HEAD
         bool operator != (iterator const &that) const {
             return !(*this == that);
         }
-        void next() {
-            while(path.size() > 0) {
-                auto const &node = tree[path.back().first-1];
-                int cx = path.back().second, px = path.size()-1;
-                if(node.children.size() >= cx + 1) {
-                    path.push_back(std::make_pair<int, int>((int) node.children[cx], 0));
-                    path[px].second = cx + 1;
-=======
         void next() {
             while(path.size() > 0) {
                 auto const &node = tree[path.back().first];
@@ -154,7 +145,6 @@ struct tree {
                 if(node.children.size() <= cx + 1) {
                     path.push_back(std::make_pair<int, int>((int) node.children[cx], 0));
                     cx += 1;
->>>>>>> f2a9600 (New parser experiment)
                     return;
                 }
                 path.pop_back();
@@ -164,17 +154,10 @@ struct tree {
             return path.size() == 0;
         }
         struct node const &operator *() const {
-<<<<<<< HEAD
             return tree[path.back().first-1];
         }
         struct node const *operator ->() const {
-            return &tree[path.back().first-1];
-=======
-            return tree[path.back().first];
-        }
-        struct node const *operator ->() const {
             return &tree[path.back().first];
->>>>>>> f2a9600 (New parser experiment)
         }
         operator int() const {
             return path.back().first;
