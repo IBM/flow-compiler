@@ -10,6 +10,7 @@
 
 #include "cot.H"
 #include "flow-compiler.H"
+#include "flow-templates.H"
 #include "grpc-helpers.H"
 #include "strsli.H"
 #include "stru1.H"
@@ -1417,8 +1418,6 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
     ServiceDescriptor const *sdp =  method_descriptor(*entry_node_set.begin())->service();
     set(local_vars, "CPP_SERVER_BASE", get_full_name(sdp));
 
-    extern std::string get_template_server_C();
-
     if(DEBUG_GENC) {
         std::string ofn = server_src + "-global.json";
         OFSTREAM_SE(outj, ofn);
@@ -1430,7 +1429,7 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
         stru1::to_json(outj, local_vars);
     }
 
-    vex::expand(out, get_template_server_C(), "server.C", local_vars, global_vars);
+    vex::expand(out, templates::server_C(), "server.C", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }

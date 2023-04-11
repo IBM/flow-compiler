@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include "flow-compiler.H"
+#include "flow-templates.H"
 #include "stru1.H"
 #include "vex.H"
 #include "grpc-helpers.H"
@@ -41,8 +42,7 @@ int flow_compiler::genc_cc_client(std::string const &ccfn) {
         OFSTREAM_SE(outj, ofn);
         stru1::to_json(outj, local_vars);
     }
-    extern std::string get_template_client_C();
-    vex::expand(out, get_template_client_C(), "client.C", local_vars, global_vars);
+    vex::expand(out, templates::client_C(), "client.C", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -50,8 +50,7 @@ int flow_compiler::genc_py_client(std::string const &pyfn) {
     int error_count = 0;
     DEBUG_ENTER;
     OFSTREAM_SE(outf, pyfn);
-    extern std::string get_template_client_py();
-    vex::expand(outf, get_template_client_py(), "client.py", global_vars);
+    vex::expand(outf, templates::client_py(), "client.py", global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
