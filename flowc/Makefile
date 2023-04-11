@@ -19,16 +19,16 @@
 
 -include makefile.local
 
-BUILD_VERSION?=0.21.2
+BUILD_VERSION?=0.21.3
 
 ifndef BUILD_ID
 
 GIT_TS:=$(shell git show -s --format=%cD)
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
 ifeq ($(GIT_MODIFIED_COUNT), 0)
-GIT_MODIFIED_COUNT:=
+	GIT_MODIFIED_COUNT:=
 else
-GIT_MODIFIED_COUNT:=m$(GIT_MODIFIED_COUNT)
+	GIT_MODIFIED_COUNT:=m$(GIT_MODIFIED_COUNT)
 endif
 GIT_GUID:=$(shell git show -s --format=%h)
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
@@ -39,59 +39,66 @@ ifneq ($(GIT_BRANCH), master)
 endif
 ## if this checkout is tagged set the build version to that
 ifeq ($(GIT_TAG), )
-BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
+	BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
 else
-BUILD_VERSION:=$(GIT_TAG)
-BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
+	BUILD_VERSION:=$(GIT_TAG)
+	BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
 endif
 
-endif 
+endif # BUILD_ID
+
+## write the current version and build id into a file,
+## in order to have a timestamp associated with the build status
+BUILD_STAMP:=$(shell cat build.id 2> /dev/null)
+ifneq ($(BUILD_STAMP), $(BUILD_VERSION)+$(BUILD_ID))
+	BUILD_STAMP:=$(shell echo $(BUILD_VERSION)+$(BUILD_ID) > build.id; cat build.id)
+endif
 
 DBG?=no
 ifeq ($(DBG), yes) 
-CCFLAGS?=-O0 -g
-STACK_TRACE?=1
-BUILD_ID:=$(BUILD_ID) dbg
+	CCFLAGS?=-O0 -g
+	STACK_TRACE?=1
+	BUILD_ID:=$(BUILD_ID) dbg
 else
-CCFLAGS?=-O3
-STACK_TRACE?=0
+	CCFLAGS?=-O3
+	STACK_TRACE?=0
 endif
 
-## One of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
+## one of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
 BASE_IMAGE?=redhat-ubi8
 
 INSTALL_PREFIX?=/usr/local/bin
 
 ifneq ($(GRPC_VERSION), )
-DOCKER_ARG_GRPC_VERSION:=--build-arg "GRPC_VERSION=$(GRPC_VERSION)"
+	DOCKER_ARG_GRPC_VERSION:=--build-arg "GRPC_VERSION=$(GRPC_VERSION)"
 endif
 
 ifneq ($(CIVETWEB_VERSION), )
-DOCKER_ARG_CIVETWEB_VERSION:=--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)"
+	DOCKER_ARG_CIVETWEB_VERSION:=--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)"
 endif
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image vex.help recli.help flowc.help
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
 .PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
-ifeq ($(TAR), )
 HOST_OS:=$(shell uname -s)
-ifeq ($(HOST_OS), Darwin)
-ifeq ($(shell which gnutar), )
-ifeq ($(shell which gtar), )
-$(warning GNU tar is needed to build the Docker image)
-$(warning Either install it with 'brew install gnu-tar',)
-$(warning or set TAR to a GNU tar compatible executable in 'makefile.local'.)
-else
-TAR?=gtar
-endif
-else
-TAR?=gnutar
-endif
-else
-TAR?=tar
-endif
+ifeq ($(TAR), )
+	ifeq ($(HOST_OS), Darwin)
+		ifeq ($(shell which gnutar), )
+			ifeq ($(shell which gtar), )
+				$(warning GNU tar is needed to build the Docker image)
+				$(warning Either install it with 'brew install gnu-tar',)
+				$(warning or set TAR to a GNU tar compatible executable in 'makefile.local'.)
+			else
+				TAR:=gtar
+			endif
+		else
+			TAR:=gnutar
+		endif
+	else
+		TAR:=tar
+	endif
 endif
 
 # lemon is needed only if changes are made to the parser
@@ -104,51 +111,34 @@ RUNTIME_IMAGE?=flow-runtime:$(IMAGE_TAG)
 IMAGE_NAME:=$(shell echo "$(IMAGE)" | cut -d ':' -f1)
 IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 
-
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILES:=template.Dockerfile template.slim.Dockerfile template.Makefile template.client.C  \
-	template.driver.sh template.docker-compose.yaml template.kubernetes.group.yaml template.kubernetes.yaml \
-	template.server.C template.syntax template.index.html template.server.pem template.client.py \
+TEMPLATE_FILESX:=template.Dockerfile	template.client.py template.index.html template.server.C template.syntax \
+	template.Makefile template.docker.yaml template.kubernetes.group.yaml template.server.pem \
+	template.client.C template.driver.sh template.kubernetes.yaml template.slim.Dockerfile \
+	flowc.help
 
-TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*))
+TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
-OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templatez.o flow-funcs.o flowc.o \
+OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flow-funcs.o flowc.o \
 	  gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o gvars.o print-graph.o print-pseu.o \
-	  strtrs.o tree-accessors.o veximpl.o version.o flowc.help.o ansi-escapes.o
+	  strtrs.o tree-accessors.o veximpl.o version.o ansi-escapes.o
 
-## Minimal set of files to portably build flow-compiler. 
-## Includes intermediate files, but will require only the gRPC libraries to build.
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y flowc.help
-
-
-%.help.C: %.help
-	@echo "#include <string>" > $@
-	@echo "#include <sstream>" >> $@
-	@echo "#include \"filu.H\"" >> $@
-	@echo "unsigned char const $(shell echo "$<" | tr -- '-./' '___')_z[] = {" >> $@
-	@cat "$<" | gzip -c | xxd -i >> $@
-	@echo '};' >> $@
-	@echo "unsigned const $(shell echo "$<" | tr -- '-./' '___')_zlen = " >> $@
-	@cat "$<" | gzip -c | wc -c >> $@
-	@echo ";" >> $@
-	@echo "std::string get_$(shell echo "$<" | tr -- '-./' '___')() { std::ostringstream buf; std::istringstream zbuf(std::string((char const *)$(shell echo "$<" | tr -- '-./' '___')_z, $(shell echo "$<" | tr -- '-./' '___')_zlen)); filu::gunzip(buf, zbuf, true); return buf.str();}"  >> $@
-	@echo "created $@ from $<"
+## minimal set of files to portably build flow-compiler,
+## includes intermediate files, but will require only the gRPC libraries to build
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-templates.H $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y flowc.help
 
 %.o: %.C
 	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
-
-%.helpx.C: %.helpx
-	./help2C.sh $@ $<
 
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
 	@echo "====================================================================="
 	@./flowc --version
 
-version.o:
-	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ version.C
+version.o: version.C build.id
+	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
 
 flow-compiler.o: flow-parser.c
 
@@ -156,28 +146,39 @@ flowc.o: flowc.C
 	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 flow-parser.h: flow-parser.c
-	touch -r $^ $@
+	@echo $@
 
 flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
-clean:
-	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz vex.help.C recli.help.C flowc.help.C
+flow-scanner.C: flow-scanner.lex
+	 flex++ -Cem -o $@  $<
 
+clean:
+	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
+
+RUNTIMES:=alpine-3.16 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
-flow-templatez.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
-	echo "#include <string>" > $@
-	echo "#include <sstream>" >> $@
-	echo "#include <map>" >> $@
-	echo "#include \"filu.H\"" >> $@
-	for FILE in $^; do ID=$$(echo "$$FILE" | tr -- '-./' '___'); echo "unsigned char const $${ID}_z[] = {"; cat "$$FILE" | gzip -c | xxd -i; echo '};'; echo "unsigned const $${ID}_zlen = "; cat "$$FILE" | gzip -c | wc -c; echo ";"; echo "std::string get_$${ID}() { std::ostringstream buf; std::istringstream zbuf(std::string((char const *)$${ID}_z, $${ID}_zlen)); filu::gunzip(buf, zbuf, true); return buf.str();}" ;  done >> $@
-	echo "std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile = {" >> $@
-	for RUNTL in $(RUNTIMES); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "get_runtimes/$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
-	echo "};" >> $@
+flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
+	@echo Writing $@ $(patsubst %.C,%.H,$@)
+	@echo Adding $^ to $@
+	@printf "#include <map>\n#include <string>\n#include <sstream>\n#include \"filu.H\"\nnamespace templates {\n" > $@
+	@for FILE in $^; do ID=$$(echo "$$FILE" | sed -E 's/^template.//' | tr -- '-./' '___'); echo "static unsigned char const $${ID}_z[] = {"; cat "$$FILE" | gzip -c | xxd -i; echo '};'; printf "std::string $${ID}() {return filu::gunzip($${ID}_z, %d);}\n" $$(cat "$$FILE" | gzip -c | wc -c); done >> $@
+	@echo "std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile = {" >> $@
+	@for RUNTL in $(RUNTIMES); do echo "{\"$$RUNTL\", " | tr -d $$'\n' ; echo "runtimes/$$RUNTL/template.runtime.Dockerfile" | tr -- '-./' '___' | tr -d $$'\n'; echo "},"; done >> $@
+	@echo "};" >> $@
+	@echo "}" >> $@
+	@printf "#ifndef H_%s\n#define H_%s\n#include <map>\n#include <string>\nnamespace templates {\n" $$(echo $(patsubst %.C,%.H,$@) | tr -- '-./' '___') $$(echo $(patsubst %.C,%.H,$@) | tr -- '-./' '___') > $(patsubst %.C,%.H,$@)
+	@for FILE in $^; do ID=$$(echo "$$FILE" | sed -E 's/^template.//' | tr -- '-./' '___'); printf "std::string $${ID}();\n"; done >> $(patsubst %.C,%.H,$@)
+	@echo "extern std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile;" >> $(patsubst %.C,%.H,$@)
+	@printf "}\n#endif" >> $(patsubst %.C,%.H,$@)
 
-flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[Hy]) $(TEMPLATE_FILES) flow-compiler.C flowc.help
+flow-templates.H: flow-templates.C
+	@echo $@
+
+flow-compiler-src.tgz: Makefile flow-parser.c flow-parser.h $(wildcard *.[Hy]) $(TEMPLATE_FILES) flow-compiler.C 
 	$(TAR) -czf $@ $^ --transform 's,^,flow-compiler/,'
 
 tar: flow-compiler-src.tgz 
@@ -242,28 +243,27 @@ flowc-image: image-info-$(HOST_OS)
 	@echo "--------------------------------------------------------------------"
 
 image:
-	@rm -f flow-templatez.C flowc.help.C 
+	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
 
-
 alpine-3.16:
-	@rm -f flow-templatez.C flowc.help.C 
+	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
 ubuntu-20.04:
-	@rm -f flow-templatez.C flowc.help.C 
+	@rm -f flow-templates.[CH] 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 ubuntu-22.04:
-	@rm -f flow-templatez.C flowc.help.C 
+	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 debian-bullseye:
-	@rm -f flow-templatez.C flowc.help.C 
+	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 redhat-ubi8:
-	@rm -f flow-templatez.C flowc.help.C 
+	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 all-images: $(RUNTIMES)
