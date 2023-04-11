@@ -1,7 +1,7 @@
-flow-templatez.C
 flow-templates.C
+flow-templates.H
 template.runtime.Dockerfile
 base.Dockerfile
 makefile.local
 flow-compiler-minsrc.tgz
-*.help.C
+build.id
