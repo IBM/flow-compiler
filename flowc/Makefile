@@ -34,7 +34,7 @@ GIT_GUID:=$(shell git show -s --format=%h)
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
 GIT_BRANCH:=$(shell git branch --show-current 2> /dev/null || git branch | grep -E '^\*' | sed -E 's/^[*] *//')
 ## if not on the master branch, prepend the branch name
-ifneq ($(GIT_BRANCH), main)
+ifneq ($(GIT_BRANCH), master)
 	GIT_GUID:=$(GIT_BRANCH)-$(GIT_GUID)
 endif
 ## if this checkout is tagged set the build version to that
@@ -130,7 +130,8 @@ OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-template
 MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-templates.H $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y flowc.help
 
 %.o: %.C
-	${CXX} -std=c++17 ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
+	@echo ${CXX} -std=c++17 $(CCFLAGS) -c $<
+	@${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
@@ -138,12 +139,10 @@ flowc: $(OBJS)
 	@./flowc --version
 
 version.o: version.C build.id
-	${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\""  "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
+	@echo ${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -c $<
+	@${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
 
 flow-compiler.o: flow-parser.c
-
-flowc.o: flowc.C
-	${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
 flow-parser.h: flow-parser.c
 	@echo $@
