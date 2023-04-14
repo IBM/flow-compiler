@@ -34,15 +34,15 @@ GIT_GUID:=$(shell git show -s --format=%h)
 GIT_TAG:=$(shell git tag --contains $(GIT_GUID) | tail -1)
 GIT_BRANCH:=$(shell git branch --show-current 2> /dev/null || git branch | grep -E '^\*' | sed -E 's/^[*] *//')
 ## if not on the master branch, prepend the branch name
-ifneq ($(GIT_BRANCH), master)
+ifneq ($(GIT_BRANCH), main)
 	GIT_GUID:=$(GIT_BRANCH)-$(GIT_GUID)
 endif
 ## if this checkout is tagged set the build version to that
 ifeq ($(GIT_TAG), )
-	BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID) $(GIT_MODIFIED_COUNT))
+	BUILD_ID?=$(strip $(GIT_TS) $(GIT_GUID)$(GIT_MODIFIED_COUNT))
 else
 	BUILD_VERSION:=$(GIT_TAG)
-	BUILD_ID?=$(strip $(GIT_TS) $(GIT_MODIFIED_COUNT))
+	BUILD_ID?=$(strip $(GIT_TS)$(GIT_MODIFIED_COUNT))
 endif
 
 endif # BUILD_ID
