@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include "flow-compiler.H"
-#include "stru1.H"
+#include "stru.H"
 #include "grpc-helpers.H"
 #include "flow-ast.H"
 #include "massert.H"
@@ -224,11 +224,11 @@ static std::string func_proto(std::string fname, function_info const &fe, bool q
             type = type + " " + tyna.second; 
         return type;
     };
-    out << stru1::joint(fe.arg_tyna.begin(), fe.arg_tyna.begin()+fe.required_argc, tyna2str, ", ");
+    out << stru::joint(fe.arg_tyna.begin(), fe.arg_tyna.begin()+fe.required_argc, tyna2str, ", ");
     if(fe.arg_count() != fe.required_argc) {
         out << "[";
         if(fe.required_argc > 0) out << ", ";
-        out << stru1::joint(fe.arg_tyna.begin()+fe.required_argc, fe.arg_tyna.end(), tyna2str, ", ");
+        out << stru::joint(fe.arg_tyna.begin()+fe.required_argc, fe.arg_tyna.end(), tyna2str, ", ");
         out << "]";
     }
     out << ");";
@@ -255,16 +255,16 @@ int flow_compiler::check_function(int *rvt, std::string fname, int funcnode, int
     auto funp = function_table.find(fname);
     // check the function name
     if(funp == function_table.end() || !funp->second.enable) {
-        errmsg = stru1::sfmt() << "unknown function \"~" << fname << "\"";
+        errmsg = stru::sfmt() << "unknown function \"~" << fname << "\"";
         funp = function_table.end();
         ++error_count;
     } else {
         // check the number of arguments
         if(funp->second.required_argc == funp->second.arg_count() && funp->second.required_argc != argc) {
-            errmsg = stru1::sfmt() << "function \"~" << fname << "\" takes " << funp->second.required_argc << " arguments but " << argc << " were given";
+            errmsg = stru::sfmt() << "function \"~" << fname << "\" takes " << funp->second.required_argc << " arguments but " << argc << " were given";
             ++error_count;
         } else if(funp->second.required_argc != funp->second.arg_count() && funp->second.required_argc > argc || funp->second.arg_count() < argc) {
-            errmsg = stru1::sfmt() << "function \"~" << fname << "\" takes at least " << funp->second.required_argc 
+            errmsg = stru::sfmt() << "function \"~" << fname << "\" takes at least " << funp->second.required_argc 
                 << " and at most " << funp->second.arg_count() << " arguments but " << argc << " were given";
             ++error_count;
         }
@@ -279,7 +279,7 @@ int flow_compiler::check_function(int *rvt, std::string fname, int funcnode, int
                 //print_ast(std::cout, funcnode);
                 if(errnode != 0)
                     errnode = args[i+1];
-                errmsg = stru1::sfmt() << "argument " << (i+1) << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
+                errmsg = stru::sfmt() << "argument " << (i+1) << " for \"~" << fname << "\"  must be of type \"" << at2s(atype) << "\"";
                 ++error_count;
             }
         }
@@ -288,7 +288,7 @@ int flow_compiler::check_function(int *rvt, std::string fname, int funcnode, int
         if(errnode != 0) {
             pcerr.AddError(main_file, at(errnode), errmsg);
             if(funp != function_table.end())
-                pcerr.AddNote(main_file, at(funcnode), stru1::sfmt() << func_proto(funp->first, funp->second));
+                pcerr.AddNote(main_file, at(funcnode), stru::sfmt() << func_proto(funp->first, funp->second));
         }
     } else {
         // The return type can be the type of one of the arguments

@@ -6,12 +6,11 @@
 #include <algorithm>
 #include <cmath>
 #include "flow-compiler.H"
-#include "stru1.H"
+#include "stru.H"
 #include "grpc-helpers.H"
 #include "flow-ast.H"
 #include "massert.H"
 
-using namespace stru1;
 
 int flow_compiler::compile_string(std::string &str, int node, int node_type) {
     auto const &s = at(node);
@@ -185,7 +184,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
         FieldDescriptor const *fidp = dp->FindFieldByName(id);
         if(fidp == nullptr) {
             ++error_count;
-            pcerr.AddError(main_file, at(d), sfmt() << "\"" << dp->name() << "\" does not have a field called \"" << id << "\"");
+            pcerr.AddError(main_file, at(d), stru::sfmt() << "\"" << dp->name() << "\" does not have a field called \"" << id << "\"");
             continue;
         }
         field_descriptor.put(d, fidp);
@@ -199,7 +198,7 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
                     error_count += compile_fldm(fldd.children[1], ldp);
                 } else {
                     ++error_count;
-                    pcerr.AddError(main_file, at(d), sfmt() << "the field \"" << id << "\" in \"" << get_name(dp) << "\" is not of message type");
+                    pcerr.AddError(main_file, at(d), stru::sfmt() << "the field \"" << id << "\" in \"" << get_name(dp) << "\" is not of message type");
                 }
             break;
             case FTK_fldx:
@@ -217,17 +216,17 @@ int flow_compiler::compile_fldm(int fldm_node, Descriptor const *dp) {
             case FTK_FLOAT:
                 if(left_type == FTK_fldm) {
                     ++error_count;
-                    pcerr.AddError(main_file, at(d), sfmt() << "field \"" << id << "\" is of type message");
+                    pcerr.AddError(main_file, at(d), stru::sfmt() << "field \"" << id << "\" is of type message");
                 } else if(left_type != at(fldd.children[1]).type) {
-                    //pcerr.AddWarning(main_file, at(d), sfmt() << "value will be converted to \"" << node_name(left_type) << "\" before assignment to field \"" << get_name(dp) << "\"");
+                    //pcerr.AddWarning(main_file, at(d), stru::sfmt() << "value will be converted to \"" << node_name(left_type) << "\" before assignment to field \"" << get_name(dp) << "\"");
                 }
             break;    
             case FTK_ID:
                 if(left_type != FTK_fldm) {
                     ++error_count;
-                    pcerr.AddError(main_file, at(d), sfmt() << "the field \"" << id << "\" in \"" << get_name(dp) << "\" is not of message type");
+                    pcerr.AddError(main_file, at(d), stru::sfmt() << "the field \"" << id << "\" in \"" << get_name(dp) << "\" is not of message type");
                 } else {
-                    pcerr.AddWarning(main_file, at(d), sfmt() << "got this \"" << id << "\" ...");
+                    pcerr.AddWarning(main_file, at(d), stru::sfmt() << "got this \"" << id << "\" ...");
                 }
             break;
             default:
@@ -265,7 +264,7 @@ int flow_compiler::update_noderef_dimension(int node) {
             dimension.update(n, nodes_dimension);
 
         if(nodes_dimension != dimension(n)) {
-            pcerr.AddError(main_file, at(n), sfmt() << "dimension computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
+            pcerr.AddError(main_file, at(n), stru::sfmt() << "dimension computed as \"" << dimension(n) << "\",  expected \"" << nodes_dimension << "\"");
             ++error_count;
         }
     }
@@ -281,7 +280,7 @@ int flow_compiler::update_noderef_dimension(int node) {
     } else {
         // If a node set's dimension could not be computed, generate errors
         for(auto n: node_set) {
-            pcerr.AddError(main_file, at(n), sfmt() << "output size can not be determined for node");
+            pcerr.AddError(main_file, at(n), stru::sfmt() << "output size can not be determined for node");
             ++error_count;
         }
     }
@@ -338,7 +337,7 @@ int flow_compiler::update_dimensions(int node) {
                 dimension.put(node, -2);
             int conode = get_ne_condition(node);
             if(conode != 0 && dimension(node) >= 0 && dimension(conode) > dimension(node)) {
-                pcerr.AddError(main_file, at(node), sfmt() << "condition and node dimension mismatch");
+                pcerr.AddError(main_file, at(node), stru::sfmt() << "condition and node dimension mismatch");
                 ++error_count;
             }
         } break;
@@ -409,7 +408,7 @@ int flow_compiler::compile_fldx(int node) {
     std::string node_name = get_id(fldx.children[0]);
     int node_node = get_first_node(node_name);
     if(node_node == 0 && node_name != input_label) {
-        pcerr.AddError(main_file, at(fldx.children[0]), sfmt() << "unknown node \"" << node_name << "\"");
+        pcerr.AddError(main_file, at(fldx.children[0]), stru::sfmt() << "unknown node \"" << node_name << "\"");
         return error_count + 1;
     }
     Descriptor const *dp = message_descriptor(node_node);
@@ -421,14 +420,14 @@ int flow_compiler::compile_fldx(int node) {
         std::string id(get_id(f));
         FieldDescriptor const *fidp = dp->FindFieldByName(id);
         if(fidp == nullptr) {
-            pcerr.AddError(main_file, at(f), sfmt() << "field name \"" << id << "\" not found in message of type \"" << dp->full_name() << "\"");
+            pcerr.AddError(main_file, at(f), stru::sfmt() << "field name \"" << id << "\" not found in message of type \"" << dp->full_name() << "\"");
             return error_count + 1;
         }
         field_descriptor.put(f, fidp);
         if(is_message(fidp)) {
             dp = fidp->message_type(); 
         } else if(i + 1 <  fldx.children.size()) {
-            pcerr.AddError(main_file, at(f), sfmt() << "the \"" << id << "\" field in \"" << get_name(dp) << "\" is not of message type");
+            pcerr.AddError(main_file, at(f), stru::sfmt() << "the \"" << id << "\" field in \"" << get_name(dp) << "\" is not of message type");
             return error_count + 1;
         }
     }
@@ -456,7 +455,7 @@ int flow_compiler::compile_enum(int node, EnumDescriptor const *ed) {
     if(ed != nullptr) {
         for(int ev = 0, evc = ed->value_count(); ev != evc; ++ev) {
             auto evd = ed->value(ev);
-            if(evd->name() == id_label || evd->full_name() == id_label || stru1::ends_with(evd->full_name(), std::string(".")+id_label)) {
+            if(evd->name() == id_label || evd->full_name() == id_label || stru::ends_with(evd->full_name(), std::string(".")+id_label)) {
                 evdp = evd;
                 matches.insert(evd->full_name());
             }
@@ -465,7 +464,7 @@ int flow_compiler::compile_enum(int node, EnumDescriptor const *ed) {
     // search globally if nothing was found in context
     if(matches.size() == 0) {
         for(auto evd: enum_value_set) {
-            if(evd->name() == id_label || evd->full_name() == id_label || stru1::ends_with(evd->full_name(), std::string(".")+id_label))  {
+            if(evd->name() == id_label || evd->full_name() == id_label || stru::ends_with(evd->full_name(), std::string(".")+id_label))  {
                 evdp = evd;
                 matches.insert(evd->full_name());
             }
@@ -474,11 +473,11 @@ int flow_compiler::compile_enum(int node, EnumDescriptor const *ed) {
     if(evdp != nullptr)
         enum_descriptor.put(node, evdp);
     if(matches.size() == 0) {
-        pcerr.AddError(main_file, at(node), sfmt() << "unknown enum label \"" << id_label << "\"");
+        pcerr.AddError(main_file, at(node), stru::sfmt() << "unknown enum label \"" << id_label << "\"");
         ++error_count;
     } else if(matches.size() > 1) {
-        pcerr.AddError(main_file, at(node), sfmt() << "ambiguous enum label \"" << id_label << "\"");
-        pcerr.AddNote(main_file, at(node), sfmt() << "matches " << stru1::join(matches, ", ", " and ", "", "\"", "\""));
+        pcerr.AddError(main_file, at(node), stru::sfmt() << "ambiguous enum label \"" << id_label << "\"");
+        pcerr.AddNote(main_file, at(node), stru::sfmt() << "matches " << stru::join(matches, ", ", " and ", "", "\"", "\""));
         ++error_count;
     }
     return error_count;
@@ -495,13 +494,13 @@ MethodDescriptor const *flow_compiler::check_method(std::string &method, int err
     MethodDescriptor const *mdp = find_service_method(method, &matches);
     if(matches.size() == 0) {
         if(error_node > 0) {
-            pcerr.AddError(main_file, at(error_node), sfmt() << "service method not found: \"" << method << "\"");
-            pcerr.AddNote(main_file, at(error_node), sfmt() << "defined service methods: " << format_full_name_methods(", ",  " and ", "", "\"", "\""));
+            pcerr.AddError(main_file, at(error_node), stru::sfmt() << "service method not found: \"" << method << "\"");
+            pcerr.AddNote(main_file, at(error_node), stru::sfmt() << "defined service methods: " << format_full_name_methods(", ",  " and ", "", "\"", "\""));
         }
         mdp = nullptr;
     } else if(matches.size() > 1) {
         if(error_node > 0) 
-            pcerr.AddError(main_file, at(error_node), sfmt() << "ambiguous method name \"" << method << "\" matches: "+join(matches, ", ", " and ", "", "\"", "\""));
+            pcerr.AddError(main_file, at(error_node), stru::sfmt() << "ambiguous method name \"" << method << "\" matches: "+stru::join(matches, ", ", " and ", "", "\"", "\""));
         mdp = nullptr;
     } else if(mdp->client_streaming() || mdp->server_streaming()) {
         if(error_node > 0) 
@@ -523,13 +522,13 @@ Descriptor const *flow_compiler::check_message(std::string &dotted_id, int error
     Descriptor const *mdp = find_message(dotted_id, &matches);
     if(matches.size() == 0) {
         if(error_node > 0) {
-            pcerr.AddError(main_file, at(error_node), sfmt() << "message type not found: \"" << dotted_id << "\"");
-            pcerr.AddNote(main_file, at(error_node), sfmt() << "defined message types: " << format_message_names(", ",  " and ", "", "\"", "\""));
+            pcerr.AddError(main_file, at(error_node), stru::sfmt() << "message type not found: \"" << dotted_id << "\"");
+            pcerr.AddNote(main_file, at(error_node), stru::sfmt() << "defined message types: " << format_message_names(", ",  " and ", "", "\"", "\""));
         }
         mdp = nullptr;
     } else if(matches.size() > 1) {
         if(error_node > 0) 
-            pcerr.AddError(main_file, at(error_node), sfmt() << "ambiguous message type name \"" << dotted_id << "\" matches: "+join(matches, ", ", " and ", "", "\"", "\""));
+            pcerr.AddError(main_file, at(error_node), stru::sfmt() << "ambiguous message type name \"" << dotted_id << "\" matches: "+stru::join(matches, ", ", " and ", "", "\"", "\""));
         mdp = nullptr;
     } else {
         dotted_id = *matches.begin();
@@ -553,7 +552,7 @@ int flow_compiler::compile_if_import(int stmt_node, bool ignore_imports) {
         return 0;
     int ec = compile_proto(filename);
     if(ec > 0) 
-        pcerr.AddError(main_file, stmt.token, sfmt() << "failed to import \"" << filename << "\"");
+        pcerr.AddError(main_file, stmt.token, stru::sfmt() << "failed to import \"" << filename << "\"");
     return ec;
 }
 template <class SET>
@@ -712,9 +711,9 @@ int flow_compiler::build_flow_graph(int blk_node) {
                 if(adjmat[x][x] && !cot::contains(circular, xton[x])) {
                     circular.insert(xton[x]);
                     if(i == 0) 
-                        pcerr.AddError(main_file, at(xton[x]), sfmt() << "node \"" << type(xton[x]) << "\" references itself");
+                        pcerr.AddError(main_file, at(xton[x]), stru::sfmt() << "node \"" << type(xton[x]) << "\" references itself");
                     else
-                        pcerr.AddError(main_file, at(xton[x]), sfmt() << "circular reference of node \"" << type(xton[x]) << "\"");
+                        pcerr.AddError(main_file, at(xton[x]), stru::sfmt() << "circular reference of node \"" << type(xton[x]) << "\"");
                     ++error_count;
                 }
             auto aip = adjmat;
@@ -727,11 +726,11 @@ int flow_compiler::build_flow_graph(int blk_node) {
                 }
         }
         if(error_count == 0) {
-            pcerr.AddError(main_file, at(blk_node), sfmt() << "failed to construct graph for \"" << method_descriptor(blk_node)->full_name() << "\" entry");
+            pcerr.AddError(main_file, at(blk_node), stru::sfmt() << "failed to construct graph for \"" << method_descriptor(blk_node)->full_name() << "\" entry");
             ++error_count;
         }
     } else if(graph.size() == 0) {
-        pcerr.AddWarning(main_file, at(blk_node), sfmt() << "entry \"" << method_descriptor(blk_node)->full_name()<< "\" doesn't use any nodes");
+        pcerr.AddWarning(main_file, at(blk_node), stru::sfmt() << "entry \"" << method_descriptor(blk_node)->full_name()<< "\" doesn't use any nodes");
     }
     return error_count;
 }
@@ -822,15 +821,15 @@ int flow_compiler::check_assign(int error_node, lrv_descriptor const &left, lrv_
         if(left.type_name() == right.type_name()) 
             check = 2;
         else 
-            pcerr.AddError(main_file, at(error_node), sfmt() << "cannot assign \"" << right.type_name() << "\" to left value of type \"" << left.type_name() << "\"");
+            pcerr.AddError(main_file, at(error_node), stru::sfmt() << "cannot assign \"" << right.type_name() << "\" to left value of type \"" << left.type_name() << "\"");
     } else if(left.type() == right.type()) {
         check = 1; 
     } else if(left.type() == FTK_STRING || left.grpc_type_name() == "bool" || left.t_size() > right.t_size()) {
         check = 3;
     } else if(left.type() == FTK_enum) {
-        pcerr.AddError(main_file, at(error_node), sfmt() << "cannont convert from \"" << right.type_name() << "\" to \"" << left.enum_descriptor()->full_name() << "\"");
+        pcerr.AddError(main_file, at(error_node), stru::sfmt() << "cannont convert from \"" << right.type_name() << "\" to \"" << left.enum_descriptor()->full_name() << "\"");
     } else {
-        pcerr.AddWarning(main_file, at(error_node), sfmt() << "conversion from \"" << right.type_name() << "\" to \"" << left.type_name() << "\" could cause data loss");
+        pcerr.AddWarning(main_file, at(error_node), stru::sfmt() << "conversion from \"" << right.type_name() << "\" to \"" << left.type_name() << "\" could cause data loss");
         check = 4;
     }
     return check;
@@ -1050,7 +1049,7 @@ int flow_compiler::encode_expression(int fldr_node, int expected_type, int dim_c
                     if(fat.second) {
                         if(dimension(fields[a+1]) + dimc < 0) {
                             ++error_count;
-                            pcerr.AddError(main_file, at(fields[a+1]), sfmt() << "function argument must be a repeated value");
+                            pcerr.AddError(main_file, at(fields[a+1]), stru::sfmt() << "function argument must be a repeated value");
                         }
                     }
                     if(fat.second)
@@ -1300,7 +1299,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 icode.push_back(coop);
             */
             if(lvd.grpc_type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM) {
-                pcerr.AddWarning(main_file, at(arg_node), sfmt() << "assigning expression to field of type \"" << lvd.enum_descriptor()->name() << "\"");
+                pcerr.AddWarning(main_file, at(arg_node), stru::sfmt() << "assigning expression to field of type \"" << lvd.enum_descriptor()->name() << "\"");
                 auto ext = value_type(arg_node);
                 if(ext == FTK_FLOAT) {
                     icode.push_back(fop(COFI));
@@ -1350,13 +1349,13 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             auto revd = rvfd.enum_descriptor()->value(i);
                             if(lvd.enum_descriptor()->FindValueByNumber(revd->number()) == nullptr) {
                                 error_count += 1;
-                                pcerr.AddError(main_file, at(arg_node), sfmt() << "not all values in \"" << rvfd.enum_descriptor()->full_name() << "\" can be converted to \"" << lvd.enum_descriptor()->full_name() << "\"");
+                                pcerr.AddError(main_file, at(arg_node), stru::sfmt() << "not all values in \"" << rvfd.enum_descriptor()->full_name() << "\" can be converted to \"" << lvd.enum_descriptor()->full_name() << "\"");
                                 can_convert = false;
                                 break;
                             }
                         }
                         if(can_convert) 
-                            pcerr.AddWarning(main_file, at(arg_node), sfmt() << "all \"" << rvfd.enum_descriptor()->full_name() << "\" values will be converted to their numerical correspondent values in \"" << lvd.enum_descriptor()->full_name() << "\"");
+                            pcerr.AddWarning(main_file, at(arg_node), stru::sfmt() << "all \"" << rvfd.enum_descriptor()->full_name() << "\" values will be converted to their numerical correspondent values in \"" << lvd.enum_descriptor()->full_name() << "\"");
                     }
                     if(coop != NOP) {
                         icode.push_back(fop(coop, lvd.grpc_type(), rvfd.grpc_type()));
@@ -1400,7 +1399,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                 case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
                     // Error
                     ++error_count;
-                    pcerr.AddError(main_file, at(arg_node), sfmt() << "cannot assign literal value to this field");
+                    pcerr.AddError(main_file, at(arg_node), stru::sfmt() << "cannot assign literal value to this field");
                 break;
                 case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
                     if(enum_descriptor.has(arg_node)) {
@@ -1411,9 +1410,9 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             // Check if the value can be assigned
                             if(lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number()) == nullptr) {
                                 ++error_count;
-                                pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value \"" << enum_descriptor(arg_node)->name() << "\" (\"" << enum_descriptor(arg_node)->number() << "\") not found in \"" << lvd.enum_descriptor()->name() << "\"" );
+                                pcerr.AddError(main_file, at(arg_node), stru::sfmt() << "enum value \"" << enum_descriptor(arg_node)->name() << "\" (\"" << enum_descriptor(arg_node)->number() << "\") not found in \"" << lvd.enum_descriptor()->name() << "\"" );
                             } else if(lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number())->name() != enum_descriptor(arg_node)->name()) {
-                                pcerr.AddWarning(main_file, at(arg_node), sfmt() << "enum value \"" << enum_descriptor(arg_node)->name() << "\" will be assigend as \"" <<  lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number())->name() <<  "\"" );
+                                pcerr.AddWarning(main_file, at(arg_node), stru::sfmt() << "enum value \"" << enum_descriptor(arg_node)->name() << "\" will be assigend as \"" <<  lvd.enum_descriptor()->FindValueByNumber(enum_descriptor(arg_node)->number())->name() <<  "\"" );
                             }
                         }
                     } else if(at(arg_node).type == FTK_STRING) {
@@ -1424,7 +1423,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             icode.back().ev1 = evd;
                         } else {
                             ++error_count;
-                            pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value not found: \"" << get_value(arg_node) << "\" in \"" << lvd.enum_descriptor()->name() << "\"" );
+                            pcerr.AddError(main_file, at(arg_node), stru::sfmt() << "enum value not found: \"" << get_value(arg_node) << "\" in \"" << lvd.enum_descriptor()->name() << "\"" );
                         }
 
                     } else {
@@ -1436,7 +1435,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                             icode.back().ev1 = evd;
                         } else {
                             ++error_count;
-                            pcerr.AddError(main_file, at(arg_node), sfmt() << "enum value \"" << number << "\" was not found in \""<< lvd.enum_descriptor()->name() << "\"");
+                            pcerr.AddError(main_file, at(arg_node), stru::sfmt() << "enum value \"" << number << "\" was not found in \""<< lvd.enum_descriptor()->name() << "\"");
                         }
                     }
                 break;
@@ -1446,7 +1445,7 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                      } else if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number() != 0), arg_node, lvd.grpc_type()));
                     } else {
-                        icode.push_back(fop(RVC, std::to_string(string_to_bool(get_value(arg_node))), arg_node, lvd.grpc_type()));
+                        icode.push_back(fop(RVC, std::to_string(stru::string_to_bool(get_value(arg_node))), arg_node, lvd.grpc_type()));
                     }
                 break;
 
@@ -1470,10 +1469,10 @@ int flow_compiler::populate_message(std::string const &lv_name, lrv_descriptor c
                     } else if(enum_descriptor.has(arg_node)) {
                         icode.push_back(fop(RVC, std::to_string(enum_descriptor(arg_node)->number()), arg_node, lvd.grpc_type()));
                     } else if(at(arg_node).type == FTK_STRING) {
-                        pcerr.AddError(main_file, at(arg_node), sfmt() << "numeric value expected here");
+                        pcerr.AddError(main_file, at(arg_node), stru::sfmt() << "numeric value expected here");
                     } else {
                         if(!can_cast(arg_node, lvd.grpc_type()))
-                            pcerr.AddWarning(main_file, at(arg_node), sfmt() << "the value \"" << get_value(arg_node) << "\" will be assigned as \"" << get_number(arg_node, lvd.grpc_type()) << "\"");
+                            pcerr.AddWarning(main_file, at(arg_node), stru::sfmt() << "the value \"" << get_value(arg_node) << "\" will be assigned as \"" << get_number(arg_node, lvd.grpc_type()) << "\"");
                         icode.push_back(fop(RVC, get_number(arg_node, lvd.grpc_type()), arg_node, lvd.grpc_type()));
                     }
                 break;
@@ -1537,7 +1536,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             icode[stage_idx].arg.push_back(n);   // BSTG arg 4... nodes in this stage
             stage_set_names.push_back(name(n));
         }
-        icode[stage_idx].arg1 = join(stage_set_names, ", ");  // label for this node set
+        icode[stage_idx].arg1 = stru::join(stage_set_names, ", ");  // label for this node set
         DEBUG_CHECK("generating error checks " << stage_set);
 
         for(int n: *this) if(at(n).type == FTK_ERROR && !cot::contains(errnc, n)) {
@@ -1684,8 +1683,8 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
             if(dimension(node) >= 0)
                 for(auto nip: node_ip) 
                     if(nip.first != node && type(nip.first) == type(node) && icode[nip.second].arg[0] >= 0 && icode[nip.second].arg[0] != dimension(node)) {
-                        pcerr.AddError(main_file, at(node), sfmt() << "size of result of this node is different from a previous node of the same type");
-                        pcerr.AddNote(main_file, at(nip.first), sfmt() << "previous node declared here");
+                        pcerr.AddError(main_file, at(node), stru::sfmt() << "size of result of this node is different from a previous node of the same type");
+                        pcerr.AddNote(main_file, at(nip.first), stru::sfmt() << "previous node declared here");
                         ++error_count;
                     }
         }
@@ -1717,7 +1716,7 @@ int flow_compiler::compile_flow_graph(int entry_blck_node, std::vector<std::set<
 
     if(0 != dimension(entry_blck_node)) {
         ++error_count;
-        pcerr.AddError(main_file, at(ean), sfmt() << "in entry \"" << emd->full_name() << "\" the return expression has a higher dimension \""
+        pcerr.AddError(main_file, at(ean), stru::sfmt() << "in entry \"" << emd->full_name() << "\" the return expression has a higher dimension \""
                 << dimension(entry_blck_node) << "\" than expected");
     }
 
@@ -1753,13 +1752,13 @@ int flow_compiler::fixup_node_ids() {
                     first_id = *p;
                     continue;
                 }
-                pcerr.AddError(main_file, at(*p), sfmt() << "identifier redefinition for \"" << type(n) << "\" node");
+                pcerr.AddError(main_file, at(*p), stru::sfmt() << "identifier redefinition for \"" << type(n) << "\" node");
             }
             pcerr.AddNote(main_file, at(first_id), "first defined here");
             continue;
         }
         if(!have_id && idvns.size() == 1) {
-            name.update(n, sfmt() << name(n) << "." << get_text(*idvns.begin()));
+            name.update(n, stru::sfmt() << name(n) << "." << get_text(*idvns.begin()));
             have_id = true;
         }
         if(!have_id)
@@ -1767,7 +1766,7 @@ int flow_compiler::fixup_node_ids() {
 
         if(cot::contains(node_xnames, name(n))) {
             ++error_count;
-            pcerr.AddError(main_file, at(n), sfmt() << "illegal reuse of id for node \"" << type(n) << "\"");
+            pcerr.AddError(main_file, at(n), stru::sfmt() << "illegal reuse of id for node \"" << type(n) << "\"");
             pcerr.AddNote(main_file, at(node_xnames[name(n)]), "first defined here");
             continue;
         } 
@@ -1776,7 +1775,7 @@ int flow_compiler::fixup_node_ids() {
     // make a second pass and assign ids for the nodes that don't have one and are part of a group
     for(int n: *this) if(at(n).type == FTK_NODE && name(n) == type(n) && node_counts[type(n)] > 1) {
         for(int i = 1; i <= node_count; ++i) {
-            std::string nid = sfmt() << type(n) << "." << i;
+            std::string nid = stru::sfmt() << type(n) << "." << i;
             if(!cot::contains(node_xnames, nid)) {
                 name.update(n, nid);
                 node_xnames[nid] = n;
@@ -1803,8 +1802,8 @@ int flow_compiler::fixup_proto_refs() {
                 assert(at(n).children.size() == 2 || at(n).children.size() == 1);
                 if(action_node != 0) {
                     ++error_count;
-                    pcerr.AddError(main_file, at(prev_node), sfmt() << "this \"" << (at(parent_node).type == FTK_ENTRY? "entry": "node") << "\" already has a \"" << get_id(action_node) << "\" statement");
-                    pcerr.AddNote(main_file, at(action_node), sfmt() << "declared here");
+                    pcerr.AddError(main_file, at(prev_node), stru::sfmt() << "this \"" << (at(parent_node).type == FTK_ENTRY? "entry": "node") << "\" already has a \"" << get_id(action_node) << "\" statement");
+                    pcerr.AddNote(main_file, at(action_node), stru::sfmt() << "declared here");
                     break;
                 }
                 action_node = prev_node;
@@ -1867,8 +1866,8 @@ int flow_compiler::fixup_proto_refs() {
     for(int n: *this) if(at(n).type == FTK_ENTRY) {
         if(cot::contains(mds, method_descriptor(n))) {
             ++error_count;
-            pcerr.AddError(main_file, at(n), sfmt() << "redefinition of rpc method is not allowed (\"" << method_descriptor(n) << "\")");
-            pcerr.AddNote(main_file, at(mds[method_descriptor(n)]), sfmt() << "first declared here");
+            pcerr.AddError(main_file, at(n), stru::sfmt() << "redefinition of rpc method is not allowed (\"" << method_descriptor(n) << "\")");
+            pcerr.AddNote(main_file, at(mds[method_descriptor(n)]), stru::sfmt() << "first declared here");
         } else {
             mds[method_descriptor(n)] = n;
         }
@@ -1879,8 +1878,8 @@ int flow_compiler::fixup_proto_refs() {
 
         if(input_descriptor(n) != input_descriptor(first_entry)) {
             ++error_count;
-            pcerr.AddError(main_file, at(n), sfmt() << "all entries must have the same input type: \"" << input_descriptor(first_entry)->full_name() << "\"\n");
-            pcerr.AddNote(main_file, at(first_entry), sfmt() << "first declared here");
+            pcerr.AddError(main_file, at(n), stru::sfmt() << "all entries must have the same input type: \"" << input_descriptor(first_entry)->full_name() << "\"\n");
+            pcerr.AddNote(main_file, at(first_entry), stru::sfmt() << "first declared here");
         }
         // check that any declared return type agrees with the method's
         int rn =  find_first(n, [this](int x) -> bool {
@@ -1891,9 +1890,9 @@ int flow_compiler::fixup_proto_refs() {
             pcerr.AddError(main_file, at(n), "no return found for this entry");
         } else if(message_descriptor(n) != nullptr && at(rn).children.size() == 2) {
             int dtid_node = at(rn).children[0];
-            if(!stru1::ends_with(message_descriptor(n)->full_name(), get_dotted_id(dtid_node))) {
+            if(!stru::ends_with(message_descriptor(n)->full_name(), get_dotted_id(dtid_node))) {
                 ++error_count;
-                pcerr.AddError(main_file, at(dtid_node), sfmt() << "entry must return message of type \"" << message_descriptor(n)->full_name() << "\", not \"" << get_dotted_id(dtid_node) << "\"");
+                pcerr.AddError(main_file, at(dtid_node), stru::sfmt() << "entry must return message of type \"" << message_descriptor(n)->full_name() << "\", not \"" << get_dotted_id(dtid_node) << "\"");
             }
         }
     }
@@ -1914,8 +1913,8 @@ int flow_compiler::fixup_proto_refs() {
                 input_descriptor.put(m, message_descriptor(m));
             } else if(message_descriptor(m) != message_descriptor(n)) {
                 ++error_count;
-                pcerr.AddError(main_file, at(m), sfmt() << "node declared with a different output type \"" << message_descriptor(m)->name() << "\"");
-                pcerr.AddError(main_file, at(n), sfmt() << "previously declared here with type \"" << message_descriptor(n)->name() << "\"");
+                pcerr.AddError(main_file, at(m), stru::sfmt() << "node declared with a different output type \"" << message_descriptor(m)->name() << "\"");
+                pcerr.AddError(main_file, at(n), stru::sfmt() << "previously declared here with type \"" << message_descriptor(n)->name() << "\"");
             }
         }
     }
@@ -2055,20 +2054,20 @@ int flow_compiler::compile(std::set<std::string> const &targets, bool ignore_imp
         if(at(cn).type == FTK_ID) {
             if(grpc_error_code(get_id(cn)).empty()) {
                 ++error_count;
-                pcerr.AddError(main_file, at(cn), sfmt() << "unknown grpc error code \"" << get_id(cn) << "\"");
+                pcerr.AddError(main_file, at(cn), stru::sfmt() << "unknown grpc error code \"" << get_id(cn) << "\"");
             }
         }
         if(at(cn).type == FTK_INTEGER) {
             if(grpc_error_code(get_integer(cn)).empty()) {
                 ++error_count;
-                pcerr.AddError(main_file, at(cn), sfmt() << "invalid grpc error code \"" << get_integer(cn) << "\", must be in the rage 1 to 16 ");
+                pcerr.AddError(main_file, at(cn), stru::sfmt() << "invalid grpc error code \"" << get_integer(cn) << "\", must be in the rage 1 to 16 ");
             }
         }
     }
     for(int en: *this) if(at(en).type == FTK_ERROR) 
         if(dimension(at(en).children[0]) < dimension(at(en).children.back())) {
             ++error_count;
-            pcerr.AddError(main_file, at(en), sfmt() << "cannot construct error message");
+            pcerr.AddError(main_file, at(en), stru::sfmt() << "cannot construct error message");
         }
 
     // Build a flow graph for each entry 
@@ -2079,12 +2078,12 @@ int flow_compiler::compile(std::set<std::string> const &targets, bool ignore_imp
     if(error_count > 0) return error_count;
 
     if(flow_graph.size() == 0) {
-        pcerr.AddError(main_file, -1, 0, sfmt() << "no entries defined");
+        pcerr.AddError(main_file, -1, 0, stru::sfmt() << "no entries defined");
         return 1;
     } 
     icode.clear();
     for(int n: *this) if(at(n).type == FTK_NODE && refcount(n) == 0) 
-        pcerr.AddWarning(main_file, at(n), sfmt() << "node \"" << type(n) << "\" is not used by any entry");
+        pcerr.AddWarning(main_file, at(n), stru::sfmt() << "node \"" << type(n) << "\" is not used by any entry");
     // Update dimensions for each data referencing node
     if(error_count > 0) return error_count;
     error_count += update_dimensions(root);

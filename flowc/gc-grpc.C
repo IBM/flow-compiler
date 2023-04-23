@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 
 #include "flow-compiler.H"
-#include "stru1.H"
+#include "stru.H"
 #include "grpc-helpers.H"
 
 int flow_compiler::genc_protobuf() { 

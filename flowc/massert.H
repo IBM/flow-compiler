@@ -2,7 +2,7 @@
 #define H_MASSERT_H
 
 #include <iostream>
-#include "stru1.H"
+#include "stru.H"
 
 struct quit {
     std::ostream &out;
@@ -15,6 +15,6 @@ struct quit {
     }
 };
 
-#define MASSERT(c) if(!(c)) quit() <<= stru1::sfmt() << __FILE__ << ":" << __LINE__ << " "
+#define MASSERT(c) if(!(c)) quit() <<= stru::sfmt() << __FILE__ << ":" << __LINE__ << " "
 
 #endif

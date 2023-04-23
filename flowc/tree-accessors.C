@@ -25,14 +25,14 @@ int flow_compiler::get_block_value(std::vector<int> &values, int blck, std::stri
             ++error_count;
             std::set<std::string> accepted;
             std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name); 
-            pcerr.AddError(main_file, at(v), stru1::sfmt() << "\"" << name << "\" must be of type " << stru1::join(accepted, ", ", " or "));
+            pcerr.AddError(main_file, at(v), stru::sfmt() << "\"" << name << "\" must be of type " << stru::join(accepted, ", ", " or "));
             continue;
         }
         values.push_back(v);
     }
     if(required && values.size() == 0) {
         ++error_count;
-        pcerr.AddError(main_file, at(blck), stru1::sfmt() << "at least one \"" << name << "\" value must be set"); 
+        pcerr.AddError(main_file, at(blck), stru::sfmt() << "at least one \"" << name << "\" value must be set"); 
     }
     return error_count;
 }
@@ -42,7 +42,7 @@ int flow_compiler::get_block_value(int &value, int blck, std::string const &name
     int error_count = get_block_value(values, blck, name, required, accepted_types);
     if(error_count == 0 && values.size() > 0) {
         if(values.size() != 1) for(unsigned i = 0; i + 1 < values.size(); ++i)
-            pcerr.AddWarning(main_file, at(values[i]), stru1::sfmt() << "ignoring previously set \"" << name << "\" value");
+            pcerr.AddWarning(main_file, at(values[i]), stru::sfmt() << "ignoring previously set \"" << name << "\" value");
         value = values.back();
     }
     return error_count;
@@ -55,7 +55,7 @@ int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_bloc
     for(int p = 0, v = find_in_blck(parent_block, block_label, &p); v != 0; v = find_in_blck(parent_block, block_label, &p)) {
         if(at(v).type != FTK_blck && at(v).type != FTK_HEADERS && at(v).type != FTK_MOUNT && at(v).type != FTK_ENVIRONMENT) {
             error_count += 1;
-            pcerr.AddError(main_file, at(v), stru1::sfmt() << "\"" << block_label << "\" must be a name/value pair block");
+            pcerr.AddError(main_file, at(v), stru::sfmt() << "\"" << block_label << "\" must be a name/value pair block");
             continue;
         }
         // Grab all name value pairs 
@@ -65,7 +65,7 @@ int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_bloc
                 error_count += 1;
                 std::set<std::string> accepted;
                 std::transform(accepted_types.begin(), accepted_types.end(), std::inserter(accepted, accepted.end()), node_name);
-                pcerr.AddError(main_file, at(v), stru1::sfmt() << "value for \"" << get_id(n) << "\" must be of type " << stru1::join(accepted, ", ", " or "));
+                pcerr.AddError(main_file, at(v), stru::sfmt() << "value for \"" << get_id(n) << "\" must be of type " << stru::join(accepted, ", ", " or "));
                 continue;
             }
             nvs[get_id(n)] = v; 
@@ -117,13 +117,13 @@ int flow_compiler::get_blck_timeout(int blck, int default_timeout) {
             timeout = get_integer(timeout_value)*1000;
             break;
         case FTK_STRING:
-            timeout = stru1::get_time_value(get_string(timeout_value));
+            timeout = stru::get_time_value(get_string(timeout_value));
             break;
         default:
             break;
     }
     if(timeout <= 0) {
-        pcerr.AddWarning(main_file, at(timeout_value), stru1::sfmt() << "ignoring invalid value for \"timeout\", using the default of \""<<default_timeout<<"ms\"");
+        pcerr.AddWarning(main_file, at(timeout_value), stru::sfmt() << "ignoring invalid value for \"timeout\", using the default of \""<<default_timeout<<"ms\"");
         return default_timeout;
     }
     return timeout;

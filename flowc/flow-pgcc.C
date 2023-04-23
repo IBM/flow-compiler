@@ -8,7 +8,7 @@
 #endif
 
 #include "flow-compiler.H"
-#include "stru1.H"
+#include "stru.H"
 #include "cot.H"
 #include "flow-parser.c"
 #include "massert.H"
@@ -138,7 +138,7 @@ std::string flow_compiler::format_message_names(std::string const &sep, std::str
              l_names.insert(mdp->full_name());
         }
 
-    return stru1::join(l_names, sep, last, begin, prefix, suffix);
+    return stru::join(l_names, sep, last, begin, prefix, suffix);
 }
 /**
  * Return formatted list of all methods for message display purposes
@@ -154,7 +154,7 @@ std::string flow_compiler::format_full_name_methods(std::string const &sep, std:
             }
 
         }
-    return stru1::join(l_names, sep, last, begin, prefix, suffix);
+    return stru::join(l_names, sep, last, begin, prefix, suffix);
 }
 static bool is_white_punct(std::string const &s) {
     for(auto c: s)
@@ -178,23 +178,23 @@ void flow_compiler::add_comments(int token, std::vector<std::string> const &comm
        comments[b].empty() || 
        is_white_punct(comments[b]) ||
        // remove copyright message from the top of the file
-       (stru1::to_lower(comments[b]).find("copyright") != std::string::npos && token == 1)
+       (stru::to_lower(comments[b]).find("copyright") != std::string::npos && token == 1)
        )) ++b;
 
     std::stringstream buf1, buf2;
     for(unsigned i = b, e = comments.size(); i < e; ++i) 
-        buf1 << stru1::strip(comments[i]) << "\n";
+        buf1 << stru::strip(comments[i]) << "\n";
     std::string line; 
     bool front = true;
     while(!!std::getline(buf1, line)) {
-        line = stru1::rstrip(nullptr, line);
+        line = stru::rstrip(nullptr, line);
         if(front && is_white_punct(line))
             continue;
         front = false;
         buf2 << line << "\n";
     }
     if(!buf2.str().empty()) 
-        description.put(token, stru1::strip(buf2.str()));
+        description.put(token, stru::strip(buf2.str()));
 }
 int flow_compiler::parse() {
     int error_count = 0;

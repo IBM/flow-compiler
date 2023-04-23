@@ -4,10 +4,9 @@
 
 #include <grpc++/grpc++.h>
 #include "grpc-helpers.H"
-#include "stru1.H"
+#include "stru.H"
 #include "cot.H"
 
-using namespace stru1;
 using namespace google::protobuf;
 
 static void gen_proto(std::ostream &pbuf, ::google::protobuf::Descriptor const *dp, std::set<std::string> &visited) {
@@ -72,10 +71,10 @@ static std::string get_description(FieldDescriptor const *fd) {
     ::google::protobuf::SourceLocation sl;
     if(fd->GetSourceLocation(&sl)) {
         // ignore detatched comments
-        fdescription = strip(sl.leading_comments, "\t\r\a\b\v\f\n");
+        fdescription = stru::strip(sl.leading_comments, "\t\r\a\b\v\f\n");
         if(!sl.leading_comments.empty() && !sl.trailing_comments.empty())
             fdescription += "\n";
-        fdescription += strip(sl.trailing_comments, "\t\r\a\b\v\f\n");
+        fdescription += stru::strip(sl.trailing_comments, "\t\r\a\b\v\f\n");
     }
     return fdescription;
 }
@@ -84,10 +83,10 @@ static std::string get_description(::google::protobuf::Descriptor const *fd) {
     ::google::protobuf::SourceLocation sl;
     if(fd->GetSourceLocation(&sl)) {
         // ignore detatched comments
-        fdescription = strip(sl.leading_comments, "\t\r\a\b\v\f\n");
+        fdescription = stru::strip(sl.leading_comments, "\t\r\a\b\v\f\n");
         if(!sl.leading_comments.empty() && !sl.trailing_comments.empty())
             fdescription += "\n";
-        fdescription += strip(sl.trailing_comments, "\t\r\a\b\v\f\n");
+        fdescription += stru::strip(sl.trailing_comments, "\t\r\a\b\v\f\n");
     }
     return fdescription;
 }
@@ -157,13 +156,13 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                 if(vformat) 
                     buf << "\"format\":<{" << format << "/s}>," << eos;
                 else
-                    buf << "\"format\":" << c_escape(format) << "," << eos;
+                    buf << "\"format\":" << stru::c_escape(format) << "," << eos;
             }
 
             std::tie(value, value_type, varname) = get_prop(ffname, "show");
             if(value_type != 0) {
                 if(varname.empty())
-                    buf << "\"show\":" << (stru1::string_to_bool(value) ? "true" : "false") << "," << eos;
+                    buf << "\"show\":" << (stru::string_to_bool(value) ? "true" : "false") << "," << eos;
                 else
                     buf << "\"show\":<{"<< value << "/b}," << eos;
             }
@@ -176,11 +175,11 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             if(!varname.empty()) { maximum_value = varname; vmaximum = true; }
         }
         buf << "\"propertyOrder\":" << (i+1) << "," << eos;
-        if(ftitle.empty()) ftitle = decamelize(fd->name());
+        if(ftitle.empty()) ftitle = stru::decamelize(fd->name());
         if(vftitle) 
             buf << "\"title\":<{" << ftitle << "/s}>," << eos;
         else
-            buf << "\"title\":" << c_escape(ftitle) << "," << eos;
+            buf << "\"title\":" << stru::c_escape(ftitle) << "," << eos;
 
         if(fdescription.empty()) fdescription = get_description(fd);
 
@@ -188,7 +187,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
             if(vfdescription)
                 buf << "\"description\":<{" << fdescription << "/s}>," << eos;
             else
-                buf << "\"description\":" << c_escape(fdescription) << "," << eos;
+                buf << "\"description\":" << stru::c_escape(fdescription) << "," << eos;
         }
 
         if(is_repeated) {
@@ -245,7 +244,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                     if(vdefault)
                         buf << ",\"default\":<{" << default_value << "/s}>";
                     else
-                        buf << ",\"default\":" << c_escape(default_value);
+                        buf << ",\"default\":" << stru::c_escape(default_value);
                 }
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
@@ -254,7 +253,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                     if(vdefault)
                         buf << ",\"default\":<{" << default_value << "/b}>";
                     else
-                        buf << ",\"default\":" << (stru1::string_to_bool(default_value) ? "true" : "false");
+                        buf << ",\"default\":" << (stru::string_to_bool(default_value) ? "true" : "false");
                 }
                 break;
             case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
@@ -265,7 +264,7 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
                     if(vdefault)
                         buf << ",\"default\":<{" << default_value << "/s}>";
                     else
-                        buf << ",\"default\":" << c_escape(default_value);
+                        buf << ",\"default\":" << stru::c_escape(default_value);
                 }
                 break; 
             case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
@@ -292,10 +291,10 @@ static void json_schema_buf(std::ostream &buf, ::google::protobuf::Descriptor co
 std::string json_schema_p(google::protobuf::Descriptor const *dp, std::string const &title, std::string const &description, std::function<std::tuple<std::string, int, std::string> (std::string const &field, std::string const &prop)> get_prop, int indent) {
     std::ostringstream buf;
     buf << "{";
-    if(!title.empty()) buf << "\"title\":" << c_escape(title) << ",";
+    if(!title.empty()) buf << "\"title\":" << stru::c_escape(title) << ",";
     std::string descr = description.empty()? get_description(dp): description;
     if(!descr.empty()) 
-        buf << "\"description\":" << c_escape(descr) << ",";
+        buf << "\"description\":" << stru::c_escape(descr) << ",";
     json_schema_buf(buf, dp, "", get_prop, indent);
     buf << "}";
     return buf.str();
@@ -516,11 +515,11 @@ void r_get_accessors(::google::protobuf::Descriptor const *dp, std::string const
         std::string name = prefix;
         if(name.length() > 0) name += ".";
         if(fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE) 
-            r_get_accessors(fd->message_type(), name+stru1::to_lower(fd->name()), buf);
+            r_get_accessors(fd->message_type(), name+stru::to_lower(fd->name()), buf);
         else if(fd->is_repeated()) 
-            buf.push_back(std::make_pair(name+"add_"+stru1::to_lower(fd->name()), fd));
+            buf.push_back(std::make_pair(name+"add_"+stru::to_lower(fd->name()), fd));
         else 
-            buf.push_back(std::make_pair(name+"set_"+stru1::to_lower(fd->name()), fd));
+            buf.push_back(std::make_pair(name+"set_"+stru::to_lower(fd->name()), fd));
     }
 }
 std::vector<std::pair<std::string, ::google::protobuf::FieldDescriptor const *>> get_accessors(::google::protobuf::Descriptor const *dp) {
@@ -577,9 +576,9 @@ std::string grpc_error_code(int i) {
     return "";
 }
 std::string grpc_error_code(std::string const &id) {
-    std::string idp = stru1::to_upper(id);
+    std::string idp = stru::to_upper(id);
     std::set<int> found;
-    for(auto f: gec) if(stru1::starts_with(f.first, idp))
+    for(auto f: gec) if(stru::starts_with(f.first, idp))
         found.insert(f.second);
     if(found.size() != 1)
         return "";

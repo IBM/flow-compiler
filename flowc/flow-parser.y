@@ -171,7 +171,7 @@ valn(A) ::= MINUS valn(B).                                     { A = ast->negate
 valx(A) ::= STRING(B).                                         { A = B; }
 valx(A) ::= valn(B).                                           { A = B; }
 valx(A) ::= DOLLAR ID(C).                                      { A = ast->lookup_var(ast->get_id(C)); 
-                                                                 if(A == 0) ast->error(C, stru1::sfmt() << "reference to undefined symbol \"" << ast->get_id(A=C) << "\""); 
+                                                                 if(A == 0) ast->error(C, stru::sfmt() << "reference to undefined symbol \"" << ast->get_id(A=C) << "\""); 
                                                                  else ast->refcount.update(A, ast->refcount(A)+1);
                                                                }
 

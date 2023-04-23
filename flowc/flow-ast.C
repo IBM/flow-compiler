@@ -4,11 +4,10 @@
 #include <cmath>
 #include "flow-ast.H"
 #include "grpc-helpers.H"
-#include "stru1.H"
+#include "stru.H"
 #include "ansi-escapes.H"
 #include "massert.H"
 
-using namespace stru1;
 char const *node_name(int i) {
     switch(i) {
         case FTK_ID: return "identifier";
@@ -188,8 +187,8 @@ std::string const flow_ast::get_value(int node) const {
     auto type = at(node).type;
     switch(type) {
         case FTK_STRING: return at(node).token.text;
-        case FTK_INTEGER: return sfmt() << at(node).token.integer_value;
-        case FTK_FLOAT: return sfmt() << at(node).token.float_value;
+        case FTK_INTEGER: return stru::sfmt() << at(node).token.integer_value;
+        case FTK_FLOAT: return stru::sfmt() << at(node).token.float_value;
         default:
             MASSERT(false) << " node " << node << " [" << at(node).token.text << "] is of type " << node_name(at(node).type) << ", expected value type\n";
     }
@@ -216,7 +215,7 @@ std::string flow_ast::get_joined_id(int node, int start_pos, int end_pos, std::s
     if(end_pos <= start_pos) return "";
     std::vector<std::string> ids(end_pos-start_pos);
     std::transform(n.children.begin()+start_pos, n.children.begin()+end_pos, ids.begin(), [this](int n)->std::string {return get_text(n);});
-    return stru1::join(ids, j);
+    return stru::join(ids, j);
 }
 std::ostream &operator << (std::ostream &out, flow_ast_node const &node) {
     return out << "[" << node.type << "] " << node.token.text;
@@ -299,7 +298,7 @@ void flow_ast::to_text_r(std::ostream &out, int expr, int opp) const {
             out << get_value(expr);
             break;
         case FTK_STRING:
-            out << c_escape(get_string(expr));
+            out << stru::c_escape(get_string(expr));
             break;
         case FTK_ID:
             out << get_id(expr);

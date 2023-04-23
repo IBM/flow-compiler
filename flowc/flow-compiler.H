@@ -12,7 +12,7 @@ using namespace google::protobuf;
 
 #include "grpc-helpers.H"
 #include "flow-ast.H"
-#include "stru1.H"
+#include "stru.H"
 #include "helpo.H"
 #include "flow-opcodes.H"
 
@@ -113,7 +113,7 @@ public:
     flow_compiler();
     void set_main_file(std::string const &a_file);
     std::string file_loc(flow_token const &token) const {
-        return stru1::sfmt() << "//** "<< main_file << ":" << token.line+1 << ":" << token.column+1 << " ** ";
+        return stru::sfmt() << "//** "<< main_file << ":" << token.line+1 << ":" << token.column+1 << " ** ";
     }
     std::string file_loc(flow_ast_node const &n) const {
         return file_loc(n.token);
@@ -232,13 +232,13 @@ public:
 
     // ID that includes the node name
     std::string node_name_id(int node_n, std::string const &prefix="", std::string const &suffix="") const {
-        std::string id = stru1::to_lower(stru1::to_identifier(name(node_n)));
+        std::string id = stru::to_lower(stru::to_identifier(name(node_n)));
         if(!prefix.empty()) id = prefix + "_" + id;
         if(!suffix.empty()) id = id + "_" + suffix;
         return id;
     }
     std::string node_type_id(int node_n, std::string const &prefix="", std::string const &suffix="") const {
-        std::string id = stru1::to_lower(stru1::to_identifier(type(node_n)));
+        std::string id = stru::to_lower(stru::to_identifier(type(node_n)));
         if(!prefix.empty()) id = prefix + "_" + id;
         if(!suffix.empty()) id = id + "_" + suffix;
         return id;
@@ -258,10 +258,10 @@ public:
     }
     std::string get_node_label(int node) const {
         if(node == 0) 
-            return std::string("I_") + stru1::to_lower(stru1::to_identifier(input_label)); 
+            return std::string("I_") + stru::to_lower(stru::to_identifier(input_label)); 
         if(at(node).type == FTK_ENTRY) 
-            return std::string("E_") + stru1::to_lower(stru1::to_identifier(method_descriptor(node)->name()));
-        return stru1::to_lower(stru1::to_identifier(name(node)));
+            return std::string("E_") + stru::to_lower(stru::to_identifier(method_descriptor(node)->name()));
+        return stru::to_lower(stru::to_identifier(name(node)));
     }
     std::string cs_name(std::string const &prefix, int node, std::string const &suffix="") const {
         if(node == 0)
@@ -334,9 +334,9 @@ public:
 #endif
 
 #define DEBUG_ENTER if(DEBUG_GENC) std::cerr << "----- enter <" << __func__ << ">\n"
-#define DEBUG_ENTERA(c) if(DEBUG_GENC) std::cerr << "----- enter <" << __func__ << "> (" << std::string(stru1::sfmt() << c) <<  ")\n"
+#define DEBUG_ENTERA(c) if(DEBUG_GENC) std::cerr << "----- enter <" << __func__ << "> (" << std::string(stru::sfmt() << c) <<  ")\n"
 #define DEBUG_CHECKX(c) if(DEBUG_GENC) std::cerr << "----- check " << (c) << " <" << __func__ << "> "  << error_count << ", errors\n"
-#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << std::string(stru1::sfmt() << c) << " <" << __func__ << "> "  << error_count << ", errors\n"
+#define DEBUG_CHECK(c) if(DEBUG_GENC) std::cerr << "----- check " << std::string(stru::sfmt() << c) << " <" << __func__ << "> "  << error_count << ", errors\n"
 #define DEBUG_LEAVE if(DEBUG_GENC) std::cerr << "----- leave <" << __func__ << "> "  << error_count << ", errors\n"
 #define OFSTREAM_SE(ofs, s)  std::ofstream ofs(s.c_str()); if(DEBUG_GENC) std::cerr << "write " << s << ", " << ofs.is_open() << "\n"; if(!ofs.is_open()) { ++error_count; pcerr.AddError(s, -1, 0, "cannont write file"); }
 

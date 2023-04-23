@@ -281,6 +281,27 @@ std::function<std::pair<int, std::string>(std::string const &, int)> make_da(MM&
     };
     return fgv;
 }
+template<typename M>
+static inline 
+int dict_value_count(std::string const &name, M&& dict) {
+    return get_dict_value_impl<M, is_value_dictionary<M>::value, is_value_accessor<M>::value, is_value_dictionary_container<M>::value>::count(std::forward<M>(dict), name);
+}
+template<typename M, typename... MM>
+static inline 
+int dict_value_count(std::string const &name, M&& dict, MM&&... args) {
+    auto r = dict_value_count(name, std::forward<M>(dict));
+    if(r.first >= 0) return r;
+    return dict_value_count(name, std::forward<MM>(args)...);
+}
+
+template <typename... MM>
+static inline
+std::function<int(std::string const &)> make_dc(MM&&... maps) {
+    auto fgv = [&](std::string const &name) -> int {
+        return dict_value_count(name, std::forward<MM>(maps)...);
+    };
+    return fgv;
+}
 extern char const *default_escape_strings[4];
 /**
  * Expand variables in a template into the output stream.
@@ -291,27 +312,28 @@ extern char const *default_escape_strings[4];
  * fgv  -- the variable accessor that returns the value and the number of available values
  * label -- label to display in error messages
  * bo, bi, ei, eo  -- macro delimiters
- * esp  -- pointer to the errorstream set to nullptr to disable error reporting
+ * esp  -- pointer to the error and debug messages stream, set to nullptr to disable error reporting
  *
  */
-int pand(std::ostream &out,     // output stream
+int pand_impl(std::ostream &out,     // output stream
         char const *templ, char const *templ_end,  // template
         std::function<std::pair<int, std::string>(std::string const &, int)> fgv, // variable accessor
-        std::string label = "vex", 
-        bool debug=VEX_DEBUG_DEFAULT,
+        std::string label = "vex",                   // label to use in messages
+        bool debug=VEX_DEBUG_DEFAULT,                // enable debug messages
         char const *bo=vex::default_escape_strings[0], char const *bi=vex::default_escape_strings[1], char const *ei=vex::default_escape_strings[2], char const *eo=vex::default_escape_strings[3], // macro delimiters 
-        std::ostream *esp = &std::cerr
+        std::ostream *esp = &std::cerr               // messages stream
         );
 template <typename... MM> 
 static inline
-int expandx(std::ostream &out, std::string const &in, MM&&... maps) {
-    auto rc = pand(out, in.c_str(), in.c_str()+in.length(), make_da(std::forward<MM>(maps)...)); 
+int pandx(std::ostream &out, std::string const &in, MM&&... maps) {
+    auto rc = pand_impl(out, in.c_str(), in.c_str()+in.length(), make_da(std::forward<MM>(maps)...));
     return rc;
 }
 template <typename... MM> 
 static inline
-int expand(std::ostream &out, std::string const &in, std::string const &label, MM&&... maps) {
-    auto rc = pand(out, in.c_str(), in.c_str()+in.length(), make_da(std::forward<MM>(maps)...), label); 
+int pand(std::ostream &out, std::string const &in, std::string const &label, MM&&... maps) {
+    auto rc = pand_impl(out, in.c_str(), in.c_str()+in.length(), make_da(std::forward<MM>(maps)...),  
+            label); 
     return rc;
 }
 }

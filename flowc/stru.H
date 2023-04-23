@@ -1,5 +1,5 @@
-#ifndef H_STRU1_H
-#define H_STRU1_H
+#ifndef H_STRU_H
+#define H_STRU_H
 
 #include <iosfwd>
 #include <algorithm>
@@ -51,7 +51,8 @@ std::ostream &operator << (std::ostream &s, std::set<A> const &m) {
     }
     return s << "}";
 }
-namespace stru1 {
+
+namespace stru {
 class sfmt {
     std::ostringstream os;
 public:
@@ -219,6 +220,14 @@ std::vector<std::string> const &split(std::vector<std::string> &buf, std::string
         buf.push_back(e == std::string::npos? str.substr(b): str.substr(b, e-b));
     return buf;
 }
+std::string remove_empty_lines(std::string s);
+inline static 
+bool isspace(std::string const &s) {
+    for(auto c: s)
+        if(!std::isspace(c))
+            return false;
+    return true;
+}
 inline static
 std::string to_upper(std::string const &s) {
     std::string u(s);
@@ -282,6 +291,8 @@ std::string to_line_comment(std::string const &s, std::string const &comment_pre
     }
     return r;
 }
+std::string base64(std::string const &s);
+std::string base64d(std::string const &s);
 std::string sh_escape(std::string const &s);
 std::string html_escape(std::string const &s);
 std::string c_escape(std::string const &s);
@@ -402,12 +413,5 @@ std::string decamelize(std::string const &s);
  * Capitalize any letter preceeded by space.
  */
 std::string camelize(std::string const &s, bool capitalize_first=false);
-/**
- * Scan the string for environment variable references in the form <{VARNAME}>.
- * Replace all references with environment var lookups and all the other strings with C strings.
- * Optionally add transforms to the looked up values: s for string escape, i for integer conversion, f for floating point conversion,
- * and b for boolean conversion.
- */
-std::string cevs_transform(std::string const &s);
 }
 #endif

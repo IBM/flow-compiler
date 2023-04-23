@@ -37,7 +37,11 @@ int write_file(std::string const &fn, char const *content, size_t length) {
 long gzip(std::ostream &dest, std::istream &source, bool gz=false);
 long gunzip(std::ostream &dest, std::istream &source, bool gz=false);
 
-std::string search_path(std::string const &bin);
+std::string search_path(std::string const &bin, std::string const &envvn);
+inline static 
+std::string search_path(std::string bin) {
+    return search_path(bin, "PATH");
+}
 
 std::string basename(std::string const &filename, std::string const &suffix = "", std::string *dirname=nullptr);
 inline static 

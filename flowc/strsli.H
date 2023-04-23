@@ -1,12 +1,12 @@
 #ifndef H_STRSLI_H
 #define H_STRSLI_H
 
+#include <cstring>
 #include <string>
 #include <utility>
-#include <cstring>
 
 
-namespace stru1 {
+namespace stru {
 
 struct cslice: public std::pair<char const *, char const *> {
     cslice(char const *begin=nullptr, char const *end=nullptr):

@@ -9,11 +9,10 @@
 
 #include "flow-compiler.H"
 #include "flow-templates.H"
-#include "stru1.H"
+#include "stru.H"
 #include "vex.H"
 #include "grpc-helpers.H"
 
-using namespace stru1;
 
 int flow_compiler::genc_cc_client(std::string const &ccfn) {
     int error_count = 0;
@@ -35,14 +34,14 @@ int flow_compiler::genc_cc_client(std::string const &ccfn) {
     if(DEBUG_GENC) {
         std::string ofn = ccfn + "-global.json";
         OFSTREAM_SE(outj, ofn);
-        stru1::to_json(outj, global_vars);
+        stru::to_json(outj, global_vars);
     }
     if(DEBUG_GENC) {
         std::string ofn = ccfn + "-local.json";
         OFSTREAM_SE(outj, ofn);
-        stru1::to_json(outj, local_vars);
+        stru::to_json(outj, local_vars);
     }
-    vex::expand(out, templates::client_C(), "client.C", local_vars, global_vars);
+    vex::pand(out, templates::client_C(), "client.C", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -50,7 +49,7 @@ int flow_compiler::genc_py_client(std::string const &pyfn) {
     int error_count = 0;
     DEBUG_ENTER;
     OFSTREAM_SE(outf, pyfn);
-    vex::expand(outf, templates::client_py(), "client.py", global_vars);
+    vex::pand(outf, templates::client_py(), "client.py", global_vars);
     DEBUG_LEAVE;
     return error_count;
 }

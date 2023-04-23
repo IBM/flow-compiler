@@ -13,10 +13,9 @@
 #include "flow-templates.H"
 #include "grpc-helpers.H"
 #include "strsli.H"
-#include "stru1.H"
+#include "stru.H"
 #include "vex.H"
 
-using namespace stru1;
 #define OUT indenter
 
 static 
@@ -56,9 +55,9 @@ bool check_enum_includes(EnumDescriptor const *ledp, EnumDescriptor const *redp)
 static 
 FieldDescriptor const *fd_accessor(std::string const &field, Descriptor const *d) {
     std::string base, fields;
-    if(split(&base, &fields, field, "+") == 1)
+    if(stru::split(&base, &fields, field, "+") == 1)
         return nullptr;
-    while(split(&base, &fields, fields, "+") == 2) {
+    while(stru::split(&base, &fields, fields, "+") == 2) {
         FieldDescriptor const *fd = d->FindFieldByName(base);
         d = fd->message_type();
     }
@@ -87,10 +86,10 @@ bool convert_enum(std::string &out, FieldDescriptor const *left_fd, std::string 
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
             // Enum has an underlying int32 type so the conversion is to numeric type is just a cast
-            out = sfmt() << "((int32_t) " << value << ")"; 
+            out = stru::sfmt() << "((int32_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            out = sfmt() << "std::to_string((int32_t) " << value << ")"; 
+            out = stru::sfmt() << "std::to_string((int32_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
             if(left_fd->enum_type() == ed) {
@@ -100,7 +99,7 @@ bool convert_enum(std::string &out, FieldDescriptor const *left_fd, std::string 
                 // check if have a known value
                 // check if ed is included in fd
                 if((vd != nullptr && check_enum_includes(left_fd->enum_type(), vd->number())) || check_enum_includes(left_fd->enum_type(), ed)) 
-                    out = sfmt() <<  get_full_name(left_fd->enum_type()) + "((int32_t)" << value << ")";
+                    out = stru::sfmt() <<  get_full_name(left_fd->enum_type()) + "((int32_t)" << value << ")";
                 else 
                     return false;
             }
@@ -138,12 +137,12 @@ bool convert_integer(std::string &out, FieldDescriptor const *left_fd, std::stri
             out = value;
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            out = sfmt() << "\"" << value << "\""; 
+            out = stru::sfmt() << "\"" << value << "\""; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
                 // check if have a known value
                 if(right_fd == nullptr && check_enum_includes(left_fd->enum_type(), v)) 
-                    out = sfmt() <<  get_full_name(left_fd->enum_type()) + "(" << value << ")";
+                    out = stru::sfmt() <<  get_full_name(left_fd->enum_type()) + "(" << value << ")";
                 else 
                     return false;
             break;
@@ -151,34 +150,34 @@ bool convert_integer(std::string &out, FieldDescriptor const *left_fd, std::stri
             return false;
     } else switch(pb_type) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
-            out = sfmt() << "((double) " << value << ")"; 
+            out = stru::sfmt() << "((double) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-            out = sfmt() << "((float) " << value << ")"; 
+            out = stru::sfmt() << "((float) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
-            out = sfmt() << "((int64_t) " << value << ")"; 
+            out = stru::sfmt() << "((int64_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
-            out = sfmt() << "((int32_t) " << value << ")"; 
+            out = stru::sfmt() << "((int32_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
-            out = sfmt() << "((uint32_t) " << value << ")"; 
+            out = stru::sfmt() << "((uint32_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-            out = sfmt() << "((uint64_t) " << value << ")"; 
+            out = stru::sfmt() << "((uint64_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
             out = value;
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            out = sfmt() << "std::to_string(" << value << ")"; 
+            out = stru::sfmt() << "std::to_string(" << value << ")"; 
             break;
         default:
             return false;
@@ -213,40 +212,40 @@ bool convert_float(std::string &out, FieldDescriptor const *left_fd, std::string
             out = value;
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            out = sfmt() << "\"" << value << "\""; 
+            out = stru::sfmt() << "\"" << value << "\""; 
             break;
         default:
             return false;
     } else switch(pb_type) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
-            out = sfmt() << "((double) " << value << ")"; 
+            out = stru::sfmt() << "((double) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-            out = sfmt() << "((float) " << value << ")"; 
+            out = stru::sfmt() << "((float) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
-            out = sfmt() << "((int64_t) " << value << ")"; 
+            out = stru::sfmt() << "((int64_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
-            out = sfmt() << "((int32_t) " << value << ")"; 
+            out = stru::sfmt() << "((int32_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
-            out = sfmt() << "((uint32_t) " << value << ")"; 
+            out = stru::sfmt() << "((uint32_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-            out = sfmt() << "((uint64_t) " << value << ")"; 
+            out = stru::sfmt() << "((uint64_t) " << value << ")"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
             out = value;
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            out = sfmt() << "std::to_string(" << value << ")"; 
+            out = stru::sfmt() << "std::to_string(" << value << ")"; 
             break;
         default:
             return false;
@@ -267,7 +266,7 @@ bool convert_string(std::string &out, FieldDescriptor const *left_fd, std::strin
     if(right_fd == nullptr) switch(pb_type) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
         case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-            out = sfmt() << strtod(raw.c_str(), nullptr);
+            out = stru::sfmt() << strtod(raw.c_str(), nullptr);
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
@@ -275,17 +274,17 @@ bool convert_string(std::string &out, FieldDescriptor const *left_fd, std::strin
         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
-            out = sfmt() << strtoll(raw.c_str(), nullptr, 10);
+            out = stru::sfmt() << strtoll(raw.c_str(), nullptr, 10);
             break;
 
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-            out = sfmt() << strtoull(raw.c_str(), nullptr, 10);
+            out = stru::sfmt() << strtoull(raw.c_str(), nullptr, 10);
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
-            out = sfmt() << (strtoll(raw.c_str(), nullptr, 10) != 0);
+            out = stru::sfmt() << (strtoll(raw.c_str(), nullptr, 10) != 0);
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
             out = value;
@@ -294,31 +293,31 @@ bool convert_string(std::string &out, FieldDescriptor const *left_fd, std::strin
             return false;
     } else switch(pb_type) {
         case google::protobuf::FieldDescriptor::Type::TYPE_DOUBLE:
-            out = sfmt() << "strtod(" << value << ".c_str(), nullptr)"; 
+            out = stru::sfmt() << "strtod(" << value << ".c_str(), nullptr)"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_FLOAT:
-            out = sfmt() << "strtof(" << value << ".c_str(), nullptr)"; 
+            out = stru::sfmt() << "strtof(" << value << ".c_str(), nullptr)"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED64:
-            out = sfmt() << "strtoll(" << value << ".c_str(), nullptr, 10)"; 
+            out = stru::sfmt() << "strtoll(" << value << ".c_str(), nullptr, 10)"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
         case google::protobuf::FieldDescriptor::Type::TYPE_SFIXED32:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
-            out = sfmt() << "strtol(" << value << ".c_str(), nullptr, 10)"; 
+            out = stru::sfmt() << "strtol(" << value << ".c_str(), nullptr, 10)"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
-            out = sfmt() << "strtoul(" << value << ".c_str(), nullptr, 10)"; 
+            out = stru::sfmt() << "strtoul(" << value << ".c_str(), nullptr, 10)"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED64:
-            out = sfmt() << "strtoull(" << value << ".c_str(), nullptr, 10)"; 
+            out = stru::sfmt() << "strtoull(" << value << ".c_str(), nullptr, 10)"; 
             break;
         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
-            out = sfmt() << "(strtol(" << value << ".c_str(), nullptr, 10) != 0)"; 
+            out = stru::sfmt() << "(strtol(" << value << ".c_str(), nullptr, 10) != 0)"; 
             break;
         default:
             return false;
@@ -555,7 +554,7 @@ static std::set<std::string> reserved_cc = {
 };
 
 static std::string base_name(std::string const &name) {
-    std::string n = to_lower(name);
+    std::string n = stru::to_lower(name);
     if(cot::contains(reserved_cc, n)) return n + "_";
     return n;
 }
@@ -573,13 +572,13 @@ struct accessor_info {
         return (int) loop_sizes.size();
     }
     std::string loop_iter_name(int loop_level) const {
-        return sfmt() << "I" << loop_level;
+        return stru::sfmt() << "I" << loop_level;
     }
     std::string loop_iter_name() const {
         return loop_iter_name(loop_level());
     }
     std::string loop_end_name(int loop_level) const {
-        return sfmt() << "IE" << loop_level;
+        return stru::sfmt() << "IE" << loop_level;
     }
     std::string loop_end_name() const {
         return loop_end_name(loop_level());
@@ -614,22 +613,22 @@ std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::strin
     unsigned fi = 0, lx = 0;  
     for(auto cp = name.begin(), ce = name.end(); cp != ce; ++cp) switch(*cp) {
         case ':':
-            var += sfmt() << fname << "[" << cpp_index_prefix << ++ic << "]";
+            var += stru::sfmt() << fname << "[" << cpp_index_prefix << ++ic << "]";
             fname = "";
             break;
         case '+':
             if(at == LEFT_VALUE && cp+1 != ce)
-                var += sfmt() << "mutable_" << base_name(fname) << "()-";
+                var += stru::sfmt() << "mutable_" << base_name(fname) << "()-";
             else if(at == LEFT_VALUE && cp+1 == ce)
-                var += sfmt() << "set_" << base_name(fname) << "(";
+                var += stru::sfmt() << "set_" << base_name(fname) << "(";
             else
-                var += sfmt() << base_name(fname) << "()";
+                var += stru::sfmt() << base_name(fname) << "()";
             fname = "";
             break;
         case '*':
             ++ic;
             if(at == LEFT_VALUE && cp+1 == ce) {
-                var += sfmt() << "add_" << base_name(fname) << "(";
+                var += stru::sfmt() << "add_" << base_name(fname) << "(";
                 
             } else {
                 var += base_name(fname);
@@ -641,7 +640,7 @@ std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::strin
                         }
                     if(fi) break;
                 }
-                var += sfmt() << "(" << cpp_index_prefix << (fi? fi: ic) << ")";
+                var += stru::sfmt() << "(" << cpp_index_prefix << (fi? fi: ic) << ")";
                 lx = var.length();
             }
             fname = "";
@@ -665,7 +664,7 @@ std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::strin
             if(fc == 0)
                 var += ".size()";
             else
-                var = sfmt() << "(unsigned long)" << var << "_size()";
+                var = stru::sfmt() << "(unsigned long)" << var << "_size()";
             break;
         case RIGHT_VALUE:
             break;
@@ -678,10 +677,10 @@ std::string cpp_var(std::vector<std::set<std::string>> const &loop_c, std::strin
     return var;
 }
 static std::string node_variable_name(std::string const &label, std::string const &node_name) {
-    return sfmt() << label << "_" << node_name;
+    return stru::sfmt() << label << "_" << node_name;
 }
 static std::string stage_variable_name(std::string const &label, int stage_num) {
-    return sfmt() << label << "_" << stage_num;
+    return stru::sfmt() << label << "_" << stage_num;
 }
 #define NODE_VN2(label, node_name) node_variable_name((label), (node_name))
 #define STAGE_VN(label) stage_variable_name((label), cur_stage)
@@ -718,7 +717,7 @@ static std::string stage_variable_name(std::string const &label, int stage_num) 
 
 // Generate C++ code for a given Entry Method
 int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_dot_name, std::string const &entry_name, int blck_entry) {
-    indented_stream indenter(os, 1);
+    stru::indented_stream indenter(os, 1);
     auto eipp = entry_ip.find(blck_entry);
     OUT << "//  from " << main_file << ":" << at(blck_entry).token.line << " " << entry_dot_name << "\n";
     if(eipp == entry_ip.end()) {
@@ -824,12 +823,12 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "bool abort_stage = false;\n";
                     OUT << "::grpc::Status abort_status;\n";
                     for(auto nnj: stage_node_ids) if(method_descriptor(nnj) != nullptr) {
-                        std::string nn(to_lower(to_identifier(name(nnj))));
+                        std::string nn(stru::to_lower(stru::to_identifier(name(nnj))));
 
                             OUT << "auto " << nn << "_maxcc = (int)" << nn << "_ConP->count();\n";
                             OUT << "if(!abort_stage && " << LN_END_X(nn) <<  " > " << LN_BEGIN(nn) << " && " << nn << "_maxcc == 0) {\n";
                             ++indenter;
-                            OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::sfmt() << \"No addresses found for " << nn << ": \" << flowc::ns_" << nn << ".endpoint  << \"\\n\");\n";
+                            OUT << "abort_status = ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, ::flowc::stru::sfmt() << \"No addresses found for " << nn << ": \" << flowc::ns_" << nn << ".endpoint  << \"\\n\");\n";
                             OUT << "abort_stage = true;\n";
                             --indenter;
                             OUT << "}\n";
@@ -879,7 +878,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     int call_nodes = 0;
                     for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) ++call_nodes;
                     for(auto nni: stage_node_ids) if(method_descriptor(nni) != nullptr) {
-                        std::string nn(to_lower(to_identifier(name(nni))));
+                        std::string nn(stru::to_lower(stru::to_identifier(name(nni))));
                         // Find out what node this index belongs to by comparing with the EX_xxxx markers
                         if(nc > 0) OUT << "else ";
                         if(++nc == call_nodes)
@@ -905,7 +904,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         --indenter;
                         OUT << "}\n";
                         if(method_descriptor(nni) != nullptr)
-                            OUT << "GRPC_RECEIVED(\"" << nn << "\", CIF, NRX, flowc::cn_" << to_upper(to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
+                            OUT << "GRPC_RECEIVED(\"" << nn << "\", CIF, NRX, flowc::cn_" << stru::to_upper(stru::to_identifier(nn)) << ", LL_Status, LL_Ctx, " << LN_OUTPTR(nn) << "[NRX-1])\n";
                         OUT << "FLOGC(CIF.trace_call && LL_Status.ok()) << std::make_tuple(&CIF, X) << \"" << nn << " response: \" << flowc::log_abridge(*" << LN_OUTPTR(nn) << "[NRX-1]) << \"\\n\";\n";
 
                         OUT << "if(!LL_Status.ok()) {\n";
@@ -933,7 +932,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     ++indenter;
 
                     for(auto nnj: stage_node_ids) {
-                        std::string nn(to_lower(to_identifier(name(nnj))));
+                        std::string nn(stru::to_lower(stru::to_identifier(name(nnj))));
                         OUT << nn << "_ConP->release(CIF, " << LN_CONN(nn) << ".begin(), " << LN_CONN(nn) << ".end());\n";
                     }
                     OUT << "return abort_status;\n";
@@ -954,7 +953,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case BERC:
                 is_node = false;
                 node_dim = op.arg[0];
-                cur_node_name = sfmt() << "Errck" << op.arg[3];
+                cur_node_name = stru::sfmt() << "Errck" << op.arg[3];
                 cur_input_name = ""; 
                 cur_output_name = "";
                 node_has_calls = false;
@@ -970,7 +969,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 node_dim = op.arg[0];
                 cur_input_name = op.arg2; 
                 cur_output_name = op.arg1;
-                cur_node_name = to_lower(to_identifier(name(cur_node = op.arg[1])));
+                cur_node_name = stru::to_lower(stru::to_identifier(name(cur_node = op.arg[1])));
                 node_has_calls = method_descriptor(cur_node) != nullptr;
                 if(node_has_calls)
                     stage_node_ids.push_back(cur_node);
@@ -994,14 +993,14 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << " */\n";
                 // input is not needed for no-call nodes
                 if(op.d2 != nullptr) 
-                    OUT << reps("std::vector<", node_dim) << get_full_name(op.d2) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_input_name << ";\n";
+                    OUT << stru::reps("std::vector<", node_dim) << get_full_name(op.d2) << stru::reps(">", node_dim)  << " " << stru::reps("v", node_dim) << cur_input_name << ";\n";
                 
                 // output must be set even when the node makes no calls if this is a first node with output
                 if(first_with_output) 
-                    OUT << reps("std::vector<", node_dim) << get_full_name(op.d1) << reps(">", node_dim)  << " " << reps("v", node_dim) << cur_output_name << ";\n";
+                    OUT << stru::reps("std::vector<", node_dim) << get_full_name(op.d1) << stru::reps(">", node_dim)  << " " << stru::reps("v", node_dim) << cur_output_name << ";\n";
                 
                 if(first_node) 
-                    OUT << reps("std::vector<", node_dim) << "flowc::nodes"                << reps(">", node_dim)  << " " << reps("v", node_dim) << L_VISITED << (node_dim == 0? (std::string(" = ") + no_node_id): std::string()) << ";\n";
+                    OUT << stru::reps("std::vector<", node_dim) << "flowc::nodes"                << stru::reps(">", node_dim)  << " " << stru::reps("v", node_dim) << L_VISITED << (node_dim == 0? (std::string(" = ") + no_node_id): std::string()) << ";\n";
                 
                 if(node_has_calls) {
                     OUT << "auto " << cur_node_name << "_ConP = " << cur_node_name << "_get_connector();\n";
@@ -1017,16 +1016,16 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 }
                 break;
             case BNL: { // node level loop begin
-                std::string loop_size_varname = sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
+                std::string loop_size_varname = stru::sfmt() << "NS_" << cur_node_name << "_" << loop_c.size();
                 OUT << "auto " << loop_size_varname << " = " << loop_end << ";\n";
 
                 if(!cur_input_name.empty()) 
-                    OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< loop_size_varname << ");\n";
+                    OUT << stru::reps("v", node_dim-acinf.loop_level()+1) << cur_input_name << ".resize("<< loop_size_varname << ");\n";
                 if(first_with_output) 
-                    OUT << reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< loop_size_varname << ");\n";
+                    OUT << stru::reps("v", node_dim-acinf.loop_level()+1) << cur_output_name << ".resize("<< loop_size_varname << ");\n";
                 if(first_node) 
-                    OUT << reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< loop_size_varname << (node_dim-loop_c.size()==0? (std::string(", ") + no_node_id): std::string()) << ");\n";
-                OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0; " << cpp_index_prefix << loop_c.size() << " < NS_" << cur_node_name << "_"  << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
+                    OUT << stru::reps("v", node_dim-acinf.loop_level()+1) << L_VISITED << ".resize("<< loop_size_varname << (node_dim-loop_c.size()==0? (std::string(", ") + no_node_id): std::string()) << ");\n";
+                OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0; " << cpp_index_prefix << loop_c.size() << " < NS_" << cur_node_name << "_"  << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << stru::indent();
                 if(!cur_input_name.empty())
                     OUT << "auto &" << std::string(node_dim-loop_c.size(), 'v') << cur_input_name << " = " << std::string(node_dim-loop_c.size()+1, 'v') << cur_input_name << "[" << cpp_index_prefix << loop_c.size() <<  "];\n";
                 if(!cur_output_name.empty())
@@ -1072,7 +1071,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case ENOD:
                 // if visited
                 if(!node_cg_done)
-                    OUT <<  L_VISITED << " = flowc::n_" << to_upper(to_identifier(cur_node_name)) << ";\n";
+                    OUT <<  L_VISITED << " = flowc::n_" << stru::to_upper(stru::to_identifier(cur_node_name)) << ";\n";
                 --indenter;
                 OUT << "}\n";
                 while(acinf.loop_level() > 0) {
@@ -1121,15 +1120,15 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 if(loop_end.empty())
                     loop_end = cpp_var(loop_c, op.arg1, op.arg[0], SIZE, &stem);
                 else 
-                    loop_end = sfmt() << "std::min(" << loop_end << ", " << cpp_var(loop_c, op.arg1, op.arg[0], SIZE, &stem) << ")";
+                    loop_end = stru::sfmt() << "std::min(" << loop_end << ", " << cpp_var(loop_c, op.arg1, op.arg[0], SIZE, &stem) << ")";
                 loop_c.back().insert(stem);
             } break;
             case BLP:
                 OUT << "for(unsigned " << cpp_index_prefix << loop_c.size() << " = 0, LS" << loop_c.size() << " = " << loop_end << "; " 
-                    << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << indent();
+                    << cpp_index_prefix  << loop_c.size() << " < LS" << loop_c.size() << "; ++" << cpp_index_prefix << loop_c.size() << ") {\n" << stru::indent();
                 if(op.arg[0]) {
                     OUT << "auto &T" << loop_c.size() << " = *" <<  cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << ");\n"; 
-                    cur_loop_tmp.push_back(sfmt() << "T" << loop_c.size());
+                    cur_loop_tmp.push_back(stru::sfmt() << "T" << loop_c.size());
                 } else {
                     cur_loop_tmp.push_back(cur_loop_tmp.back()); 
                 }
@@ -1138,12 +1137,12 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 loop_c.pop_back();
                 cur_loop_tmp.pop_back();
                 acinf.decr_loop_level();
-                OUT << unindent() << "}\n";
+                OUT << stru::unindent() << "}\n";
                 break;
             case FUNC: { // args: number of args, function's dimension, is inline 
                     assert(tvl.size() >= op.arg[0]);
-                    std::string tmpvar = sfmt() << "TACC" << tacc_count;
-                    rvl = sfmt() << "flowrt::" << op.arg1 << " " << (!op.arg[2]? tmpvar: std::string()) << "(";
+                    std::string tmpvar = stru::sfmt() << "TACC" << tacc_count;
+                    rvl = stru::sfmt() << "flowrt::" << op.arg1 << " " << (!op.arg[2]? tmpvar: std::string()) << "(";
                     for(int i = tvl.size() - op.arg[0]; i < tvl.size(); ++i) {
                         rvl += tvl[i].first; 
                         if(i + 1 != tvl.size()) rvl += ", ";
@@ -1153,11 +1152,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         tvl.pop_back();
                     if(!op.arg[2]) {
                         OUT << rvl << ";\n";
-                        rvl = sfmt() << tmpvar << "[" << cpp_index_prefix << op.arg[1] << "]";
+                        rvl = stru::sfmt() << tmpvar << "[" << cpp_index_prefix << op.arg[1] << "]";
                         ++tacc_count;
                         // remove all the sizes used by the subexpressions and replace them with
                         // the size of this object
-                        std::vector<std::string> ss; ss.push_back(sfmt() << tmpvar << ".size()");
+                        std::vector<std::string> ss; ss.push_back(stru::sfmt() << tmpvar << ".size()");
                         if(flvs.size() > 0) {
                             flvs.back().clear();
                             flvs.back().insert(ss);
@@ -1170,22 +1169,22 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 switch(op.arg[0]) { 
                     case 1:
                         if(op.arg[1] < tvl.back().second)
-                            rvl = sfmt() << op.arg1 << "(" << tvl.back().first << ")";
+                            rvl = stru::sfmt() << op.arg1 << "(" << tvl.back().first << ")";
                         else
-                            rvl = sfmt() << op.arg1 << tvl.back().first;
+                            rvl = stru::sfmt() << op.arg1 << tvl.back().first;
                         tvl.pop_back();
                         tvl.push_back(std::make_pair(rvl, op.arg[1]));
                         break;
                     case 2:
                         if(op.arg[1] < tvl[tvl.size()-2].second)
-                            rvl = sfmt() << "(" << tvl[tvl.size()-2].first << ")";
+                            rvl = stru::sfmt() << "(" << tvl[tvl.size()-2].first << ")";
                         else
                             rvl = tvl[tvl.size()-2].first;
 
-                        rvl += sfmt() << " " << op.arg1 << " ";
+                        rvl += stru::sfmt() << " " << op.arg1 << " ";
 
                         if(op.arg[1] < tvl[tvl.size()-1].second)
-                            rvl += sfmt() << "(" << tvl[tvl.size()-1].first << ")";
+                            rvl += stru::sfmt() << "(" << tvl[tvl.size()-1].first << ")";
                         else
                             rvl += tvl[tvl.size()-1].first;
 
@@ -1193,7 +1192,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                         tvl.push_back(std::make_pair(rvl, op.arg[1]));
                         break;
                     case 3:
-                        rvl = sfmt() << "((" << tvl[tvl.size()-3] << ")? " << tvl[tvl.size()-2] << ": " << tvl[tvl.size()-1] << ")";
+                        rvl = stru::sfmt() << "((" << tvl[tvl.size()-3] << ")? " << tvl[tvl.size()-2] << ": " << tvl[tvl.size()-1] << ")";
                         tvl.pop_back(); tvl.pop_back(); tvl.pop_back();
                         tvl.push_back(std::make_pair(rvl, op.arg[1]));
                         break;
@@ -1211,7 +1210,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 
             case SETE:
                 OUT << "// check for valid value in " << get_full_name(op.el) << "\n";
-                OUT << "{\n" << indent();
+                OUT << "{\n" << stru::indent();
                 if(op.ext == FTK_STRING) {
                     OUT << "std::string TS(" << tvl.back().first << ");\n";
                     OUT << "auto TE = ::google::protobuf::GetEnumDescriptor<"<<get_full_name(op.el)<<">()->FindValueByName(TS);\n";
@@ -1219,9 +1218,9 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                     OUT << "auto TI = " << tvl.back().first << ";\n";
                     OUT << "auto TE = ::google::protobuf::GetEnumDescriptor<"<<get_full_name(op.el)<<">()->FindValueByNumber(TI);\n";
                 }
-                OUT << "if(TE != nullptr) {\n" << indent();
+                OUT << "if(TE != nullptr) {\n" << stru::indent();
                 OUT << cur_loop_tmp.back() << cpp_var(loop_c, op.arg1, 0, LEFT_VALUE) << "static_cast<" << get_full_name(op.el) << ">(TE->number()));\n";
-                OUT << unindent() << "} else {\n" << indent();
+                OUT << stru::unindent() << "} else {\n" << stru::indent();
                 if(op.ext == FTK_STRING) {
                     OUT << "std::string ERR_message(\"attempting to assign invalid value '\" + TS + \"' to field of type " << get_name(op.el) << "\");\n";
                 } else {
@@ -1229,14 +1228,14 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 }
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << ") return error: \" << ERR_message << \"\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::OUT_OF_RANGE, ERR_message);\n";
-                OUT << unindent() << "}\n";
-                OUT << unindent() << "}\n";
+                OUT << stru::unindent() << "}\n";
+                OUT << stru::unindent() << "}\n";
                 tvl.pop_back();
                 break;
 
             case RVC: 
                 if(op.ev1 != nullptr) rvl = get_full_name(op.ev1);
-                else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  sfmt() << "std::string(" << c_escape(op.arg1) << ")"; 
+                else if(op.arg.size() > 1 && op.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING) rvl =  stru::sfmt() << "std::string(" << stru::c_escape(op.arg1) << ")"; 
                 else rvl = op.arg1;
                 tvl.push_back(std::make_pair(rvl, 0));
                 break;
@@ -1269,11 +1268,11 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
 			}
                         lxset.insert(sv.back());
                     }
-                    std::string lenx = lxset.size() == 1? *lxset.begin(): stru1::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::vmin(", "", "", ")");
-                    std::string tmpvar = sfmt() << "TSZ" << tacc_count;
+                    std::string lenx = lxset.size() == 1? *lxset.begin(): stru::join(lxset.begin(), lxset.end(), ", ", ", ", "flowrt::vmin(", "", "", ")");
+                    std::string tmpvar = stru::sfmt() << "TSZ" << tacc_count;
                     ++tacc_count;
                     OUT << "auto " << tmpvar << " = " << lenx << ";\n";
-                    rvl = sfmt() << tmpvar << ", [&](int " << cpp_index_prefix << op.arg[1] << ") -> auto {return " << tvl.back().first << ";}";
+                    rvl = stru::sfmt() << tmpvar << ", [&](int " << cpp_index_prefix << op.arg[1] << ") -> auto {return " << tvl.back().first << ";}";
                     // Remove the marker from the stack
                     flvs.pop_back();
                     // If there is a marker in the stack, propagate the sizes we used
@@ -1291,7 +1290,7 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 // args: field's dimension, node's dimension, dimension change 
                 {
                     std::vector<std::string> sizes;
-                    for(auto vn: stru1::splitter(op.arg1, "#"))
+                    for(auto vn: stru::splitter(op.arg1, "#"))
                         sizes.push_back( cpp_var(loop_c, vn, op.arg[0], SIZE, nullptr) );
                     flvs.back().insert(sizes);
                 }
@@ -1304,10 +1303,10 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case CALL:
                 node_has_calls = true;
                 OUT << "++" << L_STAGE_CALLS << ";\n";
-                OUT << "if(CIF.async_calls) {\n" << indent(); 
+                OUT << "if(CIF.async_calls) {\n" << stru::indent(); 
 
-                OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << indent() <<
-                    "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::sfmt() << \"Failed to connect\");\n" << unindent();
+                OUT << "if(" << cur_node_name << "_ConP->count() == 0) \n" << stru::indent() <<
+                    "return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, flowc::stru::sfmt() << \"Failed to connect\");\n" << stru::unindent();
                 OUT << L_CONTEXT << ".emplace_back(std::unique_ptr<grpc::ClientContext>(new ::grpc::ClientContext));\n";
                 OUT << L_STATUS << ".emplace_back(::grpc::Status());\n";
                 OUT << L_OUTPTR << ".emplace_back(&" << cur_output_name << ");\n";
@@ -1315,15 +1314,15 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
                 OUT << L_CARR << ".emplace_back(nullptr);\n";
                 OUT << L_CONN << ".push_back(-1);\n";
 
-                OUT << unindent() << "} else {\n" << indent();
-                OUT << "if(CTX->IsCancelled()) {\n" << indent();
+                OUT << stru::unindent() << "} else {\n" << stru::indent();
+                OUT << "if(CTX->IsCancelled()) {\n" << stru::indent();
                 OUT << "FLOG << \"" << entry_dot_name << "/stage " << cur_stage << " (" << cur_stage_name << "): call cancelled\\n\";\n";
                 OUT << "return ::grpc::Status(::grpc::StatusCode::CANCELLED, \"Call exceeded deadline or was cancelled by the client\");\n";
-                OUT << unindent() << "}\n";
+                OUT << stru::unindent() << "}\n";
                 OUT << "L_status = " << cur_node_name << "_call(CIF, " << L_STAGE_CALLS << ", " << cur_node_name << "_ConP, &" << cur_output_name << ", &" << cur_input_name << ");\n";
                 OUT << "if(!L_status.ok()) return L_status;\n";
 
-                OUT << unindent() << "}\n";
+                OUT << stru::unindent() << "}\n";
                 break;
             case NOP: case CON1: case CON2:
                 if(!op.arg1.empty())
@@ -1334,63 +1333,63 @@ int flow_compiler::gc_server_method(std::ostream &os, std::string const &entry_d
             case COFB: 
             case COIB: 
                 assert(tvl.size() > 0);
-                rvl = sfmt() << "!!(" << tvl.back().first << ")";
+                rvl = stru::sfmt() << "!!(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COEB:
-                rvl = sfmt() << "!!int(" << tvl.back().first << ")";
+                rvl = stru::sfmt() << "!!int(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COSB: 
-                rvl = sfmt() << "stringtobool(" << tvl.back().first << ")";
+                rvl = stru::sfmt() << "stringtobool(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COII: 
                 if(op.arg.size() == 1 || (op.arg.size() > 1 && 
                         strcmp(grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])),
                                grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[1]))) != 0))
-                        rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" <<  tvl.back().first << ")";
+                        rvl = stru::sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" <<  tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COFF: 
             case COIF: 
                 if(op.arg.size() < 1)
-                    rvl = sfmt() <<  "(double) (" << tvl.back().first << ")";
+                    rvl = stru::sfmt() <<  "(double) (" << tvl.back().first << ")";
                 else
-                    rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
+                    rvl = stru::sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COEI: 
             case COFI:
                 if(op.arg.size() < 1)
-                    rvl = sfmt() <<  "(int64_t) (" << tvl.back().first << ")";
+                    rvl = stru::sfmt() <<  "(int64_t) (" << tvl.back().first << ")";
                 else
-                    rvl = sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
+                    rvl = stru::sfmt() <<  "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COIS: 
             case COFS: 
-                rvl = sfmt() << "std::to_string(" << tvl.back().first << ")";
+                rvl = stru::sfmt() << "std::to_string(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COEE: 
-                rvl = sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << tvl.back().first << "))";
+                rvl = stru::sfmt() << "static_cast<" << get_full_name(op.el) << ">((int) (" << tvl.back().first << "))";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COEF: 
-                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (int) (" << tvl.back().first << ")";
+                rvl = stru::sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") (int) (" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COSF: 
-                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") std::atof(" << tvl.back().first << ".c_str())";
+                rvl = stru::sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") std::atof(" << tvl.back().first << ".c_str())";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COSI: 
-                rvl = sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") atol(" << tvl.back().first << ".c_str())";
+                rvl = stru::sfmt() << "(" << grpc_type_to_cc_type(google::protobuf::FieldDescriptor::Type(op.arg[0])) << ") atol(" << tvl.back().first << ".c_str())";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
             case COES: 
-                rvl = sfmt() << get_full_name(op.er) << "_Name(" << tvl.back().first << ")";
+                rvl = stru::sfmt() << get_full_name(op.er) << "_Name(" << tvl.back().first << ")";
                 tvl.back() = std::make_pair(rvl, 0);
                 break;
         }
@@ -1421,15 +1420,15 @@ int flow_compiler::genc_cc_server(std::string const &server_src) {
     if(DEBUG_GENC) {
         std::string ofn = server_src + "-global.json";
         OFSTREAM_SE(outj, ofn);
-        stru1::to_json(outj, global_vars);
+        stru::to_json(outj, global_vars);
     }
     if(DEBUG_GENC) {
         std::string ofn = server_src + "-local.json";
         OFSTREAM_SE(outj, ofn);
-        stru1::to_json(outj, local_vars);
+        stru::to_json(outj, local_vars);
     }
 
-    vex::expand(out, templates::server_C(), "server.C", local_vars, global_vars);
+    vex::pand(out, templates::server_C(), "server.C", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -1466,15 +1465,15 @@ int flow_compiler::gc_local_vars(std::ostream &out, std::string const &entry_dot
             auto df = declared.find(input_descriptor(n));
             std::string declared_id = node_name_id(n, "rq");
             if(df == declared.end()) {
-                out << "// " << reps("std::vector<", dim) << input_descriptor(n)->full_name() << reps(">", dim) << " " << declared_id << ";\n";
+                out << "// " << stru::reps("std::vector<", dim) << input_descriptor(n)->full_name() << stru::reps(">", dim) << " " << declared_id << ";\n";
                 declared[input_descriptor(n)] = declared_id;
             } else {
                 out << "// " << "auto &" << declared_id << " = " << df->second << ";\n";
             } 
         }
         if(od != nullptr) {
-            out << "// " << reps("std::vector<", dim) << od->full_name() << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "rs") << ";\n";
-            out << "// " << reps("std::vector<", dim) << "int" << reps(">", dim) << " " << node_type_id(*gn.second.begin(), "vi") << ";\n";
+            out << "// " << stru::reps("std::vector<", dim) << od->full_name() << stru::reps(">", dim) << " " << node_type_id(*gn.second.begin(), "rs") << ";\n";
+            out << "// " << stru::reps("std::vector<", dim) << "int" << stru::reps(">", dim) << " " << node_type_id(*gn.second.begin(), "vi") << ";\n";
             out << "// " << "std::vector<std::unique_ptr<::grpc::ClientAsyncResponseReader<" << od->full_name() << "> " << node_type_id(*gn.second.begin(), "ar") << ";\n";
             out << "// " << "std::vector<" << "int" << "> " << node_type_id(*gn.second.begin(), "cn") << ";\n";
             out << "// " << "std::vector<" << "void *" << "> " << node_type_id(*gn.second.begin(), "ip") << ";\n";

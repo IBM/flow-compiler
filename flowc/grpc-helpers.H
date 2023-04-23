@@ -12,7 +12,7 @@
 #include <google/protobuf/compiler/importer.h>
 
 #include "flow-ast.H"
-#include "stru1.H"
+#include "stru.H"
 #include "ansi-escapes.H"
 
 int grpc_type_to_ftk(google::protobuf::FieldDescriptor::Type t);
@@ -79,10 +79,10 @@ inline static
 std::string get_full_name(::google::protobuf::EnumDescriptor const *dp) {
     std::string pkg = dp->file()->package();
     if(pkg.empty()) 
-        return std::string("::") + stru1::to_underscore(dp->full_name());
+        return std::string("::") + stru::to_underscore(dp->full_name());
     std::string full_name;
-    stru1::split(nullptr, &full_name, dp->full_name(), ".");
-    return std::string("::") + pkg + "::" +  stru1::to_underscore(full_name);
+    stru::split(nullptr, &full_name, dp->full_name(), ".");
+    return std::string("::") + pkg + "::" +  stru::to_underscore(full_name);
 }
 inline static 
 std::string get_full_name_1(::google::protobuf::EnumDescriptor const *dp) {

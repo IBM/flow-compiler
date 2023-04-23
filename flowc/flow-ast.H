@@ -11,7 +11,6 @@
 #endif
 #include "massert.H"
 #include "ast-attrs.H"
-#include "stru1.H"
 #include "cot.H"
 
 // AST node types used

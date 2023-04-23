@@ -21,14 +21,13 @@
 #include "flow-templates.H"
 #include "grpc-helpers.H"
 #include "helpo.H"
-#include "stru1.H"
+#include "stru.H"
 #include "vex.H"
 
 #if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>
 #endif
 
-using namespace stru1;
 bool flow_compiler::debug_enable = false;
 
 static std::string install_directory;
@@ -125,9 +124,9 @@ int flow_compiler::get_unna(std::string &name, int hint) {
     std::string nroot(name);
     int c = 0;
     if(cot::contains(glunna, name)) {
-        name = sfmt() << nroot << hint;
+        name = stru::sfmt() << nroot << hint;
         while(cot::contains(glunna, name) && c < 1999) 
-            name = sfmt() << nroot << ++c; 
+            name = stru::sfmt() << nroot << ++c; 
     }
     glunna[name] = 0;
     return c < 1999? 0: 1;
@@ -143,8 +142,8 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     /****************************************************************
      * Add all the import directories to the search path - check if they are valid
      */ 
-    protocc = sfmt() << "protoc --cpp_out=" << output_filename(".") << " ";
-    grpccc = sfmt() << "protoc --grpc_out=" << output_filename(".") << " --plugin=protoc-gen-grpc=" << filu::search_path("grpc_cpp_plugin");
+    protocc = stru::sfmt() << "protoc --cpp_out=" << output_filename(".") << " ";
+    grpccc = stru::sfmt() << "protoc --grpc_out=" << output_filename(".") << " --plugin=protoc-gen-grpc=" << filu::search_path("grpc_cpp_plugin");
     DEBUG_CHECK(targets);
     { 
         struct stat sb;
@@ -239,14 +238,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::string entry(opts.opt("print-graph", ""));
         int en = 0;
         for(int n: *this) if(at(n).type == FTK_ENTRY) { 
-            if(name(n) == entry || ends_with(name(n), std::string(".") + entry)) {
+            if(name(n) == entry || stru::ends_with(name(n), std::string(".") + entry)) {
                 en = n;
                 break;
             }
         }
         if(en == 0) {
             ++error_count;
-            pcerr.AddError(main_file, -1, 0, sfmt() << "entry \"" << entry << "\" was not found");
+            pcerr.AddError(main_file, -1, 0, stru::sfmt() << "entry \"" << entry << "\" was not found");
         } else {
             print_graph(std::cout, en);
         }
@@ -256,7 +255,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     for(int n: *this) if(at(n).type == FTK_NODE || at(n).type == FTK_CONTAINER) 
         for(int m: subtree(n)) if(at(m).type == FTK_MOUNT)  if(name.has(m)) {
             if(cot::contains(mounts, name(m))) {
-                pcerr.AddWarning(main_file, at(m), sfmt() << "reuse of volume mount name \"" << name(m) << "\"");
+                pcerr.AddWarning(main_file, at(m), stru::sfmt() << "reuse of volume mount name \"" << name(m) << "\"");
                 pcerr.AddNote(main_file, at(mounts[name(m)]), "first used here");
             }
             mounts[name(m)] = m;
@@ -314,29 +313,29 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
     
     runtime = opts.opt("runtime", runtime);
     if(!cot::contains(available_runtimes(), runtime)) {
-        std::cerr << "unknown runtime: " << runtime << ", available: " << stru1::join(available_runtimes(), ", ") << "\n";
+        std::cerr << "unknown runtime: " << runtime << ", available: " << stru::join(available_runtimes(), ", ") << "\n";
         return ++error_count;
     }
     set(global_vars, "BASE_IMAGE", runtime);
 
     if(base_port == rest_port) {
         ++error_count;
-        pcerr.AddError(main_file, -1, 0, sfmt() << "gRPC port and REST port are set to the same value: \"" << base_port << "\"");
+        pcerr.AddError(main_file, -1, 0, stru::sfmt() << "gRPC port and REST port are set to the same value: \"" << base_port << "\"");
     }
 
     if(rest_port < 0) rest_port = base_port -1;
     set(global_vars, "MAIN_PORT", std::to_string(base_port));
     set(global_vars, "REST_PORT", std::to_string(rest_port));
 
-    default_node_timeout = get_time_value(opts.opt("default-client-timeout", std::to_string(default_node_timeout)+"ms"));
-    default_entry_timeout = get_time_value(opts.opt("default-entry-timeout", std::to_string(default_entry_timeout)+"ms"));
+    default_node_timeout = stru::get_time_value(opts.opt("default-client-timeout", std::to_string(default_node_timeout)+"ms"));
+    default_entry_timeout = stru::get_time_value(opts.opt("default-entry-timeout", std::to_string(default_entry_timeout)+"ms"));
 
     default_maxcc = opts.opti("default-client-calls", default_maxcc);
 
     orchestrator_tag = opts.opt("image-tag", "v1");
-    orchestrator_image = opts.opt("image", to_lower(orchestrator_name)+":"+orchestrator_tag);
+    orchestrator_image = opts.opt("image", stru::to_lower(orchestrator_name)+":"+orchestrator_tag);
     orchestrator_debug_image = opts.optb("debug-image", false);
-    orchestrator_rest_api = to_lower(opts.opt("rest-api", "yes"));
+    orchestrator_rest_api = stru::to_lower(opts.opt("rest-api", "yes"));
     if(orchestrator_rest_api != "no" && orchestrator_rest_api != "only")
         orchestrator_rest_api = "yes";
 
@@ -396,9 +395,9 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             for(int m = 0, mdc = sdp->method_count(); m < mdc; ++m) 
                 mns.push_back(sdp->method(m)->full_name());
         }
-        std::string basefn = remove_suffix(file, ".proto");
+        std::string basefn = stru::remove_suffix(file, ".proto");
         append(global_vars, "PROTO_FILE", file);
-        append(global_vars, "PROTO_FILE_DESCRIPTION", join(mns, ", ", " and "));
+        append(global_vars, "PROTO_FILE_DESCRIPTION", stru::join(mns, ", ", " and "));
         append(global_vars, "PB_GENERATED_C", basefn+".pb.cc");
         append(global_vars, "PB_GENERATED_H", basefn+".pb.h");
         if(fdp->service_count() > 0) {
@@ -410,7 +409,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         std::ifstream protof(filename.c_str());
         std::stringstream buf;
         buf << protof.rdbuf();
-        append(global_vars, "PROTO_FILE_YAMLSTR", c_escape(buf.str()));
+        append(global_vars, "PROTO_FILE_YAMLSTR", stru::c_escape(buf.str()));
         append(global_vars, "PROTO_FULL_PATH", filu::realpath(filename));
 
         // Copy all the proto files into docs
@@ -433,7 +432,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         if(pv != 0 && cot::contains(targets, "driver")) {
             
             if(cot::contains(ports[group(n)], pv)) {
-                pcerr.AddWarning(main_file, at(n), sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group(n)][pv]) << "\" in the same group");
+                pcerr.AddWarning(main_file, at(n), stru::sfmt() << "port value \"" << pv << "\" for \"" << name(n) << "\" already used by \"" << name(ports[group(n)][pv]) << "\" in the same group");
                 pcerr.AddNote(main_file, at(get_nblck_value(get_ne_block_node(ports[group(n)][pv]), "port")), "first used here");
             } else {
                 ports[group(n)][pv] = n;
@@ -462,7 +461,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
                     pcerr.AddError(main_file, at(v), "path must be a string");
                     continue;
                 }
-                rest_entries.insert(sfmt() << mdp->full_name() << "=" << get_string(v));
+                rest_entries.insert(stru::sfmt() << mdp->full_name() << "=" << get_string(v));
                 pv = v;
             }
             if(pv == 0) 
@@ -477,14 +476,14 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
 
     if(error_count == 0 && opts.have("print-proto")) for(auto pt: opts["print-proto"]) {
         if(pt == ".") {
-            vex::expand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", "inline",  global_vars);
+            vex::pand(std::cout, "// {{NAME}} -- entries and nodes\n{{ALL_NODES_PROTO}}\n", "inline",  global_vars);
         } else if(pt == "-") {
-            vex::expand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", "inline", global_vars);
+            vex::pand(std::cout, "// {{NAME}} -- entries\n{{ENTRIES_PROTO}}\n", "inline", global_vars);
         } else {
             // look for a matching entry name
             int en = 0;
             for(int n: *this) if(at(n).type == FTK_ENTRY) { 
-                if(name(n) == pt || ends_with(name(n), std::string(".") + pt)) {
+                if(name(n) == pt || stru::ends_with(name(n), std::string(".") + pt)) {
                     en = n;
                     break;
                 }
@@ -504,19 +503,19 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
             }
             if(ven.size() == 0) {
                 ++error_count;
-                pcerr.AddError(main_file, -1, 0, sfmt() << "\"" << pt << "\" does not match any entry or node");
+                pcerr.AddError(main_file, -1, 0, stru::sfmt() << "\"" << pt << "\" does not match any entry or node");
                 break;
             } else if(ms.size() > 1) {
                 ++error_count;
-                pcerr.AddError(main_file, -1, 0, sfmt() << "\"" << pt << "\" matches more than one node");
+                pcerr.AddError(main_file, -1, 0, stru::sfmt() << "\"" << pt << "\" matches more than one node");
                 std::vector<std::string> mids; 
                 for(int n: ven) mids.push_back(name(n));
-                pcerr.AddNote(main_file, -1, 0, sfmt() << "matches " << stru1::join(mids, ", ", " and ")); 
+                pcerr.AddNote(main_file, -1, 0, stru::sfmt() << "matches " << stru::join(mids, ", ", " and ")); 
                 break;
             } 
             std::vector<std::string> mids; 
             for(int n: ven) mids.push_back(name(n));
-            std::cout << "// " << stru1::join(mids, ", ", " and ") << "\n"; 
+            std::cout << "// " << stru::join(mids, ", ", " and ") << "\n"; 
             std::cout << gen_proto(*ms.begin()) << "\n";
         }
     }
@@ -560,7 +559,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_dockerfile(orchestrator_name);
     
     if(error_count == 0 && cot::contains(targets, "build-image")) {
-        std::string makec = sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
+        std::string makec = stru::sfmt() << "cd " << output_filename(".") << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
             << " REST=" << orchestrator_rest_api
             << " image";
@@ -570,7 +569,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         }
     }
     if(error_count == 0 && (cot::contains(targets, "build-server") || cot::contains(targets, "build-client"))) {
-        std::string makec = sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile 
+        std::string makec = stru::sfmt() << "cd " << output_filename(".")  << " && make -f " << orchestrator_makefile 
             << (orchestrator_debug_image? " DBG=yes": "") 
             << " REST=" << orchestrator_rest_api
             << " ";
@@ -594,7 +593,7 @@ int flow_compiler::process(std::string const &input_filename, std::string const 
         error_count += genc_www();
     
     if(error_count != 0) 
-        pcerr.AddNote(main_file, -1, 0, sfmt() << error_count << " error(s) during compilation");
+        pcerr.AddNote(main_file, -1, 0, stru::sfmt() << error_count << " error(s) during compilation");
     DEBUG_LEAVE;
     return error_count;
 }
@@ -611,10 +610,10 @@ int flow_compiler::genc_www() {
     if(DEBUG_GENC) {
         outputfn += ".json";
         OFSTREAM_SE(outj, outputfn);
-        stru1::to_json(outj, global_vars);
+        stru::to_json(outj, global_vars);
     }
     if(error_count == 0) {
-        vex::expand(outf, templates::index_html(), "index.html", global_vars);
+        vex::pand(outf, templates::index_html(), "index.html", global_vars);
     }
     DEBUG_LEAVE;
     return error_count;
@@ -625,7 +624,7 @@ int flow_compiler::genc_makefile(std::string const &makefile_name) {
     std::string fn = output_filename(makefile_name);
     OFSTREAM_SE(makf, fn);
     if(error_count == 0) {
-        vex::expand(makf, templates::Makefile(), "Makefile", global_vars);
+        vex::pand(makf, templates::Makefile(), "Makefile", global_vars);
     }
     // Create a link to this makefile if Makefile isn't in the way
     std::string mp = output_filename("Makefile");
@@ -645,13 +644,13 @@ int flow_compiler::genc_dockerfile(std::string const &orchestrator_name) {
     OFSTREAM_SE(outf, fn);
     if(error_count == 0) {
         std::string c_template_runtime_Dockerfile = templates::ztemplate_runtime_Dockerfile.find(runtime)->second();
-        vex::expand(outf, c_template_runtime_Dockerfile, runtime+".Dockerfile", global_vars);
-        vex::expand(outf, templates::Dockerfile(), "Dockerfile", global_vars);
+        vex::pand(outf, c_template_runtime_Dockerfile, runtime+".Dockerfile", global_vars);
+        vex::pand(outf, templates::Dockerfile(), "Dockerfile", global_vars);
     }
     std::string fn2 = output_filename(orchestrator_name+".slim.Dockerfile");
     OFSTREAM_SE(outf2, fn2);
     if(error_count == 0) {
-        vex::expand(outf2, templates::slim_Dockerfile(), ".slim.Dockerfile", global_vars);
+        vex::pand(outf2, templates::slim_Dockerfile(), ".slim.Dockerfile", global_vars);
     }
     DEBUG_LEAVE;
     return error_count;
@@ -705,7 +704,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "runtime: " << get_default_runtime() << "\n";
             } else {
                 std::cout << "default runtime: " << get_default_runtime() << "\n";
-                std::cout << "available runtimes: " << stru1::join(available_runtimes(), ", ") << "\n";
+                std::cout << "available runtimes: " << stru::join(available_runtimes(), ", ") << "\n";
             }
             return 0;
         } else if(opts.have("help") || main_argc == 1) {

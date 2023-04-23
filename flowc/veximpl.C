@@ -4,7 +4,7 @@
 #include <sstream>
 #include <string>
 #include <functional>
-#include "stru1.H"
+#include "stru.H"
 #include "strsli.H"
 
 #include <iostream>
@@ -95,7 +95,7 @@ static std::ostream &operator << (std::ostream &s, vref_ct &m) {
  *      
  *      1. left1 left2 name [ / transforms ]* [ + name [/ transforms]* ]* - default right1 right2
  *      2. left1 label [: [-|+] [name [+name]*] [-integer] [+integer] ] left2 template right1 label right2
- *      3. left1 label ? name [|name]* [&name]* left2 template right1 label right2
+ *      3. left1 label ? #?name [|#?name]* [&#?name]* left2 template right1 label right2
  *
  *      Case 1 is a variable reference: a '+' separated list of identifiers optionally followed by a list of
  *      text transform functions, and followed by an optional default value. Evaluation stops at the first
@@ -109,7 +109,9 @@ static std::ostream &operator << (std::ostream &s, vref_ct &m) {
  *      prefixed integer.
  *
  *      In case 3 variables are evaluated as a boolean expression: empty string, no value, 0, or false for false, 
- *      anything else for true.
+ *      anything else for true. If name is preceeded by #, the valute is true if name has more than one value or if
+ *      has one value that is not the empty string.
+ *
  *
  * Populates a descriptor structure and returns the number of errors encountered.
  * Errors are printed to the error stream.
@@ -129,6 +131,7 @@ struct macro_parser {
 
     // loop variable stack
     std::vector<std::pair<std::string, std::string>> loop_var_stack;
+    // get a loop var value
     std::pair<int, std::string> lvs_get_value(std::string const &name, int index) const {
         for(auto p = loop_var_stack.rbegin(), e = loop_var_stack.rend(); p != e; ++p) 
             if(p->first == name)
@@ -189,12 +192,15 @@ struct macro_parser {
         return nullptr;
     }
     /**
-     * Match an id at the current position:  [a-z][_a-z.]*
+     * Match an id at the current position: [a-z][_a-z.]*
      * Return a pointer past the match, or nullptr on no match.
      */
-    static char const *match_id(char const *begin, char const *end) {
-        if(begin == nullptr || begin == end || !std::isalpha(*begin)) return nullptr;
-        char const *start = begin+1;
+    static char const *match_id(char const *begin, char const *end, bool sizeop=false) {
+        if(begin == nullptr || begin == end) return nullptr;
+        char const *start = begin;
+        if(sizeop && *start == '#') ++start;
+        if(start == end || !std::isalpha(*start)) return nullptr;
+        else ++start;
         while(start != end && (std::isalnum(*start) || *start == '_' || *start == '.')) ++start;
         return start;
     }
@@ -217,12 +223,12 @@ struct macro_parser {
      * Match a list of ids, at the current position, separated by any of the characters in 'sep'.
      * Return a pointer past the match or nullptr for no match.
      */
-    static char const *match_id_list(char const *begin, char const *end, char const *sep) {
-        auto p = match_id(begin, end); 
+    static char const *match_id_list(char const *begin, char const *end, char const *sep, bool sizeop=false) {
+        auto p = match_id(begin, end, sizeop); 
         if(p != nullptr) while(p != end) {
             if(strchr(sep, *p) == nullptr) 
                 break;
-            auto np = match_id(p+1, end);
+            auto np = match_id(p+1, end, sizeop);
             if(np == nullptr) 
                 break;
             p = np;
@@ -278,7 +284,7 @@ struct macro_parser {
                     break;
                 case '?': 
                     // expect a list of ids separated by & or |
-                    tp = match_id_list(cp+1, end, "&|");
+                    tp = match_id_list(cp+1, end, "&|", true);
                     if(tp == nullptr)
                         break;
                     m.type = 'C';
@@ -361,29 +367,29 @@ struct macro_parser {
     std::string transform(macrodef &m, std::string const &transf, std::string value, int &errc) {
         // apply transform here
         if(transf == "lower") {
-            value = stru1::to_lower(value);
+            value = stru::to_lower(value);
         } else if(transf == "upper") {
-            value = stru1::to_upper(value);
+            value = stru::to_upper(value);
         } else if(transf == "option" || transf == "cname") {
-            value = stru1::to_option(value, false);
+            value = stru::to_option(value, false);
         } else if(transf == "id" || transf == "identifier") {
-            value = stru1::to_identifier(value);
+            value = stru::to_identifier(value);
         } else if(transf == "html") {
-            value = stru1::html_escape(value);
+            value = stru::html_escape(value);
         } else if(transf == "C" || transf == "c" || transf == "string") {
-            value = stru1::c_escape(value);
+            value = stru::c_escape(value);
         } else if(transf == "shell" || transf == "sh") {
-            value = stru1::sh_escape(value);
+            value = stru::sh_escape(value);
         } else if(transf == "shell_comment" || transf == "shcom") {
-            value = stru1::to_line_comment(value, "# ");
+            value = stru::to_line_comment(value, "# ");
         } else if(transf == "C_comment" || transf == "ccom" || transf == "c_comment") {
-            value = stru1::to_line_comment(value, "// ");
+            value = stru::to_line_comment(value, "// ");
         } else if(transf == "trim") {
-            value = stru1::strip(value);
+            value = stru::strip(value);
         } else if(transf == "ltrim") {
-            value = stru1::lstrip(nullptr, value, "\t\r\a\b\v\f\n ");
+            value = stru::lstrip(nullptr, value, "\t\r\a\b\v\f\n ");
         } else if(transf == "rtrim") {
-            value = stru1::rstrip(nullptr, value, "\t\r\a\b\v\f\n ");
+            value = stru::rstrip(nullptr, value, "\t\r\a\b\v\f\n ");
         } else if(transf == "lchop") {
             value = value.length() <= 1? std::string(): value.substr(1);
         } else if(transf == "rchop") {
@@ -391,24 +397,24 @@ struct macro_parser {
         } else if(transf == "chop") {
             value = value.length() <= 2? std::string(): value.substr(1, value.length()-2);
         } else if(transf == "camelize") {
-            value = stru1::camelize(value);
+            value = stru::camelize(value);
         } else if(transf == "bool") {
             value = stringtobool(value)? "true": "false";
         } else if(transf == "decamelize") {
-            value = stru1::decamelize(value);
+            value = stru::decamelize(value);
         } else if(transf == "underscore") {
-            value = stru1::to_underscore(value);
-        } else if(transf == "cevs") {
-            value = stru1::cevs_transform(value);
+            value = stru::to_underscore(value);
         } else if(transf == "json") {
-            value = stru1::json_escape(value);
+            value = stru::json_escape(value);
         } else {
             // unrecognized transform function
-            err(m, stru1::sfmt() << "unrecognized transform '" << transf << "'");
+            err(m, stru::sfmt() << "unrecognized transform '" << transf << "'");
             ++errc;
         }
         return value;
     }
+    /** Return the value at 'index'. If the variable has one value only, return that regardless of index.
+     */
     auto get_value(std::string const &name, int index) const {
         auto vi = lvs_get_value(name, 0);
         if(vi.first == 1)
@@ -420,8 +426,8 @@ struct macro_parser {
     int vex_value(std::string &value, macrodef &m, std::string names, int index, vref_ct *vref_cp) {
         int errc = 0; 
         bool have_value = false;
-        for(auto varr: stru1::splitter(names, "+")) {
-            auto nt = stru1::splitter(varr, "/");
+        for(auto varr: stru::splitter(names, "+")) {
+            auto nt = stru::splitter(varr, "/");
             std::string name(nt.first());
             auto fv = get_value(name, index);
             if(fv.first <= 0) 
@@ -429,7 +435,7 @@ struct macro_parser {
             if(vref_cp != nullptr)
                 vref_cp->add(name, fv.first);
             value = fv.second;
-            for(auto transf: stru1::splitter(nt.second(), "/"))
+            for(auto transf: stru::splitter(nt.second(), "/"))
                 value = transform(m, transf, value, errc);
             have_value = true;
             break;
@@ -439,19 +445,24 @@ struct macro_parser {
             have_value = true;
         }
         if(!have_value)
-            err(m, stru1::sfmt() << "variable " << stru1::joint(stru1::splitter(m.expr, "+"), [](std::string s) -> std::string { return std::string("'") + stru1::splitter(s, "/").first() + "'";}, ", ")  << " not found");
+            err(m, stru::sfmt() << "variable " << stru::joint(stru::splitter(m.expr, "+"), [](std::string s) -> std::string { return std::string("'") + stru::splitter(s, "/").first() + "'";}, ", ")  << " not found");
         return have_value? errc: errc+1;
     }
-    // Evaluate a simple boolean expression, 
-    // missing variables are allowed.
+    // Evaluate a simple boolean expression, missing variables are allowed.
     // TODO allow for parenthesized expressions
     bool eval_condition(std::string cexpr, int index, vref_ct *vref_cp=nullptr) {
         bool res = false;
-        for(auto orex: stru1::splitter(cexpr, "|")) {
+        for(auto orex: stru::splitter(cexpr, "|")) {
             bool orterm = true;
-            for(auto andterm: stru1::splitter(orex, "&")) {
-                auto vv = get_value(andterm, index);
-                bool bv = vv.first >= 0 && index <= vv.first && stringtobool(vv.second, true);
+            for(auto andterm: stru::splitter(orex, "&")) {
+                bool bv;
+                if(andterm[0] == '#') {
+                    auto vv = get_value(andterm.substr(1), 0);
+                    bv = vv.first > 1 || vv.first == 1 && stringtobool(vv.second, true);
+                } else {
+                    auto vv = get_value(andterm, index);
+                    bv = vv.first >= 0 && index <= vv.first && stringtobool(vv.second, true);
+                }
                 if(!(orterm = orterm && bv))
                     break;
             }
@@ -492,13 +503,13 @@ struct macro_parser {
         std::string chosen;
         vref_ct vref_c;
         int errcnt = 0;
-        for(auto name: stru1::splitter(vars, "+")) {
+        for(auto name: stru::splitter(vars, "+")) {
             auto vv = get_value(name, 0);
             if(vv.first > 0)
                 vref_c.add(name, vv.first);
             /*
             else
-                ++errcnt, err(m, stru1::sfmt() << "counter variable '" << name << "' not found");
+                ++errcnt, err(m, stru::sfmt() << "counter variable '" << name << "' not found");
                 */
         }
         if(m.default_count >= 0)
@@ -587,11 +598,11 @@ struct macro_parser {
         int rc = vex_r(out, templ, templ_end, 0, &vref_c, templ);
         DBG << "refs: " << vref_c << "\n";
         if(rc != 0)
-            err(stru1::sfmt() << rc << " error(s)");
+            err(stru::sfmt() << rc << " error(s)");
         return rc;
     }
 };
-int pand(
+int pand_impl(
         std::ostream &out, 
         char const *templ, char const *templ_end, 
         std::function<std::pair<int, std::string>(std::string const &, int)> fgv, 

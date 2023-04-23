@@ -188,10 +188,10 @@ std::ostream &operator<< (std::ostream &out, fop const &fop) {
     bool escape_string1 = fop.code == RVC && fop.arg.size() > 1 && fop.arg[1] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     bool escape_string2 = fop.code == RVC && fop.arg.size() > 2 && fop.arg[2] == (int) google::protobuf::FieldDescriptor::Type::TYPE_STRING;
     if(!fop.arg2.empty()) {
-        out << ANSI_BLUE << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1)  << ANSI_RESET << ", " << ANSI_BLUE 
-            << (escape_string2? stru1::c_escape(fop.arg2): fop.arg2) << ANSI_RESET << " ";
+        out << ANSI_BLUE << (escape_string1? stru::c_escape(fop.arg1): fop.arg1)  << ANSI_RESET << ", " << ANSI_BLUE 
+            << (escape_string2? stru::c_escape(fop.arg2): fop.arg2) << ANSI_RESET << " ";
     } else if(!fop.arg1.empty()) {
-        out << ANSI_BLUE << (escape_string1? stru1::c_escape(fop.arg1): fop.arg1) << ANSI_RESET << " ";
+        out << ANSI_BLUE << (escape_string1? stru::c_escape(fop.arg1): fop.arg1) << ANSI_RESET << " ";
     }
     if(fop.d2 != nullptr) {
         if(fop.d1 == nullptr) out << "0, ";

@@ -12,11 +12,9 @@
 #include "filu.H"
 #include "flow-compiler.H"
 #include "grpc-helpers.H"
-#include "stru1.H"
+#include "stru.H"
 #include "vex.H"
 
-using namespace stru1;
-    
 int flow_compiler::get_mount_info(std::map<std::string, std::string> &info, int mntn) {
     int error_count = 0;
     MASSERT(at(mntn).type == FTK_MOUNT) << "node " << mntn << " is not a mount hash\n";
@@ -24,12 +22,12 @@ int flow_compiler::get_mount_info(std::map<std::string, std::string> &info, int 
     int dsc = 0, vn = 0; std::string value = "ro";
     error_count += get_block_value(vn, mntn, "access", false, {FTK_STRING});
     if(vn > 0) {
-        value = to_lower(get_string(vn));
+        value = stru::to_lower(get_string(vn));
         bool ro = value == "ro" || value == "read-only"  || value == "readonly";
         bool rw = value == "rw" || value == "read-write" || value == "readwrite";
         if(ro == rw) {
             ++error_count;
-            pcerr.AddError(main_file, at(vn), sfmt() << "access for \"" << name(mntn) << "\" must be either 'read-only' or 'read-write'");
+            pcerr.AddError(main_file, at(vn), stru::sfmt() << "access for \"" << name(mntn) << "\" must be either 'read-only' or 'read-write'");
         }
         value = ro? "ro": "rw";
     }
@@ -58,7 +56,7 @@ int flow_compiler::get_mount_info(std::map<std::string, std::string> &info, int 
 
     info["path"] = vn > 0? get_string(vn): std::string();
     if(info["path"].empty()) 
-        pcerr.AddError(main_file, at(mntn), sfmt() << "undefined or empty path for \"" << name(mntn) << "\"");
+        pcerr.AddError(main_file, at(mntn), stru::sfmt() << "undefined or empty path for \"" << name(mntn) << "\"");
     vn = 0;
     error_count += get_block_value(vn, mntn, "local", false, {FTK_STRING});
     if(vn > 0) {
@@ -77,7 +75,7 @@ int flow_compiler::get_mount_info(std::map<std::string, std::string> &info, int 
     return error_count;
 }
 static std::string check_for_file_ref(std::string const &vv) {
-    if(starts_with(vv, "{{@") && ends_with(vv, "}}"))
+    if(stru::starts_with(vv, "{{@") && stru::ends_with(vv, "}}"))
         return vv.substr(3, vv.length()-5);
     return "";
 }
@@ -105,18 +103,18 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
         }
         std::string hostname("localhost");
         if(!localnode) {
-            hostname = sfmt() << "${ehr_" << to_upper(to_identifier(get(global_vars, "NAME"))) << "_" << to_upper(to_identifier(name(m))) << "}";
+            hostname = stru::sfmt() << "${ehr_" << stru::to_upper(stru::to_identifier(get(global_vars, "NAME"))) << "_" << stru::to_upper(stru::to_identifier(name(m))) << "}";
         }
         std::string en = name(m);
         set(env_vars, en+".port", np.second);
         set(env_vars, en+".host", hostname);
-        set(env_vars, en, sfmt() << hostname << ":" << np.second);
+        set(env_vars, en, stru::sfmt() << hostname << ":" << np.second);
         // If we are generating for an optional node, also add vars without node id
         if(m == n && en != type(m)) {
             std::string en = type(m);
             set(env_vars, en+".port", np.second);
             set(env_vars, en+".host", hostname);
-            set(env_vars, en, sfmt() << hostname << ":" << np.second);
+            set(env_vars, en, stru::sfmt() << hostname << ":" << np.second);
         }
     }
     //std::cerr << "AT node " << n << " <" << name(n) << ">, "<<(group_mode? "groups": "no groups") << ", " << env_vars.size() << ":" << env_vars << "\n================\n";
@@ -136,7 +134,7 @@ int flow_compiler::get_environment(std::vector<std::pair<std::string, std::strin
                 }
         } else {
             std::ostringstream os;
-            vex::expand(os, value, "env", env_vars);
+            vex::pand(os, value, "env", env_vars);
             env.push_back(std::make_pair(nv.first, os.str()));
         }
     }
@@ -174,8 +172,8 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         std::vector<std::pair<std::string, std::string>> env;
         error_count += get_environment(env, n, ports);
         for(auto nv: env)
-            buf.push_back(json_escape(sfmt() << nv.first << "=" << nv.second));
-        append(local_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "environment: [", "", "", "]"));
+            buf.push_back(stru::json_escape(stru::sfmt() << nv.first << "=" << nv.second));
+        append(local_vars, "NODE_ENVIRONMENT", stru::join(buf, ", ", "", "environment: [", "", "", "]"));
         error_count += node_info(n, local_vars);
         std::vector<std::string> mts;
         int rw_mounts_count = 0, mounts_count = 0, cos_mounts_count = 0, local_mounts_count = 0;
@@ -183,7 +181,7 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         for(int mn: subtree(n)) if(at(mn).type == FTK_MOUNT) {
             minfo.clear();
             error_count += get_mount_info(minfo, mn);
-            mts.push_back(sfmt() << minfo["name"] << ":" << minfo["path"] << ":" << minfo["access"]);
+            mts.push_back(stru::sfmt() << minfo["name"] << ":" << minfo["path"] << ":" << minfo["access"]);
             if(minfo["access"] == "rw") ++rw_mounts_count;
             if(!minfo["url"].empty()) ++cos_mounts_count;
             if(!minfo["local"].empty()) ++local_mounts_count;
@@ -197,7 +195,7 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
         append(local_vars, "NODE_VOLUME_COUNT", mounts_count? std::to_string(mounts_count): std::string());
         append(local_vars, "NODE_COS_VOLUME_COUNT", cos_mounts_count? std::to_string(cos_mounts_count): std::string());
         append(local_vars, "NODE_LOCAL_VOLUME_COUNT", local_mounts_count? std::to_string(local_mounts_count): std::string());
-        append(local_vars, "NODE_MOUNTS", join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
+        append(local_vars, "NODE_MOUNTS", stru::join(mts, ", ", "", "volumes: [", "\"", "\"", "]"));
     }
     set(local_vars, "RW_VOLUME_COUNT", rw_volumes_count? std::to_string(rw_volumes_count): std::string());
     set(local_vars, "VOLUME_COUNT", volumes_count? std::to_string(volumes_count): std::string());
@@ -205,11 +203,11 @@ int flow_compiler::genc_dcs_conf(std::ostream &out, std::map<std::string, std::v
     set(local_vars, "COS_VOLUME_COUNT", cos_volumes_count? std::to_string(cos_volumes_count): std::string());
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("dc-yaml-global.json"));
-        stru1::to_json(outg, global_vars);
+        stru::to_json(outg, global_vars);
         std::ofstream outj(output_filename("dc-yaml-local.json"));
-        stru1::to_json(outj, local_vars);
+        stru::to_json(outj, local_vars);
     }
-    vex::expand(out, templates::docker_yaml(), "docker.yaml", local_vars, global_vars);
+    vex::pand(out, templates::docker_yaml(), "docker.yaml", local_vars, global_vars);
     DEBUG_LEAVE;
     return error_count;
 }
@@ -254,10 +252,10 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             std::vector<std::pair<std::string, std::string>> env;
             error_count += get_environment(env, n, ports, true);
             for(auto nv: env)
-                buf.push_back(sfmt() << "{name: "<< nv.first << ", value: " << json_escape(nv.second) << "}");
+                buf.push_back(stru::sfmt() << "{name: "<< nv.first << ", value: " << stru::json_escape(nv.second) << "}");
 
-            append(alln_vars, "NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
-            append(local_vars, "G_NODE_ENVIRONMENT", join(buf, ", ", "", "env: [", "", "", "]"));
+            append(alln_vars, "NODE_ENVIRONMENT", stru::join(buf, ", ", "", "env: [", "", "", "]"));
+            append(local_vars, "G_NODE_ENVIRONMENT", stru::join(buf, ", ", "", "env: [", "", "", "]"));
             append(alln_vars, "NODE_PORT", ports[n]);
             append(local_vars, "G_NODE_PORT", ports[n]);
             append(alln_vars, "IMAGE_PORT", ports[n]);
@@ -268,10 +266,10 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
             for(int m: subtree(n)) if(at(m).type == FTK_MOUNT) {
                 std::map<std::string, std::string> minfo;
                 error_count += get_mount_info(minfo, m);
-                buf.push_back(sfmt() << "{name: scratch-" << to_option(minfo["name"]) << ", mountPath: " << c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
+                buf.push_back(stru::sfmt() << "{name: scratch-" << stru::to_option(minfo["name"]) << ", mountPath: " << stru::c_escape(minfo["path"]) << ", readOnly: " << (minfo["access"] == "ro"? "true": "false") << "}");
                 ++volume_count;
             }
-            append(local_vars, "G_NODE_MOUNTS", join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
+            append(local_vars, "G_NODE_MOUNTS", stru::join(buf, ", ", "", "volumeMounts: [", "", "", "]"));
 
             std::vector<int> init_blcks;
             error_count += get_block_value(init_blcks, blck, "init", false, {FTK_blck});
@@ -280,38 +278,38 @@ int flow_compiler::genc_k8s_conf(std::ostream &out) {
                 int command_value = 0;
                 error_count += get_block_value(command_value, init_blck, "command", false, {FTK_STRING});
                 if(command_value == 0) {
-                    pcerr.AddWarning(main_file, at(init_blck), sfmt() << "ignoring \"init\" block without \"command\"");
+                    pcerr.AddWarning(main_file, at(init_blck), stru::sfmt() << "ignoring \"init\" block without \"command\"");
                     continue;
                 }
-                buf.push_back(sfmt() << "command: [\"/bin/sh\", \"-c\", \"" << get_string(command_value) << "\"]");
+                buf.push_back(stru::sfmt() << "command: [\"/bin/sh\", \"-c\", \"" << get_string(command_value) << "\"]");
                 int image_value = 0;
                 error_count += get_block_value(image_value, init_blck, "image", false, {FTK_STRING});
                 if(image_value == 0) 
                     buf.push_back("image: \"busybox:latest\"");
                 else 
-                    buf.push_back(sfmt() << "image: \"" << get_string(image_value) << "\"");
+                    buf.push_back(stru::sfmt() << "image: \"" << get_string(image_value) << "\"");
                 buf.push_back("securityContext: {privileged: true}");
-                buf.push_back(sfmt() << "name: " << to_option(nn) << "-init-" << ++init_count);
-                append(local_vars, "G_INIT_CONTAINER", join(buf, ", ", "", "{", "", "", "}"));
+                buf.push_back(stru::sfmt() << "name: " << stru::to_option(nn) << "-init-" << ++init_count);
+                append(local_vars, "G_INIT_CONTAINER", stru::join(buf, ", ", "", "{", "", "", "}"));
             }
             DEBUG_CHECK("in group" << group.first << " ic: "<< init_count);
         }
         set(local_vars, "G_INIT_COUNT", init_count? std::to_string(init_count): std::string());
         set(local_vars, "G_VOLUME_COUNT", volume_count? std::to_string(volume_count): std::string());
     }
-    vex::expand(out, templates::kubernetes_yaml(), "kubernetes.yaml", g_group_vars[main_group_name], alln_vars, global_vars);
+    vex::pand(out, templates::kubernetes_yaml(), "kubernetes.yaml", g_group_vars[main_group_name], alln_vars, global_vars);
     if(DEBUG_GENC) {
         std::ofstream outg(output_filename("k8s-yaml-global.json"));
-        stru1::to_json(outg, global_vars);
+        stru::to_json(outg, global_vars);
         std::ofstream outj(output_filename("k8s-yaml-local.json"));
-        stru1::to_json(outj, g_group_vars[main_group_name]);
+        stru::to_json(outj, g_group_vars[main_group_name]);
     }
     for(auto const &g: groups) if(g.first != main_group_name) {
         if(DEBUG_GENC) {
-            std::ofstream outj(output_filename(sfmt() << g.first << "-k8s-yaml-local.json"));
-            stru1::to_json(outj, g_group_vars[g.first]);
+            std::ofstream outj(output_filename(stru::sfmt() << g.first << "-k8s-yaml-local.json"));
+            stru::to_json(outj, g_group_vars[g.first]);
         }
-        vex::expand(out, templates::kubernetes_group_yaml(), "kubernetes.group.yaml", g_group_vars[g.first], alln_vars, global_vars);
+        vex::pand(out, templates::kubernetes_group_yaml(), "kubernetes.group.yaml", g_group_vars[g.first], alln_vars, global_vars);
     }
     DEBUG_LEAVE;
     return 0;
@@ -329,7 +327,7 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     set(local_vars, "DOCKER_COMPOSE_YAML",  yaml.str());
     set(local_vars, "RR_KEYS_SH", templates::rr_keys_sh());
     yaml.str("");
-    vex::expand(yaml, templates::rr_get_sh(), "rr-get.sh", local_vars);
+    vex::pand(yaml, templates::rr_get_sh(), "rr-get.sh", local_vars);
     set(local_vars, "RR_GET_SH",  yaml.str());
     yaml.str("");
     error_count += genc_k8s_conf(yaml);
@@ -346,14 +344,14 @@ int flow_compiler::genc_deployment_driver(std::string const &deployment_script) 
     if(DEBUG_GENC) {
         std::string ofj = deployment_script + "-g.json";
         OFSTREAM_SE(outj, ofj);
-        stru1::to_json(outj, global_vars);
+        stru::to_json(outj, global_vars);
     }
     if(DEBUG_GENC) {
         std::string ofj = deployment_script + "-l.json";
         OFSTREAM_SE(outj, ofj);
-        stru1::to_json(outj, local_vars);
+        stru::to_json(outj, local_vars);
     }
-    vex::expand(out, templates::driver_sh(), "driver.sh", local_vars, global_vars);
+    vex::pand(out, templates::driver_sh(), "driver.sh", local_vars, global_vars);
 
     if(error_count == 0) {
         out.close();

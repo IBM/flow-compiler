@@ -10,17 +10,16 @@
 #include "cot.H"
 #include "flow-compiler.H"
 #include "grpc-helpers.H"
-#include "stru1.H"
+#include "stru.H"
 #include "filu.H"
 
-using namespace stru1;
 int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
     int error_count = 0, node_count = 0, cli_count = 0, cc_value = 0;
     std::set<std::string> all_nodes;
     std::map<std::string, int> headers;
     for(int rn: get_all_referenced_nodes()) {
         ++node_count;
-        all_nodes.insert(to_upper(to_identifier(name(rn))));
+        all_nodes.insert(stru::to_upper(stru::to_identifier(name(rn))));
         append(vars, "A_NODE_NAME", name(rn));
         if(method_descriptor(rn) == nullptr) 
             continue;
@@ -34,24 +33,24 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
             std::vector<std::string> metadata;
             for(auto const &hnv: headers) {
                 if(name.has(hnv.second)) 
-                    metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", flowdef::v" << name(hnv.second) << ");");
+                    metadata.push_back(stru::sfmt() << "(context).AddMetadata(" << stru::c_escape(stru::to_option(hnv.first)) << ", flowdef::v" << name(hnv.second) << ");");
                 else
-                    metadata.push_back(sfmt() << "(context).AddMetadata(" << c_escape(to_option(hnv.first)) << ", " << c_escape(get_string(hnv.second)) << ");");
+                    metadata.push_back(stru::sfmt() << "(context).AddMetadata(" << stru::c_escape(stru::to_option(hnv.first)) << ", " << stru::c_escape(get_string(hnv.second)) << ");");
             }
-            set_metadata = join(metadata, " ", " ", "{", "", "", "}");
+            set_metadata = stru::join(metadata, " ", " ", "{", "", "", "}");
         }
         append(vars, "CLI_NODE_METADATA", set_metadata);
-        append(vars, "CLI_NODE_LINE", sfmt() << at(rn).token.line);
+        append(vars, "CLI_NODE_LINE", stru::sfmt() << at(rn).token.line);
         append(vars, "CLI_NODE_DESCRIPTION", description(rn));
         append(vars, "CLI_NODE_NAME", name(rn));
         append(vars, "CLI_NODE", name(rn));
-        append(vars, "CLI_NODE_URL", sfmt() << "/-node/" << node_name);
+        append(vars, "CLI_NODE_URL", stru::sfmt() << "/-node/" << node_name);
         auto mdp = method_descriptor(rn);
         append(vars, "CLI_SERVICE_NAME", get_full_name(mdp->service()));
         append(vars, "CLI_GRPC_SERVICE_NAME", mdp->service()->name());
         append(vars, "CLI_OUTPUT_TYPE", get_full_name(mdp->output_type()));
         append(vars, "CLI_INPUT_TYPE", get_full_name(mdp->input_type()));
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(rn));
+        std::string output_schema = json_schema(mdp->output_type(), stru::decamelize(mdp->output_type()->name()), description(rn));
         append(vars, "CLI_OUTPUT_SCHEMA_JSON", output_schema);
         std::string input_schema = json_schema(mdp->input_type(), name(rn), description(rn));
         append(vars, "CLI_INPUT_SCHEMA_JSON", input_schema);
@@ -65,20 +64,20 @@ int flow_compiler::set_cli_node_vars(decltype(global_vars) &vars) {
         cc_value = 0;
         error_count += get_block_i(cc_value, block, "replicas", default_maxcc);
         if(cc_value <= 0) {
-            pcerr.AddWarning(main_file, at(rn), sfmt() << "ignoring invalid value for the number of concurrent clients: \"" << cc_value <<"\"");
+            pcerr.AddWarning(main_file, at(rn), stru::sfmt() << "ignoring invalid value for the number of concurrent clients: \"" << cc_value <<"\"");
             cc_value = default_maxcc;
         }
         append(vars, "CLI_NODE_MAX_CONCURRENT_CALLS", std::to_string(cc_value));
     }
     if(cli_count > 0) 
         set(vars, "HAVE_CLI", "");
-    set(vars, "CLI_NODE_COUNT", sfmt() << cli_count);
-    set(vars, "A_NODE_COUNT", sfmt() << node_count);
+    set(vars, "CLI_NODE_COUNT", stru::sfmt() << cli_count);
+    set(vars, "A_NODE_COUNT", stru::sfmt() << node_count);
     std::string no_node_name = "NOTANODE";
     if(cot::contains(all_nodes, no_node_name))
         for(int i = 0; i < 10000; ++i) 
             if(cot::contains(all_nodes, no_node_name))
-                no_node_name = sfmt() << "NOT_A_NODE_" << i;
+                no_node_name = stru::sfmt() << "NOT_A_NODE_" << i;
     set(vars, "NO_NODE_NAME", no_node_name);
     return error_count;
 }
@@ -117,14 +116,14 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
                         std::tuple<std::string, int, std::string>{"", 0, ""}; 
                 };
 
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), description(entry_node));
-        std::string input_schema = json_schema_p(mdp->input_type(), to_upper(to_option(main_name)), description(1), get_inpfilprp);
+        std::string output_schema = json_schema(mdp->output_type(), stru::decamelize(mdp->output_type()->name()), description(entry_node));
+        std::string input_schema = json_schema_p(mdp->input_type(), stru::to_upper(stru::to_option(main_name)), description(1), get_inpfilprp);
 
         entry_mdps.insert(mdp); all_mdps.insert(mdp);
         append(vars, "ENTRY_PROTO", gen_proto(mdp));
         append(vars, "ENTRY_FULL_NAME", mdp->full_name());
         append(vars, "ENTRY_NAME", mdp->name());
-        append(vars, "ENTRY_URL", sfmt() << "/" << mdp->name());
+        append(vars, "ENTRY_URL", stru::sfmt() << "/" << mdp->name());
         append(vars, "ENTRY_SERVICE_SHORT_NAME", get_name(mdp->service()));
         append(vars, "ENTRY_SERVICE_NAME", get_full_name(mdp->service()));
         append(vars, "ENTRY_OUTPUT_SHORT_TYPE", get_name(mdp->output_type()));
@@ -135,12 +134,12 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "ENTRY_OUTPUT_SCHEMA_JSON", output_schema);
         append(vars, "ENTRY_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "ENTRY_DESCRIPTION", description(entry_node));
-        append(vars, "ENTRY_ORDER", sfmt() << entry_count);
+        append(vars, "ENTRY_ORDER", stru::sfmt() << entry_count);
     }
     if(entry_count > 1)
         set(vars, "HAVE_ALT_ENTRY", "");
-    set(vars, "ENTRY_COUNT", sfmt() << entry_count);
-    set(vars, "ALT_ENTRY_COUNT", sfmt() << entry_count-1);
+    set(vars, "ENTRY_COUNT", stru::sfmt() << entry_count);
+    set(vars, "ALT_ENTRY_COUNT", stru::sfmt() << entry_count-1);
     set(vars, "ENTRIES_PROTO", gen_proto(entry_mdps));
     for(int rn: get_all_referenced_nodes()) {
         MethodDescriptor const *mdp = method_descriptor(rn);
@@ -152,8 +151,8 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         mdpvec.push_back(mdp);
     for(unsigned i = 0, e = entry_mdps.size(), f = mdpvec.size(); i < f; ++i) {
         auto mdp = mdpvec[i];
-        std::string output_schema = json_schema(mdp->output_type(), decamelize(mdp->output_type()->name()), "");
-        std::string input_schema = json_schema(mdp->input_type(), decamelize(mdp->input_type()->name()), "");
+        std::string output_schema = json_schema(mdp->output_type(), stru::decamelize(mdp->output_type()->name()), "");
+        std::string input_schema = json_schema(mdp->input_type(), stru::decamelize(mdp->input_type()->name()), "");
         append(vars, "MDP_PROTO", gen_proto(mdp));
         append(vars, "MDP_FULL_NAME", mdp->full_name());
         append(vars, "MDP_NAME", mdp->name());
@@ -167,7 +166,7 @@ int flow_compiler::set_entry_vars(decltype(global_vars) &vars) {
         append(vars, "MDP_INPUT_SCHEMA_JSON", input_schema);
         append(vars, "MDP_IS_ENTRY", i < e? "1": "0");
     }
-    set(vars, "MDP_COUNT", sfmt() << all_mdps.size());
+    set(vars, "MDP_COUNT", stru::sfmt() << all_mdps.size());
     set(vars, "ALL_NODES_PROTO", gen_proto(all_mdps));
     return error_count;
 }
@@ -193,7 +192,7 @@ int flow_compiler::group_info(int gn, std::map<std::string, std::vector<std::str
                     error_count += get_block_i(scale, n, "scale", 0);
                     group_scale = std::max(scale, group_scale);
                 } else {
-                    host = std::string("@") + to_lower(to_option(to_identifier(sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
+                    host = std::string("@") + to_lower(to_option(to_identifier(stru::sfmt() << get(global_vars, "NAME") << "-" << gp.first)));
                 }
                 if(gp.first != main_group_name) 
                     continue;
@@ -201,9 +200,9 @@ int flow_compiler::group_info(int gn, std::map<std::string, std::vector<std::str
                 std::string endpoint;
                 error_count += get_block_s(endpoint, n, "endpoint", "");
 
-                append(group_vars, "MAIN_ENVIRONMENT_KEY", sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
+                append(group_vars, "MAIN_ENVIRONMENT_KEY", stru::sfmt() << to_upper(to_identifier(get(global_vars, "NAME"))) <<  "_NODE_" << to_upper(to_identifier(name(n))) << "_ENDPOINT");
                 if(endpoint.empty()) 
-                    append(group_vars, "MAIN_ENVIRONMENT_VALUE", sfmt() << host << ":" << ports[n]);
+                    append(group_vars, "MAIN_ENVIRONMENT_VALUE", stru::sfmt() << host << ":" << ports[n]);
                 else 
                     append(group_vars, "MAIN_ENVIRONMENT_VALUE", endpoint);
             }
@@ -220,7 +219,7 @@ int flow_compiler::group_info(int gn, std::map<std::string, std::vector<std::str
                 std::string endpoint, image;
                 error_count += get_block_s(endpoint, n, "endpoint", "") 
                     + get_block_s(image, n, "image", "");
-                if(!image.empty() || endpoint.empty() || stru1::starts_with("localhost:", endpoint)) {
+                if(!image.empty() || endpoint.empty() || stru::starts_with("localhost:", endpoint)) {
                     int scale;
                     error_count += get_block_i(scale, n, "scale", 0);
                     group_scale = std::max(scale, group_scale);
@@ -266,8 +265,8 @@ int flow_compiler::node_info(int n, std::map<std::string, std::vector<std::strin
     append(vars, prefix+"NODE_HAVE_MIN_CPUS", min_cpus > 0? "": "#");
     append(vars, prefix+"NODE_HAVE_MAX_GPUS", max_gpus > 0? "": "#");
     append(vars, prefix+"NODE_HAVE_MIN_GPUS", min_gpus > 0? "": "#");
-    append(vars, prefix+"NODE_NAME", to_lower(to_option(to_identifier(name(n)))));
-    append(vars, prefix+"NODE_GROUP", to_lower(to_option(to_identifier(group(n)))));
+    append(vars, prefix+"NODE_NAME", stru::to_lower(stru::to_option(stru::to_identifier(name(n)))));
+    append(vars, prefix+"NODE_GROUP", stru::to_lower(stru::to_option(stru::to_identifier(group(n)))));
     std::string endpoint, image_name;
     error_count += get_block_s(endpoint, n, "endpoint", "");
     error_count += get_block_s(image_name, n, "image", "");
@@ -322,7 +321,7 @@ int flow_compiler::set_def_vars(decltype(global_vars) &vars) {
             set(vars, "HAVE_DEFN", "");
             ++defn_count;
         } else {
-            pcerr.AddWarning(main_file, defn, sfmt() << "ignoring unreferenced variable \"" << get_id(defn.children[0]) <<"\"");
+            pcerr.AddWarning(main_file, defn, stru::sfmt() << "ignoring unreferenced variable \"" << get_id(defn.children[0]) <<"\"");
         }
     }
     if(defn_count)
@@ -334,7 +333,7 @@ int flow_compiler::set_def_vars(decltype(global_vars) &vars) {
         error_count += get_nv_block(nvnenv, i, "environment", {FTK_STRING, FTK_INTEGER, FTK_FLOAT});
         for(auto const &nv: nvnenv) {
             std::string value = get_text(nv.second);
-            if(starts_with(value, "{{@") && ends_with(value, "}}")) 
+            if(stru::starts_with(value, "{{@") && stru::ends_with(value, "}}")) 
                 env_file_refs.insert(value.substr(3, value.length()-5));
         }
     }
