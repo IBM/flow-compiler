@@ -277,9 +277,6 @@ recli: recli.C
 vex: vex.C vex.H stru.H veximpl.C strtrs.C vex-help.C filu.C filugz.C ansi-escapes.C strconv.C
 	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) -lz
 
-
-#	vex.C veximpl.C strtrs.C vex-help.C filu.C filugz.C 
-
 TOOLS=recli vex
 
 tools: $(TOOLS)
