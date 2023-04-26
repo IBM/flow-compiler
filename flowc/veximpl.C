@@ -404,6 +404,10 @@ struct macro_parser {
             value = stru::decamelize(value);
         } else if(transf == "underscore") {
             value = stru::to_underscore(value);
+        } else if(transf == "base64") {
+            value = stru::base64(value);
+        } else if(transf == "base64d") {
+            value = stru::base64d(value);
         } else if(transf == "json") {
             value = stru::json_escape(value);
         } else {

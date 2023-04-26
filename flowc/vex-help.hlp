@@ -64,6 +64,8 @@ SYNTAX
 
        The following text conversions are available:
 
+       "base64", "base64d"
+            Encode/decode BASE64
        "lower", "upper"
             Convert text to lowercase aor uppercase respectively
        "option", "cname"
