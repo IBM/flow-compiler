@@ -142,7 +142,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
 	@echo "====================================================================="
-	@./flowc --version
+	@./$@ --version
 
 version.o: version.C build.id
 	@echo ${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -c $<
@@ -273,9 +273,13 @@ all-images: $(RUNTIMES)
 
 recli: recli.C
 	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(shell pkg-config --libs libcurl)
+	@echo "====================================================================="
+	@./$@ --version
 
 vex: vex.C vex.H stru.H veximpl.C strtrs.C vex-help.C filu.C filugz.C ansi-escapes.C strconv.C
 	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) -lz
+	@echo "====================================================================="
+	@./$@ --version
 
 TOOLS=recli vex
 
