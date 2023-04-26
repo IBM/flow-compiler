@@ -1,14 +1,13 @@
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
-#include "stru1.H"
+#include "stru.H"
 #include "ansi-escapes.H"
 #include "helpo.H"
 #define VEX_DEBUG
 #include "vex.H"
 
 #define VEX_NAME "vex"
-bool ansi::use_escapes = true;
 char const *get_version() {
     return BUILD_VERSION;
 }
@@ -23,8 +22,8 @@ struct environment {
         auto envv = getenv(name);
         if(envv == nullptr) return end();
         std::vector<std::string> r;
-        if(strcmp(name, "PATH") == 0 || stru1::ends_with(name, "_PATH")) {
-            stru1::split(r, envv, ":");
+        if(strcmp(name, "PATH") == 0 || stru::ends_with(name, "_PATH")) {
+            stru::split(r, envv, ":");
         } else {
             r.push_back(envv);
         }
@@ -40,8 +39,8 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
     std::string t, vn, ts;
     std::vector<std::string> vv;
 
-    while(!accept && errc == 0 && (t = stru1::scan_json(jit)) != "") {
-        ts = stru1::json_unescape(stru1::strip1(t, "\""));
+    while(!accept && errc == 0 && (t = stru::scan_json(jit)) != "") {
+        ts = stru::json_unescape(stru::strip1(t, "\""));
         switch(state) {
             // accept '{' and wait for variable name    
             case 0:
@@ -118,12 +117,15 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
     return errc;
 }
 
-extern std::string get_vex_help();
+namespace templates {
+std::string vex_help_hlp();
+}
 
 int main(int argc, char *argv[], char **envp) {
     helpo::opts opts;
-    if(opts.parse(get_vex_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc < 2) {
-        ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
+    if(opts.parse(templates::vex_help_hlp(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc < 2) {
+        //ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
+        std::cerr << (opts.optb("color", isatty(fileno(stderr)) && isatty(fileno(stdout)))? ansi::on: ansi::off);
 
         if(opts.have("version")) {
             std::cout << VEX_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
@@ -135,7 +137,8 @@ int main(int argc, char *argv[], char **envp) {
 #endif
             return 0;
         } else if(opts.have("help") || argc <= 2) {
-            std::cout << ansi::emphasize(get_vex_help(), ansi::escape(ANSI_BLUE),  ansi::escape(ANSI_BOLD)) << "\n";
+            std::cout << ansi::emphasize(ansi::emphasize(templates::vex_help_hlp(), ANSI_BOLD, "-", " \r\n\t =,;/", true, true), ANSI_BLUE) << "\n";
+            //std::cout << ansi::emphasize(templates::vex_help_hlp(), ansi::escape(ANSI_BLUE),  ansi::escape(ANSI_BOLD)) << "\n";
             return opts.have("help")? 0: 1;
         } else {
             std::cout << "Use --help to see the command line usage and all available options\n\n";
@@ -209,6 +212,7 @@ int main(int argc, char *argv[], char **envp) {
     auto da = env_used?
         vex::make_da(mv1, environment(), mv2):
         vex::make_da(mv1);
+    //auto da = vex::make_da(mv1);
 
     std::istreambuf_iterator<char> eos;
     std::string templ(std::istreambuf_iterator<char>(*in), eos);
@@ -216,7 +220,7 @@ int main(int argc, char *argv[], char **envp) {
     std::string bi = opts.opt("inner-begin", vex::default_escape_strings[1]);
     std::string ei = opts.opt("inner-end", vex::default_escape_strings[2]);
     std::string eo = opts.opt("outer-end", vex::default_escape_strings[3]);
-    rc = vex::pand(std::cout, templ.c_str(), templ.c_str()+templ.length(), da, template_label, opts.have("debug"), 
+    rc = vex::pand_impl(std::cout, templ.data(), templ.data()+templ.length(), da, template_label, opts.have("debug"), 
             bo.c_str(), bi.c_str(), ei.c_str(), eo.c_str()
             );
     return rc;

@@ -5,3 +5,4 @@ base.Dockerfile
 makefile.local
 flow-compiler-minsrc.tgz
 build.id
+*-help.C

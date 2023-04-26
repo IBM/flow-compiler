@@ -114,10 +114,10 @@ IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILESX:=template.Dockerfile	template.client.py template.index.html template.server.C template.syntax \
+TEMPLATE_FILESX:=template.Dockerfile template.client.py template.index.html template.server.C \
 	template.Makefile template.docker.yaml template.kubernetes.group.yaml template.server.pem \
 	template.client.C template.driver.sh template.kubernetes.yaml template.slim.Dockerfile \
-	flowc.help
+	template.syntax flowc.help
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
@@ -132,6 +132,12 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 %.o: %.C
 	@echo ${CXX} -std=c++17 $(CCFLAGS) -c $<
 	@${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
+
+%.C: %.hlp
+	@echo Writing $@ from $^
+	@printf "#include <map>\n#include <string>\n#include <sstream>\n#include \"filu.H\"\nnamespace templates {\n" > $@
+	@for FILE in $^; do ID=$$(echo "$$FILE" | sed -E 's/^template.//' | tr -- '-./' '___'); echo "static unsigned char const $${ID}_z[] = {"; cat "$$FILE" | gzip -c | xxd -i; echo '};'; printf "std::string $${ID}() {return filu::gunzip($${ID}_z, %d);}\n" $$(cat "$$FILE" | gzip -c | wc -c); done >> $@
+	@echo "}" >> $@
 
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
@@ -161,8 +167,7 @@ RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtime
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
-	@echo Writing $@ $(patsubst %.C,%.H,$@)
-	@echo Adding $^ to $@
+	@echo Writing $@ $(patsubst %.C,%.H,$@) from $^
 	@printf "#include <map>\n#include <string>\n#include <sstream>\n#include \"filu.H\"\nnamespace templates {\n" > $@
 	@for FILE in $^; do ID=$$(echo "$$FILE" | sed -E 's/^template.//' | tr -- '-./' '___'); echo "static unsigned char const $${ID}_z[] = {"; cat "$$FILE" | gzip -c | xxd -i; echo '};'; printf "std::string $${ID}() {return filu::gunzip($${ID}_z, %d);}\n" $$(cat "$$FILE" | gzip -c | wc -c); done >> $@
 	@echo "std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile = {" >> $@
@@ -195,7 +200,6 @@ install: flowc
 	strip $^
 	cp $^ $(INSTALL_PREFIX)
 endif
-
 
 #################### Docker image builder
 flow-base-image-info.json: runtimes/$(BASE_IMAGE)/template.runtime.Dockerfile runtimes/$(BASE_IMAGE)/base.Dockerfile flowc.Dockerfile $(MINSRC_FILES)
@@ -270,8 +274,11 @@ all-images: $(RUNTIMES)
 recli: recli.C
 	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(shell pkg-config --libs libcurl)
 
-vex: vex.C vex.H stru1.H veximpl.C strtrs.C vex.help.C filu.C 
-	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex vex.C veximpl.C strtrs.C vex.help.C filu.C -lz
+vex: vex.C vex.H stru.H veximpl.C strtrs.C vex-help.C filu.C filugz.C ansi-escapes.C strconv.C
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) -lz
+
+
+#	vex.C veximpl.C strtrs.C vex-help.C filu.C filugz.C 
 
 TOOLS=recli vex
 
