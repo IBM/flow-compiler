@@ -1,4 +1,4 @@
-FROM alpine:3.15 AS flow-runtime
+FROM alpine:3.18 AS flow-runtime
 
 RUN apk add --no-cache curl vim gzip bzip2 tar bash binutils
 

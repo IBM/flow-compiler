@@ -3,7 +3,7 @@ ARG CIVETWEB_VERSION=1.15
 
 USER root
 
-RUN apk add --no-cache gcc musl-dev g++ grpc grpc-dev protobuf protobuf-dev protoc make graphviz pkgconf libexecinfo-dev util-linux-dev c-ares c-ares-dev gdb grpc-cli re2 re2-dev
+RUN apk add --no-cache gcc musl-dev g++ grpc grpc-dev protobuf protobuf-dev protoc make graphviz pkgconf util-linux-dev c-ares c-ares-dev gdb re2 re2-dev
 
 USER worker
 WORKDIR /home/worker
