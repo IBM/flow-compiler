@@ -77,9 +77,6 @@ ifneq ($(CIVETWEB_VERSION), )
 	DOCKER_ARG_CIVETWEB_VERSION:=--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)"
 endif
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
-.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
-.PHONY: tools 
 
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
@@ -114,11 +111,18 @@ IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
+RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
+RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
+
+.PHONY: $(RUNTIMES)
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
+.PHONY: tools 
+
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
 OBJS:=filu.o filugz.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flow-funcs.o flowc.o \
 	  gc-client.o gc-conf.o gc-grpc.o gc-server.o grpc-helpers.o gvars.o print-graph.o print-pseu.o \
-	  strtrs.o strconv.o tree-accessors.o veximpl.o version.o ansi-escapes.o
+	  strtrs.o strconv.o tree-accessors.o veximpl.o version.o ansi-escapes.o flow-scanner.o
 
 ## minimal set of files to portably build flow-compiler,
 ## includes intermediate files, but will require only the gRPC libraries to build
@@ -157,8 +161,6 @@ flow-scanner.C: flow-scanner.lex
 clean:
 	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
-RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
