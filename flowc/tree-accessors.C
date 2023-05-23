@@ -53,7 +53,7 @@ int flow_compiler::get_nv_block(std::map<std::string, int> &nvs, int parent_bloc
         parent_block = get_ne_block_node(parent_block);
 
     for(int p = 0, v = find_in_blck(parent_block, block_label, &p); v != 0; v = find_in_blck(parent_block, block_label, &p)) {
-        if(at(v).type != FTK_blck && at(v).type != FTK_HEADERS && at(v).type != FTK_MOUNT && at(v).type != FTK_ENVIRONMENT) {
+        if(at(v).type != FTK_blck && at(v).type != FTK_HEADER && at(v).type != FTK_MOUNT && at(v).type != FTK_ENVIRONMENT) {
             error_count += 1;
             pcerr.AddError(main_file, at(v), stru::sfmt() << "\"" << block_label << "\" must be a name/value pair block");
             continue;

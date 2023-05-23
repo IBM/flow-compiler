@@ -431,7 +431,7 @@ struct flow_ast {
      */
     int blck_keyw(int in, int def_type=-1) const {
         static std::map<std::string, int> keywords = {
-            {"headers", FTK_HEADERS}, {"environment", FTK_ENVIRONMENT}, 
+            {"headers", FTK_HEADER}, {"environment", FTK_ENVIRONMENT}, 
             {"mount", FTK_MOUNT}, {"init", FTK_INIT}, {"limits", FTK_LIMITS},
             {"output", FTK_OUTPUT}, {"return", FTK_RETURN} 
         };
@@ -450,7 +450,7 @@ struct flow_ast {
             if(at(elem.children[1]).type == FTK_blck) {
                 auto vtype = blck_keyw(elem.children[0]);
                 switch(vtype) {
-                    case FTK_ENVIRONMENT: case FTK_HEADERS:
+                    case FTK_ENVIRONMENT: case FTK_HEADER:
                         chtype(elem.children[1], vtype);
                         break;
                     case FTK_MOUNT:

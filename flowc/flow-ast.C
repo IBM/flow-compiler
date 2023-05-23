@@ -81,7 +81,7 @@ char const *node_name(int i) {
 
         case FTK_ENVIRONMENT: return "<ENVIRONEMNT>";
         case FTK_MOUNT: return "<MOUNT>";
-        case FTK_HEADERS: return "<HEADERS>";
+        case FTK_HEADER: return "<HEADER>";
         case FTK_LIMITS: return "<LIMITS>";
         case FTK_INIT: return "<INIT>";
 
