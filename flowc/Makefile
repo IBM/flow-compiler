@@ -114,11 +114,6 @@ IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILESX:=template.Dockerfile template.client.py template.index.html template.server.C \
-	template.Makefile template.docker.yaml template.kubernetes.group.yaml template.server.pem \
-	template.client.C template.driver.sh template.kubernetes.yaml template.slim.Dockerfile \
-	template.syntax flowc.help
-
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
 OBJS:=filu.o filugz.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-templates.o flow-funcs.o flowc.o \
@@ -151,7 +146,7 @@ version.o: version.C build.id
 flow-compiler.o: flow-parser.c
 
 flow-parser.h: flow-parser.c
-	@echo $@
+	@echo $@ > /dev/null
 
 flow-parser.c: flow-parser.y
 	$(LEMON) $<
@@ -162,7 +157,7 @@ flow-scanner.C: flow-scanner.lex
 clean:
 	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-RUNTIMES:=alpine-3.16 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
+RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
@@ -249,7 +244,7 @@ image:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
 
-alpine-3.16:
+alpine-3.18:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
