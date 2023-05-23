@@ -145,7 +145,7 @@ version.o: version.C build.id
 flow-compiler.o: flow-parser.c
 
 flow-parser.h: flow-parser.c
-	@echo $@
+	@echo $@ > /dev/null
 
 flow-parser.c: flow-parser.y
 	$(LEMON) $<
