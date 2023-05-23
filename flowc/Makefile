@@ -19,7 +19,7 @@
 
 -include makefile.local
 
-BUILD_VERSION?=0.21.3
+BUILD_VERSION?=0.0.1r
 
 ifndef BUILD_ID
 
