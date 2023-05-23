@@ -1757,7 +1757,7 @@ static int NC_{{CLI_NODE_NAME/id}}(flowc::call_info const &cif, struct mg_connec
     char const *tag; bool next_ok = false; 
     auto carr = connector->stub(connection_n, cif, -1)->PrepareAsync{{CLI_METHOD_NAME}}(&L_context, L_inp, &q1);
     carr->StartCall();
-    carr->Finish(&L_outp, &L_status, (void *) "REST-{{ENTRY_NAME}}");
+    carr->Finish(&L_outp, &L_status, (void *) "REST-{{CLI_NODE_NAME/id/option}}");
     for(;;) {
         auto ns1 = q1.AsyncNext((void **) &tag, &next_ok, std::chrono::system_clock::now() + std::chrono::milliseconds(REST_CONNECTION_CHECK_INTERVAL));
         if(ns1 == ::grpc::CompletionQueue::NextStatus::GOT_EVENT && next_ok) 
