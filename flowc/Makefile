@@ -78,7 +78,7 @@ ifneq ($(CIVETWEB_VERSION), )
 endif
 
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
-.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.16 debian-bullseye
+.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.18 debian-bullseye
 .PHONY: tools 
 
 # Find a suitable tar - needed for building the image
@@ -156,7 +156,7 @@ flow-scanner.C: flow-scanner.lex
 clean:
 	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-RUNTIMES:=alpine-3.16 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
+RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
@@ -245,7 +245,7 @@ image:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$(BASE_IMAGE)" "BASE_IMAGE=$(BASE_IMAGE)" flowc-image
 
-alpine-3.16:
+alpine-3.18:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
