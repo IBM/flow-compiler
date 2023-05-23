@@ -241,11 +241,11 @@ std::string pipe(std::string command, std::string input, int *rc, std::string *e
     std::string sout;
 
     // open the input and output streams
-    ::pipe(pipefd.data());
-    ::pipe(pipefd.data()+2);
+    prc = ::pipe(pipefd.data()) != 0 ||
+    ::pipe(pipefd.data()+2) != 0;
     // open the err stream
     if(err != nullptr && !err2out)
-        ::pipe(pipefd.data()+4);
+        prc = ::pipe(pipefd.data()+4);
     else
         pipefd[4] = pipefd[5] = -1;
 
@@ -279,7 +279,7 @@ std::string pipe(std::string command, std::string input, int *rc, std::string *e
             pipefd[0] = pipefd[3] = pipefd[5] = -1;
 
             if(!input.empty())
-                write(pipefd[1], input.c_str(), input.length());
+                prc = write(pipefd[1], input.c_str(), input.length()) == 0;
             ::close(pipefd[1]);
             pipefd[1] = -1;
             while((rds = read(pipefd[2], buffer.data(), buffer.size())) != 0) {
