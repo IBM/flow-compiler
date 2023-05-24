@@ -10,7 +10,6 @@
 #include "flow-compiler.H"
 #include "stru.H"
 #include "cot.H"
-#include "flow-parser.c"
 #include "massert.H"
 #include "filu.H"
 
@@ -197,6 +196,7 @@ void flow_compiler::add_comments(int token, std::vector<std::string> const &comm
         description.put(token, stru::strip(buf2.str()));
 }
 int flow_compiler::parse() {
+    /*
     int error_count = 0;
     DEBUG_ENTER;
     io::ZeroCopyInputStream *zi = source_tree.Open(main_file);
@@ -330,7 +330,7 @@ int flow_compiler::parse() {
                                 case '<': 
                                     get_previous = false;
                                     switch(ftok.type) {
-                                        case FTK_LT: ftok.type = FTK_SHL; break;
+      8                                  case FTK_LT: ftok.type = FTK_SHL; break;
                                         default: get_previous = true; break;
                                     }
                                     break;
@@ -368,6 +368,8 @@ int flow_compiler::parse() {
     flow_parserFree(fpp, free);
     DEBUG_LEAVE;
     return error_count;
+    */
+    return 0;
 }
 int flow_compiler::compile_method(std::string &method, int mthd_node, int max_components) {
     auto const &mthd = at(mthd_node);

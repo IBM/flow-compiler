@@ -567,36 +567,6 @@ int flow_compiler::compile_defines() {
     for(int n: *this) {
         auto const &stmt = at(n);
         switch(stmt.type) {
-            case FTK_OPTION: {
-                std::string statement = get_id(stmt.children[0]);
-                if(statement == "package") {
-                    std::string package_name;
-                    if(compile_id(package_name, stmt.children[1])) {
-                        pcerr.AddError(main_file, at(stmt.children[1]), "expected package name id");
-                        error_count += 1;
-                    }
-                } else if(statement == "repository") {
-                    std::string repository;
-                    if(compile_string(repository, stmt.children[1])) {
-                        pcerr.AddError(main_file, at(stmt.children[1]), "expected repository path string");
-                        error_count += 1;
-                    }
-                    default_repository = repository;
-                } else if(statement == "image_pull_secret") {
-                    std::string secret;
-                    if(compile_string(secret, stmt.children[1])) {
-                        pcerr.AddError(main_file, at(stmt.children[1]), "expected image pull secret name");
-                        error_count += 1;
-                    }
-                    image_pull_secrets.insert(secret);
-                } else if(statement == "port") {
-                    if(at(stmt.children[1]).type != FTK_STRING && at(stmt.children[1]).type != FTK_INTEGER) {
-                        pcerr.AddError(main_file, at(stmt.children[1]), "port value expected");
-                        error_count += 1;
-                    }
-                    base_port = get_integer(stmt.children[1]);
-                }
-            } 
                 break;
             default: 
                 break;

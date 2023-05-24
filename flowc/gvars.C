@@ -311,7 +311,7 @@ int flow_compiler::set_def_vars(decltype(global_vars) &vars) {
     clear(vars, "HAVE_DEFN");
     clear(vars, "DEFN_COUNT");
     int defn_count = 0;
-    for(int i: *this) if(at(i).type == FTK_DEFINE) {
+    for(int i: *this) if(at(i).type == FTK_INTEGER) {
         auto &defn = at(i);
         if(refcount(defn.children[1]) > 0) {
             append(vars, "DEFN", get_id(defn.children[0]));

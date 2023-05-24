@@ -421,9 +421,9 @@ struct flow_ast {
      * Lookup statement level keyword for node 'in'
      */
     int stmt_keyw(int in) const {
-        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}, {"error", FTK_ERROR}, {"option", FTK_OPTION}, {"input", FTK_INPUT}};
+        static std::map<std::string, int> keywords = {{"node", FTK_NODE}, {"container", FTK_CONTAINER}, {"entry", FTK_ENTRY}, {"import", FTK_IMPORT}, {"error", FTK_ERROR}, {"input", FTK_INPUT}};
         auto ki = keywords.find(get_id(in));
-        int k = ki == keywords.end()? FTK_DEFINE: ki->second;
+        int k = ki == keywords.end()? FTK_NODE: ki->second;
         return k;
     }
     /**
