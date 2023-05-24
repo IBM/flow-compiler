@@ -54,7 +54,6 @@ int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
 
     return (int) store.size();
 }
-
 int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     yyParser *pp = (yyParser *) flow_parserAlloc(malloc);
     if(trace_on)
@@ -85,5 +84,29 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
 
     return error_count;
 }
-
+void compiler::reset() {
+    input_filename.clear();
+    filenames.clear();
+    warning_count = error_count = 0;
+    show_line_with_error = show_line_with_warning = true;
+    // delete the tree
+    store.clear(); root_n = 0;
+}
+static std::map<int, std::string> non_terminals = {
+    {FTK_ACCEPT,            "ACCEPT"},
+    {FTK_FAILED,            "FAILED"},
+    {FTK_flow,              "flow"},
+};
+std::string compiler::stoken(int ftk) {
+    assert(ftk >= 0 && ftk < FTK_MAX_NONTERM);
+    if(ftk < FTK_ACCEPT) {
+        assert(ftk < sizeof(yyTokenName)/sizeof(yyTokenName[0]));
+        return yyTokenName[ftk];
+    } else {
+        auto tp = non_terminals.find(ftk);
+        if(tp != non_terminals.end())
+            return tp->second;
+        return stru::sfmt() << "NT+" << ftk-FTK_ACCEPT;
+    }
+}
 }

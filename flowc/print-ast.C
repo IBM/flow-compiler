@@ -1,0 +1,116 @@
+#include "ansi-escapes.H"
+#include "flow-comp.H"
+#include "stru.H"
+
+namespace {
+std::ostream &operator <<(std::ostream &out, ast::token const &token) {
+   switch(token.type) {
+       case FTK_INTEGER:
+           out << ANSI_CYAN << token.text << ANSI_RESET;
+           break;
+       case FTK_FLOAT:
+           out << ANSI_YELLOW << token.text << ANSI_RESET;
+           break;
+       case FTK_STRING:
+           out << ANSI_GREEN << token.text << ANSI_RESET;
+           break;
+       case FTK_ID:
+           out << ANSI_MAGENTA << token.text << ANSI_RESET;
+           break;
+       default:
+           out << ANSI_CYAN << token.text << ANSI_RESET;
+   }
+   return out;
+}
+std::ostream &operator <<(std::ostream &out, ast::node const &node) {
+    std::string type = fc::compiler::stoken(node.type);
+    out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
+    //out << type << "(" << node.type << ")";
+    out << ANSI_BOLD << type << ANSI_RESET;
+    if(node.children.size()) out << "[" << node.children.size() << "]";
+    out << " " << node.token;
+    return out;
+}
+void print_node_info(std::ostream &out, ast::node const &node) {
+    std::string type = fc::compiler::stoken(node.type);
+    out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
+    out << ANSI_BOLD << type << ANSI_RESET;
+    if(node.children.size()) out << "[" << node.children.size() << "]";
+}
+}
+namespace fc {
+/*
+void compiler::ast_to_json(std::ostream &out, int node) const {
+    if(node == 0) {
+        for(auto p = begin(node), e = end(); p != e; ++p)
+            if(at(*p).type == FTK_wfgsrc) {
+                node = *p;
+                break;
+            }
+    }
+    if(node != 0) {
+        out << "{\"id\": " << node << ",";
+        auto n = at(node);
+        out << "\"line\":" << n.token.line << ",\"col\":" << n.token.column << ",";
+        out << "\"type\":" << stru::json_escape(fc::compiler::stoken(n.type));
+        switch(n.type) {
+            case FTK_INTEGER: 
+                out << ",\"value\":" << atoll(n.token.text.c_str());
+                break;
+            case FTK_FLOAT:
+                out << ",\"value\":" << atof(n.token.text.c_str());
+                break;
+            case FTK_ID: case FTK_STRING:
+                out << ",\"value\":" << stru::json_escape(n.token.text);
+                break;
+            default:
+                break;
+        }
+        if(n.children.size() > 0) {
+            out << ",\"children\":[";
+            for(int cx = 0, ce = n.children.size(); cx != ce; ++cx) {
+                if(cx > 0) out << ",";
+                json_ast(out, n.children[cx]);
+            }
+            out << "]";
+        }
+        out << "}\n";
+    }
+}
+*/
+
+void compiler::print_ast(std::ostream &out, int node) const {
+    for(auto p = begin(node), e = end(); p != e; ++p) {
+        out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
+        print_node_info(out, at(*p));
+        bool has_attrs = vtype.has(*p) || ref.has(*p);
+        int attrs = 0;
+        if(has_attrs)
+            out << "(";
+        if(vtype.has(*p)) {
+            out << "vtype: " << ANSI_HBLUE << stype(vtype.get(*p)) << ANSI_RESET;
+            ++attrs;
+        }
+        if(ref.has(*p)) {
+            if(attrs) out << ", ";
+            out << "ref: " << ANSI_BOLD+ANSI_RED << ref.get(*p) << ANSI_RESET;
+            ++attrs;
+        }
+        if(has_attrs)
+            out << ")";
+        out << " " << at(*p).token << "\n";
+    }
+}
+static std::map<std::string, int> type_labels = 
+{ {"integer", FTK_INTEGER}, {"float", FTK_FLOAT}, {"string", FTK_STRING} };
+int compiler::itype(std::string type_name) {
+    auto f = type_labels.find(type_name);
+    return f == type_labels.end()? 0: f->second;
+}
+std::string compiler::stype(int type) {
+    for(auto tv: type_labels)
+        if(tv.second == type) return tv.first;
+    return "??";
+}
+
+}

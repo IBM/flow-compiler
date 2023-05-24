@@ -12,8 +12,10 @@
 // to align the numerical values, since only terminals are declared in
 // the header file produced by lemon.
 enum ast_nonterm {
-    FTK_ACCEPT=2000,
+    FTK_ACCEPT=200,
     FTK_FAILED,
+
+    FTK_flow,
 
     FTK_elem,
     FTK_lblk, 
@@ -23,7 +25,6 @@ enum ast_nonterm {
     FTK_fldx, 
     FTK_fldm,
     FTK_dtid,
-
 
     FTK_MAX_NONTERM
 };
@@ -121,6 +122,12 @@ public:
     static std::string get_build_id();
     static std::string get_default_runtime();
     static std::set<std::string> available_runtimes();
+
+    /** Coversions
+     */
+    static int itype(std::string type_name);
+    static std::string stype(int type);
+    static std::string stoken(int ftk);
 };
 
 }
