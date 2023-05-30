@@ -17,14 +17,16 @@ enum ast_nonterm {
 
     FTK_flow,
 
-    FTK_elem,
-    FTK_lblk, 
-    FTK_blck, 
-    FTK_fldd, 
-    FTK_fldr, 
-    FTK_fldx, 
-    FTK_fldm,
-    FTK_dtid,
+    FTK_block, 
+    FTK_assign,
+    FTK_fassgn,
+    FTK_msgexp,
+
+    FTK_fun, 
+    FTK_did, 
+    FTK_ndid,
+    FTK_valx,
+    FTK_vala,
 
     FTK_MAX_NONTERM
 };

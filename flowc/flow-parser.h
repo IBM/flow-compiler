@@ -10,7 +10,7 @@
 #define FTK_INPUT                           10
 #define FTK_OUTPUT                          11
 #define FTK_RETURN                          12
-#define FTK_ERROR                           13
+#define FTK_ERRCHK                          13
 #define FTK_INCLUDE                         14
 #define FTK_MOUNT                           15
 #define FTK_ENVIRONMENT                     16
@@ -60,3 +60,4 @@
 #define FTK_OPENSQB                         60
 #define FTK_CLOSESQB                        61
 #define FTK_ANY                             62
+#define FTK_IMAGE                           63
