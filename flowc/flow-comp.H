@@ -18,7 +18,7 @@ enum ast_nonterm {
     FTK_flow,
 
     FTK_block, 
-    FTK_assign,
+    FTK_list,
     FTK_fassgn,
     FTK_msgexp,
 
@@ -26,7 +26,6 @@ enum ast_nonterm {
     FTK_did, 
     FTK_ndid,
     FTK_valx,
-    FTK_vala,
 
     FTK_MAX_NONTERM
 };

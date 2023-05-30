@@ -101,15 +101,14 @@ static std::map<int, std::string> non_terminals = {
     {FTK_flow,              "flow"},
 
     {FTK_block,  "block"},
-    {FTK_assign, "assign"},
+    {FTK_list, "list"},
     {FTK_fassgn, "fassgn"},
     {FTK_msgexp, "msgexp"},
     
     {FTK_fun, "fun"}, 
     {FTK_did,  "did"}, 
     {FTK_ndid, "ndid"}, 
-    {FTK_valx, "valx"}, 
-    {FTK_vala, "vala" }
+    {FTK_valx, "valx"},
 };
 std::string compiler::stoken(int ftk) {
     assert(ftk >= 0 && ftk < FTK_MAX_NONTERM);
