@@ -66,7 +66,8 @@ MBU      [kKMGT]i?[Bb]?
 (?i:cont(ainer)?)           emit(FTK_CONTAINER);
 (?i:env((iron)(ment)?)?)    emit(FTK_ENVIRONMENT);
 (?i:head(er)?s?)            emit(FTK_HEADER);
-(?i:input)                  emit(FTK_INPUT);
+(?i:import)                 emit(FTK_IMPORT);
+(?i:image)                  emit(FTK_IMAGE);
 (?i:output)                 emit(FTK_OUTPUT);
 (?i:return)                 emit(FTK_RETURN);
 (?i:entry)                  emit(FTK_ENTRY);
@@ -74,6 +75,8 @@ MBU      [kKMGT]i?[Bb]?
 (?i:gpus?)                  emit(FTK_GPU);
 (?i:mem(ory)?)              emit(FTK_MEMORY);
 (?i:repo(sitory)?)          emit(FTK_REPO);
+(?i:error)                  emit(FTK_ERRCHK);
+(?i:endpoint)               emit(FTK_ENDPOINT);
 
 {MBU} emit(FTK_MBU);
 {URL} emit(FTK_URL);

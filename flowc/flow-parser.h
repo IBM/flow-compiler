@@ -59,5 +59,6 @@
 #define FTK_CLOSEBRA                        59
 #define FTK_OPENSQB                         60
 #define FTK_CLOSESQB                        61
-#define FTK_ANY                             62
-#define FTK_IMAGE                           63
+#define FTK_ENDPOINT                        62
+#define FTK_ANY                             63
+#define FTK_IMAGE                           64

@@ -24,7 +24,10 @@ int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
     }
     // TODO check here if the file is utf-8, i.e. not a binary file by accident
     ast::scanner sc(&infs, filenames.size()-1);
-
+/*
+    for(auto t=sc.scan(); t.type != ATK_EOF; t=sc.scan())
+       std::cerr << "SCAN: " << ast::token(t.type) << "(" << t.line << ":" << t.column << ")<" << t.text << ">\n";
+*/
     auto t = sc.scan();
     while(t.type != ATK_EOF) {
         while(sc.has_error()) {
