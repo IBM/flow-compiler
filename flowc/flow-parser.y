@@ -2,35 +2,37 @@
 %name flow_parser
 %token_prefix FTK_
 
-%nonassoc ID STRING INTEGER FLOAT URL
-    NODE CONTAINER ENTRY IMPORT INPUT OUTPUT RETURN ERRCHK INCLUDE 
-    MOUNT ENVIRONMENT HEADER INIT LIMITS REPO
+%nonassoc ID NID STRING INTEGER FLOAT URL
+    KEYW
+    NODE CONTAINER ENTRY IMPORT INPUT OUTPUT RETURN ERRCHK INCLUDE GROUP
+    PROP
+    MOUNT ENVIRONMENT HEADER INIT REPO PORT LIMIT
     CPU GPU MEMORY MBU
     .
 %left SEMICOLON.
-%left DOT.
-%left AT.
 %left COMMA.
-%nonassoc EQUALS COLON.
+%left EQUALS COLON.
 %right QUESTION.
 %left OR.
 %left AND.
 %left BAR.
 %left CARET.
 %left AMP.
-%left NE EQ.
-%left GT LT GE LE.
-%left COMP.
+%nonassoc NE EQ.
+%nonassoc GT LT GE LE.
+%nonassoc COMP.
 %left SHR SHL.
 %left PLUS MINUS.
 %left STAR SLASH PERCENT.
-%left POW.
+%right POW.
 %right BANG TILDA.
 %right DOLLAR.
 %right HASH.
 %right OPENPAR CLOSEPAR OPENBRA CLOSEBRA OPENSQB CLOSESQB.
+%left DOT.
+%left AT. 
 
-%fallback ID CPU GPU MEMORY MBU MOUNT ENVIRONMENT HEADER INIT LIMITS REPO ENDPOINT.
+%fallback ID CPU GPU MEMORY MBU MOUNT ENVIRONMENT HEADER INIT REPO ENDPOINT PORT LIMIT.
 %fallback STRING URL.
 %wildcard ANY.
 
@@ -42,7 +44,25 @@
 %extra_argument { struct fc::compiler *ast }
 
 %syntax_error {
-    ast->error(ast->input_filename, "syntax");
+    if(yymajor > 0 && yymajor < FTK_KEYW) {
+        switch(yymajor) {
+            case FTK_ID:
+                ast->error(ast->at(yyminor), stru::sfmt() << "identifier not expected here");
+                break;
+            case FTK_INTEGER: case FTK_FLOAT:
+                ast->error(ast->at(yyminor), stru::sfmt() << "numeric value not expected here");
+                break;
+            default:
+                ast->error(ast->at(yyminor), stru::sfmt() << "string value not expected here");
+                break;
+        }
+    } else if(yymajor > FTK_KEYW && yymajor < FTK_PROP) {
+        ast->error(ast->at(yyminor), stru::sfmt() << "unexpected keyword \"" << ast->at(yyminor).token.text << "\"");
+    } else if(yymajor > FTK_PROP) {
+        ast->error(ast->at(yyminor), stru::sfmt() << "unexpected token \"" << ast->at(yyminor).token.text << "\"");
+    } else {
+        ast->error(ast->input_filename, stru::sfmt() << "syntax at " << yymajor << " of " << yyminor);
+    }
 }
 %parse_accept {
     //std::cerr << "parsed just fine, ast size: " << ast->store.size() << " root: " << ast->store.back().children[0] << "\n";
@@ -61,14 +81,14 @@ dirk(A) ::= INCLUDE(B).                                        { A = B; }
 dirk(A) ::= IMPORT(B).                                         { A = B; }
 
 // assignments
-stmt(A) ::= assign(B).                                          { A = B; }
+stmt(A) ::= assign(B).                                         { A = B; }
 
 // container 
-stmt(A) ::= CONTAINER(B) ID(C) OPENBRA block(D) CLOSEBRA.      { A = ast->nappend(B, C, D); }
+stmt(A) ::= CONTAINER(B) ID(C) bblock(D).                      { A = ast->nappend(B, C, D); }
 
 // node
-stmt(A) ::= NODE(B) nidd(C) fcond(D) OPENBRA block(E) CLOSEBRA. { A = ast->nappend(B, C, E, D); }
-stmt(A) ::= NODE(B) nidd(C) OPENBRA block(D) CLOSEBRA.         { A = ast->nappend(B, C, D); }
+stmt(A) ::= NODE(B) nidd(C) fcond(D) bblock(E).                { A = ast->nappend(B, C, E, D); }
+stmt(A) ::= NODE(B) nidd(C) bblock(D).                         { A = ast->nappend(B, C, D); }
 
 nidd(A) ::= ID(B).                                             { A = B; }
 nidd(A) ::= ID(B) COLON ID(C).                                 { A = ast->nappend(B, C); }
@@ -90,13 +110,17 @@ stmt ::= SEMICOLON. {}
 //////////////////////////////////////////////////////////
 // container/node body
 
-block(A) ::= blke(B).                                          { A = ast->node(FTK_block, B); }
+bblock(A) ::= OPENBRA(C) block(B) CLOSEBRA.                    { A = ast->chtype(ast->graft(C, B), FTK_block); }
+bblock(A) ::= OPENBRA(C) CLOSEBRA.                             { A = ast->chtype(C, FTK_block); }
+bblock(A) ::= SEMICOLON(C).                                    { A = ast->chtype(C, FTK_block); }
+
+block(A) ::= blke(B).                                          { A = ast->node(FTK_list, B); }
 block(A) ::= block(B) blke(C).                                 { A = ast->nappend(B, C); }
 
 blke(A) ::= assign(B).                                         { A = B; }
 
-blke(A) ::= RETURN(B) did(C) msgexp(D) SEMICOLON.              { A = ast->nappend(B, D, C); }
-blke(A) ::= OUTPUT(B) did(C) msgexp(D) SEMICOLON.              { A = ast->nappend(B, D, C); }
+blke(A) ::= RETURN(B) rid(C) msgexp(D) SEMICOLON.              { A = ast->nappend(B, D, C); }
+blke(A) ::= OUTPUT(B) mid(C) msgexp(D) SEMICOLON.              { A = ast->nappend(B, D, C); }
 blke(A) ::= RETURN(B) msgexp(D) SEMICOLON.                     { A = ast->nappend(B, D); }
 blke(A) ::= OUTPUT(B) msgexp(D) SEMICOLON.                     { A = ast->nappend(B, D); }
 
@@ -106,8 +130,13 @@ blke(A) ::= ERRCHK(B) valx(C) COMMA valx(D) SEMICOLON.         { A = ast->nappen
 
 blke(A) ::= ENVIRONMENT(B) assign(C).                          { A = ast->nappend(B, C); }
 blke(A) ::= ENVIRONMENT(B) OPENBRA alst(C) CLOSEBRA.           { A = ast->graft(B, C); /* assign c's children to b */}
+blke(A) ::= ENVIRONMENT(B) OPENBRA CLOSEBRA.                   { A = B; }
 blke(A) ::= HEADER(B) vassgn(C).                               { A = ast->nappend(B, C); }
-blke(A) ::= HEADER(B) OPENBRA vlst(C) CLOSEBRA.                { A = ast->graft(B, C); /* assign c's children to b */}
+blke(A) ::= HEADER(B) OPENBRA vlst(C) CLOSEBRA.                { A = ast->graft(B, C); }
+blke(A) ::= HEADER(B) OPENBRA CLOSEBRA.                        { A = B; }
+blke(A) ::= LIMIT(B) range(C).                                 { A = ast->nappend(B, C); }
+blke(A) ::= LIMIT(B) OPENBRA rlst(C) CLOSEBRA.                 { A = ast->graft(B, C); }
+blke(A) ::= LIMIT(B) OPENBRA CLOSEBRA.                         { A = B; }
 
 blke(A) ::= limit(B) valx(C) SEMICOLON.                        { A = ast->nappend(B, C); }
 blke ::= SEMICOLON.                                            {} 
@@ -117,7 +146,9 @@ limit(A) ::= CPU(B).                                           { A = B; }
 limit(A) ::= GPU(B).                                           { A = B; }
 limit(A) ::= REPO(B).                                          { A = B; }
 limit(A) ::= IMAGE(B).                                         { A = B; }
-limit(A) ::= ENDPOINT(B).                                      { A = B; } 
+limit(A) ::= ENDPOINT(B).                                      { A = B; }
+limit(A) ::= PORT(B).                                          { A = B; }
+limit(A) ::= GROUP(B).                                         { A = B; }
 
 
 alst(A) ::= assign(B).                                         { A = ast->node(FTK_list, B); }
@@ -126,6 +157,8 @@ alst(A) ::= alst(B) assign(C).                                 { A = ast->nappen
 vlst(A) ::= vassgn(B).                                         { A = ast->node(FTK_list, B); }
 vlst(A) ::= vlst(B) vassgn(C).                                 { A = ast->nappend(B, C);}
 
+rlst(A) ::= range(B).                                         { A = ast->node(FTK_list, B); }
+rlst(A) ::= rlst(B) range(C).                                 { A = ast->nappend(B, C);}
 
 //////////////////////////////////////////////////////////
 // message constructor 
@@ -133,10 +166,14 @@ vlst(A) ::= vlst(B) vassgn(C).                                 { A = ast->nappen
 msgexp(A) ::= OPENPAR faslst(B) CLOSEPAR.                      { A = B; }
 faslst(A) ::= fassgn(B).                                       { A = ast->node(FTK_msgexp, B); }
 faslst(A) ::= faslst(B) COMMA fassgn(C).                       { A = ast->nappend(B, C); }
-faslst(A) ::= faslst(B) COMMA.                                 { A = B; }
+faslst(A) ::= faslst(B) COMMA.                                 { A = B; /* ignore spurious commas */}
 
-fassgn(A) ::= ID(B) COLON valx(C).                             { A = ast->node(FTK_fassgn, B, C); }
-fassgn(A) ::= ID(B) EQUALS valx(C).                            { A = ast->node(FTK_fassgn, B, C); }
+fassgn(A) ::= ID(B) eqorc valx(C).                             { A = ast->node(FTK_fassgn, B, C); }
+fassgn(A) ::= ID(B) eqorc msgexp(C).                           { A = ast->node(FTK_fassgn, B, C); }
+fassgn(A) ::= ID(B) eqorc rid(D) msgexp(C).                    { A = ast->node(FTK_fassgn, B, C, D); }
+
+eqorc(A) ::= COLON(B).                                         { A = B; }
+eqorc(A) ::= EQUALS(B).                                        { A = B; }
 
 //////////////////////////////////////////////////////////
 // assignments
@@ -161,26 +198,36 @@ valn(A) ::= MINUS(B) valn(C).                                  { A = ast->node(B
 //////////////////////////////////////////////////////////
 // field, node and types references
 
-// ndid: node @ [dtid]
-ndid(A) ::= ID(B) AT.                                          { A = ast->node(FTK_ndid, B); } 
-ndid(A) ::= ID(B) AT did(C).                                   { A = ast->node(FTK_ndid, B, C); } 
-// dtid: dotted id id[.id]*
-did(A) ::= ID(B).                                              { A = ast->node(FTK_did, B); }
-did(A) ::= did(B) DOT ID(C).                                   { A = ast->nappend(B, C); }
+idex(A) ::= ID(B).                 { A = ast->node(FTK_did, B); }
+idex(A) ::= idex(L) DOT idex(R).   { A = ast->node(FTK_did, L, R); /* TODO check that both L and R are did */}
+idex(A) ::= idex(L) AT idex(R).    { A = ast->node(FTK_ndid, L, R); /* TODO check that L is singleton and R is did */ }
+
+rid(A) ::= idex(B). { A = B; /* TODO check that no node id is present (i.e. B is did), lookup message  */}
+mid(A) ::= idex(B). { A = B; /* TODO check that no node id is present (i.e. B is did), lookup method  */}
+
+//////////////////////////////////////////////////////////
+// constructs
+
+// ranges
+range(A) ::= valx(L) COLON valx(R) COLON valx(S).           { A = ast->node(FTK_range, L, R, S); }                  [BANG]
+range(A) ::= valx(L) COLON valx(R).                         { A = ast->node(FTK_range, L, R); }                     [BANG]
+range(A) ::= COLON valx(R).                                 { A = ast->node(FTK_range, ast->node(FTK_STAR), R); }   [BANG]
+range(A) ::= valx(L) COLON.                                 { A = ast->node(FTK_range, L, ast->node(FTK_STAR)); }   [BANG]
+
+// comma separated list
+vala(A) ::= valx(B).                                        { A = ast->node(FTK_list, B); }
+vala(A) ::= vala(B) COMMA valx(C).                          { A = ast->nappend(B, C); }
 
 //////////////////////////////////////////////////////////
 // expression
 
 valx(A) ::= vals(B).                                           { A = ast->node(FTK_valx, B); }
 valx(A) ::= valn(B).                                           { A = ast->node(FTK_valx, B); }
-valx(A) ::= did(B).                                            { A = ast->node(FTK_valx, B); }
-valx(A) ::= ndid(B).                                           { A = ast->node(FTK_valx, B); }
+valx(A) ::= idex(B).                                           { A = ast->node(FTK_valx, B); } 
 valx(A) ::= OPENPAR valx(B) CLOSEPAR.                          { A = B; } 
 
 valx(A) ::= ID(B) OPENPAR CLOSEPAR.                            { A = ast->node(FTK_fun, B); }
 valx(A) ::= ID(B) OPENPAR vala(C) CLOSEPAR.                    { A = ast->graft(ast->node(FTK_fun, B), C, 1); }
-vala(A) ::= valx(B).                                           { A = ast->node(FTK_list, B); }
-vala(A) ::= vala(B) COMMA valx(C).                             { A = ast->nappend(B, C); }
 
 valx(A) ::= HASH(B) valx(C).                                   { A = ast->node(FTK_valx, B, C); }          // size of repeated field
 valx(A) ::= BANG(B) valx(C).                                   { A = ast->node(FTK_valx, B, C); }
