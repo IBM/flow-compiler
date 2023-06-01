@@ -58,25 +58,31 @@ MBU      [kKMGT]i?[Bb]?
 
 [ \t\r\a\f]+     /* ignore whitespace */
 
-{INT}  emit(FTK_INTEGER);
-{FLT}  emit(FTK_FLOAT);
+{INT} emit(FTK_INTEGER);
+{FLT} emit(FTK_FLOAT);
             
-(?i:include)                emit(FTK_INCLUDE);
-(?i:node)                   emit(FTK_NODE);
-(?i:cont(ainer)?)           emit(FTK_CONTAINER);
-(?i:env((iron)(ment)?)?)    emit(FTK_ENVIRONMENT);
-(?i:head(er)?s?)            emit(FTK_HEADER);
-(?i:import)                 emit(FTK_IMPORT);
-(?i:image)                  emit(FTK_IMAGE);
-(?i:output)                 emit(FTK_OUTPUT);
-(?i:return)                 emit(FTK_RETURN);
-(?i:entry)                  emit(FTK_ENTRY);
-(?i:cpus?)                  emit(FTK_CPU);
-(?i:gpus?)                  emit(FTK_GPU);
-(?i:mem(ory)?)              emit(FTK_MEMORY);
-(?i:repo(sitory)?)          emit(FTK_REPO);
-(?i:error)                  emit(FTK_ERRCHK);
-(?i:endpoint)               emit(FTK_ENDPOINT);
+include                emit(FTK_INCLUDE);
+node                   emit(FTK_NODE);
+import                 emit(FTK_IMPORT);
+image                  emit(FTK_IMAGE);
+output                 emit(FTK_OUTPUT);
+return                 emit(FTK_RETURN);
+entry                  emit(FTK_ENTRY);
+error                  emit(FTK_ERRCHK);
+container              emit(FTK_CONTAINER);
+group                  emit(FTK_GROUP);
+
+env((iron)(ment)?)?    emit(FTK_ENVIRONMENT);
+headers?               emit(FTK_HEADER);
+(?i:cpus?)             emit(FTK_CPU);
+(?i:gpus?)             emit(FTK_GPU);
+mem(ory)?              emit(FTK_MEMORY);
+repo(sitory)?          emit(FTK_REPO);
+endpoint               emit(FTK_ENDPOINT);
+port                   emit(FTK_PORT);
+init                   emit(FTK_INIT);
+limits?                emit(FTK_LIMIT);
+mounts?                emit(FTK_MOUNT);
 
 {MBU} emit(FTK_MBU);
 {URL} emit(FTK_URL);
