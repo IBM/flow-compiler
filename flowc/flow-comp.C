@@ -108,6 +108,7 @@ static std::map<int, std::string> non_terminals = {
     {FTK_fun, "fun"}, 
     {FTK_did,  "did"}, 
     {FTK_ndid, "ndid"}, 
+    {FTK_range, "range"},
     {FTK_valx, "valx"},
 };
 std::string compiler::stoken(int ftk) {

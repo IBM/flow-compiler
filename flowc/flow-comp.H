@@ -26,6 +26,7 @@ enum ast_nonterm {
     FTK_did, 
     FTK_ndid,
     FTK_valx,
+    FTK_range,
 
     FTK_MAX_NONTERM
 };
@@ -76,6 +77,8 @@ public:
         file_pos(compiler const *fc, std::string s): filename(s), line(-1), column(-1) {
         }
         file_pos(compiler const *fc, ast::atxt p): filename(fc->filenames[p.file]), line(p.line), column(p.column) {
+        }
+        file_pos(compiler const *fc, ast::node t): filename(fc->filenames[t.token.file]), line(t.token.line), column(t.token.column){
         }
     };
     template <class L>
