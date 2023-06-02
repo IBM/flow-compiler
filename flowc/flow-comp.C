@@ -120,7 +120,7 @@ std::string compiler::stoken(int ftk) {
         auto tp = non_terminals.find(ftk);
         if(tp != non_terminals.end())
             return tp->second;
-        return stru::sfmt() << "NT+" << ftk-FTK_ACCEPT;
+        return stru::sfmt() << "??" << ftk << "/" << FTK_ACCEPT;
     }
 }
 }
