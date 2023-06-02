@@ -63,6 +63,6 @@
 #define FTK_CLOSEBRA                        63
 #define FTK_OPENSQB                         64
 #define FTK_CLOSESQB                        65
-#define FTK_DOT                             66
-#define FTK_AT                              67
+#define FTK_AT                              66
+#define FTK_DOT                             67
 #define FTK_ANY                             68
