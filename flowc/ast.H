@@ -123,6 +123,8 @@ struct tree {
     struct node const &atc(int n, int c) const {
         return at(at(n).children[c]);
     }
+    /** Reference to a node's subnode 
+     */
     struct node const &atp(int n, int c) const {
         return at(at(n).children[c]);
     }
