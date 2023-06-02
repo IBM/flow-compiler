@@ -195,7 +195,7 @@ limit(A) ::= REPO(B).                                          { A = B; }
 lmval(A) ::= valx(B).                                          { A = B; } 
 lmval(A) ::= valx(B) MBU(U).                                   { A = ast->nappend(B, U); } 
 lmval(A) ::= range(B).                                         { A = B; } 
-lmval(A) ::= range(B) MBU(U).                                   { A = ast->nappend(B, U); } 
+lmval(A) ::= range(B) MBU(U).                                  { A = ast->nappend(B, U); } 
 
 // assignments list
 alst(A) ::= assign(B).                                         { A = ast->node(FTK_list, B); }
@@ -214,8 +214,6 @@ msgexp(A) ::= msgctr(C).                                       { A = ast->node(F
 msgctr(A) ::= OPENPAR CLOSEPAR(P).                             { A = ast->chtype(P, FTK_list); }
 msgctr(A) ::= OPENPAR faslst(B) CLOSEPAR.                      { A = B; }
 msgctr ::= OPENPAR error CLOSEPAR.    
-// TODO a way to specify node's output       
-//msgctr(A) ::= OPENPAR valx(X) CLOSEPAR.                      { A = B; /* TODO chech that X is a node's output node@ */}
 
 faslst(A) ::= fassgn(B).                                       { A = ast->node(FTK_list, B); }
 faslst(A) ::= faslst(B) COMMA fassgn(C).                       { A = ast->nappend(B, C); }
@@ -288,10 +286,10 @@ did(A) ::= idex(B). {
 // constructs
 
 // ranges
-range(A) ::= valx(L) COLON valx(R) COLON valx(S).           { A = ast->node(FTK_range, L, R, S); }                  [BANG]
-range(A) ::= valx(L) COLON valx(R).                         { A = ast->node(FTK_range, L, R); }                     [BANG]
-range(A) ::= COLON valx(R).                                 { A = ast->node(FTK_range, ast->node(FTK_STAR), R); }   [BANG]
-range(A) ::= valx(L) COLON.                                 { A = ast->node(FTK_range, L, ast->node(FTK_STAR)); }   [BANG]
+range(A) ::= valx(L) COLON(O) valx(R) COLON valx(S).        { A = ast->nappend(ast->chtype(O, FTK_range), L, R, S); }                  [BANG]
+range(A) ::= valx(L) COLON(O) valx(R).                      { A = ast->nappend(ast->chtype(O, FTK_range), L, R); }                     [BANG]
+range(A) ::= COLON(O) valx(R).                              { A = ast->nappend(ast->chtype(O, FTK_range), ast->node(FTK_STAR), R); }   [BANG]
+range(A) ::= valx(L) COLON(O).                              { A = ast->nappend(ast->chtype(O, FTK_range), L, ast->node(FTK_STAR)); }   [BANG]
 
 // comma separated list
 vala(A) ::= valx(B).                                        { A = ast->node(FTK_list, B); }
@@ -306,32 +304,38 @@ valx(A) ::= idex(B).                                        { A = ast->node(FTK_
 valx(A) ::= msgexp(B).                                      { A = ast->node(FTK_valx, B); }
 valx(A) ::= OPENPAR valx(B) CLOSEPAR.                       { A = B; }
 valx(A) ::= OPENSQB vala(L) CLOSESQB.                       { A = L; }
-valx(A) ::= OPENSQB range(R) CLOSESQB.                      { A = R; /* TODO do not accept open ended ranges here */ }
+valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E, FTK_list); }
+valx(A) ::= OPENSQB range(R) CLOSESQB.                      { 
+    /* do not accept open ended ranges here */ 
+    if(ast->atc(R, 0).type == FTK_STAR || ast->atc(R, 1).type == FTK_STAR) 
+        ast->error(ast->at(R), "open ranges are not allowed here");
+    A = R; 
+}
 
 valx(A) ::= TILDA id(F) OPENPAR CLOSEPAR.                   { A = ast->node(FTK_fun, F); }
 valx(A) ::= TILDA id(F) OPENPAR vala(L) CLOSEPAR.           { A = ast->graft(ast->node(FTK_fun, F), L, 1); }
 
-valx(A) ::= PLUS valx(X).                                     { A = X; } [BANG]
-valx(A) ::= MINUS(O) valx(X).                                 { A = ast->node(FTK_valx, O, X); } [BANG]
-valx(A) ::= HASH(O) valx(X).                                  { A = ast->node(FTK_valx, O, X); }          // size of repeated field
-valx(A) ::= BANG(O) valx(X).                                  { A = ast->node(FTK_valx, O, X); }
-valx(A) ::= valx(L) PLUS(O) valx(R).                          { A = ast->node(FTK_valx, O, L, R); }  
-valx(A) ::= valx(L) MINUS(O) valx(R).                         { A = ast->node(FTK_valx, ast->node(FTK_PLUS), L, ast->node(FTK_valx, O, R)); }  
-valx(A) ::= valx(L) SLASH(O) valx(R).                         { A = ast->node(FTK_valx, O, L, R); }  
-valx(A) ::= valx(L) STAR(O) valx(R).                          { A = ast->node(FTK_valx, O, L, R); }  
-valx(A) ::= valx(L) PERCENT(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); }  
-valx(A) ::= valx(L) POW(O) valx(R).                           { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= PLUS valx(X).                                   { A = X; } [BANG]
+valx(A) ::= MINUS(O) valx(X).                               { A = ast->node(FTK_valx, O, X); } [BANG]
+valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); }          // size of repeated field
+valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); }
+valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, ast->node(FTK_PLUS), L, ast->node(FTK_valx, O, R)); }  
+valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= valx(L) PERCENT(O) valx(R).                     { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= valx(L) POW(O) valx(R).                         { A = ast->node(FTK_valx, O, L, R); }  
 
-valx(A) ::= valx(B) COMP(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) EQ(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) NE(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) LT(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) GT(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) LE(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) GE(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) AND(C) valx(D).                           { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) OR(C) valx(D).                            { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) SHL(C) valx(D).                           { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) SHR(C) valx(D).                           { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).        { A = ast->node(FTK_valx, C, B, D, E); }  
+valx(A) ::= valx(B) COMP(C) valx(D).                        { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) EQ(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) NE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) LT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) GT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) LE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) GE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) AND(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) OR(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) SHL(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) SHR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); }  
+valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); }  
 
