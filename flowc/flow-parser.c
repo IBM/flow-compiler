@@ -2020,7 +2020,7 @@ static YYACTIONTYPE yy_reduce(
       case 25: /* blke ::= OUTPUT valx SEMICOLON */
 #line 148 "flow-parser.y"
 { 
-    if(ast->at(yymsp[-1].minor.yy0).type != FTK_msgexp) 
+    if(ast->at(yymsp[-1].minor.yy0).children.size() != 1 ||  ast->atc(yymsp[-1].minor.yy0, 0).type != FTK_msgexp) 
         ast->error(ast->at(yymsp[-1].minor.yy0), "rpc call expected as \"output\" argument");
     yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); 
 }
@@ -2255,7 +2255,7 @@ static YYACTIONTYPE yy_reduce(
 { 
     /* do not accept open ended ranges here */ 
     if(ast->atc(yymsp[-1].minor.yy0, 0).type == FTK_STAR || ast->atc(yymsp[-1].minor.yy0, 1).type == FTK_STAR) 
-        ast->error(ast->at(yymsp[-1].minor.yy0), "open ranges are not allowed here");
+        ast->error(ast->at(yymsp[-1].minor.yy0), "cannot initialize list from open range");
     yymsp[-2].minor.yy0 = yymsp[-1].minor.yy0; 
 }
 #line 2261 "flow-parser.c"

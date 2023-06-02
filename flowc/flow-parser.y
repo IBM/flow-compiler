@@ -146,7 +146,7 @@ blke(A) ::= assign(B).                                         { A = B; }
 
 blke(A) ::= RETURN(K) valx(X) SEMICOLON.                       { A = ast->nappend(K, X); }
 blke(A) ::= OUTPUT(K) valx(X) SEMICOLON.                     { 
-    if(ast->at(X).type != FTK_msgexp) 
+    if(ast->at(X).children.size() != 1 ||  ast->atc(X, 0).type != FTK_msgexp) 
         ast->error(ast->at(X), "rpc call expected as \"output\" argument");
     A = ast->nappend(K, X); 
 }
@@ -308,7 +308,7 @@ valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E,
 valx(A) ::= OPENSQB range(R) CLOSESQB.                      { 
     /* do not accept open ended ranges here */ 
     if(ast->atc(R, 0).type == FTK_STAR || ast->atc(R, 1).type == FTK_STAR) 
-        ast->error(ast->at(R), "open ranges are not allowed here");
+        ast->error(ast->at(R), "cannot initialize list from open range");
     A = R; 
 }
 
