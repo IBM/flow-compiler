@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include "ast.H"
 #include "ansi-escapes.H"
 #include "flow-comp.H"
@@ -130,6 +131,9 @@ std::ostream &operator << (std::ostream &s, value_type const &vt) {
             break;
     }
     return s;
+}
+void compiler::print_ast(int node) const {
+    print_ast(std::cerr, node);
 }
 void compiler::print_ast(std::ostream &out, int node) const {
     for(auto p = begin(node), e = end(); p != e; ++p) {

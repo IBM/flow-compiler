@@ -1,12 +1,28 @@
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <set>
+#include <vector>
+
 #include <google/protobuf/compiler/importer.h>
 #include "grpcu.H"
 #include "stru.H"
 #include "filu.H"
+#include "ansi-escapes.H"
 
 using namespace google::protobuf;
 
 namespace {
-    /*
+class FErrorPrinter: public google::protobuf::compiler::MultiFileErrorCollector {
+    google::protobuf::compiler::DiskSourceTree *source_tree;
+    void ShowLine(std::string const filename, int line, int column);
+public:    
+    std::ostream *outs;
+    FErrorPrinter(std::ostream &outsr, google::protobuf::compiler::DiskSourceTree *st): outs(&outsr), source_tree(st) {
+    }
+    void AddMessage(std::string const &type, ANSI_ESCAPE color, std::string const &filename, int line, int column, std::string const &message);
+    virtual void AddError(std::string const &filename, int line, int column, std::string const &message);
+};
 void FErrorPrinter::ShowLine(std::string const filename, int line, int column) {
     std::string disk_file;
     if(source_tree == nullptr) 
@@ -39,20 +55,9 @@ void FErrorPrinter::AddError(std::string const &filename, int line, int column, 
     if(!filename.empty() && line >= 0 && column >= 0)
         ShowLine(filename, line, column);
 }
-void FErrorPrinter::AddWarning(std::string const &filename, int line, int column, std::string const &message) {
-    AddMessage("warning", ANSI_MAGENTA, filename, line, column, message);
-    if(!filename.empty() && line >= 0 && column >= 0)
-        ShowLine(filename, line, column);
-}
-void FErrorPrinter::AddNote(std::string const &filename, int line, int column, std::string const &message) {
-    AddMessage("note", ANSI_BLUE, filename, line, column, message);
-}
-void ErrorPrinter::AddError(int line, int column, std::string const & message) {
-    fperr.AddError(filename, line, column, message);
-}
-*/
 compiler::DiskSourceTree source_tree;
-compiler::Importer importer(&source_tree);
+FErrorPrinter fep(std::cerr, &source_tree);
+compiler::Importer importer(&source_tree, &fep);
 }
 
 namespace grpcu {
@@ -68,7 +73,6 @@ int store::add_to_proto_path(std::string directory, std::string mapped_to) {
     protocc += "-I"; protocc += directory; protocc += " ";
     return 0;
 }
-
 int store::import_file(std::string file, bool add_to_path) {
     auto fdp = importer.Import(file);
     if(fdp == nullptr && add_to_path != 0) {

@@ -1,3 +1,6 @@
+#include <string>
+#include <iostream>
+
 #include "flow-comp.H"
 #include "stru.H"
 
@@ -13,7 +16,7 @@ int compiler::eval(int node, std::string &value, value_type *vtp) {
                     value = atc(node, 0).token.text;
                     break;
                 case FTK_STRING:
-                    value = stru::cunescape(atc(node, 0).token.text);
+                    value = stru::json_unescape(atc(node, 0).token.text);
                     break;
                 default:
                     std::cerr << "unhandled valx: \n";
@@ -22,7 +25,7 @@ int compiler::eval(int node, std::string &value, value_type *vtp) {
             }
             break;
         default:
-            std::cerr << "eval called here: \n";
+            std::cerr << "eval called on other than valx: \n";
             print_ast(node);
             rc = 1;
     }

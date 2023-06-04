@@ -88,7 +88,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     for(int i: *this) if(at(i).type == FTK_IMPORT) {
         value_type vt; std::string value;
         print_ast(std::cerr, i);
-        if(eval(i, value, &vt) != 0) { 
+        if(eval(at(i).children[0] , value, &vt) != 0) { 
             // TODO eval error here
             continue;
         }
