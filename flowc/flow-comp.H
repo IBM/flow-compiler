@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <initializer_list>
 #include "ast.H"
 #include "stru.H"
 
@@ -36,9 +37,33 @@ enum ast_nonterm {
 #endif
 
 namespace fc {
+
+enum fvt_type {
+    fvt_none = 0,
+    fvt_int, fvt_flt, fvt_str,  
+    fvt_enum, 
+    fvt_array, 
+    fvt_struct,
+};
+
+struct value_type {
+    fvt_type type;
+    std::vector<value_type> inf;
+    void *gtype;
+
+    value_type(fvt_type t=fvt_none, void *gt=nullptr):type(t), gtype(gt) {
+    }
+    value_type(fvt_type t, std::initializer_list<value_type> tl, void *gt=nullptr):
+        type(t), inf(tl), gtype(gt) { 
+    }
+    void add_type(value_type t) {
+        inf.push_back(t);
+    }
+};
+
 class compiler: public ast::tree {
 public:
-    ast::attribute<int> vtype;
+    ast::attribute<value_type> vtype;
     ast::attribute<int> ref;
 protected:
     std::ostream *errs;
@@ -115,7 +140,7 @@ public:
      */
     void reset();
     compiler(std::ostream *error_stream):
-        vtype(0), ref(0), 
+        vtype(value_type(fvt_none)), ref(0), 
         errs(error_stream) {
         reset();
     }
@@ -131,7 +156,7 @@ public:
      */
     static int itype(std::string type_name);
     static std::string stype(int type);
-    static std::string stoken(int ftk);
+    static std::string ftk_to_string(int ftk);
 };
 
 }

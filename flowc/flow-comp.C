@@ -10,7 +10,6 @@
 #define YYCOVERAGE
 #include "flow-parser.c"
 
-
 namespace fc {
 
 int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
@@ -36,14 +35,14 @@ int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
         }
         switch(t.type) {
             case ATK_UNK:
-                error(t, stru::sfmt() << "unknown token: \"" << t << "\"");
+                error(t, stru::sfmt() << "unknown token: \"" << t.text << "\"");
             break;
             default:
             break;
         }
         int ntok = node(t);
         if(trace_on)
-            std::cerr << "scanner: " << ast::token(t.type) << "(" << t.line << ":" << t.column << ")<" << t.text << ">\n";
+            std::cerr << "TOKEN: " << ftk_to_string(t.type) << "(" << t.line << ":" << t.column << ")<" << t.text << ">\n";
         flow_parser(pp, t.type, ntok, this);
         auto top = store.back().type;
         if(top == FTK_ACCEPT) 
@@ -111,7 +110,7 @@ static std::map<int, std::string> non_terminals = {
     {FTK_range, "range"},
     {FTK_valx, "valx"},
 };
-std::string compiler::stoken(int ftk) {
+std::string compiler::ftk_to_string(int ftk) {
     assert(ftk >= 0 && ftk < FTK_MAX_NONTERM);
     if(ftk < FTK_ACCEPT) {
         assert(ftk < sizeof(yyTokenName)/sizeof(yyTokenName[0]));

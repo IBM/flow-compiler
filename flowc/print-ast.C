@@ -1,9 +1,12 @@
+#include <fstream>
+#include "ast.H"
 #include "ansi-escapes.H"
 #include "flow-comp.H"
 #include "stru.H"
 
 namespace {
-std::ostream &operator <<(std::ostream &out, ast::token const &token) {
+    
+std::ostream &p_token(std::ostream &out, ast::token const &token) {
    switch(token.type) {
        case FTK_INTEGER:
            out << ANSI_CYAN << token.text << ANSI_RESET;
@@ -22,22 +25,33 @@ std::ostream &operator <<(std::ostream &out, ast::token const &token) {
    }
    return out;
 }
-std::ostream &operator <<(std::ostream &out, ast::node const &node) {
-    std::string type = fc::compiler::stoken(node.type);
+/*
+std::ostream &p_node(std::ostream &out, ast::node const &node) {
+    std::string type = fc::compiler::ftk_to_string(node.type);
     out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
     //out << type << "(" << node.type << ")";
     out << ANSI_BOLD << type << ANSI_RESET;
     if(node.children.size()) out << "[" << node.children.size() << "]";
-    out << " " << node.token;
+    out << " "; p_token(out, node.token);
     return out;
 }
+*/
 void print_node_info(std::ostream &out, ast::node const &node) {
-    std::string type = fc::compiler::stoken(node.type);
+    std::string type = fc::compiler::ftk_to_string(node.type);
     out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
     out << ANSI_BOLD << type << ANSI_RESET;
     if(node.children.size()) out << "[" << node.children.size() << "]";
 }
+
 }
+/*
+std::ostream &operator <<(std::ostream &out, ast::token const &token) {
+    return p_token(out, token);
+}
+std::ostream &operator <<(std::ostream &out, ast::node const &node) {
+    return p_node(out, node);
+}
+*/
 namespace fc {
 /*
 void compiler::ast_to_json(std::ostream &out, int node) const {
@@ -78,7 +92,45 @@ void compiler::ast_to_json(std::ostream &out, int node) const {
     }
 }
 */
+static
+std::ostream &operator << (std::ostream &s, value_type const &vt) {
+    switch(vt.type) {
+        case fvt_none:
+            s << "??";
+            break;
+        case fvt_int:
+            s << "int";
+            break;
+        case fvt_flt:
+            s << "flt";
+            break;
+        case fvt_str:
+            s << "str";
+            break;
 
+        case fvt_enum:
+            s << "enu";
+            if(vt.gtype != nullptr)
+                s << ": " << vt.gtype;
+            break;
+
+        case fvt_array:
+            s << "[" << vt.inf[0] << "]";
+            break;
+
+        case fvt_struct:
+            s << "(";
+            for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
+                if(u > 0) s << ", ";
+                s << vt.inf[u];
+            }
+            if(vt.gtype != nullptr)
+                s << ": " << vt.gtype;
+            s << ")";
+            break;
+    }
+    return s;
+}
 void compiler::print_ast(std::ostream &out, int node) const {
     for(auto p = begin(node), e = end(); p != e; ++p) {
         out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
@@ -88,7 +140,7 @@ void compiler::print_ast(std::ostream &out, int node) const {
         if(has_attrs)
             out << "(";
         if(vtype.has(*p)) {
-            out << "vtype: " << ANSI_HBLUE << stype(vtype.get(*p)) << ANSI_RESET;
+            out << "vtype: " << ANSI_HBLUE << vtype.get(*p) << ANSI_RESET;
             ++attrs;
         }
         if(ref.has(*p)) {
@@ -98,19 +150,10 @@ void compiler::print_ast(std::ostream &out, int node) const {
         }
         if(has_attrs)
             out << ")";
-        out << " " << at(*p).token << "\n";
+        out << " ";
+        p_token(out, at(*p).token) << "\n";
+
     }
 }
-static std::map<std::string, int> type_labels = 
-{ {"integer", FTK_INTEGER}, {"float", FTK_FLOAT}, {"string", FTK_STRING} };
-int compiler::itype(std::string type_name) {
-    auto f = type_labels.find(type_name);
-    return f == type_labels.end()? 0: f->second;
-}
-std::string compiler::stype(int type) {
-    for(auto tv: type_labels)
-        if(tv.second == type) return tv.first;
-    return "??";
 }
 
-}
