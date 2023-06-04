@@ -161,6 +161,13 @@ public:
     static int itype(std::string type_name);
     static std::string stype(int type);
     static std::string ftk_to_string(int ftk);
+
+    /** Accesors
+     */
+    /**
+     * Get the ids from a did ndid or ID node
+     */
+    std::vector<std::string> get_ids(int node) const;
 };
 
 }

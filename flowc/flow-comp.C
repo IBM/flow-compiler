@@ -97,6 +97,15 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
 
+    for(int i: *this) if(at(i).type == FTK_did) {
+        std::cerr << "LOOKING UP: \n";
+        print_ast(std::cerr, i);
+        std::string mn;
+        if(gstore.lookup(mn, get_ids(i)) != 0) {
+            error(at(i), stru::sfmt() << "reference to unknown identifier \"" << stru::join(get_ids(i), ".") << "\"");
+        }
+    }
+
     return error_count;
 }
 void compiler::reset() {

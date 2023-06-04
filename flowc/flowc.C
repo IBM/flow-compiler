@@ -89,6 +89,8 @@ int main(int argc, char *argv[]) {
     bool debug_on = opts.optb("debug", false);
     fc::compiler comp(&std::cerr);
     bool trace_on = opts.have("trace");
+    for(auto path: opts["proto-path"])
+        comp.gstore.add_to_proto_path(path);
 
     // Compile the input file(s)
     for(int c = 1; c < argc; ++c) {

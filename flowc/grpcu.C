@@ -95,5 +95,49 @@ int store::import_file(std::string file, bool add_to_path) {
     }
     return 0;
 }
+int store::lookup(std::string &match, std::vector<std::string> did, std::set<std::string> *allmp, bool match_methods, bool match_messages, bool match_enums) const {
+    std::set<std::string> allm;
+    if(allmp == nullptr) allmp = &allm;
+    match.clear();
+    std::string dids = stru::join(did, ".");
+
+    for(auto p: file_descriptors) {
+        auto fd = (FileDescriptor const *)p;
+        if(match_methods) {
+            for(int i = 0, e = fd->service_count(); i < e; ++i) 
+                for(int j = 0,  f = fd->service(i)->method_count(); j < f; ++j) {
+                    std::cerr << fd->service(i)->method(j)->name() << " <<<<=====>>>> " << dids << "\n";
+                    std::cerr << fd->service(i)->name() + "." +  fd->service(i)->method(j)->name() << " <<<<=====>>>> " << dids << "\n";
+                    if(fd->service(i)->method(j)->name() == dids || fd->service(i)->name() + "." +  fd->service(i)->method(j)->name() == dids) {
+                        std::cerr << "FOUND!\n";
+                        allmp->insert(fd->service(i)->method(j)->full_name());
+                    }
+                }
+        }
+        if(match_messages) {
+            for(int i = 0, e = fd->message_type_count(); i < e; ++i) {
+                std::cerr << fd->message_type(i)->name() << " <<<<=====>>>> " << dids << "\n";
+                std::cerr << fd->message_type(i)->full_name() << " <<<<=====>>>> " << dids << "\n";
+                if(fd->message_type(i)->name() == dids || fd->message_type(i)->full_name() == dids) {
+                    std::cerr << "FOUND!\n";
+                    allmp->insert(fd->message_type(i)->full_name());
+                }
+            }
+        }
+        if(match_enums) {
+            for(int i = 0, e = fd->enum_type_count(); i < e; ++i) {
+                std::cerr << fd->enum_type(i)->name() << " <<<<=====>>>> " << dids << "\n";
+                std::cerr << fd->enum_type(i)->full_name() << " <<<<=====>>>> " << dids << "\n";
+                if(fd->enum_type(i)->name() == dids || fd->enum_type(i)->full_name() == dids) {
+                    std::cerr << "FOUND!\n";
+                    allmp->insert(fd->enum_type(i)->full_name());
+                }
+            }
+        }
+    }
+    if(allmp->size() == 1)
+        match = *allmp->begin();
+    return allmp->size() == 1? 0: 1;
+};
 
 }
