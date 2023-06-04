@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include "ast.H"
 #include "stru.H"
+#include "grpcu.H"
 
 // AST node types -- 
 // Some of these overlap with non-terminals but there is no way currently 
@@ -65,6 +66,7 @@ class compiler: public ast::tree {
 public:
     ast::attribute<value_type> vtype;
     ast::attribute<int> ref;
+    grpcu::store gstore;
 protected:
     std::ostream *errs;
 public:
@@ -131,6 +133,7 @@ public:
      */
     int compile(std::string filename, bool debug_on, bool trace_on);
     void print_ast(std::ostream &out, int node) const;
+    int eval(int node, std::string &value, value_type *vtp=nullptr);
 
     /** Internal support
      */
