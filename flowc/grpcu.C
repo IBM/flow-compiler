@@ -6,6 +6,51 @@
 using namespace google::protobuf;
 
 namespace {
+    /*
+void FErrorPrinter::ShowLine(std::string const filename, int line, int column) {
+    std::string disk_file;
+    if(source_tree == nullptr) 
+        disk_file = filename;
+    else
+        source_tree->VirtualFileToDiskFile(filename, &disk_file);
+
+    std::ifstream sf(disk_file.c_str());
+    if(sf.is_open()) {
+        std::string lines;
+        for(int i = 0; i <= line; ++i) std::getline(sf, lines);
+        *outs << lines << "\n";
+        if(column > 1) *outs << std::string(column, ' ');
+        *outs << "^" << "\n";
+    }
+}
+void FErrorPrinter::AddMessage(std::string const &type, ANSI_ESCAPE color, std::string const &filename, int line, int column, std::string const &message) {
+    *outs << ANSI_BOLD;
+    *outs << filename;
+    if(line >= 0) *outs << "(" << line+1;
+    if(line >= 0 && column >= 0) *outs << ":" << column+1;
+    if(line >= 0) *outs << ")";
+    *outs << ": " << color << type << ": ";
+    *outs << ANSI_RESET;
+    *outs << ansi::emphasize(message, ANSI_BOLD+ANSI_GREEN);
+    *outs << "\n";
+}
+void FErrorPrinter::AddError(std::string const &filename, int line, int column, std::string const &message) {
+    AddMessage("error", ANSI_RED, filename, line, column, message);
+    if(!filename.empty() && line >= 0 && column >= 0)
+        ShowLine(filename, line, column);
+}
+void FErrorPrinter::AddWarning(std::string const &filename, int line, int column, std::string const &message) {
+    AddMessage("warning", ANSI_MAGENTA, filename, line, column, message);
+    if(!filename.empty() && line >= 0 && column >= 0)
+        ShowLine(filename, line, column);
+}
+void FErrorPrinter::AddNote(std::string const &filename, int line, int column, std::string const &message) {
+    AddMessage("note", ANSI_BLUE, filename, line, column, message);
+}
+void ErrorPrinter::AddError(int line, int column, std::string const & message) {
+    fperr.AddError(filename, line, column, message);
+}
+*/
 compiler::DiskSourceTree source_tree;
 compiler::Importer importer(&source_tree);
 }
