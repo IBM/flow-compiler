@@ -227,7 +227,7 @@ eqorc(A) ::= EQUALS(B).                                        { A = B; }
 //////////////////////////////////////////////////////////
 // assignments 
 
-assign(A) ::= id(I) EQUALS(O) valx(R) SEMICOLON.               { A = ast->nappend(O, I, R); }
+assign(A) ::= id(I) EQUALS(O) valx(R) SEMICOLON.               { A = ast->nappend(O, I, R); if(ast->vtype.has(R)) ast->vtype.copy(R, O); }
 vassgn(A) ::= valx(L) COLON(O) valx(R) SEMICOLON.              { A = ast->nappend(O, L, R); }
 
 //////////////////////////////////////////////////////////
@@ -235,12 +235,7 @@ vassgn(A) ::= valx(L) COLON(O) valx(R) SEMICOLON.              { A = ast->nappen
 
 // any string literal
 vals(A) ::= STRING(B).                                         { A = B; }
-vals(A) ::= DOLLAR(B) id(C).                                   { A = ast->nappend(B,C); } 
-
-// valn: any numeric literal
-
-valn(A) ::= INTEGER(B).                                        { A = B; }
-valn(A) ::= FLOAT(B).                                          { A = B; }
+vals(A) ::= DOLLAR(B) id(C).                                   { A = ast->nappend(B, C); }
 
 id(A) ::= ID(B).        { A = B; }
 
@@ -298,13 +293,14 @@ vala(A) ::= vala(B) COMMA valx(C).                          { A = ast->nappend(B
 //////////////////////////////////////////////////////////
 // expression
 
-valx(A) ::= vals(B).                                        { A = ast->node(FTK_valx, B); }
-valx(A) ::= valn(B).                                        { A = ast->node(FTK_valx, B); }
+valx(A) ::= vals(B).                                        { A = ast->node(FTK_valx, B); ast->vtype.set(A, fc::value_type(fc::fvt_str)); }
+valx(A) ::= INTEGER(B).                                     { A = ast->node(FTK_valx, B); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }
+valx(A) ::= FLOAT(B).                                       { A = ast->node(FTK_valx, B); ast->vtype.set(A, fc::value_type(fc::fvt_flt)); }
 valx(A) ::= idex(B).                                        { A = ast->node(FTK_valx, B); } [OPENPAR] 
 valx(A) ::= msgexp(B).                                      { A = ast->node(FTK_valx, B); }
-valx(A) ::= OPENPAR valx(B) CLOSEPAR.                       { A = B; }
-valx(A) ::= OPENSQB vala(L) CLOSESQB.                       { A = L; }
-valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E, FTK_list); }
+valx(A) ::= OPENPAR valx(B) CLOSEPAR.                       { A = B; } 
+valx(A) ::= OPENSQB vala(L) CLOSESQB.                       { A = L; if(ast->vtype.has(L)) ast->vtype.copy(L, A); }
+valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E, FTK_list); /*ast->vtype.set(A, fc::value_type(fc::fvt_none));*/}
 valx(A) ::= OPENSQB range(R) CLOSESQB.                      { 
     /* do not accept open ended ranges here */ 
     if(ast->atc(R, 0).type == FTK_STAR || ast->atc(R, 1).type == FTK_STAR) 

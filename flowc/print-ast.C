@@ -135,9 +135,8 @@ void compiler::print_ast(std::ostream &out, int node) const {
     for(auto p = begin(node), e = end(); p != e; ++p) {
         out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
         print_node_info(out, at(*p));
-        bool has_attrs = vtype.has(*p) || ref.has(*p);
         int attrs = 0;
-        if(has_attrs)
+        if(vtype.has(*p) || ref.has(*p))
             out << "(";
         if(vtype.has(*p)) {
             out << "vtype: " << ANSI_HBLUE << vtype.get(*p) << ANSI_RESET;
@@ -148,7 +147,7 @@ void compiler::print_ast(std::ostream &out, int node) const {
             out << "ref: " << ANSI_BOLD+ANSI_RED << ref.get(*p) << ANSI_RESET;
             ++attrs;
         }
-        if(has_attrs)
+        if(attrs)
             out << ")";
         out << " ";
         p_token(out, at(*p).token) << "\n";
