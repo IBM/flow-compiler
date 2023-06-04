@@ -63,9 +63,4 @@ public:
 #define collect_start() buffer = std::string(yytext, yyleng); buffer_line = num_lines; buffer_column = char_pos-line_start+1-yyleng;
 #define collect_text() buffer += std::string(yytext, yyleng);
 
-static inline std::ostream &operator << (std::ostream &str, struct ast::token const &tok) {
-    str << "<" << tok.type << "(" << tok.line << ":" << tok.column << ")" << tok.text << ">";
-    return str;
-}
-
 #endif
