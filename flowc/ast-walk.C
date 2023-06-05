@@ -1,11 +1,8 @@
 #include "ast.H"
-#include "strsli.H"
-#include "stru.H"
 #include <string>
 #include <vector>
 #include <cctype>
-
-#include <iostream>
+#include <set>
 
 namespace {
 bool is_num(std::string s) {
@@ -37,6 +34,12 @@ std::string split(std::string &tail, std::string str) {
     }
     return s;
 }
+void add_to_set(std::vector<int> &dest, std::vector<int> const &src) {
+    std::set<int> have(dest.begin(), dest.end());
+    for(int i: src) if(have.find(i) == have.end()) {
+        have.insert(i); dest.push_back(i);
+    }
+}
 }
 
 namespace ast {
@@ -48,42 +51,29 @@ std::vector<int> tree::get(std::string path, int node) const {
         match.push_back(n);
         return match;
     }
-    bool anywhere = path.substr(0, 2) == "//";
-    if(anywhere) path = path.substr(2);
-    while(path.substr(0, 1) == "/") { 
-        path = path.substr(1);
-        n = root();
-    }
-    stru::splitter pss(path, "/");
-
-    std::string pe = *pss.begin();
-    std::string tail = pss.begin().tail();
+    std::string tail;
+    std::string pe = split(tail, path);
+    bool anywhere = pe == "//";
+    if(anywhere) 
+        pe = split(tail, tail);
     std::vector<int> gv;
-    if(pe.empty()) {
-                        
-        gv = get(std::string("//") + tail, n);
-        match.insert(match.end(), gv.begin(), gv.end());
-        
-    } else if(is_num(pe)) {
+
+    if(is_num(pe)) {
         int pen = atol(pe.c_str());
         if(anywhere) {
             for(auto x = begin(n), d = end(); x != d; ++x) 
                 if(at(*x).children.size() >= pen) {
-                    if(tail.empty()) {
+                    if(tail.empty()) 
                         match.push_back(at(*x).children[pen-1]);
-                    } else {
-                        gv = get(tail, at(*x).children[pen-1]);
-                        match.insert(match.end(), gv.begin(), gv.end());
-                    }
+                    else 
+                        add_to_set(match, get(tail, at(*x).children[pen-1]));
                 }
         } else {
             if(at(n).children.size() >= pen) {
-                if(tail.empty()) {
+                if(tail.empty()) 
                     match.push_back(at(n).children[pen-1]);
-                } else {
-                    gv = get(tail, at(n).children[pen-1]);
-                    match.insert(match.end(), gv.begin(), gv.end());
-                }
+                else 
+                    add_to_set(match, get(tail, at(n).children[pen-1]));
             }
         }
     } else {
@@ -91,23 +81,18 @@ std::vector<int> tree::get(std::string path, int node) const {
         if(anywhere) {
             for(auto x = begin(n), d = end(); x != d; ++x) 
                 if(*x != n && (tk == 0 || at(*x).type == tk)) {
-                    if(tail.empty()) {
+                    if(tail.empty()) 
                         match.push_back(*x);
-                    } else {
-                        gv = get(tail, *x);
-                        match.insert(match.end(), gv.begin(), gv.end());
-                    }
+                    else 
+                        add_to_set(match, get(tail, *x));
                 }
-
         } else {
             for(int x: at(n).children) 
                 if(x != n && (tk == 0 || at(x).type == tk)) {
-                    if(tail.empty()) {
+                    if(tail.empty()) 
                         match.push_back(x);
-                    } else {
-                        gv = get(tail, x);
-                        match.insert(match.end(), gv.begin(), gv.end());
-                    }
+                    else 
+                        add_to_set(match, get(tail, x));
                 }
         }
     }
