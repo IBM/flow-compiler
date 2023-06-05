@@ -167,8 +167,8 @@ blke ::= HEADER OPENBRA error CLOSEBRA.
 blke(A) ::= lment(B).                                          { A = B;}
 
 lment(A) ::= limit(L) lmval(V) SEMICOLON.                      { A = ast->node(FTK_LIMIT, L, V); }
-lment(A) ::= LIMIT(K) id(L) lmval(V) SEMICOLON.                { A = ast->node(K, L, V); }
-lment(A) ::= LIMIT(K) id(L) eqorc lmval(V) SEMICOLON.          { A = ast->node(K, L, V); }
+lment(A) ::= LIMIT(K) id(L) lmval(V) SEMICOLON.                { A = ast->nappend(K, L, V); }
+lment(A) ::= LIMIT(K) id(L) eqorc lmval(V) SEMICOLON.          { A = ast->nappend(K, L, V); }
 lment(A) ::= LIMIT OPENBRA lmlst(L) CLOSEBRA.                  { A = L; }
 lment ::= LIMIT OPENBRA error CLOSEBRA.
 

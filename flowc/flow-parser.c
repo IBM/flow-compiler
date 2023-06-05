@@ -1973,21 +1973,22 @@ static YYACTIONTYPE yy_reduce(
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 13: /* stmt ::= ERRCHK fcond valx SEMICOLON */
+      case 36: /* lment ::= LIMIT id lmval SEMICOLON */ yytestcase(yyruleno==36);
 #line 120 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-3].minor.yy0, yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); }
-#line 1978 "flow-parser.c"
+#line 1979 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 14: /* stmt ::= ERRCHK fcond valx COMMA valx SEMICOLON */
 #line 121 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-5].minor.yy0, yymsp[-4].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 1984 "flow-parser.c"
+#line 1985 "flow-parser.c"
   yymsp[-5].minor.yy0 = yylhsminor.yy0;
         break;
       case 15: /* stmt ::= ENTRY id OPENPAR did CLOSEPAR bblock */
 #line 124 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-5].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 1990 "flow-parser.c"
+#line 1991 "flow-parser.c"
   yymsp[-5].minor.yy0 = yylhsminor.yy0;
         break;
       case 16: /* fcond ::= OPENPAR valx CLOSEPAR */
@@ -1995,30 +1996,30 @@ static YYACTIONTYPE yy_reduce(
       case 104: /* valx ::= OPENPAR valx CLOSEPAR */ yytestcase(yyruleno==104);
 #line 127 "flow-parser.y"
 { yymsp[-2].minor.yy0 = yymsp[-1].minor.yy0; }
-#line 1998 "flow-parser.c"
+#line 1999 "flow-parser.c"
         break;
       case 17: /* stmt ::= SEMICOLON */
       case 43: /* blke ::= SEMICOLON */ yytestcase(yyruleno==43);
 #line 130 "flow-parser.y"
 {}
-#line 2004 "flow-parser.c"
+#line 2005 "flow-parser.c"
         break;
       case 18: /* bblock ::= OPENBRA block CLOSEBRA */
 #line 135 "flow-parser.y"
 { yylhsminor.yy0 = ast->chtype(ast->graft(yymsp[-2].minor.yy0, yymsp[-1].minor.yy0), FTK_block); }
-#line 2009 "flow-parser.c"
+#line 2010 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 19: /* bblock ::= OPENBRA CLOSEBRA */
 #line 138 "flow-parser.y"
 { yylhsminor.yy0 = ast->chtype(yymsp[-1].minor.yy0, FTK_block); }
-#line 2015 "flow-parser.c"
+#line 2016 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 20: /* bblock ::= SEMICOLON */
 #line 139 "flow-parser.y"
 { yylhsminor.yy0 = ast->chtype(yymsp[0].minor.yy0, FTK_block); }
-#line 2021 "flow-parser.c"
+#line 2022 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 21: /* block ::= blke */
@@ -2028,7 +2029,7 @@ static YYACTIONTYPE yy_reduce(
       case 97: /* vala ::= valx */ yytestcase(yyruleno==97);
 #line 142 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_list, yymsp[0].minor.yy0); }
-#line 2031 "flow-parser.c"
+#line 2032 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 25: /* blke ::= OUTPUT valx SEMICOLON */
@@ -2038,132 +2039,121 @@ static YYACTIONTYPE yy_reduce(
         ast->error(ast->at(yymsp[-1].minor.yy0), "rpc call expected as \"output\" argument");
     yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); 
 }
-#line 2041 "flow-parser.c"
+#line 2042 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 27: /* blke ::= ERRCHK valx COMMA valx SEMICOLON */
+      case 37: /* lment ::= LIMIT id eqorc lmval SEMICOLON */ yytestcase(yyruleno==37);
 #line 155 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-4].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 2047 "flow-parser.c"
+#line 2049 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       case 29: /* blke ::= ENVIRONMENT OPENBRA alst CLOSEBRA */
 #line 158 "flow-parser.y"
 { yylhsminor.yy0 = ast->graft(yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); /* assign c's children to b */}
-#line 2053 "flow-parser.c"
+#line 2055 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 30: /* blke ::= ENVIRONMENT OPENBRA CLOSEBRA */
       case 33: /* blke ::= HEADER OPENBRA CLOSEBRA */ yytestcase(yyruleno==33);
 #line 159 "flow-parser.y"
 { yylhsminor.yy0 = yymsp[-2].minor.yy0; }
-#line 2060 "flow-parser.c"
+#line 2062 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 32: /* blke ::= HEADER OPENBRA vlst CLOSEBRA */
 #line 163 "flow-parser.y"
 { yylhsminor.yy0 = ast->graft(yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 2066 "flow-parser.c"
+#line 2068 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 34: /* blke ::= lment */
 #line 167 "flow-parser.y"
 { yylhsminor.yy0 = yymsp[0].minor.yy0;}
-#line 2072 "flow-parser.c"
+#line 2074 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 35: /* lment ::= limit lmval SEMICOLON */
 #line 169 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_LIMIT, yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); }
-#line 2078 "flow-parser.c"
+#line 2080 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
-        break;
-      case 36: /* lment ::= LIMIT id lmval SEMICOLON */
-#line 170 "flow-parser.y"
-{ yylhsminor.yy0 = ast->node(yymsp[-3].minor.yy0, yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); }
-#line 2084 "flow-parser.c"
-  yymsp[-3].minor.yy0 = yylhsminor.yy0;
-        break;
-      case 37: /* lment ::= LIMIT id eqorc lmval SEMICOLON */
-#line 171 "flow-parser.y"
-{ yylhsminor.yy0 = ast->node(yymsp[-4].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 2090 "flow-parser.c"
-  yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       case 38: /* lment ::= LIMIT OPENBRA lmlst CLOSEBRA */
 #line 172 "flow-parser.y"
 { yymsp[-3].minor.yy0 = yymsp[-1].minor.yy0; }
-#line 2096 "flow-parser.c"
+#line 2086 "flow-parser.c"
         break;
       case 39: /* lmlst ::= id lmval SEMICOLON */
 #line 175 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_list, ast->node(FTK_LIMIT, yymsp[-2].minor.yy0, yymsp[-1].minor.yy0)); }
-#line 2101 "flow-parser.c"
+#line 2091 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 40: /* lmlst ::= id eqorc lmval SEMICOLON */
 #line 176 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_list, ast->node(FTK_LIMIT, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0)); }
-#line 2107 "flow-parser.c"
+#line 2097 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 41: /* lmlst ::= lmlst id lmval SEMICOLON */
 #line 177 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-3].minor.yy0, ast->node(FTK_LIMIT, yymsp[-2].minor.yy0, yymsp[-1].minor.yy0)); }
-#line 2113 "flow-parser.c"
+#line 2103 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 42: /* lmlst ::= lmlst SEMICOLON */
 #line 180 "flow-parser.y"
 { yylhsminor.yy0 = yymsp[-1].minor.yy0; }
-#line 2119 "flow-parser.c"
+#line 2109 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 59: /* vlst ::= vlst vassgn */
 #line 206 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-1].minor.yy0, yymsp[0].minor.yy0);}
-#line 2125 "flow-parser.c"
+#line 2115 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 60: /* msgexp ::= did msgctr */
 #line 211 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_msgexp, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
-#line 2131 "flow-parser.c"
+#line 2121 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 61: /* msgexp ::= msgctr */
 #line 212 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_msgexp, yymsp[0].minor.yy0); }
-#line 2137 "flow-parser.c"
+#line 2127 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 62: /* msgctr ::= OPENPAR CLOSEPAR */
 #line 214 "flow-parser.y"
 { yymsp[-1].minor.yy0 = ast->chtype(yymsp[0].minor.yy0, FTK_list); }
-#line 2143 "flow-parser.c"
+#line 2133 "flow-parser.c"
         break;
       case 66: /* faslst ::= faslst COMMA */
 #line 220 "flow-parser.y"
 { yylhsminor.yy0 = yymsp[-1].minor.yy0; /* ignore spurious commas */}
-#line 2148 "flow-parser.c"
+#line 2138 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 67: /* fassgn ::= id eqorc valx */
 #line 222 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_fassgn, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2154 "flow-parser.c"
+#line 2144 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 70: /* assign ::= id EQUALS valx SEMICOLON */
 #line 230 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); if(ast->vtype.has(yymsp[-1].minor.yy0)) ast->vtype.copy(yymsp[-1].minor.yy0, yymsp[-2].minor.yy0); }
-#line 2160 "flow-parser.c"
+#line 2150 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 71: /* vassgn ::= valx COLON valx SEMICOLON */
 #line 231 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0); }
-#line 2166 "flow-parser.c"
+#line 2156 "flow-parser.c"
   yymsp[-3].minor.yy0 = yylhsminor.yy0;
         break;
       case 75: /* id ::= CPU */
@@ -2181,19 +2171,19 @@ static YYACTIONTYPE yy_reduce(
       case 87: /* id ::= REPO */ yytestcase(yyruleno==87);
 #line 242 "flow-parser.y"
 { yylhsminor.yy0 = ast->chtype(yymsp[0].minor.yy0, FTK_ID); }
-#line 2184 "flow-parser.c"
+#line 2174 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 88: /* idex ::= id */
 #line 259 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_did, yymsp[0].minor.yy0); }
-#line 2190 "flow-parser.c"
+#line 2180 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 89: /* idex ::= idex DOT idex */
 #line 260 "flow-parser.y"
 { yylhsminor.yy0 = ast->graft(yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2196 "flow-parser.c"
+#line 2186 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 90: /* idex ::= idex AT idex */
@@ -2204,7 +2194,7 @@ static YYACTIONTYPE yy_reduce(
         ast->error(ast->at(yymsp[-1].minor.yy0), stru::sfmt() << "left side of node expression must be a node identifier not a field reference");
     yylhsminor.yy0 = ast->chtype(ast->graft(yymsp[-2].minor.yy0, yymsp[0].minor.yy0), FTK_ndid);
 }
-#line 2207 "flow-parser.c"
+#line 2197 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 91: /* idex ::= idex AT */
@@ -2215,7 +2205,7 @@ static YYACTIONTYPE yy_reduce(
         ast->error(ast->at(yymsp[0].minor.yy0), stru::sfmt() << "left side of node expression already refers to a node");
     yylhsminor.yy0 = ast->chtype(yymsp[-1].minor.yy0, FTK_ndid);
 }
-#line 2218 "flow-parser.c"
+#line 2208 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 92: /* did ::= idex */
@@ -2226,67 +2216,67 @@ static YYACTIONTYPE yy_reduce(
         ast->error(ast->at(yymsp[0].minor.yy0), stru::sfmt() << "cannot reference a node here");
     yylhsminor.yy0 = yymsp[0].minor.yy0;
 }
-#line 2229 "flow-parser.c"
+#line 2219 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 93: /* range ::= valx COLON valx COLON valx */
 #line 284 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(ast->chtype(yymsp[-3].minor.yy0, FTK_range), yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2235 "flow-parser.c"
+#line 2225 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       case 94: /* range ::= valx COLON valx */
 #line 285 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(ast->chtype(yymsp[-1].minor.yy0, FTK_range), yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2241 "flow-parser.c"
+#line 2231 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 95: /* range ::= COLON valx */
 #line 286 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(ast->chtype(yymsp[-1].minor.yy0, FTK_range), ast->node(FTK_STAR), yymsp[0].minor.yy0); }
-#line 2247 "flow-parser.c"
+#line 2237 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 96: /* range ::= valx COLON */
 #line 287 "flow-parser.y"
 { yylhsminor.yy0 = ast->nappend(ast->chtype(yymsp[0].minor.yy0, FTK_range), yymsp[-1].minor.yy0, ast->node(FTK_STAR)); }
-#line 2253 "flow-parser.c"
+#line 2243 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 99: /* valx ::= vals */
 #line 296 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_str)); }
-#line 2259 "flow-parser.c"
+#line 2249 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 100: /* valx ::= INTEGER */
 #line 297 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); }
-#line 2265 "flow-parser.c"
+#line 2255 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 101: /* valx ::= FLOAT */
 #line 298 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_flt)); }
-#line 2271 "flow-parser.c"
+#line 2261 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 102: /* valx ::= idex */
       case 103: /* valx ::= msgexp */ yytestcase(yyruleno==103);
 #line 299 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[0].minor.yy0); }
-#line 2278 "flow-parser.c"
+#line 2268 "flow-parser.c"
   yymsp[0].minor.yy0 = yylhsminor.yy0;
         break;
       case 105: /* valx ::= OPENSQB vala CLOSESQB */
 #line 302 "flow-parser.y"
 { yymsp[-2].minor.yy0 = yymsp[-1].minor.yy0; if(ast->vtype.has(yymsp[-1].minor.yy0)) ast->vtype.copy(yymsp[-1].minor.yy0, yymsp[-2].minor.yy0); }
-#line 2284 "flow-parser.c"
+#line 2274 "flow-parser.c"
         break;
       case 106: /* valx ::= OPENSQB CLOSESQB */
 #line 303 "flow-parser.y"
 { yymsp[-1].minor.yy0 = ast->chtype(yymsp[0].minor.yy0, FTK_list); /*ast->vtype.set(yymsp[-1].minor.yy0, fc::value_type(fc::fvt_none));*/}
-#line 2289 "flow-parser.c"
+#line 2279 "flow-parser.c"
         break;
       case 107: /* valx ::= OPENSQB range CLOSESQB */
 #line 304 "flow-parser.y"
@@ -2296,29 +2286,29 @@ static YYACTIONTYPE yy_reduce(
         ast->error(ast->at(yymsp[-1].minor.yy0), "cannot initialize list from open range");
     yymsp[-2].minor.yy0 = yymsp[-1].minor.yy0; 
 }
-#line 2299 "flow-parser.c"
+#line 2289 "flow-parser.c"
         break;
       case 108: /* valx ::= TILDA id OPENPAR CLOSEPAR */
 #line 311 "flow-parser.y"
 { yymsp[-3].minor.yy0 = ast->node(FTK_fun, yymsp[-2].minor.yy0); }
-#line 2304 "flow-parser.c"
+#line 2294 "flow-parser.c"
         break;
       case 109: /* valx ::= TILDA id OPENPAR vala CLOSEPAR */
 #line 312 "flow-parser.y"
 { yymsp[-4].minor.yy0 = ast->graft(ast->node(FTK_fun, yymsp[-3].minor.yy0), yymsp[-1].minor.yy0, 1); }
-#line 2309 "flow-parser.c"
+#line 2299 "flow-parser.c"
         break;
       case 110: /* valx ::= PLUS valx */
 #line 314 "flow-parser.y"
 { yymsp[-1].minor.yy0 = yymsp[0].minor.yy0; }
-#line 2314 "flow-parser.c"
+#line 2304 "flow-parser.c"
         break;
       case 111: /* valx ::= MINUS valx */
       case 112: /* valx ::= HASH valx */ yytestcase(yyruleno==112);
       case 113: /* valx ::= BANG valx */ yytestcase(yyruleno==113);
 #line 315 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
-#line 2321 "flow-parser.c"
+#line 2311 "flow-parser.c"
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 114: /* valx ::= valx PLUS valx */
@@ -2339,19 +2329,19 @@ static YYACTIONTYPE yy_reduce(
       case 130: /* valx ::= valx SHR valx */ yytestcase(yyruleno==130);
 #line 318 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2342 "flow-parser.c"
+#line 2332 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 115: /* valx ::= valx MINUS valx */
 #line 319 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, ast->node(FTK_PLUS), yymsp[-2].minor.yy0, ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[0].minor.yy0)); }
-#line 2348 "flow-parser.c"
+#line 2338 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 131: /* valx ::= valx QUESTION valx COLON valx */
 #line 336 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-3].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2354 "flow-parser.c"
+#line 2344 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       default:
@@ -2406,7 +2396,7 @@ static void yy_parse_failed(
 #line 92 "flow-parser.y"
 
     ast->node(FTK_FAILED, ast->root());
-#line 2409 "flow-parser.c"
+#line 2399 "flow-parser.c"
 /************ End %parse_failure code *****************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
@@ -2446,7 +2436,7 @@ static void yy_syntax_error(
     } else {
         ast->error(ast->input_filename, stru::sfmt() << "syntax at " << yymajor << " of " << yyminor);
     }
-#line 2449 "flow-parser.c"
+#line 2439 "flow-parser.c"
 /************ End %syntax_error code ******************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
@@ -2475,7 +2465,7 @@ static void yy_accept(
 #line 89 "flow-parser.y"
 
     //std::cerr << "parsed just fine, ast size: " << ast->store.size() << " root: " << ast->store.back().children[0] << "\n";
-#line 2478 "flow-parser.c"
+#line 2468 "flow-parser.c"
 /*********** End %parse_accept code *******************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
