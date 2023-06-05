@@ -83,7 +83,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     */
     flow_parserFree(pp, free);
     root_n = ptr;
-
+    
     // import proto files
     for(int i: *this) if(at(i).type == FTK_IMPORT) {
         value_type vt; std::string value;
@@ -96,6 +96,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
         if(gstore.import_file(value, false) != 0) 
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
+    // resolve references
 
     for(int i: *this) if(at(i).type == FTK_did) {
         std::cerr << "LOOKING UP: \n";

@@ -100,6 +100,8 @@ int main(int argc, char *argv[]) {
     // Print the AST if asked to
     if(opts.optb("print-ast"))
         comp.print_ast(std::cout, 0);
+    if(opts.optb("json-ast"))
+        comp.ast_to_json(std::cout, 0);
 
     return comp.error_count;
 }

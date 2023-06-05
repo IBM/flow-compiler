@@ -14,6 +14,8 @@ public:
     int add_to_proto_path(std::string directory, std::string mapped_to="");
     int import_file(std::string filename, bool add_to_path);
     int lookup(std::string &match, std::vector<std::string> did, std::set<std::string> *allmp=nullptr, bool match_methods=true, bool match_messages=true, bool match_enums=true) const;
+    
+    static int error_code(std::string id);
 };
 
 }

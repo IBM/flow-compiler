@@ -134,6 +134,7 @@ public:
     int compile(std::string filename, bool debug_on, bool trace_on);
     void print_ast(std::ostream &out, int node) const;
     void print_ast(int node) const;
+    void ast_to_json(std::ostream &out, int node) const;
     int eval(int node, std::string &value, value_type *vtp=nullptr);
 
     /** Internal support

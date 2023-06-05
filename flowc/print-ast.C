@@ -43,83 +43,32 @@ void print_node_info(std::ostream &out, ast::node const &node) {
     out << ANSI_BOLD << type << ANSI_RESET;
     if(node.children.size()) out << "[" << node.children.size() << "]";
 }
-
-}
-/*
-std::ostream &operator <<(std::ostream &out, ast::token const &token) {
-    return p_token(out, token);
-}
-std::ostream &operator <<(std::ostream &out, ast::node const &node) {
-    return p_node(out, node);
-}
-*/
-namespace fc {
-/*
-void compiler::ast_to_json(std::ostream &out, int node) const {
-    if(node == 0) {
-        for(auto p = begin(node), e = end(); p != e; ++p)
-            if(at(*p).type == FTK_wfgsrc) {
-                node = *p;
-                break;
-            }
-    }
-    if(node != 0) {
-        out << "{\"id\": " << node << ",";
-        auto n = at(node);
-        out << "\"line\":" << n.token.line << ",\"col\":" << n.token.column << ",";
-        out << "\"type\":" << stru::json_escape(fc::compiler::stoken(n.type));
-        switch(n.type) {
-            case FTK_INTEGER: 
-                out << ",\"value\":" << atoll(n.token.text.c_str());
-                break;
-            case FTK_FLOAT:
-                out << ",\"value\":" << atof(n.token.text.c_str());
-                break;
-            case FTK_ID: case FTK_STRING:
-                out << ",\"value\":" << stru::json_escape(n.token.text);
-                break;
-            default:
-                break;
-        }
-        if(n.children.size() > 0) {
-            out << ",\"children\":[";
-            for(int cx = 0, ce = n.children.size(); cx != ce; ++cx) {
-                if(cx > 0) out << ",";
-                json_ast(out, n.children[cx]);
-            }
-            out << "]";
-        }
-        out << "}\n";
-    }
-}
-*/
-static
-std::ostream &operator << (std::ostream &s, value_type const &vt) {
+std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     switch(vt.type) {
-        case fvt_none:
+        case fc::fvt_none:
             s << "??";
             break;
-        case fvt_int:
+        case fc::fvt_int:
             s << "int";
             break;
-        case fvt_flt:
+        case fc::fvt_flt:
             s << "flt";
             break;
-        case fvt_str:
+        case fc::fvt_str:
             s << "str";
             break;
 
-        case fvt_enum:
+        case fc::fvt_enum:
             s << "enu";
             if(vt.gtype != nullptr)
                 s << ": " << vt.gtype;
             break;
 
-        case fvt_array:
+        case fc::fvt_array:
             s << "[" << vt.inf[0] << "]";
             break;
 
-        case fvt_struct:
+        case fc::fvt_struct:
             s << "(";
             for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
                 if(u > 0) s << ", ";
@@ -131,6 +80,75 @@ std::ostream &operator << (std::ostream &s, value_type const &vt) {
             break;
     }
     return s;
+}
+std::ostream &to_json(std::ostream &s, fc::value_type const &vt) {
+    switch(vt.type) {
+        case fc::fvt_none:
+            s << "\"??\"";
+            break;
+        case fc::fvt_int:
+            s << "\"int\"";
+            break;
+        case fc::fvt_flt:
+            s << "\"flt\"";
+            break;
+        case fc::fvt_str:
+            s << "\"str\"";
+            break;
+
+        case fc::fvt_enum:
+            s << "\"enum\"";
+            break;
+
+        case fc::fvt_array:
+            s << "[" << vt.inf[0] << "]";
+            break;
+
+        case fc::fvt_struct:
+            s << "{\"struct\":[";
+            for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
+                if(u > 0) s << ", ";
+                s << vt.inf[u];
+            }
+            s << "]}";
+            break;
+    }
+    return s;
+}
+}
+namespace fc {
+void compiler::ast_to_json(std::ostream &out, int node) const {
+    std::map<int, int> nm;
+    int n = 0;
+    for(auto p = begin(node), e = end(); p != e; ++p) 
+        nm[*p] = ++n;
+    
+    out << "[";
+    n = 0;
+    for(auto p = begin(node), e = end(); p != e; ++p) {
+        if(++n > 1) out << ",";
+        auto node = at(*p);
+        out << "{\"id\":" << nm[*p] 
+            << ",\"file\":" << node.token.file << ",\"line\":" << node.token.line << ",\"column\":" << node.token.column
+            << ",\"type\":" << stru::json_escape(fc::compiler::ftk_to_string(node.type));
+        if(node.type == FTK_STRING) 
+            out << ",\"lexeme\":" << stru::json_escape(stru::json_unescape(node.token.text));
+        else if(!node.token.text.empty())
+            out << ",\"lexeme\":" << stru::json_escape(node.token.text);
+        if(vtype.has(*p)) 
+            out << ",\"vtype\":";  to_json(out, vtype.get(*p));
+        if(node.children.size() > 0) {
+            int cc = 0;
+            out << ",\"children\": [";
+            for(int c: node.children) {
+                if(++cc > 1) out << ",";
+                out << nm[c];
+            }
+            out << "]";
+        }
+        out << "}\n";
+    }
+    out << "]";
 }
 void compiler::print_ast(int node) const {
     print_ast(std::cerr, node);

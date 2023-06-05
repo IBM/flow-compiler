@@ -11,7 +11,6 @@
 #include "flow-ast.H"
 #include "massert.H"
 
-
 int flow_compiler::compile_string(std::string &str, int node, int node_type) {
     auto const &s = at(node);
     str = s.token.text;
