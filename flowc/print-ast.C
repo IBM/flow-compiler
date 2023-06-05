@@ -26,23 +26,6 @@ std::ostream &p_token(std::ostream &out, ast::token const &token) {
    }
    return out;
 }
-/*
-std::ostream &p_node(std::ostream &out, ast::node const &node) {
-    std::string type = fc::compiler::ftk_to_string(node.type);
-    out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
-    //out << type << "(" << node.type << ")";
-    out << ANSI_BOLD << type << ANSI_RESET;
-    if(node.children.size()) out << "[" << node.children.size() << "]";
-    out << " "; p_token(out, node.token);
-    return out;
-}
-*/
-void print_node_info(std::ostream &out, ast::node const &node) {
-    std::string type = fc::compiler::ftk_to_string(node.type);
-    out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
-    out << ANSI_BOLD << type << ANSI_RESET;
-    if(node.children.size()) out << "[" << node.children.size() << "]";
-}
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     switch(vt.type) {
         case fc::fvt_none:
@@ -130,7 +113,7 @@ void compiler::ast_to_json(std::ostream &out, int node) const {
         auto node = at(*p);
         out << "{\"id\":" << nm[*p] 
             << ",\"file\":" << node.token.file << ",\"line\":" << node.token.line << ",\"column\":" << node.token.column
-            << ",\"type\":" << stru::json_escape(fc::compiler::ftk_to_string(node.type));
+            << ",\"type\":" << stru::json_escape(tk_to_string(node.type));
         if(node.type == FTK_STRING) 
             out << ",\"lexeme\":" << stru::json_escape(stru::json_unescape(node.token.text));
         else if(!node.token.text.empty())
@@ -156,7 +139,11 @@ void compiler::print_ast(int node) const {
 void compiler::print_ast(std::ostream &out, int node) const {
     for(auto p = begin(node), e = end(); p != e; ++p) {
         out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
-        print_node_info(out, at(*p));
+        auto node = at(*p);
+        std::string type = tk_to_string(node.type);
+        out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
+        out << ANSI_BOLD << type << ANSI_RESET;
+        if(node.children.size()) out << "[" << node.children.size() << "]";
         int attrs = 0;
         if(vtype.has(*p) || ref.has(*p))
             out << "(";

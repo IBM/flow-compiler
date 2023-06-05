@@ -120,7 +120,7 @@ RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtime
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
-OBJS:=filu.o filugz.o flow-comp.o flow-templates.o flowc.o strtrs.o strconv.o \
+OBJS:=ast-walk.o filu.o filugz.o flow-comp.o flow-templates.o flowc.o strtrs.o strconv.o \
 		veximpl.o version.o ansi-escapes.o flow-scanner.o flow-pmsg.o print-ast.o \
 		grpcu.o flow-eval.o flow-accesors.o
 

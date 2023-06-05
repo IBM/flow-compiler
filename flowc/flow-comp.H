@@ -159,9 +159,12 @@ public:
 
     /** Coversions
      */
+    /*
     static int itype(std::string type_name);
     static std::string stype(int type);
-    static std::string ftk_to_string(int ftk);
+    */
+    virtual std::string tk_to_string(int ftk) const;
+    virtual int string_to_tk(std::string ftk) const;
 
     /** Accesors
      */

@@ -369,6 +369,18 @@ struct tree {
     int node_type(int node) const {
         return at(node).type;
     }
+    /** token type to string
+     */
+    virtual std::string tk_to_string(int ftk) const {
+        return std::to_string(ftk);
+    }
+    virtual int string_to_tk(std::string ftk) const {
+        return ATK_NONE;
+    }
+
+    /** path expression accessors
+     */
+    std::vector<int> get(std::string path_expression, int node=0) const;
 };
 inline static 
 std::ostream &print_token(std::ostream &out, struct ast::token const &tok) {
