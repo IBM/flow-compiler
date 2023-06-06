@@ -145,7 +145,7 @@ blke(A) ::= assign(B).                                         { A = B; }
 
 blke(A) ::= RETURN(K) valx(X) SEMICOLON.                       { A = ast->nappend(K, X); }
 blke(A) ::= OUTPUT(K) valx(X) SEMICOLON.                     { 
-    if(ast->at(X).children.size() != 1 ||  ast->atc(X, 0).type != FTK_msgexp) 
+    if(ast->at(X).children.size() != 1 || ast->atc(X, 0).type != FTK_msgexp || ast->atp(X, 0, 0).type != FTK_did) 
         ast->error(ast->at(X), "rpc call expected as \"output\" argument");
     A = ast->nappend(K, X); 
 }

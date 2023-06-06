@@ -29,36 +29,32 @@ std::ostream &p_token(std::ostream &out, ast::token const &token) {
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     switch(vt.type) {
         case fc::fvt_none:
-            s << "??";
+            s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;
             break;
         case fc::fvt_int:
-            s << "int";
+            s << ANSI_CYAN+ANSI_BOLD << "int" << ANSI_RESET;
             break;
         case fc::fvt_flt:
-            s << "flt";
+            s << ANSI_YELLOW+ANSI_BOLD << "flt" << ANSI_RESET;
             break;
         case fc::fvt_str:
-            s << "str";
+            s << ANSI_GREEN+ANSI_BOLD << "str" << ANSI_RESET;
             break;
-
         case fc::fvt_enum:
-            s << "enu";
-            if(vt.gtype != nullptr)
-                s << ": " << vt.gtype;
+            s << "enum: " << ANSI_CYAN+ANSI_BOLD << vt.gname << ANSI_RESET;
             break;
-
         case fc::fvt_array:
-            s << "[" << vt.inf[0] << "]";
+            s << ANSI_BOLD << "[" << ANSI_RESET << vt.inf[0] << ANSI_BOLD << "]" << ANSI_RESET;
             break;
 
         case fc::fvt_struct:
+            if(!vt.gname.empty()) 
+                s << ANSI_MAGENTA+ANSI_BOLD << vt.gname << ANSI_RESET;
             s << "(";
             for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
                 if(u > 0) s << ", ";
                 s << vt.inf[u];
             }
-            if(vt.gtype != nullptr)
-                s << ": " << vt.gtype;
             s << ")";
             break;
     }
@@ -78,28 +74,35 @@ std::ostream &to_json(std::ostream &s, fc::value_type const &vt) {
         case fc::fvt_str:
             s << "\"str\"";
             break;
-
         case fc::fvt_enum:
             s << "\"enum\"";
             break;
 
         case fc::fvt_array:
-            s << "[" << vt.inf[0] << "]";
+            s << "["; to_json(s, vt.inf[0]); s << "]";
             break;
 
         case fc::fvt_struct:
             s << "{\"struct\":[";
             for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
                 if(u > 0) s << ", ";
-                s << vt.inf[u];
+                to_json(s, vt.inf[u]);
             }
-            s << "]}";
+            s << "]";
+            if(!vt.gname.empty()) 
+                s << ",\"name\":" << stru::json_escape(vt.gname);
+            s << "}";
             break;
     }
     return s;
 }
 }
 namespace fc {
+std::string value_type::to_string() const {
+    std::ostringstream out;
+    out << to_string();
+    return out.str();
+}
 void compiler::ast_to_json(std::ostream &out, int node) const {
     std::map<int, int> nm;
     int n = 0;
@@ -120,6 +123,12 @@ void compiler::ast_to_json(std::ostream &out, int node) const {
             out << ",\"lexeme\":" << stru::json_escape(node.token.text);
         if(vtype.has(*p)) 
             out << ",\"vtype\":";  to_json(out, vtype.get(*p));
+        if(rpc.has(*p)) 
+            out << ",\"rpc\":" << stru::json_escape(rpc.get(*p));
+        if(cmsg.has(*p)) 
+            out << ",\"cmsg\":" << stru::json_escape(cmsg.get(*p));
+        if(amsg.has(*p)) 
+            out << ",\"amsg\":" << stru::json_escape(amsg.get(*p));
         if(node.children.size() > 0) {
             int cc = 0;
             out << ",\"children\": [";
@@ -145,15 +154,30 @@ void compiler::print_ast(std::ostream &out, int node) const {
         out << ANSI_BOLD << type << ANSI_RESET;
         if(node.children.size()) out << "[" << node.children.size() << "]";
         int attrs = 0;
-        if(vtype.has(*p) || ref.has(*p))
+        if(vtype.has(*p) || ref.has(*p) || rpc.has(*p) || cmsg.has(*p) || amsg.has(*p))
             out << "(";
         if(vtype.has(*p)) {
-            out << "vtype: " << ANSI_HBLUE << vtype.get(*p) << ANSI_RESET;
+            out << "vtype: " << vtype.get(*p);
             ++attrs;
         }
         if(ref.has(*p)) {
             if(attrs) out << ", ";
             out << "ref: " << ANSI_BOLD+ANSI_RED << ref.get(*p) << ANSI_RESET;
+            ++attrs;
+        }
+        if(rpc.has(*p)) {
+            if(attrs) out << ", ";
+            out << "rpc: " << ANSI_BOLD+ANSI_YELLOW << rpc.get(*p) << ANSI_RESET;
+            ++attrs;
+        }
+        if(cmsg.has(*p)) {
+            if(attrs) out << ", ";
+            out << "cmsg: " << ANSI_BOLD+ANSI_HGREEN << cmsg.get(*p) << ANSI_RESET;
+            ++attrs;
+        }
+        if(amsg.has(*p)) {
+            if(attrs) out << ", ";
+            out << "amsg: " << ANSI_BOLD+ANSI_HGREEN << amsg.get(*p) << ANSI_RESET;
             ++attrs;
         }
         if(attrs)

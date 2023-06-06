@@ -2008,7 +2008,7 @@ static YYACTIONTYPE yy_reduce(
       case 25: /* blke ::= OUTPUT valx SEMICOLON */
 #line 147 "flow-parser.y"
 { 
-    if(ast->at(yymsp[-1].minor.yy0).children.size() != 1 ||  ast->atc(yymsp[-1].minor.yy0, 0).type != FTK_msgexp) 
+    if(ast->at(yymsp[-1].minor.yy0).children.size() != 1 || ast->atc(yymsp[-1].minor.yy0, 0).type != FTK_msgexp || ast->atp(yymsp[-1].minor.yy0, 0, 0).type != FTK_did) 
         ast->error(ast->at(yymsp[-1].minor.yy0), "rpc call expected as \"output\" argument");
     yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); 
 }
