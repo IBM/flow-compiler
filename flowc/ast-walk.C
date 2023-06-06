@@ -3,6 +3,9 @@
 #include <vector>
 #include <cctype>
 #include <set>
+#include <iostream>
+#include "stru.H"
+#include "strsli.H"
 
 namespace {
 bool is_num(std::string s) {
@@ -11,6 +14,14 @@ bool is_num(std::string s) {
             return false;
     return true;
 }
+
+/** Crude expression parser for path expression
+ * return //    
+ *        node
+ *        child-idx
+ *        *
+ *        (expr)
+ */
 std::string split(std::string &tail, std::string str) { 
     if(str.substr(0, 2) == "//") {
         tail = str.substr(2);
@@ -24,6 +35,23 @@ std::string split(std::string &tail, std::string str) {
         tail = str;
         return "";
     }
+
+    if(str[0] == '(') {
+        unsigned len = 0, pc = 0;
+        while(len < str.length() && !(str[len] == ')' && pc == 1)) {
+            if(str[len] == '(') ++pc;
+            else if(str[len] == ')') --pc;
+            ++len;
+        }
+        if(pc != 1 || len >= str.length()) {
+            std::cerr << "path expression error [" << str << "]\n";
+            assert(false);
+        }
+        std::string pex = str.substr(0, len+1); 
+        tail = str.substr(len+1);
+        return pex;
+    }
+
     auto e = str.find_first_of("/[");
     auto s = str;
     if(e == std::string::npos) {
@@ -45,20 +73,19 @@ void add_to_set(std::vector<int> &dest, std::vector<int> const &src) {
 namespace ast {
 
 std::vector<int> tree::get(std::string path, int node) const {
-    std::vector<int> match;
     int n = node == 0? root(): node;
-    if(path.empty()) {
-        match.push_back(n);
-        return match;
-    }
+    std::vector<int> match;
     std::string tail;
     std::string pe = split(tail, path);
+
     bool anywhere = pe == "//";
     if(anywhere) 
         pe = split(tail, tail);
-    std::vector<int> gv;
 
-    if(is_num(pe)) {
+    if(pe[0] == '(') { // path expression
+        for(auto en: stru::splitter(pe.substr(1, pe.length()-2), "|")) 
+            add_to_set(match, get(en+tail, n));
+    } else if(is_num(pe)) { // child index
         int pen = atol(pe.c_str());
         if(anywhere) {
             for(auto x = begin(n), d = end(); x != d; ++x) 
@@ -76,7 +103,7 @@ std::vector<int> tree::get(std::string path, int node) const {
                     add_to_set(match, get(tail, at(n).children[pen-1]));
             }
         }
-    } else {
+    } else { // field or *
         int tk = pe == "*"? 0: string_to_tk(pe);
         if(anywhere) {
             for(auto x = begin(n), d = end(); x != d; ++x) 
@@ -95,6 +122,13 @@ std::vector<int> tree::get(std::string path, int node) const {
                         add_to_set(match, get(tail, x));
                 }
         }
+    }
+    if(match.size() > 1) {
+        std::set<int> found(match.begin(), match.end());
+        match.clear();
+        for(int i: *this) 
+            if(found.find(i) != found.end()) 
+                match.push_back(i);
     }
     return match;
 }
