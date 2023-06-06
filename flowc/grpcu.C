@@ -9,6 +9,7 @@
 #include "stru.H"
 #include "filu.H"
 #include "ansi-escapes.H"
+#include "flow-comp.H"
 
 using namespace google::protobuf;
 
@@ -128,39 +129,125 @@ int store::lookup(std::string &match, std::vector<std::string> did, std::set<std
     std::set<std::string> allm;
     if(allmp == nullptr) allmp = &allm;
     std::string dids = stru::join(did, ".");
+    std::cerr << "store-lookup: '" << dids << "', methods " << match_methods << ", messages " << match_messages << ", enums " << match_enums << "\n";
 
-    for(auto p: file_descriptors) {
-        auto fd = (FileDescriptor const *)p;
-        if(match_methods) {
-            for(int i = 0, e = fd->service_count(); i < e; ++i) 
-                for(int j = 0,  f = fd->service(i)->method_count(); j < f; ++j) 
-                    if(fd->service(i)->method(j)->name() == dids || 
-                       fd->service(i)->method(j)->full_name() == dids || 
-                       fd->service(i)->name() + "." +  fd->service(i)->method(j)->name() == dids) {
-                        std::cerr << "FOUND " << fd->service(i)->method(j)->full_name() << "!\n";
-                        allmp->insert(fd->service(i)->method(j)->full_name());
-                    }
-        }
-        if(match_messages) {
-            for(int i = 0, e = fd->message_type_count(); i < e; ++i) 
-                if(fd->message_type(i)->name() == dids || fd->message_type(i)->full_name() == dids) {
-                    std::cerr << "FOUND!\n";
-                    allmp->insert(fd->message_type(i)->full_name());
-                }
-        }
-        if(match_enums) {
-            for(int i = 0, e = fd->enum_type_count(); i < e; ++i) 
-                if(fd->enum_type(i)->name() == dids || fd->enum_type(i)->full_name() == dids) {
-                    std::cerr << "FOUND!\n";
-                    allmp->insert(fd->enum_type(i)->full_name());
-                }
-        }
-    }
+    if(match_methods) for(auto vp: find_methods(dids)) 
+        allmp->insert(((MethodDescriptor const *) vp)->full_name());
+
+    if(match_messages) for(auto vp: find_messages(dids)) 
+        allmp->insert(((Descriptor const *) vp)->full_name());
+
+    if(match_enums) for(auto vp: find_enum_values(dids)) 
+        allmp->insert(((EnumValueDescriptor const *) vp)->full_name());
+
     if(allmp->size() == 1)
         match = *allmp->begin();
     else 
         match.clear();
     return allmp->size() == 1? 0: 1;
 };
+std::set<void const *> store::find_messages(std::string name) const {
+    std::set<void const *> ptrs;
+    for(auto p: file_descriptors) {
+        auto fd = (FileDescriptor const *)p;
+        for(int i = 0, e = fd->message_type_count(); i < e; ++i) 
+            if(fd->message_type(i)->name() == name || 
+               fd->message_type(i)->full_name() == name) 
+                ptrs.insert((void const *) fd->message_type(i));
+    }
+    return ptrs;
+}
+std::set<void const *> store::find_methods(std::string name) const {
+    std::set<void const *> ptrs;
+    for(auto p: file_descriptors) {
+        auto fd = (FileDescriptor const *)p;
+        for(int i = 0, e = fd->service_count(); i < e; ++i) 
+            for(int j = 0, f = fd->service(i)->method_count(); j < f; ++j) 
+                if(fd->service(i)->method(j)->name() == name || 
+                   fd->service(i)->method(j)->full_name() == name || 
+                   fd->service(i)->name() + "." +  fd->service(i)->method(j)->name() == name) 
+                    ptrs.insert((void const *) fd->service(i)->method(j));
+    }
+    return ptrs;
+}
+std::set<void const *> store::find_enum_values(std::string name) const {
+    std::set<void const *> ptrs;
+    for(auto p: file_descriptors) {
+        auto fd = (FileDescriptor const *)p;
+        for(int i = 0, e = fd->enum_type_count(); i < e; ++i) 
+            for(int j = 0, f = fd->enum_type(i)->value_count(); j < f; ++j) 
+                if(fd->enum_type(i)->value(j)->name() == name ||
+                   fd->enum_type(i)->value(j)->full_name() == name) 
+                    ptrs.insert((void const *) fd->enum_type(i)->value(j));
+    }
+    return ptrs;
+}
+std::string store::method_output_full_name(std::string name) const {
+    auto found = find_methods(name);
+    if(found.size() != 1) return "";
+    return ((MethodDescriptor const *) *found.begin())->output_type()->full_name();
+}
+std::string store::method_input_full_name(std::string name) const {
+    auto found = find_methods(name);
+    if(found.size() != 1) return "";
+    return ((MethodDescriptor const *) *found.begin())->input_type()->full_name();
+}
+std::string store::enum_value_name(std::string name) const {
+    auto found = find_enum_values(name);
+    if(found.size() != 1) return "";
+    return ((EnumValueDescriptor const *) *found.begin())->name();
+}
+std::string store::enum_value_full_name(std::string name) const {
+    auto found = find_enum_values(name);
+    if(found.size() != 1) return "";
+    return ((EnumValueDescriptor const *) *found.begin())->full_name();
+}
+std::string store::enum_full_name_for_value(std::string name) const {
+    auto found = find_enum_values(name);
+    if(found.size() != 1) return "";
+    return ((EnumValueDescriptor const *) *found.begin())->type()->full_name();
+}
+int store::enum_value(std::string name) const { 
+    auto found = find_enum_values(name);
+    if(found.size() != 1) return -1;
+    return ((EnumValueDescriptor const *) *found.begin())->number();
+}
+fc::value_type store::message_to_value_type(std::string name) const {
+    auto found = find_messages(name);
+    if(found.size() != 1) 
+        return fc::value_type();
+    auto md = (Descriptor const *) *found.begin();
+    fc::value_type vt(fc::fvt_struct, md->full_name());
 
+    for(int i = 0, c = md->field_count(); i < c; ++i) { 
+        auto fd = md->field(i);
+        fc::value_type ft;
+        switch(fd->cpp_type()) {
+            case FieldDescriptor::CppType::CPPTYPE_INT32:
+            case FieldDescriptor::CppType::CPPTYPE_INT64:
+            case FieldDescriptor::CppType::CPPTYPE_UINT32:
+            case FieldDescriptor::CppType::CPPTYPE_UINT64:
+            case FieldDescriptor::CppType::CPPTYPE_BOOL:
+                ft = fc::value_type(fc::fvt_int);
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_STRING:
+                ft = fc::value_type(fc::fvt_str);
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_DOUBLE:
+            case FieldDescriptor::CppType::CPPTYPE_FLOAT:
+                ft = fc::value_type(fc::fvt_flt);
+            case FieldDescriptor::CppType::CPPTYPE_ENUM:
+                ft = fc::value_type(fc::fvt_enum, fd->enum_type()->full_name());
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_MESSAGE:
+                ft = message_to_value_type(fd->message_type()->full_name());
+                break;
+        }
+        if(fd->is_repeated())
+            vt.add_type(fc::value_type(fc::fvt_array, {ft}));
+        else
+            vt.add_type(ft);
+    }
+    return vt;
+}
 }
