@@ -101,16 +101,9 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
 
-    std::vector<int> tnodes;
-    for(int v: *this) if(at(v).type == FTK_valx) for(int p: at(v).children) if(at(p).type == FTK_did) {
-        tnodes.push_back(p);
-    }
-    std::cerr << "tnodes: " << tnodes << "\n";
     std::cerr << "getnod: " << get("//valx/did") << "\n";
     std::cerr << "getnod: " << get("//valx//did") << "\n";
     std::cerr << "nodid: " << get("//NODE/ID") << "\n";
-    std::cerr << "nodidid: " << get("//NODE/ID/ID") << "\n";
-    std::cerr << "nodidid: " << get("//NODE/(ID/ID|ID)") << "\n";
     std::cerr << "msgexp: " << get("//valx/msgexp/did") << "\n";
     std::cerr << "outmsgexp: " << get("//NODE/block/OUTPUT/valx/msgexp/did") << "\n";
 
@@ -254,6 +247,10 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     // At this point some nodes could have return statements without type.
     // If there is a type, and only one, already deducted for this node family, 
     // propagate that type as a requirement. Othewise generate errors... 
+    
+   
+    // Now that node output types are established, lookup ndid references.
+
 
     return error_count;
 }
