@@ -218,7 +218,6 @@ fc::value_type store::message_to_value_type(std::string name) const {
         return fc::value_type();
     auto md = (Descriptor const *) *found.begin();
     fc::value_type vt(fc::fvt_struct, md->full_name());
-
     for(int i = 0, c = md->field_count(); i < c; ++i) { 
         auto fd = md->field(i);
         fc::value_type ft;
@@ -236,6 +235,7 @@ fc::value_type store::message_to_value_type(std::string name) const {
             case FieldDescriptor::CppType::CPPTYPE_DOUBLE:
             case FieldDescriptor::CppType::CPPTYPE_FLOAT:
                 ft = fc::value_type(fc::fvt_flt);
+                break;
             case FieldDescriptor::CppType::CPPTYPE_ENUM:
                 ft = fc::value_type(fc::fvt_enum, fd->enum_type()->full_name());
                 break;
