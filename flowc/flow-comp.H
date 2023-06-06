@@ -50,22 +50,27 @@ enum fvt_type {
 struct value_type {
     fvt_type type;
     std::vector<value_type> inf;
-    void *gtype;
+    std::string gname;
 
-    value_type(fvt_type t=fvt_none, void *gt=nullptr):type(t), gtype(gt) {
+    value_type(fvt_type t=fvt_none, std::string gn=""):type(t), gname(gn) {
     }
-    value_type(fvt_type t, std::initializer_list<value_type> tl, void *gt=nullptr):
-        type(t), inf(tl), gtype(gt) { 
+    value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn=""):
+        type(t), inf(tl), gname(gn) { 
     }
     void add_type(value_type t) {
         inf.push_back(t);
     }
+    std::string to_string() const;
 };
 
 class compiler: public ast::tree {
 public:
     ast::attribute<value_type> vtype;
     ast::attribute<int> ref;
+    ast::attribute<std::string> rpc;
+    ast::attribute<std::string> cmsg;
+    ast::attribute<std::string> amsg;
+
     grpcu::store gstore;
 protected:
     std::ostream *errs;
