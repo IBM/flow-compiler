@@ -299,6 +299,14 @@ struct tree {
                 return *p;
         return 0;
     }
+    int ancestor(int node, int degree, int subtree=0) const {
+        int a = node;
+        for(int d = 0; d < degree; ++d) {
+            a = parent(a, subtree);
+            if(a == 0) break;
+        }
+        return a;
+    }
     int sibling_index(int node, int subtree=0) const {
         int p = parent(node, subtree);
         if(p == 0) return -1;
@@ -377,7 +385,6 @@ struct tree {
     virtual int string_to_tk(std::string ftk) const {
         return ATK_NONE;
     }
-
     /** path expression accessors
      */
     std::vector<int> get(std::string path_expression, int node=0) const;
