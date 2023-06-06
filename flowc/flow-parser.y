@@ -93,27 +93,26 @@
     ast->node(FTK_FAILED, ast->root());
 }
 
-flow(A) ::= stmts(B).                                          { A = ast->node(FTK_ACCEPT, B); }                                   
-stmts(A) ::= stmt(B).                                          { A = ast->node(FTK_flow, B); }            // FTK_flow is a list of FTK_stmt
-stmts(A) ::= stmts(B) stmt(C).                                 { A = ast->nappend(B, C); }
+flow(A) ::= stmts(B).                                        { A = ast->node(FTK_ACCEPT, B); }                                   
+stmts(A) ::= stmt(B).                                        { A = ast->node(FTK_flow, B); }            // FTK_flow is a list of FTK_stmt
+stmts(A) ::= stmts(B) stmt(C).                               { A = ast->nappend(B, C); }
 
 // directives & properties defaults
-stmt(A) ::= dirk(B) valx(C) SEMICOLON.                         { A = ast->nappend(B, C); } 
-dirk(A) ::= INCLUDE(B).                                        { A = B; }
-dirk(A) ::= IMPORT(B).                                         { A = B; }
+stmt(A) ::= dirk(B) valx(C) SEMICOLON.                       { A = ast->nappend(B, C); } 
+dirk(A) ::= INCLUDE(B).                                      { A = B; }
+dirk(A) ::= IMPORT(B).                                       { A = B; }
 
 // assignments
-stmt(A) ::= assign(B).                                         { A = B; }
+stmt(A) ::= assign(B).                                       { A = B; }
 
 // container 
-stmt(A) ::= CONTAINER(K) id(N) bblock(B).                      { A = ast->nappend(K, N, B); }
+stmt(A) ::= CONTAINER(K) id(N) bblock(B).                    { A = ast->nappend(K, N, B); }
 
-// node
-stmt(A) ::= NODE(K) nidd(N) fcond(C) bblock(B).                { A = ast->nappend(K, N, B, C); }
-stmt(A) ::= NODE(K) nidd(N) bblock(B).                         { A = ast->nappend(K, N, B); }
-
-nidd(A) ::= id(B).                                             { A = B; }
-nidd(A) ::= id(B) COLON id(C).                                 { A = ast->nappend(B, C); }
+// node 
+stmt(A) ::= NODE(K) id(N) fcond(C) bblock(B).                { A = ast->nappend(K, N, B, C); }
+stmt(A) ::= NODE(K) id(N) bblock(B).                         { A = ast->nappend(K, N, B); }
+stmt(A) ::= NODE(K) id(N) COLON id(T) fcond(C) bblock(B).    { A = ast->nappend(K, N, T, B, C); }
+stmt(A) ::= NODE(K) id(N) COLON id(T) bblock(B).             { A = ast->nappend(K, N, T, B); }
 
 // error check
 stmt(A) ::= ERRCHK(K) fcond(C) SEMICOLON.                      { A = ast->nappend(K, C); }
