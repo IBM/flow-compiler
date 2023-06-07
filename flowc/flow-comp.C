@@ -59,7 +59,7 @@ int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
 
     return (int) store.size();
 }
-int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
+int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::string default_input_symbol) {
     yyParser *pp = (yyParser *) flow_parserAlloc(malloc);
     if(trace_on)
         flow_parserTrace(stderr, (char *) "parser: ");
@@ -90,6 +90,10 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     
     flow_parserFree(pp, free);
     root_n = ptr;
+
+    // define the input symbol id not already there
+    if(get("flow").size() != 0 && get("flow/INPUT").size() == 0) 
+        nappend(get("flow")[0], node(FTK_INPUT, node(ast::token(FTK_ID, 0, 0, 0, default_input_symbol))));
 
     // node sanity check
     for(int n: get("//NODE")) {
@@ -135,11 +139,13 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     }
 
     fixup_symbol_references(debug_on);
-    propagate_value_types(debug_on);
-
-    // TODO check if we have entries
     if(get("flow/ENTRY").size() == 0) 
         error(filename, stru::sfmt() << "no entry definition found");
+
+    // The follwing step will generate spurious errors if the compilation 
+    // was not without error so far.
+    if(error_count == 0)
+        propagate_value_types(debug_on);
     
     return error_count;
 }
@@ -163,7 +169,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
                 // Get the last match.
                 for(int m: *this) if(m == p) break; else if(at(m).type == FTK_EQUALS && atc(m, 0).token.text == ids[0]) {
                     match_catnod.push_back(std::make_pair('p', m));
-                    last_match = m;
+                    last_match = at(m).children[1];
                     //std::cerr << "CHECKING 1 " << m << " " << atc(m, 0).token.text << "\n";
                     //print_ast(std::cerr, m);
                 }
@@ -183,7 +189,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
                         ambiguous_matches.push_back(node_last_match);
                 }
                 if(ambiguous_matches.size() == 1) {
-                    last_match = ambiguous_matches[0];
+                    last_match = at(ambiguous_matches[0]).children[1];
                     warn_hidden_enums = true;
                 }
             break;
@@ -203,7 +209,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
                         ambiguous_matches.push_back(node_last_match);
                 }
                 if(ambiguous_matches.size() == 1) {
-                    last_match = ambiguous_matches[0];
+                    last_match = at(ambiguous_matches[0]).children[1];
                     warn_hidden_enums = true;
                 }
             break;
@@ -229,7 +235,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
             if(gstore.lookup(mm, ids, &enums, false, false, true) == 0) {
                 vtype.set(parent(p), value_type(fvt_enum, gstore.enum_full_name_for_value(mm)));
             } else if(enums.size() > 1) {
-                error(at(p), stru::sfmt() << "ambigous reference to enum identifier");
+                error(at(p), stru::sfmt() << "ambiguous reference to enum identifier");
                 note(at(p), stru::sfmt() << "matches " << stru::join(enums, ", ", " and ", "", "\"", "\""));
             }
         }
@@ -237,7 +243,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
             error(at(p), stru::sfmt() << "reference to unknown identifier \"" << stru::join(ids, ".") << "\"");
         }
         if(ambiguous_matches.size() > 1) {
-            error(at(p), stru::sfmt() << "ambigous reference to " << stru::join(ids, "."));
+            error(at(p), stru::sfmt() << "ambiguous reference to " << stru::join(ids, "."));
             int c = 0;
             for(int am: ambiguous_matches) 
                 if(++c == 1) 
@@ -249,13 +255,15 @@ int compiler::fixup_symbol_references(bool debug_on) {
     // All output statements in nodes are checked by the parser to have a message expression with 
     // identifier (msgexp/did) that refers to a gRPC method.
     // Entries must explicitly refer to a gRPC method (ENTRY/did)
+    std::string default_input_type;
+    int first_default_input_entry = 0;
     for(auto p: get("//(NODE/block/OUTPUT/valx/msgexp/did|ENTRY/did)")) {
         auto ids = get_ids(p);
         std::set<std::string> methods;
         std::string mm; 
         if(gstore.lookup(mm, ids, &methods, true, false, false) != 0) {
             if(methods.size() > 0) {
-                error(at(p), stru::sfmt() << "ambigous reference to rpc \"" << stru::join(ids, ".") << "\"");
+                error(at(p), stru::sfmt() << "ambiguous reference to rpc \"" << stru::join(ids, ".") << "\"");
                 note(at(p), stru::sfmt() << "matches " << stru::join(methods, ", ", " and ", "", "\"", "\""));
             } else {
                 error(at(p), stru::sfmt() << "rpc not found \"" << stru::join(ids, ".") << "\"");
@@ -265,6 +273,18 @@ int compiler::fixup_symbol_references(bool debug_on) {
         if(at(parent(p)).type == FTK_ENTRY) {
             rpc.set(parent(p), mm);
             vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
+            for(int i: get("INPUT", parent(p))) 
+                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(mm)));
+
+            if(get("INPUT", parent(p)).size() == 0) {
+                if(first_default_input_entry == 0) {
+                    first_default_input_entry = parent(p);
+                    default_input_type = gstore.method_input_full_name(mm);
+                } else if(default_input_type != gstore.method_input_full_name(mm)) {
+                    error(at(p), stru::sfmt() << "input type mistmatch, \"" << gstore.method_input_full_name(mm) << "\" instead of \"" << default_input_type << "\"");
+                    notep(at(first_default_input_entry),  stru::sfmt() << "first implied from here");
+                }
+            }
         } else {
             cmsg.set(parent(p), gstore.method_input_full_name(mm));
             vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(mm)));
@@ -272,6 +292,11 @@ int compiler::fixup_symbol_references(bool debug_on) {
             vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
         }
     }
+    if(first_default_input_entry != 0 && !default_input_type.empty()) 
+        for(int i: get("//flow/INPUT")) 
+            if(!vtype.has(i))
+                vtype.set(i, gstore.message_to_value_type(default_input_type));
+    
     // Other message expressions with identifiers refer to the gRPC message type explicitly. 
     // They can be solved now, before the expression types are resolved.
     for(auto p: get("//valx/msgexp/did")) if(!cmsg.has(parent(p))) {
@@ -280,7 +305,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
         std::string mm; 
         if(gstore.lookup(mm, ids, &messages, false, true, false) != 0) {
             if(messages.size() > 0) {
-                error(at(p), stru::sfmt() << "ambigous reference to message type \"" << stru::join(ids, ".") << "\"");
+                error(at(p), stru::sfmt() << "ambiguous reference to message type \"" << stru::join(ids, ".") << "\"");
                 note(at(p), stru::sfmt() << "matches " << stru::join(messages, ", ", " and ", "", "\"", "\""));
             } else {
                 error(at(p), stru::sfmt() << "message not found \"" << stru::join(ids, ".") << "\"");
@@ -289,26 +314,124 @@ int compiler::fixup_symbol_references(bool debug_on) {
         cmsg.set(parent(p), mm);
         vtype.set(ancestor(p, 2), gstore.message_to_value_type(mm));
     }
+    // If the return msgexp does not have an explicit type, use the entry output type
+    for(auto p: get("//ENTRY/block/RETURN/valx/msgexp")) if(!cmsg.has(p)) {
+        std::string mn = rpc.get(ancestor(p, 4));
+        if(!mn.empty()) {
+            auto inpm = gstore.method_output_full_name(mn);
+            cmsg.set(p, inpm);
+            vtype.set(parent(p), gstore.message_to_value_type(inpm));
+        }
+    }
     return error_count-irc;
 }
-/* Solve expression types by computing them from subexpresssion types.
+int compiler::main_node_by_type(std::string node_type) const {
+    // look for any node that mathes the name
+    // look through entries with input defined
+    // check if it matches the predefined input
+    for(int n: get("//(NODE/1|ENTRY/ID|INPUT/ID)"))
+        if(vtype.has(parent(n)) && at(n).token.text == node_type)
+            return parent(n);
+    return 0;
+}
+
+static 
+value_type op1_type(int op, value_type l) {
+    value_type vt;
+    switch(op) {
+        case FTK_MINUS:
+            if(l.type == fvt_int) 
+                vt = value_type(fvt_int);
+            if(l.type == fvt_str || l.type == fvt_flt) 
+                vt = value_type(fvt_flt);
+            break;
+        default:
+            break;
+    }
+    return vt;
+}
+static 
+value_type op2_type(int op, value_type l, value_type r) {
+    return value_type();
+}
+/* Solve expression types by computing them from subexpression types.
  */
-int compiler::propagate_value_types(bool debug_on) {
+int compiler::compute_value_type(bool debug_on, int node) {
     int irc = error_count;
+    auto const &n = at(node); 
+    // did, ndid, msgexp, vala, range, fun, hash, bang, minus 
+    switch(atc(node, 0).type) {  
+        case FTK_ndid: {
+            int mn = main_node_by_type(atp(node, 0, 0).token.text);
+            if(mn != 0) {
+                auto did = stru::join(get_ids(n.children[0]), ".");
+                if(gstore.field_full_name(vtype.get(mn).struct_name(), did).empty()) {
+                    error(n, stru::sfmt() << "message of type \"" << vtype.get(mn).struct_name() << "\" does not have a field \"" << did << "\"");
+                    notep(at(mn), stru::sfmt() << "message type deduced from here");
+                }
+                vtype.set(node, gstore.field_to_value_type(vtype.get(mn).struct_name(), did));
+            }
+        }
+        break;
+        case FTK_did: 
+            if(ref.has(n.children[0]) && vtype.has(ref.get(n.children[0]))) {
+                // WARNING not covered
+                vtype.copy(ref.get(n.children[0]), n.children[0]); 
+            }
+        break;
+        case FTK_MINUS: {
+            if(vtype.has(n.children[1])) {
+                value_type t = op1_type(FTK_MINUS, vtype.get(n.children[1]));
+                vtype.set(node, t);
+                if(t.type == fvt_none)
+                    error(n, stru::sfmt() << "incompatible type for operator \"-\"");
+            }
+        }
+        break;
+        
+        default:
+            std::cerr << "DEAL this 1: \n"; 
+            print_ast(node);
+    }
+    return error_count - irc;
+}
+int compiler::propagate_value_types(bool debug_on) {
+    int irc = error_count, step = 0;
+    unsigned unfixed_nodes;
+    std::vector<int> todo;
+    do {
+        ++step;
+        unfixed_nodes = todo.size();
+        todo.clear();
+        for(int p: get("//valx"))
+            if(!vtype.has(p)) {
+                todo.push_back(p);
+                compute_value_type(debug_on, p);
+            }
+        std::cerr << "FIXVT " << step << " " << todo << "\n";
+    } while(todo.size() != unfixed_nodes);
     return error_count - irc;
 }
 
 int compiler::fixup_nodes(bool debug_on) {
-    // Propagate the return type to the node attribute
-    for(auto p: get("//NODE/block/RETURN/valx/msgexp")) {
+    int irc = error_count;
+    // Propagate the return type to the node/entry attribute
+    for(auto p: get("//(NODE|ENTRY)/block/RETURN/valx/msgexp")) {
         int nn = ancestor(p, 4);
-        if(vtype.has(nn) || !cmsg.has(p))
+        if(vtype.has(nn))
             continue;
-        vtype.set(nn, gstore.message_to_value_type(cmsg(p)));
+        if(vtype.has(parent(p))) {
+            vtype.copy(parent(p), nn);
+            continue;
+        }
+        if(cmsg.has(p)) {
+            vtype.set(nn, gstore.message_to_value_type(cmsg(p)));
+            vtype.copy(nn, parent(p));
+        }
     }
 
     // At this point some nodes could have return statements without type.
-    // If there is a type, and only one, already deducted for this node family, 
+    // If there is a type, and only one, already deduced for this node family, 
     // propagate that type as a requirement. Othewise generate errors... 
     std::map<std::string, std::vector<int>> nfams; 
     for(int p: get("//NODE/1")) { 
@@ -320,6 +443,7 @@ int compiler::fixup_nodes(bool debug_on) {
             continue;
         nfams[at(p).token.text].push_back(parent(p));
     }
+    /*
     for(auto nfe: nfams) {
         if(nfe.second.size() == 1) {
             // all is ok if we have a type
@@ -354,11 +478,9 @@ int compiler::fixup_nodes(bool debug_on) {
         }
 
     }
+    */
     std::cerr << "NODES: " << nfams << "\n";
-   
-    // Now that node output types are established, lookup ndid references.
-
-    return error_count;
+    return error_count-irc;
 }
 void compiler::reset() {
     input_filename.clear();

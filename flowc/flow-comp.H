@@ -51,6 +51,7 @@ struct value_type {
     fvt_type type;
     std::vector<value_type> inf;
     std::string gname;
+    std::string fname;
 
     value_type(fvt_type t=fvt_none, std::string gn=""):type(t), gname(gn) {
     }
@@ -61,6 +62,9 @@ struct value_type {
         inf.push_back(t);
     }
     std::string to_string() const;
+    std::string struct_name() const { return gname; }
+    std::string enum_name() const { return gname; }
+    std::string field_name() const { return fname; }
 };
 
 class compiler: public ast::tree {
@@ -129,7 +133,7 @@ public:
 
     /** Actions
      */
-    int compile(std::string filename, bool debug_on, bool trace_on);
+    int compile(std::string filename, bool debug_on, bool trace_on, std::string default_input_symbol);
     void print_ast(std::ostream &out, int node) const;
     void print_ast(int node) const;
     void ast_to_json(std::ostream &out, int node) const;
@@ -140,6 +144,7 @@ public:
     int parse_file(struct yyParser *pp, std::string filename, bool trace_on);
     int fixup_symbol_references(bool debug_on);
     int fixup_nodes(bool debug_on);
+    int compute_value_type(bool debug_on, int node);
     int propagate_value_types(bool debug_on);
 
     /** Initializers
@@ -160,19 +165,17 @@ public:
 
     /** Coversions
      */
-    /*
-    static int itype(std::string type_name);
-    static std::string stype(int type);
-    */
     virtual std::string tk_to_string(int ftk) const;
     virtual int string_to_tk(std::string ftk) const;
 
     /** Accesors
      */
-    /**
-     * Get the ids from a did ndid or ID node
+    /** Get the ids from a did ndid or ID node
      */
     std::vector<std::string> get_ids(int node) const;
+    /** Get the first node in tree order that has a return type
+     */
+    int main_node_by_type(std::string node_type) const;
 };
 
 }
