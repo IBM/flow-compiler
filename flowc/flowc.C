@@ -93,9 +93,13 @@ int main(int argc, char *argv[]) {
         comp.gstore.add_to_proto_path(path);
 
     // Compile the input file(s)
+    int trc = 0;
     for(int c = 1; c < argc; ++c) {
         std::cerr << argv[c] << ":\n";
-        int rc = comp.compile(argv[c], debug_on, trace_on);
+        int rc = comp.compile(argv[c], debug_on, trace_on, opts.opt("input-symbol", "input"));
+        if(rc != 0) 
+            comp.note(argv[c], stru::sfmt() << rc << " error(s) generated");
+        trc += rc;
     }
     // Print the AST if asked to
     if(opts.optb("print-ast"))
@@ -103,5 +107,5 @@ int main(int argc, char *argv[]) {
     if(opts.optb("json-ast"))
         comp.ast_to_json(std::cout, 0);
 
-    return comp.error_count;
+    return trc;
 }
