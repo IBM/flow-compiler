@@ -148,18 +148,28 @@ int store::lookup(std::string &match, std::vector<std::string> did, std::set<std
 };
 std::set<void const *> store::find_messages(std::string name) const {
     std::set<void const *> ptrs;
-    for(auto p: file_descriptors) {
+    auto p = importer.pool()->FindMessageTypeByName(name);
+    if(p != nullptr) 
+        ptrs.insert((void *)p);
+    if(ptrs.size() == 0) for(auto p: file_descriptors) {
         auto fd = (FileDescriptor const *)p;
-        for(int i = 0, e = fd->message_type_count(); i < e; ++i) 
+        for(int i = 0, e = fd->message_type_count(); i < e; ++i) {
             if(fd->message_type(i)->name() == name || 
                fd->message_type(i)->full_name() == name) 
                 ptrs.insert((void const *) fd->message_type(i));
+        }
+    }
+    if(ptrs.size() == 0) {
+        ptrs.insert((void *)p);
     }
     return ptrs;
 }
 std::set<void const *> store::find_methods(std::string name) const {
     std::set<void const *> ptrs;
-    for(auto p: file_descriptors) {
+    auto p = importer.pool()->FindMethodByName(name);
+    if(p != nullptr) 
+        ptrs.insert((void *)p);
+    if(ptrs.size() == 0) for(auto p: file_descriptors) {
         auto fd = (FileDescriptor const *)p;
         for(int i = 0, e = fd->service_count(); i < e; ++i) 
             for(int j = 0, f = fd->service(i)->method_count(); j < f; ++j) 
@@ -172,7 +182,10 @@ std::set<void const *> store::find_methods(std::string name) const {
 }
 std::set<void const *> store::find_enum_values(std::string name) const {
     std::set<void const *> ptrs;
-    for(auto p: file_descriptors) {
+    auto p = importer.pool()->FindEnumValueByName(name);
+    if(p != nullptr) 
+        ptrs.insert((void *)p);
+    if(ptrs.size() == 0) for(auto p: file_descriptors) {
         auto fd = (FileDescriptor const *)p;
         for(int i = 0, e = fd->enum_type_count(); i < e; ++i) 
             for(int j = 0, f = fd->enum_type(i)->value_count(); j < f; ++j) 
