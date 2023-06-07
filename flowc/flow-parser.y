@@ -100,9 +100,9 @@ stmts(A) ::= stmt(B).                                        { A = ast->node(FTK
 stmts(A) ::= stmts(B) stmt(C).                               { A = ast->nappend(B, C); }
 
 // directives & properties defaults
-stmt(A) ::= dirk(B) valx(C) SEMICOLON.                       { A = ast->nappend(B, C); } 
-dirk(A) ::= INCLUDE(B).                                      { A = B; }
-dirk(A) ::= IMPORT(B).                                       { A = B; }
+stmt(A) ::= INCLUDE(B) valx(C) SEMICOLON.                    { A = ast->nappend(B, C); } 
+stmt(A) ::= IMPORT(B) valx(C) SEMICOLON.                     { A = ast->nappend(B, C); } 
+stmt(A) ::= INPUT(B) id(C) SEMICOLON.                        { A = ast->nappend(B, C); }
 
 // assignments
 stmt(A) ::= assign(B).                                       { A = B; }
@@ -122,8 +122,8 @@ stmt(A) ::= ERRCHK(K) fcond(C) valx(M) SEMICOLON.               { A = ast->nappe
 stmt(A) ::= ERRCHK(K) fcond(C) valx(N) COMMA valx(M) SEMICOLON. { A = ast->nappend(K, C, N, M); }
 
 // entries
-stmt(A) ::= ENTRY(K) did(N) OPENPAR id(I) CLOSEPAR bblock(B). { A = ast->nappend(K, N, I, B); }
-stmt(A) ::= ENTRY(K) did(N) bblock(B).                         { A = ast->nappend(K, N, B); }
+stmt(A) ::= ENTRY(K) did(N) OPENPAR id(I) CLOSEPAR bblock(B). { A = ast->nappend(K, N, ast->node(FTK_INPUT, I), B); }
+stmt(A) ::= ENTRY(K) did(N) bblock(B).                        { A = ast->nappend(K, N, B); }
 
 // node condition
 fcond(A) ::= OPENPAR valx(B) CLOSEPAR. { A = B; }
@@ -317,25 +317,25 @@ valx(A) ::= TILDA id(F) OPENPAR vala(L) CLOSEPAR.           { A = ast->graft(ast
 
 valx(A) ::= PLUS valx(X).                                   { A = X; } [BANG]
 valx(A) ::= MINUS(O) valx(X).                               { A = ast->node(FTK_valx, O, X); } [BANG]
-valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); }          // size of repeated field
-valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); }
-valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); } // size of repeated field
+valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }
+valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }
 valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, ast->node(FTK_PLUS), L, ast->node(FTK_valx, O, R)); }  
 valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); }  
 valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }  
 valx(A) ::= valx(L) PERCENT(O) valx(R).                     { A = ast->node(FTK_valx, O, L, R); }  
 valx(A) ::= valx(L) POW(O) valx(R).                         { A = ast->node(FTK_valx, O, L, R); }  
 
-valx(A) ::= valx(B) COMP(C) valx(D).                        { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) EQ(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) NE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) LT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) GT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) LE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) GE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) AND(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) OR(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) SHL(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) SHR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); }  
-valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); }  
+valx(A) ::= valx(B) COMP(C) valx(D).                        { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) EQ(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) NE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) LT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) GT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) LE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) GE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) AND(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) OR(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) SHL(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) SHR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
+valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); ast->vtype.set(B, fc::value_type(fc::fvt_int));  }  
 
