@@ -65,6 +65,13 @@ struct value_type {
     std::string struct_name() const { return gname; }
     std::string enum_name() const { return gname; }
     std::string field_name() const { return fname; }
+    bool is_basic() const { return type == fvt_int || type == fvt_flt || type == fvt_str; }
+    bool is_null() const { return type == fvt_none; };
+    bool is_str() const { return type == fvt_str; };
+    bool is_num() const { return type == fvt_int || type == fvt_flt; };
+    bool is_array() const { return type == fvt_array; };
+    bool is_struct() const { return type == fvt_struct; };
+    value_type a_type() const { return type == fvt_array? inf[0]: value_type(); };
 };
 
 class compiler: public ast::tree {

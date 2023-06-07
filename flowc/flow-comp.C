@@ -342,7 +342,7 @@ value_type op1_type(int op, value_type l) {
         case FTK_MINUS:
             if(l.type == fvt_int) 
                 vt = value_type(fvt_int);
-            if(l.type == fvt_str || l.type == fvt_flt) 
+            else if(l.is_basic()) 
                 vt = value_type(fvt_flt);
             break;
         default:
@@ -352,7 +352,24 @@ value_type op1_type(int op, value_type l) {
 }
 static 
 value_type op2_type(int op, value_type l, value_type r) {
-    return value_type();
+    value_type vt;
+    switch(op) {
+        case FTK_PLUS:
+            if(l.type == r.type && l.is_basic()) 
+                vt = l;
+            else if(l.is_basic() && r.is_basic())
+                vt = l.is_str()? value_type(fvt_str): value_type(fvt_flt);
+            else if(l.a_type().type == r.type)
+                vt = l;
+            else if(l.type == r.a_type().type)
+                vt = r;
+            else if(l.is_array() && l.a_type().type == r.a_type().type)
+                vt = l;
+            break;
+        default:
+            break;
+    }
+    return vt;
 }
 /* Solve expression types by computing them from subexpression types.
  */
@@ -360,7 +377,7 @@ int compiler::compute_value_type(bool debug_on, int node) {
     int irc = error_count;
     auto const &n = at(node); 
     // did, ndid, msgexp, vala, range, fun, hash, bang, minus 
-    switch(atc(node, 0).type) {  
+    if(n.type == FTK_valx) switch(atc(node, 0).type) {  
         case FTK_ndid: {
             int mn = main_node_by_type(atp(node, 0, 0).token.text);
             if(mn != 0) {
@@ -379,20 +396,43 @@ int compiler::compute_value_type(bool debug_on, int node) {
                 vtype.copy(ref.get(n.children[0]), n.children[0]); 
             }
         break;
-        case FTK_MINUS: {
+        case FTK_msgexp: 
+            if(vtype.has(atc(node, 0).children[0]))
+                vtype.copy(atc(node, 0).children[0], node);
+        break;
+        case FTK_MINUS: 
             if(vtype.has(n.children[1])) {
                 value_type t = op1_type(FTK_MINUS, vtype.get(n.children[1]));
                 vtype.set(node, t);
                 if(t.type == fvt_none)
                     error(n, stru::sfmt() << "incompatible type for operator \"-\"");
             }
-        }
+        break;
+        case FTK_PLUS: 
+            if(vtype.has(n.children[1]) && vtype.has(n.children[2])) {
+                value_type t = op2_type(FTK_PLUS, vtype.get(n.children[1]), vtype.get(n.children[2]));
+                vtype.set(node, t);
+                if(t.type == fvt_none)
+                    error(n, stru::sfmt() << "incompatible type for operator \"+\"");
+            }
         break;
         
         default:
             std::cerr << "DEAL this 1: \n"; 
             print_ast(node);
+    } else if(n.type == FTK_list) {
+        unsigned solved = 0;
+        value_type t(fvt_struct);
+        for(int fa: n.children) if(vtype.has(at(fa).children[1])) {
+            value_type ft = vtype.get(at(fa).children[1]);
+            ft.fname = atc(fa, 0).token.text;
+            t.add_type(ft);
+            ++solved;
+        }
+        if(solved == n.children.size())
+            vtype.set(node, t);
     }
+
     return error_count - irc;
 }
 int compiler::propagate_value_types(bool debug_on) {
@@ -403,7 +443,7 @@ int compiler::propagate_value_types(bool debug_on) {
         ++step;
         unfixed_nodes = todo.size();
         todo.clear();
-        for(int p: get("//valx"))
+        for(int p: get("//(valx|msgexp/list)"))
             if(!vtype.has(p)) {
                 todo.push_back(p);
                 compute_value_type(debug_on, p);
