@@ -27,6 +27,8 @@ std::ostream &p_token(std::ostream &out, ast::token const &token) {
    return out;
 }
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
+    if(!vt.field_name().empty()) 
+        s << vt.field_name() << ": "; 
     switch(vt.type) {
         case fc::fvt_none:
             s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;
@@ -41,15 +43,15 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
             s << ANSI_GREEN+ANSI_BOLD << "str" << ANSI_RESET;
             break;
         case fc::fvt_enum:
-            s << "enum: " << ANSI_CYAN+ANSI_BOLD << vt.gname << ANSI_RESET;
+            s << "enum: " << ANSI_CYAN+ANSI_BOLD << vt.enum_name() << ANSI_RESET;
             break;
         case fc::fvt_array:
             s << ANSI_BOLD << "[" << ANSI_RESET << vt.inf[0] << ANSI_BOLD << "]" << ANSI_RESET;
             break;
 
         case fc::fvt_struct:
-            if(!vt.gname.empty()) 
-                s << ANSI_MAGENTA+ANSI_BOLD << vt.gname << ANSI_RESET;
+            if(!vt.struct_name().empty()) 
+                s << ANSI_MAGENTA+ANSI_BOLD << vt.struct_name() << ANSI_RESET;
             s << "(";
             for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
                 if(u > 0) s << ", ";
