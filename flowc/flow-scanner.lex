@@ -83,6 +83,7 @@ port                   emit(FTK_PORT);
 init                   emit(FTK_INIT);
 limits?                emit(FTK_LIMIT);
 mounts?                emit(FTK_MOUNT);
+timeout                emit(FTK_TIMEOUT);
 
 {MBU} emit(FTK_MBU);
 {URL} emit(FTK_URL);

@@ -31,6 +31,7 @@
     MOUNT 
     PORT 
     REPO 
+    TIMEOUT
     .
 %left SEMICOLON.
 %left COMMA.
@@ -60,6 +61,7 @@
 
 %include {
 #include "flow-comp.H"
+// undefine this to disable error productions
 //#define YYNOERRORRECOVERY
 }
 
@@ -94,7 +96,7 @@
 }
 
 flow(A) ::= stmts(B).                                        { A = ast->node(FTK_ACCEPT, B); }                                   
-stmts(A) ::= stmt(B).                                        { A = ast->node(FTK_flow, B); }            // FTK_flow is a list of FTK_stmt
+stmts(A) ::= stmt(B).                                        { A = ast->node(FTK_flow, B); }    // FTK_flow is a list of FTK_stmt
 stmts(A) ::= stmts(B) stmt(C).                               { A = ast->nappend(B, C); }
 
 // directives & properties defaults
@@ -115,15 +117,16 @@ stmt(A) ::= NODE(K) id(N) COLON id(T) fcond(C) bblock(B).    { A = ast->nappend(
 stmt(A) ::= NODE(K) id(N) COLON id(T) bblock(B).             { A = ast->nappend(K, N, T, B); }
 
 // error check
-stmt(A) ::= ERRCHK(K) fcond(C) SEMICOLON.                      { A = ast->nappend(K, C); }
-stmt(A) ::= ERRCHK(K) fcond(C) valx(M) SEMICOLON.              { A = ast->nappend(K, C, M); }
+stmt(A) ::= ERRCHK(K) fcond(C) SEMICOLON.                       { A = ast->nappend(K, C); }
+stmt(A) ::= ERRCHK(K) fcond(C) valx(M) SEMICOLON.               { A = ast->nappend(K, C, M); }
 stmt(A) ::= ERRCHK(K) fcond(C) valx(N) COMMA valx(M) SEMICOLON. { A = ast->nappend(K, C, N, M); }
 
 // entries
-stmt(A) ::= ENTRY(K) id(N) OPENPAR did(I) CLOSEPAR bblock(B). { A = ast->nappend(K, N, I, B); }
+stmt(A) ::= ENTRY(K) did(N) OPENPAR id(I) CLOSEPAR bblock(B). { A = ast->nappend(K, N, I, B); }
+stmt(A) ::= ENTRY(K) did(N) bblock(B).                         { A = ast->nappend(K, N, B); }
 
 // node condition
-fcond(A) ::= OPENPAR valx(B) CLOSEPAR.                         { A = B; }
+fcond(A) ::= OPENPAR valx(B) CLOSEPAR. { A = B; }
 
 // empty statement
 stmt ::= SEMICOLON. {}
@@ -190,6 +193,7 @@ limit(A) ::= IMAGE(B).                                         { A = B; }
 limit(A) ::= MEMORY(B).                                        { A = B; }
 limit(A) ::= PORT(B).                                          { A = B; }
 limit(A) ::= REPO(B).                                          { A = B; }
+limit(A) ::= TIMEOUT(B).                                       { A = B; }
 
 lmval(A) ::= valx(B).                                          { A = B; } 
 lmval(A) ::= valx(B) MBU(U).                                   { A = ast->nappend(B, U); } 
@@ -251,6 +255,7 @@ id(A) ::= MEMORY(B).    { A = ast->chtype(B, FTK_ID); }
 id(A) ::= MOUNT(B).     { A = ast->chtype(B, FTK_ID); }
 id(A) ::= PORT(B).      { A = ast->chtype(B, FTK_ID); }
 id(A) ::= REPO(B).      { A = ast->chtype(B, FTK_ID); }
+id(A) ::= TIMEOUT(B).   { A = ast->chtype(B, FTK_ID); } 
 
 //////////////////////////////////////////////////////////
 // field, node and types references
