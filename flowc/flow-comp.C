@@ -1,11 +1,14 @@
-#include <fstream>
-#include <string>
-
 #include "ast-scanner.H"
 #include "filu.H"
-#include "stru.H"
-#include "strsli.H"
 #include "flow-comp.H"
+#include "grpcu.H"
+#include "strsli.H"
+#include "stru.H"
+#include <fstream>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
 
 #define YYCOVERAGE
 #include "flow-parser.c"
@@ -87,6 +90,36 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
     
     flow_parserFree(pp, free);
     root_n = ptr;
+
+    // node sanity check
+    for(int n: get("//NODE")) {
+        auto dns = get("//(ERRCHK|RETURN|OUTPUT)", n);
+        if(dns.size() == 0) {
+            error(at(n), stru::sfmt() << "node contains no action instruction, either \"output\", \"return\", or \"error\" is required");
+            continue;
+        }
+        if(dns.size() > 1) {
+            error(at(n), stru::sfmt() << "node contains more than one action instruction, only one of \"output\", \"return\", or \"error\" is needed");
+            notep(at(dns[0]), stru::sfmt() << "action first defined here");
+            for(int i = 1; i < dns.size(); ++i)
+                notep(at(dns[i]), stru::sfmt() << "action re-defined here");
+        }
+    }
+
+    // entry sanity check
+    for(int n: get("//ENTRY")) {
+        auto dns = get("//RETURN", n);
+        if(dns.size() == 0) {
+            error(at(n), stru::sfmt() << "\"return\" statement is required here");
+            continue;
+        }
+        if(dns.size() > 1) {
+            error(at(n), stru::sfmt() << "entry contains more than one \"return\" statement");
+            notep(at(dns[0]), stru::sfmt() << "\"return\" first defined here");
+            for(int i = 1; i < dns.size(); ++i)
+                notep(at(dns[i]), stru::sfmt() << "\"return\" re-defined here");
+        }
+    }
     
     // import proto files
     for(int i: get("//flow/IMPORT")) {
@@ -101,12 +134,21 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
 
-    std::cerr << "getnod: " << get("//valx/did") << "\n";
-    std::cerr << "getnod: " << get("//valx//did") << "\n";
-    std::cerr << "nodid: " << get("//NODE/ID") << "\n";
-    std::cerr << "msgexp: " << get("//valx/msgexp/did") << "\n";
-    std::cerr << "outmsgexp: " << get("//NODE/block/OUTPUT/valx/msgexp/did") << "\n";
+    fixup_symbol_references(debug_on);
+    propagate_value_types(debug_on);
 
+    // TODO check if we have entries
+    if(get("flow/ENTRY").size() == 0) 
+        error(filename, stru::sfmt() << "no entry definition found");
+    
+    return error_count;
+}
+/**
+ * Fix up symbol references. 
+ * Initializes all explicitly typed message expressions. 
+ */
+int compiler::fixup_symbol_references(bool debug_on) {
+    int irc = error_count;
     // resolve references
     for(int p: get("//valx/did")) {
         auto ids = get_ids(p);
@@ -204,7 +246,10 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
                     notep(at(am), stru::sfmt() << "also defined here");
         }
     }
-    for(auto p: get("//NODE/block/OUTPUT/valx/msgexp/did")) {
+    // All output statements in nodes are checked by the parser to have a message expression with 
+    // identifier (msgexp/did) that refers to a gRPC method.
+    // Entries must explicitly refer to a gRPC method (ENTRY/did)
+    for(auto p: get("//(NODE/block/OUTPUT/valx/msgexp/did|ENTRY/did)")) {
         auto ids = get_ids(p);
         std::set<std::string> methods;
         std::string mm; 
@@ -217,11 +262,18 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
             }
             continue;
         }
-        cmsg.set(parent(p), gstore.method_input_full_name(mm));
-        vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(mm)));
-        rpc.set(ancestor(p, 3), mm);
-        vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
+        if(at(parent(p)).type == FTK_ENTRY) {
+            rpc.set(parent(p), mm);
+            vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
+        } else {
+            cmsg.set(parent(p), gstore.method_input_full_name(mm));
+            vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(mm)));
+            rpc.set(ancestor(p, 5), mm);
+            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
+        }
     }
+    // Other message expressions with identifiers refer to the gRPC message type explicitly. 
+    // They can be solved now, before the expression types are resolved.
     for(auto p: get("//valx/msgexp/did")) if(!cmsg.has(parent(p))) {
         auto ids = get_ids(p);
         std::set<std::string> messages;
@@ -237,20 +289,74 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on) {
         cmsg.set(parent(p), mm);
         vtype.set(ancestor(p, 2), gstore.message_to_value_type(mm));
     }
-    // propagate return type to the node
+    return error_count-irc;
+}
+/* Solve expression types by computing them from subexpresssion types.
+ */
+int compiler::propagate_value_types(bool debug_on) {
+    int irc = error_count;
+    return error_count - irc;
+}
+
+int compiler::fixup_nodes(bool debug_on) {
+    // Propagate the return type to the node attribute
     for(auto p: get("//NODE/block/RETURN/valx/msgexp")) {
         int nn = ancestor(p, 4);
         if(vtype.has(nn) || !cmsg.has(p))
             continue;
         vtype.set(nn, gstore.message_to_value_type(cmsg(p)));
     }
+
     // At this point some nodes could have return statements without type.
     // If there is a type, and only one, already deducted for this node family, 
     // propagate that type as a requirement. Othewise generate errors... 
-    
+    std::map<std::string, std::vector<int>> nfams; 
+    for(int p: get("//NODE/1")) { 
+        // first node child is always ID in a healthy ast
+        if(at(p).type != FTK_ID)
+            continue;
+        // don't bother with error nodes
+        if(get("//ERRCHK", parent(p)).size() != 0)
+            continue;
+        nfams[at(p).token.text].push_back(parent(p));
+    }
+    for(auto nfe: nfams) {
+        if(nfe.second.size() == 1) {
+            // all is ok if we have a type
+            if(!vtype.has(nfe.second[0])) 
+                error(at(nfe.second[0]), stru::sfmt() << "cannot deduce type for node \"" << nfe.first << "\"");
+            continue;
+        }
+        // pick the first node with a type as reference node
+        int rn = 0;
+        for(int nn: nfe.second)
+            if(vtype.has(nn)) {
+                rn = nn;
+                break;
+            }
+        for(int nn: nfe.second) if(nn != rn) {
+            auto cns = get("//RETURN", nn);
+            if(cns.size() != 1) // this node has genrerated an error already 
+                continue;
+
+            if(vtype.has(nn)) { // check that the types are compatible
+                std::cerr << "CHECK " << vtype.get(nn).to_string() << " AND " << vtype.get(rn).to_string() << "\n";
+                continue;
+            }
+            // assume success but add typechek mandate
+            vtype.copy(rn, nn);
+            auto mns = get("valx/msgexp", cns[0]);
+            std::cerr << "cns: " << cns << " mns: " << mns << "\n";
+            print_ast(nn);
+            assert(mns.size() == 1);
+            assert(!cmsg.has(mns[0]));
+            cmsg.set(mns[0], vtype.get(rn).gname);
+        }
+
+    }
+    std::cerr << "NODES: " << nfams << "\n";
    
     // Now that node output types are established, lookup ndid references.
-
 
     return error_count;
 }
@@ -258,7 +364,6 @@ void compiler::reset() {
     input_filename.clear();
     filenames.clear();
     warning_count = error_count = 0;
-    show_line_with_error = show_line_with_warning = true;
     // delete the tree
     store.clear(); root_n = 0;
 }
@@ -296,6 +401,8 @@ int compiler::string_to_tk(std::string ftk) const {
     for(int t = 0; t < sizeof(yyTokenName)/sizeof(yyTokenName[0]); ++t)
         if(ftk == yyTokenName[t])
             return t;
+    std::cerr << "internal error unknown token " << ftk << "\n";
+    assert(false);
     return 0;
 }
 }

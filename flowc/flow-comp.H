@@ -80,21 +80,17 @@ public:
     /** The number of errors and warnings currently accumulated
      */
     int warning_count, error_count;
-    /** Options for displaying the line with the current error or warning.
-     * They can (could) be set from the command line. 
-     */
-    bool show_line_with_error, show_line_with_warning;
     /** Compiler messages, and helper shortcuts
      */
     enum message_type { mt_error, mt_warning, mt_note };
     void message(std::string filename, int line, int column, message_type type, bool prompt, std::string const &msg) const;
 
     void error(std::string filename, int line, int column, std::string const &msg) {
-        message(filename, line, column, mt_error, show_line_with_error, msg);
+        message(filename, line, column, mt_error, true, msg);
         ++error_count;
     }
     void warning(std::string filename, int line, int column, std::string const &msg) {
-        message(filename, line, column, mt_warning, show_line_with_warning, msg);
+        message(filename, line, column, mt_warning, true, msg);
         ++warning_count;
     }
     void note(std::string filename, int line, int column, std::string const &msg) const {
@@ -106,12 +102,9 @@ public:
     struct file_pos {
         std::string filename;
         int line, column;
-        file_pos(compiler const *fc, std::string s): filename(s), line(-1), column(-1) {
-        }
-        file_pos(compiler const *fc, ast::atxt p): filename(fc->filenames[p.file]), line(p.line), column(p.column) {
-        }
-        file_pos(compiler const *fc, ast::node t): filename(fc->filenames[t.token.file]), line(t.token.line), column(t.token.column){
-        }
+        file_pos(compiler const *fc, std::string s): filename(s), line(-1), column(-1) { }
+        file_pos(compiler const *fc, ast::atxt p): filename(fc->filenames[p.file]), line(p.line), column(p.column) { }
+        file_pos(compiler const *fc, ast::node t): filename(fc->filenames[t.token.file]), line(t.token.line), column(t.token.column){ }
     };
     template <class L>
     void error(L fpos, std::string const &msg) {
@@ -145,6 +138,9 @@ public:
     /** Internal support
      */
     int parse_file(struct yyParser *pp, std::string filename, bool trace_on);
+    int fixup_symbol_references(bool debug_on);
+    int fixup_nodes(bool debug_on);
+    int propagate_value_types(bool debug_on);
 
     /** Initializers
      */

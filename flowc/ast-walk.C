@@ -84,7 +84,7 @@ std::vector<int> tree::get(std::string path, int node) const {
 
     if(pe[0] == '(') { // path expression
         for(auto en: stru::splitter(pe.substr(1, pe.length()-2), "|")) 
-            add_to_set(match, get(en+tail, n));
+            add_to_set(match, get((anywhere? std::string("//"): std::string())+en+tail, n));
     } else if(is_num(pe)) { // child index
         int pen = atol(pe.c_str());
         if(anywhere) {
@@ -106,13 +106,14 @@ std::vector<int> tree::get(std::string path, int node) const {
     } else { // field or *
         int tk = pe == "*"? 0: string_to_tk(pe);
         if(anywhere) {
-            for(auto x = begin(n), d = end(); x != d; ++x) 
+            for(auto x = begin(n), d = end(); x != d; ++x) {
                 if(*x != n && (tk == 0 || at(*x).type == tk)) {
                     if(tail.empty()) 
                         match.push_back(*x);
                     else 
                         add_to_set(match, get(tail, *x));
                 }
+            }
         } else {
             for(int x: at(n).children) 
                 if(x != n && (tk == 0 || at(x).type == tk)) {
@@ -126,9 +127,13 @@ std::vector<int> tree::get(std::string path, int node) const {
     if(match.size() > 1) {
         std::set<int> found(match.begin(), match.end());
         match.clear();
-        for(int i: *this) 
-            if(found.find(i) != found.end()) 
-                match.push_back(i);
+        for(auto x = begin(n), d = end(); x != d; ++x) 
+            if(found.find(*x) != found.end()) 
+                match.push_back(*x);
+        if(match.size() != found.size()) {
+            std::cerr << "internal error matches outside subtree " << n << " " << path << "\n";
+            assert(false);
+        }
     }
     return match;
 }
