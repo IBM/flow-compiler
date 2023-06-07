@@ -27,7 +27,9 @@ public:
     std::string enum_value_name(std::string name) const;
     std::string enum_value_full_name(std::string name) const;
     std::string enum_full_name_for_value(std::string name) const;
+    std::string field_full_name(std::string message_name, std::string field_name) const;
     struct fc::value_type message_to_value_type(std::string name) const;
+    struct fc::value_type field_to_value_type(std::string message_name, std::string field_name) const;
     int enum_value(std::string name) const;
 
     static int error_code(std::string id);

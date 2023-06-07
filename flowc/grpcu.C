@@ -59,6 +59,62 @@ void FErrorPrinter::AddError(std::string const &filename, int line, int column, 
 compiler::DiskSourceTree source_tree;
 FErrorPrinter fep(std::cerr, &source_tree);
 compiler::Importer importer(&source_tree, &fep);
+
+FieldDescriptor const *find_field_descriptor(Descriptor const *md, std::string field_name) {
+    std::string ffn, tail;
+    stru::split(&ffn, &tail, field_name, ".");
+    if(md != nullptr && ffn != "") {
+        auto fd = md->FindFieldByName(ffn);
+        if(fd == nullptr) fd = md->FindFieldByLowercaseName(ffn);
+        if(fd == nullptr) fd = md->FindFieldByCamelcaseName(ffn);
+        if(fd != nullptr && tail != "")
+            return find_field_descriptor(fd->message_type(), tail);
+        return fd;
+    }
+    return nullptr;
+}
+fc::value_type d_to_value_type(Descriptor const *md);
+fc::value_type fd_to_value_type(FieldDescriptor const *fd) {
+    fc::value_type ft;
+    if(fd != nullptr) {
+        switch(fd->cpp_type()) {
+            case FieldDescriptor::CppType::CPPTYPE_INT32:
+            case FieldDescriptor::CppType::CPPTYPE_INT64:
+            case FieldDescriptor::CppType::CPPTYPE_UINT32:
+            case FieldDescriptor::CppType::CPPTYPE_UINT64:
+            case FieldDescriptor::CppType::CPPTYPE_BOOL:
+                ft = fc::value_type(fc::fvt_int);
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_STRING:
+                ft = fc::value_type(fc::fvt_str);
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_DOUBLE:
+            case FieldDescriptor::CppType::CPPTYPE_FLOAT:
+                ft = fc::value_type(fc::fvt_flt);
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_ENUM:
+                ft = fc::value_type(fc::fvt_enum, fd->enum_type()->full_name());
+                break;
+            case FieldDescriptor::CppType::CPPTYPE_MESSAGE:
+                ft = d_to_value_type(fd->message_type());
+                break;
+        }
+        if(fd->is_repeated())
+            ft = fc::value_type(fc::fvt_array, {ft});
+        ft.fname = fd->name();
+    }
+    return ft;
+}
+fc::value_type d_to_value_type(Descriptor const *md) {
+    if(md == nullptr)
+        return fc::value_type();
+    fc::value_type vt(fc::fvt_struct, md->full_name());
+    for(int i = 0, c = md->field_count(); i < c; ++i) { 
+        vt.add_type(fd_to_value_type(md->field(i)));
+    }
+    return vt;
+}
+
 }
 
 namespace grpcu {
@@ -145,7 +201,13 @@ int store::lookup(std::string &match, std::vector<std::string> did, std::set<std
     else 
         match.clear();
     return allmp->size() == 1? 0: 1;
-};
+}
+
+std::string store::field_full_name(std::string message_name, std::string field_name) const {
+    auto md = importer.pool()->FindMessageTypeByName(message_name);
+    auto fd = find_field_descriptor(md, field_name);
+    return fd == nullptr? std::string(): fd->full_name();
+}
 std::set<void const *> store::find_messages(std::string name) const {
     std::set<void const *> ptrs;
     auto p = importer.pool()->FindMessageTypeByName(name);
@@ -229,38 +291,10 @@ fc::value_type store::message_to_value_type(std::string name) const {
     auto found = find_messages(name);
     if(found.size() != 1) 
         return fc::value_type();
-    auto md = (Descriptor const *) *found.begin();
-    fc::value_type vt(fc::fvt_struct, md->full_name());
-    for(int i = 0, c = md->field_count(); i < c; ++i) { 
-        auto fd = md->field(i);
-        fc::value_type ft;
-        switch(fd->cpp_type()) {
-            case FieldDescriptor::CppType::CPPTYPE_INT32:
-            case FieldDescriptor::CppType::CPPTYPE_INT64:
-            case FieldDescriptor::CppType::CPPTYPE_UINT32:
-            case FieldDescriptor::CppType::CPPTYPE_UINT64:
-            case FieldDescriptor::CppType::CPPTYPE_BOOL:
-                ft = fc::value_type(fc::fvt_int);
-                break;
-            case FieldDescriptor::CppType::CPPTYPE_STRING:
-                ft = fc::value_type(fc::fvt_str);
-                break;
-            case FieldDescriptor::CppType::CPPTYPE_DOUBLE:
-            case FieldDescriptor::CppType::CPPTYPE_FLOAT:
-                ft = fc::value_type(fc::fvt_flt);
-                break;
-            case FieldDescriptor::CppType::CPPTYPE_ENUM:
-                ft = fc::value_type(fc::fvt_enum, fd->enum_type()->full_name());
-                break;
-            case FieldDescriptor::CppType::CPPTYPE_MESSAGE:
-                ft = message_to_value_type(fd->message_type()->full_name());
-                break;
-        }
-        if(fd->is_repeated())
-            vt.add_type(fc::value_type(fc::fvt_array, {ft}));
-        else
-            vt.add_type(ft);
-    }
-    return vt;
+    return d_to_value_type((Descriptor const *) *found.begin());
+}
+fc::value_type store::field_to_value_type(std::string message_name, std::string field_name) const {
+    auto md = importer.pool()->FindMessageTypeByName(message_name);
+    return fd_to_value_type(find_field_descriptor(md, field_name));
 }
 }
