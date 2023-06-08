@@ -281,6 +281,21 @@ struct tree {
     iterator end() const {
         return iterator(this, -1);
     }
+    struct subtree_iterator {
+        tree const *tp;
+        int node;
+        subtree_iterator(tree const *atp, int anode): tp(atp), node(anode) {
+        }
+        iterator begin() const {
+            return tp->begin(node);
+        }
+        iterator end() const {
+            return tp->end();
+        }
+    };
+    subtree_iterator subtree(int n) const {
+        return subtree_iterator(this, n);
+    }
     int node_count(int node=0) const {
         int count = 0;
         for(auto p = begin(node); !p.at_end(); ++p)

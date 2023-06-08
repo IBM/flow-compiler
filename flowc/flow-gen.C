@@ -19,7 +19,8 @@ int compiler::walk(int node) {
 
     print_ast(node);
     int vn = get("//RETURN/valx", node)[0];
-
+    for(int x: subtree(node)) 
+        std::cerr << "[" << x << "]\n";
         
 
     return error_count - iec;
