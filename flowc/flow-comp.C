@@ -453,11 +453,15 @@ int compiler::compute_value_type(bool debug_on, int node) {
             int mn = main_node_by_type(atp(node, 0, 0).token.text);
             if(mn != 0) {
                 auto did = stru::join(get_ids(n.children[0]), ".");
-                if(gstore.field_full_name(vtype.get(mn).struct_name(), did).empty()) {
-                    error(n, stru::sfmt() << "message of type \"" << vtype.get(mn).struct_name() << "\" does not have a field \"" << did << "\"");
-                    notep(at(mn), stru::sfmt() << "message type deduced from here");
+                if(!did.empty()) {
+                    if(gstore.field_full_name(vtype.get(mn).struct_name(), did).empty()) {
+                        error(n, stru::sfmt() << "message of type \"" << vtype.get(mn).struct_name() << "\" does not have a field \"" << did << "\"");
+                        notep(at(mn), stru::sfmt() << "message type deduced from here");
+                    }
+                    vtype.set(node, gstore.field_to_value_type(vtype.get(mn).struct_name(), did));
+                } else {
+                    vtype.copy(mn, node);
                 }
-                vtype.set(node, gstore.field_to_value_type(vtype.get(mn).struct_name(), did));
             }
         }
         break;

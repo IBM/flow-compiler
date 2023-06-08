@@ -1,10 +1,11 @@
 #ifndef H_STRU_H
 #define H_STRU_H
 
-#include <iosfwd>
 #include <algorithm>
 #include <cstring>
+#include <deque>
 #include <iomanip>
+#include <iosfwd>
 #include <map>
 #include <set>
 #include <sstream>
@@ -50,6 +51,16 @@ std::ostream &operator << (std::ostream &s, std::set<A> const &m) {
         s << p;
     }
     return s << "}";
+}
+template <class A> inline static 
+std::ostream &operator << (std::ostream &s, std::deque<A> const &m) {
+    s << "(";
+    int c = 0;
+    for(auto const &p: m) {
+        if(++c > 1) s << ", ";
+        s << p;
+    }
+    return s << ")";
 }
 
 namespace stru {
