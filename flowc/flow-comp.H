@@ -147,6 +147,7 @@ public:
     void print_ast(int node) const;
     void ast_to_json(std::ostream &out, int node) const;
     int eval(int node, std::string &value, value_type *vtp=nullptr);
+    int walk(int node);
 
     /** Internal support
      */

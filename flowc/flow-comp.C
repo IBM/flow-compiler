@@ -5,6 +5,7 @@
 #include "strsli.H"
 #include "stru.H"
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <set>
 #include <string>
