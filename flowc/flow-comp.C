@@ -367,6 +367,8 @@ value_type op1_type(int op, value_type l) {
                 vt = value_type(fvt_flt);
             break;
         default:
+            std::cerr << "internal " << __FUNCTION__ << " not implemented for: " << op << "\n";
+            assert(false);
             break;
     }
     return vt;
@@ -387,7 +389,25 @@ value_type op2_type(int op, value_type l, value_type r) {
             else if(l.is_array() && l.a_type().type == r.a_type().type)
                 vt = l;
             break;
+        case FTK_STAR:   
+            if(l.is_str() && r.is_num())
+                vt = value_type(fvt_str);
+            else if(l.is_int() && r.is_int())
+                vt = value_type(fvt_int);
+            else if(l.is_num() && r.is_num())
+                vt = value_type(fvt_flt);
+            break;
+        case FTK_PERCENT: 
+        case FTK_SLASH:
+        case FTK_POW:
+            if(l.is_int() && r.is_int())
+                vt = value_type(fvt_int);
+            else if(l.is_num() && r.is_num())
+                vt = value_type(fvt_flt);
+            break;
         default:
+            std::cerr << "internal " << __FUNCTION__ << " not implemented for: " << op << "\n";
+            assert(false);
             break;
     }
     return vt;
@@ -433,22 +453,24 @@ int compiler::compute_value_type(bool debug_on, int node) {
         case FTK_BANG:
         break;
         case FTK_PLUS: 
-            if(vtype.has(n.children[1]) && vtype.has(n.children[2])) {
-                value_type t = op2_type(FTK_PLUS, vtype.get(n.children[1]), vtype.get(n.children[2]));
-                vtype.set(node, t);
-                if(t.type == fvt_none)
-                    error(n, stru::sfmt() << "incompatible type for operator \"+\"");
-            }
-        break;
         case FTK_PERCENT: // allow string % vala
-        break;
         case FTK_STAR:    // allow only numeric
         case FTK_SLASH:
         case FTK_POW:
+            if(vtype.has(n.children[1]) && vtype.has(n.children[2])) {
+                value_type t = op2_type(atc(node, 0).type, vtype.get(n.children[1]), vtype.get(n.children[2]));
+                vtype.set(node, t);
+                if(t.type == fvt_none)
+                    error(n, stru::sfmt() << "incompatible types for operator \"" << atc(node, 0).token.text << "\"");
+            }
+        break;
+        case FTK_QUESTION:
+            if(vtype.has(n.children[3]))
+                vtype.copy(n.children[3], node);
         break;
 
         default:
-            std::cerr << "DEAL this 1: \n"; 
+            std::cerr << "internal error propagating value type\n"; 
             print_ast(node);
     } else if(n.type == FTK_list) {
         unsigned solved = 0;

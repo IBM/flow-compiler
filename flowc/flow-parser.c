@@ -2323,7 +2323,7 @@ static YYACTIONTYPE yy_reduce(
         break;
       case 134: /* valx ::= valx QUESTION valx COLON valx */
 #line 340 "flow-parser.y"
-{ yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-3].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yymsp[-4].minor.yy0, fc::value_type(fc::fvt_int));  }
+{ yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-3].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
 #line 2327 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;

@@ -337,5 +337,5 @@ valx(A) ::= valx(B) AND(C) valx(D).                         { A = ast->node(FTK_
 valx(A) ::= valx(B) OR(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
 valx(A) ::= valx(B) SHL(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
 valx(A) ::= valx(B) SHR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); ast->vtype.set(B, fc::value_type(fc::fvt_int));  }  
+valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); }
 
