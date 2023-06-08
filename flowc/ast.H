@@ -2,7 +2,6 @@
 #define H_AST_H
 
 #include <cstdlib>
-#include <fstream>
 #include <map>
 #include <string>
 #include <utility>
@@ -404,16 +403,6 @@ struct tree {
      */
     std::vector<int> get(std::string path_expression, int node=0) const;
 };
-inline static 
-std::ostream &print_token(std::ostream &out, struct ast::token const &tok) {
-    if(tok.type == ATK_NONE) 
-        out << "<NONE>";
-    else if(tok.line > 0)
-        out << "<" << tok.type << "(" << tok.file << "-" << tok.line << ":" << tok.column << "):" << tok.text << ">";
-    else 
-        out << "<" << tok.type << ":" << tok.text << ">";
-    return out;
-}
 }
 
 

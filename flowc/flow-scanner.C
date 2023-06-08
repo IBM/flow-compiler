@@ -2214,6 +2214,16 @@ void yyfree (void * ptr )
 
 
 #ifdef SCANNER_TEST
+inline static 
+std::ostream &print_token(std::ostream &out, struct ast::token const &tok) {
+    if(tok.type == ATK_NONE) 
+        out << "<NONE>";
+    else if(tok.line > 0)
+        out << "<" << tok.type << "(" << tok.file << "-" << tok.line << ":" << tok.column << "):" << tok.text << ">";
+    else 
+        out << "<" << tok.type << ":" << tok.text << ">";
+    return out;
+}
 int main(int argc, char *argv[]) {
     ast::scanner sc(&std::cin);
     for(auto t = sc.scan(); t.type != ATK_EOF; t = sc.scan())
