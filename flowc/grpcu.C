@@ -185,7 +185,6 @@ int store::lookup(std::string &match, std::vector<std::string> did, std::set<std
     std::set<std::string> allm;
     if(allmp == nullptr) allmp = &allm;
     std::string dids = stru::join(did, ".");
-    std::cerr << "store-lookup: '" << dids << "', methods " << match_methods << ", messages " << match_messages << ", enums " << match_enums << "\n";
 
     if(match_methods) for(auto vp: find_methods(dids)) 
         allmp->insert(((MethodDescriptor const *) vp)->full_name());
