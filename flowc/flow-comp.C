@@ -146,6 +146,9 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
     // was not without error so far.
     if(error_count == 0)
         propagate_value_types(debug_on);
+
+    // If all went well, check that node families have the same return type
+
     
     return error_count;
 }
@@ -348,7 +351,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
         }
         idefs[iname].push_back(parent(i));
     }
-    // Check all node references 
+    // Check for undefined node references 
     for(int n: get("//ndid/1")) {
         if(nfams.find(at(n).token.text) == nfams.end() &&
            idefs.find(at(n).token.text) == idefs.end())
@@ -539,6 +542,7 @@ int compiler::propagate_value_types(bool debug_on) {
                 compute_value_type(debug_on, p);
             }
         std::cerr << "FIXVT " << step << " " << todo << "\n";
+        fixup_nodes(debug_on);
     } while(todo.size() != unfixed_nodes);
     return error_count - irc;
 }
@@ -553,10 +557,12 @@ int compiler::fixup_nodes(bool debug_on) {
             vtype.copy(parent(p), nn);
             continue;
         }
+        /*
         if(cmsg.has(p)) {
             vtype.set(nn, gstore.message_to_value_type(cmsg(p)));
             vtype.copy(nn, parent(p));
         }
+        */
     }
 
     // At this point some nodes could have return statements without type.
