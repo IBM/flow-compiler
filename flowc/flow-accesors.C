@@ -32,4 +32,13 @@ std::vector<std::string> compiler::get_ids(int node) const {
     }
     return ids;
 }
+int compiler::main_node_by_type(std::string node_type) const {
+    // look for any node that mathes the name
+    // look through entries with input defined
+    // check if it matches the predefined input
+    for(int n: get("//(NODE/1|INPUT/ID)"))
+        if(vtype.has(parent(n)) && at(n).token.text == node_type)
+            return parent(n);
+    return 0;
+}
 }

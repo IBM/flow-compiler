@@ -323,18 +323,39 @@ int compiler::fixup_symbol_references(bool debug_on) {
             vtype.set(parent(p), gstore.message_to_value_type(inpm));
         }
     }
+    // Grab the node families
+    std::map<std::string, std::vector<int>> nfams, idefs; 
+    for(int p: get("//NODE/1")) { 
+        // first node child is always ID in a healthy ast
+        if(at(p).type != FTK_ID)
+            continue;
+        // don't bother with error nodes
+        //if(get("//ERRCHK", parent(p)).size() != 0)
+        //    continue;
+        nfams[at(p).token.text].push_back(parent(p));
+    }
+    // Grab the inputs and check for name collision with nodes
+    for(int i: get("//INPUT/ID")) {
+        std::string iname = at(i).token.text;
+        if(idefs.find(iname) == idefs.end()) {
+            auto cf = nfams.find(iname);
+            if(cf != nfams.end()) {
+                error(at(cf->second[0]), stru::sfmt() << "node uses a name already used for input");
+                if(at(i).token.line != 0)
+                    notep(at(i), stru::sfmt() << "input defined here");
+                continue;
+            }
+        }
+        idefs[iname].push_back(parent(i));
+    }
+    // Check all node references 
+    for(int n: get("//ndid/1")) {
+        if(nfams.find(at(n).token.text) == nfams.end() &&
+           idefs.find(at(n).token.text) == idefs.end())
+            error(at(n), stru::sfmt() << "reference to undefined node or input \"" << at(n).token.text << "\"");
+    }
     return error_count-irc;
 }
-int compiler::main_node_by_type(std::string node_type) const {
-    // look for any node that mathes the name
-    // look through entries with input defined
-    // check if it matches the predefined input
-    for(int n: get("//(NODE/1|ENTRY/ID|INPUT/ID)"))
-        if(vtype.has(parent(n)) && at(n).token.text == node_type)
-            return parent(n);
-    return 0;
-}
-
 static 
 value_type op1_type(int op, value_type l) {
     value_type vt;
@@ -416,7 +437,6 @@ int compiler::compute_value_type(bool debug_on, int node) {
                     error(n, stru::sfmt() << "incompatible type for operator \"+\"");
             }
         break;
-        
         default:
             std::cerr << "DEAL this 1: \n"; 
             print_ast(node);
@@ -432,7 +452,6 @@ int compiler::compute_value_type(bool debug_on, int node) {
         if(solved == n.children.size())
             vtype.set(node, t);
     }
-
     return error_count - irc;
 }
 int compiler::propagate_value_types(bool debug_on) {
@@ -452,7 +471,6 @@ int compiler::propagate_value_types(bool debug_on) {
     } while(todo.size() != unfixed_nodes);
     return error_count - irc;
 }
-
 int compiler::fixup_nodes(bool debug_on) {
     int irc = error_count;
     // Propagate the return type to the node/entry attribute
