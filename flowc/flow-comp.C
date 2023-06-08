@@ -429,6 +429,9 @@ int compiler::compute_value_type(bool debug_on, int node) {
                     error(n, stru::sfmt() << "incompatible type for operator \"-\"");
             }
         break;
+        case FTK_HASH: 
+        case FTK_BANG:
+        break;
         case FTK_PLUS: 
             if(vtype.has(n.children[1]) && vtype.has(n.children[2])) {
                 value_type t = op2_type(FTK_PLUS, vtype.get(n.children[1]), vtype.get(n.children[2]));
@@ -437,6 +440,13 @@ int compiler::compute_value_type(bool debug_on, int node) {
                     error(n, stru::sfmt() << "incompatible type for operator \"+\"");
             }
         break;
+        case FTK_PERCENT: // allow string % vala
+        break;
+        case FTK_STAR:    // allow only numeric
+        case FTK_SLASH:
+        case FTK_POW:
+        break;
+
         default:
             std::cerr << "DEAL this 1: \n"; 
             print_ast(node);
