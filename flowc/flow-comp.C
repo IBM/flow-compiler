@@ -412,6 +412,32 @@ value_type op2_type(int op, value_type l, value_type r) {
     }
     return vt;
 }
+static
+std::map<std::string, value_type> predef_rt = {
+    {"rand", value_type(fvt_flt) },
+    {"exp", value_type(fvt_flt) },
+    {"log", value_type(fvt_flt) },
+    {"tolower", value_type(fvt_str) },
+    {"toupper", value_type(fvt_str) },
+    {"toid", value_type(fvt_str) },
+    {"tocname", value_type(fvt_str) },
+    {"str", value_type(fvt_str) },
+    {"int", value_type(fvt_int) },
+    {"flt", value_type(fvt_flt) },
+    {"format", value_type(fvt_flt) },
+    {"split", value_type(fvt_array, {value_type(fvt_str)}) },
+};
+
+static 
+value_type fun_type(std::string fname, std::vector<value_type> const &avt) {
+    value_type vt;
+    auto pp = predef_rt.find(fname);
+    if(pp != predef_rt.end())
+        return pp->second;
+    if(fname == "batch" && avt.size() == 1) 
+        return value_type(fvt_array, {avt[0]});
+    return vt;
+}
 /* Solve expression types by computing them from subexpression types.
  */
 int compiler::compute_value_type(bool debug_on, int node) {
@@ -470,8 +496,9 @@ int compiler::compute_value_type(bool debug_on, int node) {
         break;
 
         default:
-            std::cerr << "internal error propagating value type\n"; 
+            std::cerr << "internal not implemented propagating value for valx of type " << atc(node, 0).type << "\n"; 
             print_ast(node);
+            assert(false);
     } else if(n.type == FTK_list) {
         unsigned solved = 0;
         value_type t(fvt_struct);
@@ -483,6 +510,18 @@ int compiler::compute_value_type(bool debug_on, int node) {
         }
         if(solved == n.children.size())
             vtype.set(node, t);
+    } else if(n.type == FTK_fun) {
+        std::vector<value_type> avt;
+        for(unsigned a = 1, e = n.children.size(); a < e; ++a) 
+            if(vtype.has(n.children[a])) 
+                avt.push_back(vtype.get(n.children[a]));
+        if(avt.size()+1 == n.children.size()) {
+            value_type vt = fun_type(at(n.children[0]).token.text, avt);
+            if(!vt.is_null()) vtype.set(node, vt);
+        }
+    } else {
+        std::cerr << "internal propagating value type for " << n.type << "\n"; 
+        assert(false);
     }
     return error_count - irc;
 }
@@ -494,7 +533,7 @@ int compiler::propagate_value_types(bool debug_on) {
         ++step;
         unfixed_nodes = todo.size();
         todo.clear();
-        for(int p: get("//(valx|msgexp/list)"))
+        for(int p: get("//(valx|msgexp/list|fun)"))
             if(!vtype.has(p)) {
                 todo.push_back(p);
                 compute_value_type(debug_on, p);
