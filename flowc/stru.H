@@ -272,6 +272,10 @@ std::string to_option(std::string const &s, bool lower=true) {
     return u;
 }
 inline static
+std::string to_cname(std::string const &s, bool lower=true) {
+    return to_option(s, lower);
+}
+inline static
 std::string to_underscore(std::string const &s) {
     std::string u(s);
     for(auto &c: u) if(c == '-' || c == '.')  c = '_';
