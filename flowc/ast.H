@@ -1,6 +1,7 @@
 #ifndef H_AST_H
 #define H_AST_H
 
+#include <cassert>
 #include <cstdlib>
 #include <map>
 #include <string>

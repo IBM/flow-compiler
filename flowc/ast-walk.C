@@ -1,11 +1,12 @@
-#include "ast.H"
+#include <cassert>
+#include <cctype>
+#include <iostream>
+#include <set>
 #include <string>
 #include <vector>
-#include <cctype>
-#include <set>
-#include <iostream>
-#include "stru.H"
+#include "ast.H"
 #include "strsli.H"
+#include "stru.H"
 
 namespace {
 bool is_num(std::string s) {
