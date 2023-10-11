@@ -153,6 +153,8 @@ version.o: version.C build.id
 
 flow-compiler.o: flow-parser.c
 
+gc-conf.o: flow-templates.H
+
 flow-parser.h: flow-parser.c
 	@echo $@ > /dev/null
 
@@ -163,7 +165,7 @@ flow-scanner.C: flow-scanner.lex
 	 flex++ -Cem -o $@  $<
 
 clean:
-	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
+	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templates.C flow-templates.H flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	@echo Writing $@ $(patsubst %.C,%.H,$@)
