@@ -4,11 +4,11 @@
 #include "stru1.H"
 #include "ansi-escapes.H"
 #include "helpo.H"
+
 #define VEX_DEBUG
 #include "vex.H"
 
 #define VEX_NAME "vex"
-bool ansi::use_escapes = true;
 char const *get_version() {
     return BUILD_VERSION;
 }
@@ -118,12 +118,14 @@ int read_json_file(std::map<std::string, std::vector<std::string>> &m, std::istr
     return errc;
 }
 
-extern std::string get_vex_help();
+namespace templates {
+extern std::string vex_help_hlp();
+}
 
 int main(int argc, char *argv[], char **envp) {
     helpo::opts opts;
-    if(opts.parse(get_vex_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc < 2) {
-        ansi::use_escapes = opts.optb("color", ansi::use_escapes && isatty(fileno(stdout)) && isatty(fileno(stderr)));
+    if(opts.parse(templates::vex_help_hlp(), argc, argv) != 0 || opts.have("version") || opts.have("help") || argc < 2) {
+        std::cerr << (opts.optb("color", isatty(fileno(stderr)) && isatty(fileno(stdout)))? ansi::on: ansi::off);
 
         if(opts.have("version")) {
             std::cout << VEX_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
@@ -135,7 +137,7 @@ int main(int argc, char *argv[], char **envp) {
 #endif
             return 0;
         } else if(opts.have("help") || argc <= 2) {
-            std::cout << ansi::emphasize(get_vex_help(), ansi::escape(ANSI_BLUE),  ansi::escape(ANSI_BOLD)) << "\n";
+            std::cout << ansi::emphasize(ansi::emphasize(templates::vex_help_hlp(), ANSI_BLUE), ANSI_BOLD, "-", " \r\n\t =,;/", true, true) << "\n";
             return opts.have("help")? 0: 1;
         } else {
             std::cout << "Use --help to see the command line usage and all available options\n\n";
