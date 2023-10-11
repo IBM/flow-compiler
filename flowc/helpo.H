@@ -1,12 +1,13 @@
 #ifndef H_HELPO_H
 #define H_HELPO_H
-#include <cstring>
+#include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <getopt.h>
-#include <vector>
-#include <map>
 #include <iostream>
+#include <map>
 #include <string>
+#include <vector>
 /**
  * Parse help message and generate structures for getopt_long. 
  * Returns 0 if the command line parsed OK.
