@@ -108,7 +108,11 @@ IMAGE_NAME:=$(shell echo "$(IMAGE)" | cut -d ':' -f1)
 IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
-GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
+ifeq ($(HOST_OS), Darwin)
+	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf) -framework CoreFoundation
+else
+	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
+endif
 
 RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
