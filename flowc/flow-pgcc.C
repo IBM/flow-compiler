@@ -63,10 +63,12 @@ int flow_compiler::compile_proto(std::string const &file, int map_file_dir) {
         pcerr.AddError(file, -1, 0, "import failed");
         return 1;
     }
+#ifndef PROTOBUF_FUTURE_EDITIONS
     if(fdp->syntax() != FileDescriptor::Syntax::SYNTAX_PROTO3) {
         pcerr.AddError(file, -1, 0, "syntax must be proto3");
         return 1;
     }
+#endif
     std::set<FileDescriptor const *> included(fdps.begin(), fdps.end());
     if(cot::contains(included, fdp)) return 0;
     fdps.push_back(fdp);
