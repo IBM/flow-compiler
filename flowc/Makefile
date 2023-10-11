@@ -77,10 +77,6 @@ ifneq ($(CIVETWEB_VERSION), )
 	DOCKER_ARG_CIVETWEB_VERSION:=--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)"
 endif
 
-.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
-.PHONY: ubuntu-22.04 ubuntu-20.04 redhat-ubi8 alpine-3.18 debian-bullseye
-.PHONY: tools 
-
 # Find a suitable tar - needed for building the image
 HOST_OS:=$(shell uname -s)
 ifeq ($(TAR), )
@@ -114,10 +110,13 @@ IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 
-TEMPLATE_FILESX:=template.Dockerfile	template.client.py template.index.html template.server.C template.syntax \
-	template.Makefile template.docker.yaml template.kubernetes.group.yaml template.server.pem \
-	template.client.C template.driver.sh template.kubernetes.yaml template.slim.Dockerfile \
-	flowc.help
+RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
+RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
+RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
+
+.PHONY: $(RUNTIMES)
+.PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
+.PHONY: tools 
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
@@ -133,10 +132,16 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 	@echo ${CXX} -std=c++17 $(CCFLAGS) -c $<
 	@${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
 
+%.C: %.hlp
+	@echo Writing $@ from $^
+	@printf "#include <map>\n#include <string>\n#include <sstream>\n#include \"filu.H\"\nnamespace templates {\n" > $@
+	@for FILE in $^; do ID=$$(echo "$$FILE" | sed -E 's/^template.//' | tr -- '-./' '___'); echo "static unsigned char const $${ID}_z[] = {"; cat "$$FILE" | gzip -c | xxd -i; echo '};'; printf "std::string $${ID}() {return filu::gunzip($${ID}_z, %d);}\n" $$(cat "$$FILE" | gzip -c | wc -c); done >> $@
+	@echo "}" >> $@
+
 flowc: $(OBJS) 
 	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
 	@echo "====================================================================="
-	@./flowc --version
+	@./$@ --version
 
 version.o: version.C build.id
 	@echo ${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -c $<
@@ -155,10 +160,6 @@ flow-scanner.C: flow-scanner.lex
 
 clean:
 	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
-
-RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
-RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
-RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	@echo Writing $@ $(patsubst %.C,%.H,$@)
@@ -269,9 +270,13 @@ all-images: $(RUNTIMES)
 
 recli: recli.C
 	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(shell pkg-config --libs libcurl)
+	@echo "====================================================================="
+	@./$@ --version
 
-vex: vex.C vex.H stru1.H veximpl.C strtrs.C vex.help.C filu.C 
-	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex vex.C veximpl.C strtrs.C vex.help.C filu.C -lz
+vex: vex.C vex.H stru1.H veximpl.C strtrs.C vex-help.C filu.C ansi-escapes.C
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) -lz
+	@echo "====================================================================="
+	@./$@ --version
 
 TOOLS=recli vex
 
