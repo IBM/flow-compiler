@@ -2214,6 +2214,9 @@ static void print_banner(std::ostream &out) {
         << "{{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})\n" 
         << "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
         <<  "grpc " << grpc::Version() 
+#ifdef GOOGLE_PROTOBUF_VERSION
+        << ", protobuf " << int(GOOGLE_PROTOBUF_VERSION / 1000000) << "." << int((GOOGLE_PROTOBUF_VERSION % 1000000) / 1000) << "." << GOOGLE_PROTOBUF_VERSION % 1000
+#endif
 #if WITH_REST    
         << ", civetweb " << mg_version() 
 #endif        

@@ -303,7 +303,11 @@ static ansiesc_out &print_banner(ansiesc_out &out) {
     out << "{{NAME}} gRPC client\n" 
            "{{MAIN_FILE_SHORT}} ({{MAIN_FILE_TS}})\n" 
            "{{FLOWC_NAME}} {{FLOWC_VERSION}} ({{FLOWC_BUILD}})\n"
-           "grpc " << grpc::Version() << ", c-ares " << ares_version(nullptr) << "\n"
+           "grpc " << grpc::Version() 
+#ifdef GOOGLE_PROTOBUF_VERSION
+        << ", protobuf " << int(GOOGLE_PROTOBUF_VERSION / 1000000) << "." << int((GOOGLE_PROTOBUF_VERSION % 1000000) / 1000) << "." << GOOGLE_PROTOBUF_VERSION % 1000
+#endif
+        << ", c-ares " << ares_version(nullptr) << "\n"
 #if defined(__clang__)          
            "clang++ " << __clang_version__ << " (" << __cplusplus <<  ")\n"
 #elif defined(__GNUC__) 

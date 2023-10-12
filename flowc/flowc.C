@@ -677,6 +677,7 @@ static std::set<std::string> can_use_tempdir = {
 static int remove_callback(const char *pathname, const struct stat *, int, struct FTW *) {
     return remove(pathname);
 } 
+
 void show_builtin_help(std::ostream &);
 helpo::opts opts;
 int main(int argc, char *argv[]) {
@@ -694,7 +695,11 @@ int main(int argc, char *argv[]) {
             return 0;
         } else if(opts.have("version")) {
             std::cout << FLOWC_NAME << " " << get_version() << " (" << get_build_id() << ")\n";
-            std::cout << "grpc " << grpc::Version() << "\n";
+            std::cout << "grpc " << grpc::Version();
+#ifdef GOOGLE_PROTOBUF_VERSION
+            std::cout << ", protobuf " << int(GOOGLE_PROTOBUF_VERSION / 1000000) << "." << int((GOOGLE_PROTOBUF_VERSION % 1000000) / 1000) << "." << GOOGLE_PROTOBUF_VERSION % 1000;
+#endif
+            std::cout << "\n";
 #if defined(__clang__)          
             std::cout << "clang++ " << __clang_version__ << " (" << __cplusplus << ")\n";
 #elif defined(__GNUC__) 
