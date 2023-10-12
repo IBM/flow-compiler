@@ -12,7 +12,7 @@ RUN echo -e "[centos8-powertools]\nname=centos8-powertools\nbaseurl=http://vault
 
 RUN yum -y install vim curl jq bc tar unzip binutils \
  git make autoconf automake pkgconfig libtool libtool-ltdl gdb cmake \
- openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
+ openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel re2-devel \
  gcc-c++ file graphviz \
  && yum clean all -y
 
