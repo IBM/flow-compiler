@@ -681,7 +681,7 @@ static std::string log_abridge(google::protobuf::Message const &message, unsigne
     options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = true;
     std::string json_reply;
-    google::protobuf::util::MessageToJsonString(message, &json_reply, options);
+    (void) google::protobuf::util::MessageToJsonString(message, &json_reply, options);
     return log_abridge(json_reply, max_length);
 }
 struct call_info {
@@ -1410,7 +1410,7 @@ static int message_reply(struct mg_connection *conn, google::protobuf::Message c
     options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = false;
     std::string json_message;
-    google::protobuf::util::MessageToJsonString(message, &json_message, options);
+    (void) google::protobuf::util::MessageToJsonString(message, &json_message, options);
     return json_reply(conn, json_message.c_str(), json_message.length(), xtra_headers.c_str());
 }
 static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &context, ::grpc::Status const &status, std::string const &xtra_headers="") {
@@ -1434,7 +1434,8 @@ static int grpc_error(struct mg_connection *conn, ::grpc::ClientContext const &c
     }
     return json_reply(conn, code, "gRPC Error", errm.c_str(), errm.length(), xtra_headers.c_str());
 }
-static int conversion_error(struct mg_connection *conn, google::protobuf::util::Status const &status) {
+template <typename STATE> 
+static int conversion_error(struct mg_connection *conn, STATE const &status) {
     std::string error_message = flowc::sfmt() << "{"
         << "\"code\": 400,"
         << "\"message\": \"Input failed conversion to protobuf\","
