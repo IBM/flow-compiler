@@ -12,7 +12,7 @@ RUN echo -e "[centos8-powertools]\nname=centos8-powertools\nbaseurl=http://vault
 
 RUN yum -y install vim curl jq bc tar unzip binutils \
  git make autoconf automake pkgconfig libtool libtool-ltdl gdb cmake \
- openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel re2-devel \
+ openssl-devel redhat-lsb-core libcurl-devel libxml2-devel libicu-devel uuid-devel \
  gcc-c++ file graphviz \
  && yum clean all -y
 
@@ -40,7 +40,7 @@ RUN cd /tmp && if [ "$GRPC_VERSION" == "latest" ]; then \
     -DgRPC_SSL_PROVIDER=package \
     -DgRPC_CARES_PROVIDER=module    \
     -DgRPC_PROTOBUF_PROVIDER=module \
-    -DgRPC_RE2_PROVIDER=package     \
+    -DgRPC_RE2_PROVIDER=module     \
     -DgRPC_ZLIB_PROVIDER=package     \
     ../.. && make -j$(nproc) install \
         && cp /tmp/grpc/third_party/protobuf/src/google/protobuf/compiler/cpp/cpp_generator.h /usr/local/include/google/protobuf/compiler/cpp/ \
