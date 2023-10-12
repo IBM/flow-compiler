@@ -133,8 +133,8 @@ OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-template
 MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-templates.H $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y flowc.help
 
 %.o: %.C
-	@echo ${CXX} -std=c++17 $(CCFLAGS) -c $<
-	@${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
+	@echo ${CXX} $(CCFLAGS) -std=c++17 -c $<
+	@${CXX} "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -std=c++17 -c -MMD -MF $*.dep -o $@ $<
 
 %.C: %.hlp
 	@echo Writing $@ from $^
@@ -148,8 +148,8 @@ flowc: $(OBJS)
 	@./$@ --version
 
 version.o: version.C build.id
-	@echo ${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -c $<
-	@${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
+	@echo ${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -std=c++17 -c $<
+	@${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -std=c++17 -c -MMD -MF $*.dep -o $@ $<
 
 flow-compiler.o: flow-parser.c
 
