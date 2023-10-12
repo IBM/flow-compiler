@@ -53,6 +53,7 @@ static void get_enums(std::set<EnumValueDescriptor const *> &edset, FileDescript
         get_enums(edset, dd);
     }
 }
+
 int flow_compiler::compile_proto(std::string const &file, int map_file_dir) {
     auto fdp = importer.Import(file);
     if(fdp == nullptr && map_file_dir != 0) {
@@ -63,7 +64,7 @@ int flow_compiler::compile_proto(std::string const &file, int map_file_dir) {
         pcerr.AddError(file, -1, 0, "import failed");
         return 1;
     }
-#ifndef PROTOBUF_FUTURE_EDITIONS
+#if GOOGLE_PROTOBUF_VERSION < 4000000
     if(fdp->syntax() != FileDescriptor::Syntax::SYNTAX_PROTO3) {
         pcerr.AddError(file, -1, 0, "syntax must be proto3");
         return 1;
