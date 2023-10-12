@@ -1,5 +1,5 @@
 FROM flow-runtime AS flow-base
-ARG CIVETWEB_VERSION=1.15
+ARG CIVETWEB_VERSION=1.16
 ARG GRPC_VERSION=latest
 
 user root
@@ -21,9 +21,9 @@ WORKDIR /home/worker
 
 ## Build civetweb (https://github.com/civetweb/civetweb)
 RUN curl -L https://github.com/civetweb/civetweb/archive/v${CIVETWEB_VERSION}.tar.gz -o v${CIVETWEB_VERSION}.tar.gz
-RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz && cd civetweb-${CIVETWEB_VERSION} && make lib WITH_IPV6=1 WITH_X_DOM_SOCKET=1
+RUN tar -xzvf v${CIVETWEB_VERSION}.tar.gz && rm -f v${CIVETWEB_VERSION}.tar.gz && cd civetweb-${CIVETWEB_VERSION} && make lib WITH_ZLIB=1 WITH_IPV6=1 WITH_WEBSOCKET=1 
 ENV CIVETWEB_INCS=-I/home/worker/civetweb-${CIVETWEB_VERSION}/include
-ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl"
+ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl -lz"
 
 USER root
 
@@ -34,17 +34,18 @@ RUN cd /tmp && if [ "$GRPC_VERSION" == "latest" ]; then \
         git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc; \
     fi \
     && cd /tmp/grpc && git submodule update --init \
-    && mkdir -p cmake/build && pushd cmake/build \
-    && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. && make -j$(nproc) && make install \
-    && cmake -DgRPC_BUILD_TESTS=ON ../.. && make -j$(nproc) grpc_cli && strip grpc_cli && cp grpc_cli /usr/local/bin \
-    && popd \
-    && mkdir -p third_party/abseil-cpp/cmake/build && cd third_party/abseil-cpp/cmake/build \
-    && cmake -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j$(nproc) && make install \
-    && \
-        cd /usr/local/lib/pkgconfig && ls absl_absl_*.pc | while read F; do ln -s $F ${F#absl_*}; done && \
-        cp -r /tmp/grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
-        cd /usr/local/lib/ && ls libabsl_*.a | while read F; do ln -s $F libabsl_${F#lib*}; done && \
-    cd /tmp && rm -fr grpc
+    && mkdir -p cmake/build && cd cmake/build \
+    && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DABSL_PROPAGATE_CXX_STD=ON \
+    -DgRPC_ABSL_PROVIDER=module     \
+    -DgRPC_SSL_PROVIDER=package \
+    -DgRPC_CARES_PROVIDER=module    \
+    -DgRPC_PROTOBUF_PROVIDER=module \
+    -DgRPC_RE2_PROVIDER=package     \
+    -DgRPC_ZLIB_PROVIDER=package     \
+    ../.. && make -j$(nproc) install \
+        && cp /tmp/grpc/third_party/protobuf/src/google/protobuf/compiler/cpp/cpp_generator.h /usr/local/include/google/protobuf/compiler/cpp/ \
+    && cmake -DgRPC_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ../.. && make -j$(nproc) grpc_cli && strip grpc_cli && cp grpc_cli /usr/local/bin \
+    && cd /tmp && rm -fr grpc
 
 USER worker
 
