@@ -30,9 +30,9 @@ HTDOCS_PATH?={{HTDOCS_PATH-}}
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
 ifeq ($(HOST_OS), Darwin)
-GRPC_LIBS?=$(shell pkg-config --libs grpc++ protobuf) -lgrpc++_reflection -ldl -lresolv -framework CoreFoundation
+GRPC_LIBS?=$(shell pkg-config --static --libs grpc++ protobuf) -lgrpc++_reflection -ldl -lresolv -framework CoreFoundation
 else
-GRPC_LIBS?=$(shell pkg-config --libs-only-L grpc++ protobuf) -Wl,--no-as-needed -Wl,--whole-archive  -lgrpc++_reflection -ldl -Wl,--no-whole-archive -Wl,--as-needed $(shell pkg-config --libs grpc++ protobuf) 
+GRPC_LIBS?=$(shell pkg-config --libs-only-L grpc++ protobuf) -Wl,--no-as-needed -Wl,--whole-archive  -lgrpc++_reflection -ldl -Wl,--no-whole-archive -Wl,--as-needed $(shell pkg-config --static --libs grpc++ protobuf) 
 endif
 
 ifeq ($(REST), no)
@@ -49,14 +49,14 @@ endif
 
 ifeq ($(WITH_CIVETWEB), yes)
 CIVETWEB_INCS?=$(shell pkg-config --cflags civetweb) 
-CIVETWEB_LIBS?=$(shell pkg-config --libs civetweb)
+CIVETWEB_LIBS?=$(shell pkg-config --static --libs civetweb)
 SERVER_LFLAGS+= $(CIVETWEB_LIBS)
 SERVER_CFLAGS+= $(CIVETWEB_INCS)
 endif
 
 ifeq ($(WITH_CARES), yes)
 CARES_INCS?=$(shell pkg-config --cflags libcares) 
-CARES_LIBS?=$(shell pkg-config --libs libcares)
+CARES_LIBS?=$(shell pkg-config --static --libs libcares)
 SERVER_LFLAGS+= $(CARES_LIBS) 
 SERVER_CFLAGS+= $(CARES_INCS)
 CLIENT_LFLAGS+= $(CARES_LIBS) 
