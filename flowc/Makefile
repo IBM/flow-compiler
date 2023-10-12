@@ -155,6 +155,14 @@ flow-compiler.o: flow-parser.c
 
 gc-conf.o: flow-templates.H
 
+gc-server.o: flow-templates.H
+
+gc-client.o: flow-templates.H
+
+flowc.o: flow-templates.H
+
+version.o: flow-templates.H
+
 flow-parser.h: flow-parser.c
 	@echo $@ > /dev/null
 
