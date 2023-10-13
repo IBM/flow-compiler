@@ -1,6 +1,6 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.16
-ARG GRPC_VERSION=1.54.3
+ARG GRPC_VERSION=latest
 
 USER root
 
@@ -35,6 +35,7 @@ RUN cd /tmp && if [ "$GRPC_VERSION" == "latest" ]; then \
     -DgRPC_RE2_PROVIDER=package     \
     -DgRPC_ZLIB_PROVIDER=package     \
     ../.. && make -j$(nproc) install \
+        && ( [ -f /usr/local/lib/pkgconfig/re2.pc ] || ( pushd /tmp/grpc/third_party/re2 && make common-install prefix=/usr/local && popd ) ) \
         && cp /tmp/grpc/third_party/protobuf/src/google/protobuf/compiler/cpp/cpp_generator.h /usr/local/include/google/protobuf/compiler/cpp/ \
     && cmake -DgRPC_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ../.. && make -j$(nproc) grpc_cli && strip grpc_cli && cp grpc_cli /usr/local/bin \
     && cd /tmp && rm -fr grpc
