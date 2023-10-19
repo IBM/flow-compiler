@@ -83,6 +83,7 @@ public:
     ast::attribute<std::string> rpc;
     ast::attribute<std::string> cmsg;
     ast::attribute<std::string> amsg;
+    ast::attribute<std::string> iid;
 
     grpcu::store gstore;
 protected:
