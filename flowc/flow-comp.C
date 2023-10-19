@@ -92,7 +92,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
     flow_parserFree(pp, free);
     root_n = ptr;
 
-    // define the input symbol id not already there
+    // augment the tree with the input symbol if it was not explicitly defined
     if(get("flow").size() != 0 && get("flow/INPUT").size() == 0) 
         nappend(get("flow")[0], node(FTK_INPUT, node(ast::token(FTK_ID, 0, 0, 0, default_input_symbol))));
 
@@ -154,8 +154,9 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
     return error_count;
 }
 /**
- * Fix up symbol references. 
- * Initializes all explicitly typed message expressions. 
+ * Fix up symbol references.
+ * Initializes all explicitly typed message expressions.
+ * TODO: work in progress
  */
 int compiler::fixup_symbol_references(bool debug_on) {
     int irc = error_count;
