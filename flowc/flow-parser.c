@@ -1952,13 +1952,13 @@ static YYACTIONTYPE yy_reduce(
         break;
       case 10: /* stmt ::= NODE id COLON id fcond bblock */
 #line 117 "flow-parser.y"
-{ yylhsminor.yy0 = ast->nappend(yymsp[-5].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0, yymsp[-1].minor.yy0); }
+{ yylhsminor.yy0 = ast->nappend(yymsp[-5].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0, yymsp[-1].minor.yy0); ast->iid.set(yymsp[-5].minor.yy0, ast->node_text(yymsp[-2].minor.yy0)); }
 #line 1956 "flow-parser.c"
   yymsp[-5].minor.yy0 = yylhsminor.yy0;
         break;
       case 11: /* stmt ::= NODE id COLON id bblock */
 #line 118 "flow-parser.y"
-{ yylhsminor.yy0 = ast->nappend(yymsp[-4].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); }
+{ yylhsminor.yy0 = ast->nappend(yymsp[-4].minor.yy0, yymsp[-3].minor.yy0, yymsp[-1].minor.yy0, yymsp[0].minor.yy0); ast->iid.set(yymsp[-4].minor.yy0, ast->node_text(yymsp[-1].minor.yy0)); }
 #line 1962 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
