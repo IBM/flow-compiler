@@ -138,10 +138,12 @@ int store::import_file(std::string file, bool add_to_path) {
     }
     if(fdp == nullptr) 
         return 1;
+#if GOOGLE_PROTOBUF_VERSION < 4000000
     if(fdp->syntax() != FileDescriptor::Syntax::SYNTAX_PROTO3) {
         fep.AddError(file, -1, 0, "syntax must be proto3");
         return 1;
     }
+#endif
     std::set<void const *> included(file_descriptors.begin(), file_descriptors.end());
     if(included.find((void const *) fdp) != included.end())
         return 0;

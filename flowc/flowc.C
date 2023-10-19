@@ -8,7 +8,8 @@
 #include <string>
 #include <set>
 
-#include <grpc++/grpc++.h>
+#include <grpcpp/grpcpp.h>
+#include <google/protobuf/stubs/common.h>
 
 #include "ansi-escapes.H"
 #include "filu.H"
@@ -59,7 +60,11 @@ int main(int argc, char *argv[]) {
             return 0;
         } else if(opts.have("version")) {
             std::cout << FLOWC_NAME << " " << fc::compiler::get_version() << " (" << fc::compiler::get_build_id() << ")\n";
-            std::cout << "grpc " << grpc::Version() << "\n";
+            std::cout << "grpc " << grpc::Version();
+#ifdef GOOGLE_PROTOBUF_VERSION
+            std::cout << ", protobuf " << int(GOOGLE_PROTOBUF_VERSION / 1000000) << "." << int((GOOGLE_PROTOBUF_VERSION % 1000000) / 1000) << "." << GOOGLE_PROTOBUF_VERSION % 1000;
+#endif
+            std::cout << "\n";
 #if defined(__clang__)          
             std::cout << "clang++ " << __clang_version__ << " (" << __cplusplus << ")\n";
 #elif defined(__GNUC__) 
