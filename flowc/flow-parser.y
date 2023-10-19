@@ -31,6 +31,7 @@
     MOUNT 
     PORT 
     REPO 
+    SCALE
     TIMEOUT
     .
 %left SEMICOLON.
@@ -194,6 +195,7 @@ limit(A) ::= MEMORY(B).                                        { A = B; }
 limit(A) ::= PORT(B).                                          { A = B; }
 limit(A) ::= REPO(B).                                          { A = B; }
 limit(A) ::= TIMEOUT(B).                                       { A = B; }
+limit(A) ::= SCALE(B).                                       { A = B; }
 
 lmval(A) ::= valx(B).                                          { A = B; } 
 lmval(A) ::= valx(B) MBU(U).                                   { A = ast->nappend(B, U); } 
@@ -256,6 +258,7 @@ id(A) ::= MOUNT(B).     { A = ast->chtype(B, FTK_ID); }
 id(A) ::= PORT(B).      { A = ast->chtype(B, FTK_ID); }
 id(A) ::= REPO(B).      { A = ast->chtype(B, FTK_ID); }
 id(A) ::= TIMEOUT(B).   { A = ast->chtype(B, FTK_ID); } 
+id(A) ::= SCALE(B).   { A = ast->chtype(B, FTK_ID); } 
 
 //////////////////////////////////////////////////////////
 // field, node and types references
