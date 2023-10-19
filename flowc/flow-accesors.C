@@ -4,7 +4,7 @@
 
 namespace fc {
 /**
- * Grab the values of all ID children, skipping the first when the node id ndid.
+ * Grab the values of all ID children, skipping the first when the node is ndid.
  * If the node is ID, grab only its value.
  */
 std::vector<std::string> compiler::get_ids(int node) const {
