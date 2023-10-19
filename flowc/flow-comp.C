@@ -97,6 +97,8 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
         nappend(get("flow")[0], node(FTK_INPUT, node(ast::token(FTK_ID, 0, 0, 0, default_input_symbol))));
 
     // node sanity check
+    std::map<std::string, std::map<std::string, int>> node_table;
+    std::map<std::string, int> node_counts;
     for(int n: get("//NODE")) {
         auto dns = get("//(ERRCHK|RETURN|OUTPUT)", n);
         if(dns.size() == 0) {
@@ -108,6 +110,45 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
             notep(at(dns[0]), stru::sfmt() << "action first defined here");
             for(int i = 1; i < dns.size(); ++i)
                 notep(at(dns[i]), stru::sfmt() << "action re-defined here");
+        }
+        // check that the node ids are unique
+        auto nids = get("ID", n);
+        auto node_type = node_text(nids[0]);
+        if(node_counts.find(node_type) == node_counts.end()) {
+            node_counts[node_type] = 1;
+        } else {
+            node_counts[node_type] += 1;
+        }
+        auto &typeids = node_table[node_type];
+        if(nids.size() == 2) {
+            auto node_id = node_text(nids[1]);
+            if(typeids.find(node_id) == typeids.end()) {
+                typeids[node_id] = nids[0];
+            } else {
+                error(at(nids[1]), stru::sfmt() << "re-use of node ID \"" << node_id << "\"");
+                notep(at(typeids.find(node_id)->second), stru::sfmt() << "first defined here");
+            }
+        } 
+    }
+    // make a second pass for auto-generated node ids 
+    for(int n: get("//NODE")) {
+        auto nids = get("ID", n);
+        auto node_type = node_text(nids[0]);
+        auto &typeids = node_table[node_type];
+        if(nids.size() != 1) 
+            continue;
+        if(node_counts[node_type] == 1) {
+            typeids[node_type] = nids[0];
+            iid.set(n, node_type);
+            continue;
+        } 
+        for(int i = 1; i <= node_counts[node_type] * 2; ++i) {
+            std::string node_id = stru::sfmt() << node_type << "_" << i;
+            if(typeids.find(node_id) == typeids.end()) {
+                typeids[node_id] = nids[0];
+                iid.set(n, node_id);
+                break;
+            }
         }
     }
 
@@ -134,7 +175,6 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
             // TODO eval error here
             continue;
         }
-        std::cerr << "IMPORTING " << i << ": " << value << "\n";
         if(gstore.import_file(value, false) != 0) 
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
@@ -145,8 +185,8 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
 
     // The follwing step will generate spurious errors if the compilation 
     // was not without error so far.
-    if(error_count == 0)
-        propagate_value_types(debug_on);
+    //if(error_count == 0)
+    //    propagate_value_types(debug_on);
 
     // If all went well, check that node families have the same return type
 
