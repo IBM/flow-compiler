@@ -156,9 +156,14 @@ void compiler::print_ast(std::ostream &out, int node) const {
         out << ANSI_BOLD << type << ANSI_RESET;
         if(node.children.size()) out << "[" << node.children.size() << "]";
         int attrs = 0;
-        if(vtype.has(*p) || ref.has(*p) || rpc.has(*p) || cmsg.has(*p) || amsg.has(*p))
+        if(vtype.has(*p) || ref.has(*p) || rpc.has(*p) || cmsg.has(*p) || amsg.has(*p) || iid.has(*p))
             out << "(";
+        if(iid.has(*p)) {
+            out << ANSI_BOLD+ANSI_HRED << iid.get(*p) << ANSI_RESET;
+            ++attrs;
+        }
         if(vtype.has(*p)) {
+            if(attrs) out << ", ";
             out << "vtype: " << vtype.get(*p);
             ++attrs;
         }
