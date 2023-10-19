@@ -109,10 +109,15 @@ IMAGE_NAME:=$(shell echo "$(IMAGE)" | cut -d ':' -f1)
 IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 
 GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
-GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
+ifeq ($(HOST_OS), Darwin)
+	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf) -framework CoreFoundation
+else
+	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
+endif
 
 RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
+TOOLS=recli vex
 
 .PHONY: $(RUNTIMES)
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
@@ -139,7 +144,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 	@echo "}" >> $@
 
 flowc: $(OBJS) 
-	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz 
+	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} $(LFLAGS) -lz 
 	@echo "====================================================================="
 	@./$@ --version
 
@@ -149,10 +154,17 @@ version.o: version.C build.id
 
 flow-compiler.o: flow-parser.c
 
-flow-parser.h: flow-parser.c
-	@echo $@ > /dev/null
+gc-conf.o: flow-templates.H
 
-flow-parser.c: flow-parser.y
+gc-server.o: flow-templates.H
+
+gc-client.o: flow-templates.H
+
+flowc.o: flow-templates.H
+
+version.o: flow-templates.H
+
+%.c %.h: %.y
 	$(LEMON) $<
 
 flow-scanner.C: flow-scanner.lex
@@ -164,7 +176,8 @@ clean:
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
-	@echo Writing $@ $(patsubst %.C,%.H,$@) from $^
+	@echo Writing $@ $(patsubst %.C,%.H,$@)
+	@echo Adding $^ to $@
 	@printf "#include <map>\n#include <string>\n#include <sstream>\n#include \"filu.H\"\nnamespace templates {\n" > $@
 	@for FILE in $^; do ID=$$(echo "$$FILE" | sed -E 's/^template.//' | tr -- '-./' '___'); echo "static unsigned char const $${ID}_z[] = {"; cat "$$FILE" | gzip -c | xxd -i; echo '};'; printf "std::string $${ID}() {return filu::gunzip($${ID}_z, %d);}\n" $$(cat "$$FILE" | gzip -c | wc -c); done >> $@
 	@echo "std::map<std::string, std::string (*)()> ztemplate_runtime_Dockerfile = {" >> $@
@@ -269,16 +282,15 @@ redhat-ubi8:
 all-images: $(RUNTIMES)
 
 recli: recli.C
-	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(shell pkg-config --libs libcurl)
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(LFALGS) $(shell pkg-config --libs libcurl)
 	@echo "====================================================================="
 	@./$@ --version
 
 vex: vex.C vex.H stru.H veximpl.C strtrs.C vex-help.C filu.C filugz.C ansi-escapes.C strconv.C
-	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) -lz
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) $(LFLAGS) -lz
 	@echo "====================================================================="
 	@./$@ --version
 
-TOOLS=recli vex
 
 tools: $(TOOLS)
 
