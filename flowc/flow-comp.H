@@ -74,6 +74,13 @@ struct value_type {
     bool is_array() const { return type == fvt_array; }
     bool is_struct() const { return type == fvt_struct; }
     value_type a_type() const { return type == fvt_array? inf[0]: value_type(); }
+
+    inline bool operator ==(value_type const &other) const {
+        return type == other.type;
+    }
+    inline bool operator !=(value_type const &other) const {
+        return !(*this == other);
+    }
 };
 
 class compiler: public ast::tree {
@@ -157,6 +164,8 @@ private:
     int resolve_references(bool debug_on);
     int resolve_node_types(bool debug_on);
     int resolve_field_types(bool debug_on);
+    int check_node_references(bool debug_on);
+    int check_node_types(bool debug_on);
     int fixup_symbol_references(bool debug_on);
     int fixup_nodes(bool debug_on);
     int compute_value_type(bool debug_on, int node);

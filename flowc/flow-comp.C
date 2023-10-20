@@ -187,13 +187,49 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
 
     // The follwing step will generate spurious errors if the compilation 
     // was not without error so far.
-    if(error_count == 0)
-        propagate_value_types(debug_on);
+    error_count != 0 ||
+    propagate_value_types(debug_on) ||
 
     // If all went well, check that node families have the same return type
 
+    check_node_types(debug_on) ||
+    check_node_references(debug_on);
     
     return error_count;
+}
+/**
+ * Check nodes for circular references, and for inaccessibility.
+ * Warn for unused nodes.
+ */
+int compiler::check_node_references(bool debug_on) {
+    int irc = error_count;
+    return error_count - irc;
+}
+/**
+ * Check that all nodes return the same (or compatible) message type
+ */
+int compiler::check_node_types(bool debug_on) {
+    int irc = error_count;
+    std::map<std::string, std::vector<int>> node_families;
+    for(int n: get("//NODE")) 
+        node_families[node_text(at(n).children[0])].push_back(n);
+    for(auto const &ft: node_families) {
+        value_type nft; int fn = 0;
+        for(int n: ft.second) {
+            value_type const &nt = vtype(n);
+            if(nt.type == fvt_none)
+                continue;
+            if(nft.type == fvt_none) {
+                nft = nt; fn = n;
+                continue;
+            }
+            if(nft != nt) {
+                error(at(n), stru::sfmt() << "node returns message of incompatible type");
+                notep(at(fn), stru::sfmt() << "first declared here");
+            }
+        }
+    }
+    return error_count - irc;
 }
 /**
  * Resolve right values of the form id[.id]*
