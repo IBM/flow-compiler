@@ -169,7 +169,7 @@ void compiler::print_ast(std::ostream &out, int node) const {
         }
         if(ref.has(*p)) {
             if(attrs) out << ", ";
-            out << "ref: " << ANSI_BOLD+ANSI_RED << ref.get(*p) << ANSI_RESET;
+            out << ANSI_BOLD+ANSI_RED << "->" << ref.get(*p) << ANSI_RESET;
             ++attrs;
         }
         if(rpc.has(*p)) {

@@ -152,12 +152,16 @@ public:
 
     /** Internal support
      */
+private:
     int parse_file(struct yyParser *pp, std::string filename, bool trace_on);
+    int resolve_references(bool debug_on);
+    int resolve_node_types(bool debug_on);
+    int resolve_field_types(bool debug_on);
     int fixup_symbol_references(bool debug_on);
     int fixup_nodes(bool debug_on);
     int compute_value_type(bool debug_on, int node);
     int propagate_value_types(bool debug_on);
-
+public:
     /** Initializers
      */
     void reset();

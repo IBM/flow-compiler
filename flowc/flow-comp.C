@@ -179,14 +179,16 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
 
-    fixup_symbol_references(debug_on);
+    resolve_references(debug_on) ||
+    resolve_node_types(debug_on);
+
     if(get("flow/ENTRY").size() == 0) 
         error(filename, stru::sfmt() << "no entry definition found");
 
     // The follwing step will generate spurious errors if the compilation 
     // was not without error so far.
-    //if(error_count == 0)
-    //    propagate_value_types(debug_on);
+    if(error_count == 0)
+        propagate_value_types(debug_on);
 
     // If all went well, check that node families have the same return type
 
@@ -194,11 +196,11 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
     return error_count;
 }
 /**
- * Fix up symbol references.
- * Initializes all explicitly typed message expressions.
- * TODO: work in progress
+ * Resolve right values of the form id[.id]*
+ * to either node local variables for this or other nodes, 
+ * or enum values.
  */
-int compiler::fixup_symbol_references(bool debug_on) {
+int compiler::resolve_references(bool debug_on) {
     int irc = error_count;
     // resolve references
     for(int p: get("//valx/did")) {
@@ -207,6 +209,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
         int last_match = 0; 
         bool warn_hidden_enums = false;
         std::vector<std::pair<char, int>> match_catnod; // matches: category and node
+        int valx_n = parent(p);
 
         switch(ids.size()) {
             case 1:
@@ -230,7 +233,8 @@ int compiler::fixup_symbol_references(bool debug_on) {
                         //std::cerr << "CHECKING 2 " << m << " " << atc(m, 0).token.text << "\n";
                         //print_ast(std::cerr, m);
                     }
-                    if(node_last_match != 0)
+                    // Make sure the current node isn't included in matches
+                    if(node_last_match != 0 && at(node_last_match).children[1] != valx_n)
                         ambiguous_matches.push_back(node_last_match);
                 }
                 if(ambiguous_matches.size() == 1) {
@@ -250,7 +254,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
                         //std::cerr << "CHECKING 3 " << m << " " << atc(m, 0).token.text << "\n";
                         //print_ast(std::cerr, m);
                     }
-                    if(node_last_match != 0)
+                    if(node_last_match != 0 && at(node_last_match).children[1] != valx_n)
                         ambiguous_matches.push_back(node_last_match);
                 }
                 if(ambiguous_matches.size() == 1) {
@@ -265,20 +269,21 @@ int compiler::fixup_symbol_references(bool debug_on) {
 
         std::set<std::string> enums;
         if(last_match != 0) {
-            ref.set(p, last_match);
+            // Set the current valex ref attribute to the node with the definition
+            ref.set(valx_n, last_match);
             if(vtype.has(last_match)) 
                 vtype.copy(last_match, parent(p));
         }
         if(ids.size() == 1 && last_match == 0 && grpcu::store::error_code(ids[0]) >= 0) {
             // FIXME the grpc error code could be hidden by a local variable or another enum. 
             // would it make sense to issue a warning in such a case? maybe in the error context only?
-            vtype.set(parent(p), value_type(fvt_int));
+            vtype.set(valx_n, value_type(fvt_int));
             last_match = 1; 
         }
         if(last_match == 0) { 
             std::string mm; // main match TODO check for interference with other matches
             if(gstore.lookup(mm, ids, &enums, false, false, true) == 0) {
-                vtype.set(parent(p), value_type(fvt_enum, gstore.enum_full_name_for_value(mm)));
+                vtype.set(valx_n, value_type(fvt_enum, gstore.enum_full_name_for_value(mm)));
             } else if(enums.size() > 1) {
                 error(at(p), stru::sfmt() << "ambiguous reference to enum identifier");
                 note(at(p), stru::sfmt() << "matches " << stru::join(enums, ", ", " and ", "", "\"", "\""));
@@ -288,7 +293,7 @@ int compiler::fixup_symbol_references(bool debug_on) {
             error(at(p), stru::sfmt() << "reference to unknown identifier \"" << stru::join(ids, ".") << "\"");
         }
         if(ambiguous_matches.size() > 1) {
-            error(at(p), stru::sfmt() << "ambiguous reference to " << stru::join(ids, "."));
+            error(at(p), stru::sfmt() << "ambiguous reference to \"" << stru::join(ids, ".") << "\"");
             int c = 0;
             for(int am: ambiguous_matches) 
                 if(++c == 1) 
@@ -297,6 +302,44 @@ int compiler::fixup_symbol_references(bool debug_on) {
                     notep(at(am), stru::sfmt() << "also defined here");
         }
     }
+    // Look for circular references
+    int count = 0;
+    for(int s: get("//valx")) {
+        ++count;
+        std::set<int> visited;
+        std::vector<int> queue;
+        queue.push_back(s);
+        for(int f: get("//valx", s))
+            queue.push_back(f);
+        int r = 0;
+
+        while(r == 0 && queue.size() > 0) {
+            int x = queue.back(); 
+            queue.pop_back();
+            int c = ref(x);
+            visited.insert(x);
+            if(c == s) {
+                r = x;
+            } else if(c != 0) {
+                for(int f: get("//valx", c))
+                    if(visited.find(f) == visited.end())
+                        queue.push_back(f);
+            }
+        }
+        if(r != 0) {
+            error(at(s), stru::sfmt() << "expression references itself");
+            if(r != s)
+                notep(at(r), stru::sfmt() << "referenced here");
+        }
+    }
+
+    return error_count-irc;
+}
+/**
+ * Initializes all explicitly typed message expressions.
+ */
+int compiler::resolve_node_types(bool debug_on) {
+    int irc = error_count;
     // All output statements in nodes are checked by the parser to have a message expression with 
     // identifier (msgexp/did) that refers to a gRPC method.
     // Entries must explicitly refer to a gRPC method (ENTRY/did)
