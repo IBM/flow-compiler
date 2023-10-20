@@ -5,27 +5,6 @@
 #include "flow-comp.H"
 #include "stru.H"
 
-namespace {
-    
-std::ostream &p_token(std::ostream &out, ast::token const &token) {
-   switch(token.type) {
-       case FTK_INTEGER:
-           out << ANSI_CYAN << token.text << ANSI_RESET;
-           break;
-       case FTK_FLOAT:
-           out << ANSI_YELLOW << token.text << ANSI_RESET;
-           break;
-       case FTK_STRING:
-           out << ANSI_GREEN << token.text << ANSI_RESET;
-           break;
-       case FTK_ID:
-           out << ANSI_MAGENTA << token.text << ANSI_RESET;
-           break;
-       default:
-           out << ANSI_CYAN << token.text << ANSI_RESET;
-   }
-   return out;
-}
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     if(!vt.field_name().empty()) 
         s << vt.field_name() << ": "; 
@@ -61,6 +40,27 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
             break;
     }
     return s;
+}
+namespace {
+    
+std::ostream &p_token(std::ostream &out, ast::token const &token) {
+   switch(token.type) {
+       case FTK_INTEGER:
+           out << ANSI_CYAN << token.text << ANSI_RESET;
+           break;
+       case FTK_FLOAT:
+           out << ANSI_YELLOW << token.text << ANSI_RESET;
+           break;
+       case FTK_STRING:
+           out << ANSI_GREEN << token.text << ANSI_RESET;
+           break;
+       case FTK_ID:
+           out << ANSI_MAGENTA << token.text << ANSI_RESET;
+           break;
+       default:
+           out << ANSI_CYAN << token.text << ANSI_RESET;
+   }
+   return out;
 }
 std::ostream &to_json(std::ostream &s, fc::value_type const &vt) {
     switch(vt.type) {

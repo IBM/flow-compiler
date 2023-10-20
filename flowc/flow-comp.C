@@ -223,6 +223,8 @@ int compiler::check_node_types(bool debug_on) {
                 nft = nt; fn = n;
                 continue;
             }
+            std::cerr << "NTCHECK " << nft << "\n"
+                      << "        " << nt << "\n";
             if(nft != nt) {
                 error(at(n), stru::sfmt() << "node returns message of incompatible type");
                 notep(at(fn), stru::sfmt() << "first declared here");

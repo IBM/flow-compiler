@@ -5,6 +5,7 @@
 #include <vector>
 #include <set>
 #include <initializer_list>
+#include <iosfwd>
 #include "ast.H"
 #include "stru.H"
 #include "grpcu.H"
@@ -201,7 +202,7 @@ public:
      */
     int main_node_by_type(std::string node_type) const;
 };
-
 }
+std::ostream &operator << (std::ostream &s, fc::value_type const &vt);
 
 #endif
