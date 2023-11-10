@@ -201,9 +201,8 @@ int store::lookup(std::string &match, std::vector<std::string> did, std::set<std
         match = *allmp->begin();
     else 
         match.clear();
-    return allmp->size() == 1? 0: 1;
+    return int(allmp->size());
 }
-
 std::string store::field_full_name(std::string message_name, std::string field_name) const {
     auto md = importer.pool()->FindMessageTypeByName(message_name);
     auto fd = find_field_descriptor(md, field_name);
@@ -267,6 +266,21 @@ std::string store::method_input_full_name(std::string name) const {
     auto found = find_methods(name);
     if(found.size() != 1) return "";
     return ((MethodDescriptor const *) *found.begin())->input_type()->full_name();
+}
+std::string store::method_full_name(std::string name) const {
+    auto found = find_methods(name);
+    if(found.size() != 1) return "";
+    return ((MethodDescriptor const *) *found.begin())->full_name();
+}
+std::vector<std::string> store::all_method_full_names(std::string name) const {
+    std::vector<std::string> names(3);
+    auto found = find_methods(name);
+    if(found.size() == 1) {
+        names[2] = ((MethodDescriptor const *) *found.begin())->input_type()->full_name();
+        names[1] = ((MethodDescriptor const *) *found.begin())->full_name();
+        names[0] = ((MethodDescriptor const *) *found.begin())->output_type()->full_name();
+    }
+    return names;
 }
 std::string store::enum_value_name(std::string name) const {
     auto found = find_enum_values(name);
