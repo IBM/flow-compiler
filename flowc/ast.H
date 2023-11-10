@@ -281,21 +281,8 @@ struct tree {
     iterator end() const {
         return iterator(this, -1);
     }
-    struct subtree_iterator {
-        tree const *tp;
-        int node;
-        subtree_iterator(tree const *atp, int anode): tp(atp), node(anode) {
-        }
-        iterator begin() const {
-            return tp->begin(node);
-        }
-        iterator end() const {
-            return tp->end();
-        }
-    };
-    subtree_iterator subtree(int n) const {
-        return subtree_iterator(this, n);
-    }
+    /** Get the number fo nodes in the subtree at node
+     */
     int node_count(int node=0) const {
         int count = 0;
         for(auto p = begin(node); !p.at_end(); ++p)
@@ -308,12 +295,17 @@ struct tree {
                 return true;
         return false;
     }
+    /** Get the parent of node, within subtree 
+     */
     int parent(int node, int subtree=0) const {
         for(auto p = begin(subtree); !p.at_end(); ++p)
             if(is_child_of(*p, node))
                 return *p;
         return 0;
     }
+    /** Get the degree ancestor of node, within subtree.
+     * Parent is degree 1, and so on.
+     */
     int ancestor(int node, int degree, int subtree=0) const {
         int a = node;
         for(int d = 0; d < degree; ++d) {
@@ -322,6 +314,9 @@ struct tree {
         }
         return a;
     }
+    /** Get the sibling index of node. 
+     * The range is 0 .. siblings_count(node)-1.
+     */
     int sibling_index(int node, int subtree=0) const {
         int p = parent(node, subtree);
         if(p == 0) return -1;
@@ -346,7 +341,7 @@ struct tree {
             return at(p).children[x+1];
         return -1;
     }
-    int sibling_count(int node, int subtree=0) const {
+    int siblings_count(int node, int subtree=0) const {
         int p = parent(node, subtree);
         return (int) at(p).children.size();
     }
@@ -377,7 +372,7 @@ struct tree {
     }
     /** Get all the nodes of type <node_type> that is are subnodes of <node>
      */
-    std::vector<int> all(int node_type, int node=0) const {
+    std::vector<int> all_of_type(int node_type, int node=0) const {
         std::vector<int> n;
         for(auto p = begin(node); !p.at_end(); ++p)
             if(at(*p).type == node_type)
