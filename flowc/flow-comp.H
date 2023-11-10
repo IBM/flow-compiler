@@ -171,6 +171,13 @@ private:
     int fixup_nodes(bool debug_on);
     int compute_value_type(bool debug_on, int node);
     int propagate_value_types(bool debug_on);
+
+    int generate(std::ostream &buf, int entry_node, int input_node, bool debug_on);
+    int generate_valx(stru::indented_stream &indenter, int vn, bool debug_on);
+    int generate_valx_ndid(stru::indented_stream &indenter, int nn, bool debug_on);
+    int generate_valx_msgexp(stru::indented_stream &indenter, int mn, bool debug_on);
+
+    int dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth=0);
 public:
     /** Initializers
      */

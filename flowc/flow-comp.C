@@ -194,7 +194,14 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
 
     check_node_types(debug_on) ||
     check_node_references(debug_on);
-    
+   
+    if(error_count == 0) 
+        for(int en: get("//ENTRY"))  {
+            auto ins = get("//INPUT", en);
+            if(ins.size() == 0) ins = get("//flow/INPUT");
+            generate(std::cout, en, ins[0], debug_on);
+        }
+
     return error_count;
 }
 /**
@@ -212,7 +219,7 @@ int compiler::check_node_types(bool debug_on) {
     int irc = error_count;
     std::map<std::string, std::vector<int>> node_families;
     for(int n: get("//NODE")) 
-        node_families[node_text(at(n).children[0])].push_back(n);
+        node_families[node_text(child(n, 0))].push_back(n);
     for(auto const &ft: node_families) {
         value_type nft; int fn = 0;
         for(int n: ft.second) {
@@ -320,7 +327,7 @@ int compiler::resolve_references(bool debug_on) {
         }
         if(last_match == 0) { 
             std::string mm; // main match TODO check for interference with other matches
-            if(gstore.lookup(mm, ids, &enums, false, false, true) == 0) {
+            if(gstore.lookup(mm, ids, &enums, false, false, true) == 1) {
                 vtype.set(valx_n, value_type(fvt_enum, gstore.enum_full_name_for_value(mm)));
             } else if(enums.size() > 1) {
                 error(at(p), stru::sfmt() << "ambiguous reference to enum identifier");
@@ -387,7 +394,7 @@ int compiler::resolve_node_types(bool debug_on) {
         auto ids = get_ids(p);
         std::set<std::string> methods;
         std::string mm; 
-        if(gstore.lookup(mm, ids, &methods, true, false, false) != 0) {
+        if(gstore.lookup(mm, ids, &methods, true, false, false) != 1) {
             if(methods.size() > 0) {
                 error(at(p), stru::sfmt() << "ambiguous reference to rpc \"" << stru::join(ids, ".") << "\"");
                 note(at(p), stru::sfmt() << "matches " << stru::join(methods, ", ", " and ", "", "\"", "\""));
@@ -429,7 +436,7 @@ int compiler::resolve_node_types(bool debug_on) {
         auto ids = get_ids(p);
         std::set<std::string> messages;
         std::string mm; 
-        if(gstore.lookup(mm, ids, &messages, false, true, false) != 0) {
+        if(gstore.lookup(mm, ids, &messages, false, true, false) != 1) {
             if(messages.size() > 0) {
                 error(at(p), stru::sfmt() << "ambiguous reference to message type \"" << stru::join(ids, ".") << "\"");
                 note(at(p), stru::sfmt() << "matches " << stru::join(messages, ", ", " and ", "", "\"", "\""));
@@ -548,9 +555,11 @@ std::map<std::string, value_type> predef_rt = {
     {"toid", value_type(fvt_str) },
     {"tocname", value_type(fvt_str) },
     {"str", value_type(fvt_str) },
+    {"substr", value_type(fvt_str) },
     {"int", value_type(fvt_int) },
     {"flt", value_type(fvt_flt) },
     {"format", value_type(fvt_flt) },
+    {"join", value_type(fvt_str) },
     {"split", value_type(fvt_array, {value_type(fvt_str)}) },
 };
 
@@ -668,7 +677,7 @@ int compiler::propagate_value_types(bool debug_on) {
                 todo.push_back(p);
                 compute_value_type(debug_on, p);
             }
-        std::cerr << "FIXVT " << step << " " << todo << "\n";
+        //std::cerr << "FIXVT " << step << " " << todo << "\n";
         fixup_nodes(debug_on);
     } while(todo.size() != unfixed_nodes);
     return error_count - irc;
@@ -741,7 +750,7 @@ int compiler::fixup_nodes(bool debug_on) {
 
     }
     */
-    std::cerr << "NODES: " << nfams << "\n";
+    //std::cerr << "NODES: " << nfams << "\n";
     return error_count-irc;
 }
 void compiler::reset() {
@@ -788,5 +797,72 @@ int compiler::string_to_tk(std::string ftk) const {
     std::cerr << "internal error unknown token " << ftk << "\n";
     assert(false);
     return 0;
+}
+#define OUT indenter
+int compiler::generate(std::ostream &out, int en, int input_node, bool debug_on) {
+    stru::indented_stream indenter(out, 0);
+    int irc = error_count;
+    std::string input_label = node_text(get("ID", input_node)[0]);
+    OUT << "// ENTRY NODE " << en << " " << stru::join(get_ids(at(en).children[0]), ".") << "\n";
+    auto enames = gstore.all_method_full_names(stru::join(get_ids(child(en, 0)), "."));
+    OUT << "::grpc::Status " << enames[1] << "(::grpc::ServerContext *context, " << enames[0] << " const *pi, " << enames[2] << " *po) override {\n";
+    ++indenter;
+    OUT << "auto &rs = *po; auto const &rq = *pi; // " << input_label << "\n";
+    
+    // it was already verified that there is one and only one RETURN/valx subsequence
+    int vn =  get("//RETURN/valx", en)[0];
+    std::map<std::string, int> node_types;
+    dep_tree(indenter, vn, input_label, node_types);
+    OUT << "// node_families " <<  node_types << "\n";
+    generate_valx(indenter, vn, debug_on);
+
+    --indenter;
+    OUT << "}\n";
+    return error_count - irc;
+}
+int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
+    for(int n: all_of_type(FTK_ndid, vn)) {
+        std::string node_type = node_text(child(n, 0));
+        if(node_type == input_label || visited.find(node_type) != visited.end()) 
+            continue;
+        visited[node_type] = depth;
+        OUT << node_type << ": \n";
+        ++indenter;
+        for(int n: get("//NODE")) 
+            if(node_text(child(n, 0)) == node_type) {
+                for(int v: get("valx", n)) 
+                    dep_tree(indenter, v, input_label, visited, depth+1);
+                for(int v: get("//(ERRCHK|RETURN|OUTPUT)/valx", n)) 
+                    dep_tree(indenter, v, input_label, visited, depth+1);
+                for(int v: get("//HEADER/COLON/valx", n)) 
+                    dep_tree(indenter, v, input_label, visited, depth+1);
+            }
+        --indenter;
+    }
+    return 0; 
+}
+int compiler::generate_valx(stru::indented_stream &indenter, int vn, bool debug_on) {
+    int irc = error_count;
+    switch(atc(vn, 0).type) {
+        case FTK_msgexp:
+            OUT << "// msgexp " << child(vn, 0) << " for " << vn << "\n";
+            break;
+        case FTK_ndid:
+            OUT << "// ndid " << child(vn, 0) << " for " << vn << "\n";
+            break;
+        default:
+            std::cerr << "internal error: generate not implemented for " << tk_to_string(atc(vn, 0).type) << " at node " << vn << "\n";
+    }
+    return error_count - irc;
+}
+int compiler::generate_valx_ndid(stru::indented_stream &indenter, int nn, bool debug_on) {
+    int irc = error_count;
+
+    return error_count - irc;
+}
+int compiler::generate_valx_msgexp(stru::indented_stream &indenter, int mn, bool debug_on) {
+    int irc = error_count;
+
+    return error_count - irc;
 }
 }
