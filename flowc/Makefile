@@ -144,7 +144,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 	@echo "}" >> $@
 
 flowc: $(OBJS) 
-	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} $(LFLAGS) -lz 
+	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} $(LFLAGS)
 	@echo "====================================================================="
 	@./$@ --version
 
@@ -282,7 +282,7 @@ redhat-ubi8:
 all-images: $(RUNTIMES)
 
 recli: recli.C
-	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(LFALGS) $(shell pkg-config --libs libcurl)
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o recli recli.C $(LFLAGS) $(shell pkg-config --libs libcurl)
 	@echo "====================================================================="
 	@./$@ --version
 
