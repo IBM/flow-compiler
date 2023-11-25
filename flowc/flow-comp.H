@@ -195,7 +195,7 @@ public:
     static std::string get_default_runtime();
     static std::set<std::string> available_runtimes();
 
-    /** Coversions
+    /** Conversions
      */
     virtual std::string tk_to_string(int ftk) const;
     virtual int string_to_tk(std::string ftk) const;
@@ -208,6 +208,15 @@ public:
     /** Get the first node in tree order that has a return type
      */
     int main_node_by_type(std::string node_type) const;
+    /** Get all the node referenced by the subtree at <node_node>
+     */
+    int get_node_references(std::map<std::string, std::set<int>> &refs, int node_node) const;
+    /** Get all the node referenced by the subtrees of all nodes in the same <node_family>
+     */
+    int get_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const;
+    /** Recursively get all the nodes referenced by <node_family>
+     */
+    int get_deep_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const;
 };
 }
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt);

@@ -204,12 +204,81 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
 
     return error_count;
 }
+
+int compiler::get_node_references(std::map<std::string, std::set<int>> &refs, int node_node) const {
+    auto s = refs.size();
+    for(int nn: all_of_type(FTK_ndid, node_node)) {
+        std::string nfamname = node_text(child(nn, 0));
+        refs[nfamname].insert(nn);
+    }
+    return refs.size()-s;
+}
+int compiler::get_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const {
+    auto s = refs.size();
+
+    for(int n: get("//NODE"))
+        if(node_family == node_text(child(n, 0)))
+            get_node_references(refs, n);
+    return refs.size()-s;
+}
+int compiler::get_deep_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const {
+    auto s = refs.size();
+
+    std::map<std::string, std::set<int>> lrefs;
+    std::set<std::string> new_families;    
+    new_families.insert(node_family);
+
+    while(new_families.size() > 0) {
+        lrefs.clear();
+        for(auto nf: new_families)
+            get_node_references(lrefs, nf);
+        new_families.clear();
+        for(auto ls: lrefs) {
+            if(refs.find(ls.first) == refs.end())
+                new_families.insert(ls.first);
+            refs[ls.first].insert(ls.second.begin(), ls.second.end());
+        }
+    }
+
+    return refs.size()-s;
+}
 /**
  * Check nodes for circular references, and for inaccessibility.
  * Warn for unused nodes.
  */
 int compiler::check_node_references(bool debug_on) {
     int irc = error_count;
+    std::map<std::string, std::set<int>> allrefs;
+    for(int en: get("//ENTRY")) {
+        auto ins = get("//INPUT", en);
+        if(ins.size() == 0) ins = get("//flow/INPUT");
+        int input_node = ins[0];
+        std::string input_label = node_text(get("ID", input_node)[0]);
+
+        std::map<std::string, std::set<int>> entrefs;
+        // start with the nodes referenced in the entry
+        get_node_references(entrefs, en);
+        for(auto nf: entrefs) if(nf.first != input_label) {
+            std::map<std::string, std::set<int>> noderefs;
+            get_deep_node_references(noderefs, nf.first);
+            for(auto ls: noderefs)
+                allrefs[ls.first].insert(ls.second.begin(), ls.second.end());
+            allrefs[nf.first].insert(nf.second.begin(), nf.second.end());
+        }
+    }
+    // check each node for circular references
+    for(auto nf: allrefs) {
+        std::map<std::string, std::set<int>> noderefs;
+        get_deep_node_references(noderefs, nf.first);
+        if(noderefs.find(nf.first) != noderefs.end()) 
+            error(at(*noderefs.find(nf.first)->second.begin()), stru::sfmt() << "circular reference of node \"" << nf.first << "\"\n");
+    }
+    // look for unreferenced nodes
+    for(int n: get("//NODE")) {
+        std::string node_family = node_text(child(n, 0));
+        if(allrefs.find(node_family) == allrefs.end())
+            warning(at(child(n, 0)), stru::sfmt() << "node \"" << node_family << "\" is not referenced by any entry\n");
+    }
     return error_count - irc;
 }
 /**
@@ -218,7 +287,7 @@ int compiler::check_node_references(bool debug_on) {
 int compiler::check_node_types(bool debug_on) {
     int irc = error_count;
     std::map<std::string, std::vector<int>> node_families;
-    for(int n: get("//NODE")) 
+    for(int n: get("//NODE"))
         node_families[node_text(child(n, 0))].push_back(n);
     for(auto const &ft: node_families) {
         value_type nft; int fn = 0;
@@ -230,8 +299,6 @@ int compiler::check_node_types(bool debug_on) {
                 nft = nt; fn = n;
                 continue;
             }
-            std::cerr << "NTCHECK " << nft << "\n"
-                      << "        " << nt << "\n";
             if(nft != nt) {
                 error(at(n), stru::sfmt() << "node returns message of incompatible type");
                 notep(at(fn), stru::sfmt() << "first declared here");
@@ -798,35 +865,38 @@ int compiler::string_to_tk(std::string ftk) const {
     assert(false);
     return 0;
 }
-#define OUT indenter
-int compiler::generate(std::ostream &out, int en, int input_node, bool debug_on) {
-    stru::indented_stream indenter(out, 0);
+int compiler::generate(std::ostream &out_stream, int en, int input_node, bool debug_on) {
+    stru::indented_stream indenter(out_stream, 0);
+    auto &out = indenter;
     int irc = error_count;
     std::string input_label = node_text(get("ID", input_node)[0]);
-    OUT << "// ENTRY NODE " << en << " " << stru::join(get_ids(at(en).children[0]), ".") << "\n";
+
+    out << "// ENTRY NODE " << en << " " << stru::join(get_ids(at(en).children[0]), ".") << "\n";
     auto enames = gstore.all_method_full_names(stru::join(get_ids(child(en, 0)), "."));
-    OUT << "::grpc::Status " << enames[1] << "(::grpc::ServerContext *context, " << enames[0] << " const *pi, " << enames[2] << " *po) override {\n";
+    out << "::grpc::Status " << enames[1] << "(::grpc::ServerContext *context, " << enames[0] << " const *mip, " << enames[2] << " *mop) override {\n";
     ++indenter;
-    OUT << "auto &rs = *po; auto const &rq = *pi; // " << input_label << "\n";
+    out << "auto &mo = *mop; auto const &mi = *mip; // " << input_label << "\n";
     
     // it was already verified that there is one and only one RETURN/valx subsequence
     int vn =  get("//RETURN/valx", en)[0];
     std::map<std::string, int> node_types;
     dep_tree(indenter, vn, input_label, node_types);
-    OUT << "// node_families " <<  node_types << "\n";
+    out << "// node_families " <<  node_types << "\n";
     generate_valx(indenter, vn, debug_on);
 
     --indenter;
-    OUT << "}\n";
+    out << "}\n";
     return error_count - irc;
 }
 int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
+    auto &out = indenter;
+    // iterate over all ndid children of vn
     for(int n: all_of_type(FTK_ndid, vn)) {
         std::string node_type = node_text(child(n, 0));
         if(node_type == input_label || visited.find(node_type) != visited.end()) 
             continue;
         visited[node_type] = depth;
-        OUT << node_type << ": \n";
+        out << node_type << ": \n";
         ++indenter;
         for(int n: get("//NODE")) 
             if(node_text(child(n, 0)) == node_type) {
@@ -843,12 +913,13 @@ int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string inpu
 }
 int compiler::generate_valx(stru::indented_stream &indenter, int vn, bool debug_on) {
     int irc = error_count;
+    auto &out = indenter;
     switch(atc(vn, 0).type) {
         case FTK_msgexp:
-            OUT << "// msgexp " << child(vn, 0) << " for " << vn << "\n";
+            out << "// msgexp " << child(vn, 0) << " for " << vn << "\n";
             break;
         case FTK_ndid:
-            OUT << "// ndid " << child(vn, 0) << " for " << vn << "\n";
+            out << "// ndid " << child(vn, 0) << " for " << vn << "\n";
             break;
         default:
             std::cerr << "internal error: generate not implemented for " << tk_to_string(atc(vn, 0).type) << " at node " << vn << "\n";
