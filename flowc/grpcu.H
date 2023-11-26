@@ -32,6 +32,8 @@ public:
     std::string method_full_name(std::string name) const;
     std::string method_output_full_name(std::string name) const;
     std::string method_input_full_name(std::string name) const;
+    /** Return [output_type, method, input_type]
+     */
     std::vector<std::string> all_method_full_names(std::string name) const;
     std::string enum_value_name(std::string name) const;
     std::string enum_value_full_name(std::string name) const;
