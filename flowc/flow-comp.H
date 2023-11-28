@@ -86,13 +86,13 @@ struct value_type {
 
 class compiler: public ast::tree {
 public:
-    ast::attribute<value_type> vtype;
-    ast::attribute<int> ref;
-    ast::attribute<std::string> rpc;
-    ast::attribute<std::string> cmsg;
-    ast::attribute<std::string> amsg;
-    ast::attribute<std::string> iid;
-
+    ast::attribute<value_type> vtype;   // type expression for NODE, ENTRY, INPUT and valx
+    ast::attribute<int> ref;            // reference to another valx
+    ast::attribute<std::string> rpc;    // grpc method for NODE, ENTRY
+    ast::attribute<bool> const_expr;    // true when valx is a constant expression
+    ast::attribute<std::string> cmsg;   // msg type for msgexp nodes
+    //ast::attribute<std::string> amsg;
+    ast::attribute<std::string> iid;    // individual node identifier
     grpcu::store gstore;
 protected:
     std::ostream *errs;
@@ -208,15 +208,38 @@ public:
     /** Get the first node in tree order that has a return type
      */
     int main_node_by_type(std::string node_type) const;
+    /** Retrive the entire node family in code order
+     */
+    std::vector<int> node_family(std::string family_name) const;
+
     /** Get all the node referenced by the subtree at <node_node>
      */
     int get_node_references(std::map<std::string, std::set<int>> &refs, int node_node) const;
+    /** Get all node families refereced in this subtree
+     */
+    int get_family_references(std::set<std::string> &refs, int n) const;
+    std::set<std::string> get_family_references(int n) const {
+        std::set<std::string> refs;
+        get_family_references(refs, n);
+        return refs;
+    }
     /** Get all the node referenced by the subtrees of all nodes in the same <node_family>
      */
     int get_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const;
     /** Recursively get all the nodes referenced by <node_family>
      */
     int get_deep_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const;
+    /** Get all the node families referenced by the subtree at n
+     */
+    int get_deep_family_references(std::set<std::string> &refs, int n, std::string input_label) const;
+    std::set<std::string> get_deep_family_references(int n, std::string input_label) const {
+        std::set<std::string> refs;
+        get_deep_family_references(refs, n, input_label);
+        return refs;
+    }
+    /** Check if expression is constant
+     */
+    bool is_const_valx(int node) const;
 };
 }
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt);

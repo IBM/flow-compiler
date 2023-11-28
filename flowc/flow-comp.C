@@ -13,6 +13,11 @@
 
 #define YYCOVERAGE
 #include "flow-parser.c"
+namespace fc {
+    struct entry_data;
+}
+
+std::ostream &operator<< (std::ostream &out, struct fc::entry_data const &ed);
 
 namespace fc {
 
@@ -130,23 +135,35 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
             }
         } 
     }
-    // make a second pass for auto-generated node ids 
+    // Make a second pass to generate node IDs.
+    // Singleton nodes: family[_name]
+    // Tagged nodes: family_name 
+    // Untagged nodes family_index
+    // TODO Untagged nodes only one in the family: family
+    std::set<std::string> idset;
     for(int n: get("//NODE")) {
         auto nids = get("ID", n);
-        auto node_type = node_text(nids[0]);
-        auto &typeids = node_table[node_type];
-        if(nids.size() != 1) 
+        auto family = node_text(nids[0]);
+        // tagged node
+        if(nids.size() > 1) {
+            std::string id = stru::sfmt() << family << "_" << node_text(nids[1]);
+            iid.set(n, id);
+            idset.insert(id);
             continue;
-        if(node_counts[node_type] == 1) {
-            typeids[node_type] = nids[0];
-            iid.set(n, node_type);
+        }
+        // singleton node
+        if(node_counts[family] == 1) {
+            std::string id = family;
+            iid.set(n, id);
+            idset.insert(id);
             continue;
-        } 
-        for(int i = 1; i <= node_counts[node_type] * 2; ++i) {
-            std::string node_id = stru::sfmt() << node_type << "_" << i;
-            if(typeids.find(node_id) == typeids.end()) {
-                typeids[node_id] = nids[0];
-                iid.set(n, node_id);
+        }
+        // generate tag for untagged nodes
+        for(int i = 1; i <= node_counts[family] * 2; ++i) {
+            std::string id = stru::sfmt() << family << "_" << i;
+            if(idset.find(id) == idset.end()) {
+                idset.insert(id);
+                iid.set(n, id);
                 break;
             }
         }
@@ -204,13 +221,20 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
 
     return error_count;
 }
-
 int compiler::get_node_references(std::map<std::string, std::set<int>> &refs, int node_node) const {
     auto s = refs.size();
     for(int nn: all_of_type(FTK_ndid, node_node)) {
         std::string nfamname = node_text(child(nn, 0));
         refs[nfamname].insert(nn);
     }
+    return refs.size()-s;
+}
+int compiler::get_family_references(std::set<std::string> &refs, int n) const {
+    auto s = refs.size();
+    std::map<std::string, std::set<int>> nrefs;
+    get_node_references(nrefs, n);
+    for(auto ns: nrefs)
+        refs.insert(ns.first);
     return refs.size()-s;
 }
 int compiler::get_node_references(std::map<std::string, std::set<int>> &refs, std::string node_family) const {
@@ -241,6 +265,21 @@ int compiler::get_deep_node_references(std::map<std::string, std::set<int>> &ref
     }
 
     return refs.size()-s;
+}
+int compiler::get_deep_family_references(std::set<std::string> &refs, int n, std::string input_label) const {
+    int s = refs.size();
+
+    std::map<std::string, std::set<int>> entrefs;
+    // start with the nodes referenced in the n subtree
+    get_node_references(entrefs, n);
+    for(auto nf: entrefs) if(nf.first != input_label) {
+        std::map<std::string, std::set<int>> noderefs;
+        get_deep_node_references(noderefs, nf.first);
+        for(auto ls: noderefs)
+            refs.insert(ls.first);
+        refs.insert(nf.first);
+    }
+    return refs.size() - s;
 }
 /**
  * Check nodes for circular references, and for inaccessibility.
@@ -865,27 +904,109 @@ int compiler::string_to_tk(std::string ftk) const {
     assert(false);
     return 0;
 }
+bool compiler::is_const_valx(int node) const {
+    return false;
+}
+std::vector<int> compiler::node_family(std::string family_name) const {
+    std::vector<int> nodes;
+    int d_node = 0;
+    for(int n: get("//NODE")) if(node_text(child(n, 0)) == family_name) {
+       if(get("valx", n).size() == 0) {
+           d_node = n;
+       } else {
+           nodes.push_back(n);
+       }
+    }
+    if(d_node != 0)
+        nodes.push_back(d_node);
+    return nodes;
+}
+struct entry_data {
+    int entry_n, return_valx_n;
+    std::string input_label;
+    // all node families used by this entry, excluding input
+    std::vector<std::pair<std::string, std::vector<int>>> families;
+    // declared mesage stores name->type
+    std::map<std::string, std::string> node_inputs, node_outputs;
+    // maps from the node iid->name in the maps above
+    std::map<std::string, std::string> ialiases, oaliases;
+    // output type, method name, input type
+    std::string output_type, name, input_type;
+    // families this entry depends at the firt level, without input
+    std::map<std::string, std::vector<std::string>> depends;
+};
 int compiler::generate(std::ostream &out_stream, int en, int input_node, bool debug_on) {
+    int irc = error_count;
+    entry_data ed;
+    ed.input_label = node_text(get("ID", input_node)[0]);
+    ed.entry_n = en;
+    // it was already verified that there is one and only one RETURN/valx subsequence
+    ed.return_valx_n = get("//RETURN/valx", en)[0];
+    auto entry_names = gstore.all_method_full_names(stru::join(get_ids(child(en, 0)), "."));
+
+    ed.name = entry_names[1];
+    ed.input_type = entry_names[2];
+    ed.output_type = entry_names[0];
+
+    for(auto family: get_family_references(en)) if(family != ed.input_label) 
+        ed.depends[""].push_back(family);
+
+    if(ed.depends.size() > 0) {
+        std::vector<std::pair<std::string, std::vector<int>>> node_families;
+        std::vector<std::pair<int, int>> order;  
+        for(auto f: get_deep_family_references(ed.return_valx_n, ed.input_label)) {
+            node_families.emplace_back(std::make_pair(f, node_family(f)));
+            order.push_back(std::make_pair(
+                        node_families.back().second.size() == 0? 0: 
+                        *std::min_element(node_families.back().second.begin(), node_families.back().second.end()),
+                        node_families.size()-1));
+        }
+        std::sort(order.begin(), order.end());
+        for(auto f: order) if(node_families[f.second].first != ed.input_label) 
+            ed.families.push_back(node_families[f.second]);
+    }
+
     stru::indented_stream indenter(out_stream, 0);
     auto &out = indenter;
-    int irc = error_count;
-    std::string input_label = node_text(get("ID", input_node)[0]);
+    for(auto &f: ed.families) { 
+        auto &nodes = f.second;
+        std::string output_type;
+        std::map<std::string, std::string> inputs;
+        // declare output and input for all nodes in the family, skip over error nodes
+        for(int n: nodes) if(vtype.has(n)) {
+            std::string input_symbol = stru::sfmt() << "I_" << iid(n);
+            std::string output_symbol = stru::sfmt() << "O_" << iid(n);
 
-    out << "// ENTRY NODE " << en << " " << stru::join(get_ids(at(en).children[0]), ".") << "\n";
-    auto enames = gstore.all_method_full_names(stru::join(get_ids(child(en, 0)), "."));
-    out << "::grpc::Status " << enames[1] << "(::grpc::ServerContext *context, " << enames[0] << " const *mip, " << enames[2] << " *mop) override {\n";
-    ++indenter;
-    out << "auto &mo = *mop; auto const &mi = *mip; // " << input_label << "\n";
-    
-    // it was already verified that there is one and only one RETURN/valx subsequence
-    int vn =  get("//RETURN/valx", en)[0];
-    std::map<std::string, int> node_types;
-    dep_tree(indenter, vn, input_label, node_types);
-    out << "// node_families " <<  node_types << "\n";
-    generate_valx(indenter, vn, debug_on);
+            if(output_type.empty()) {
+                // vtype will always be a meessage type for a node
+                output_type = vtype(n).struct_name();
+                ed.node_outputs[stru::sfmt() << "O_" << f.first] = output_type;
+            }
+            ed.oaliases[iid(n)] = stru::sfmt() << "O_" << f.first;
+            if(rpc.has(n)) {
+                std::string input_type = gstore.method_input_full_name(rpc(n));
+                auto alias_decl = inputs.find(input_type);
+                // for rpc nodes check if inputs can be shared
+                if(alias_decl == inputs.end()) {
+                    inputs[input_type] = iid(n);
+                    ed.node_inputs[input_symbol] = input_type;
+                    ed.ialiases[iid(n)] = input_symbol;
+                } else {
+                    //out << input_type << " &I_" << iid(n) << " = I_" << alias_decl->second << ";\n";
+                    ed.ialiases[iid(n)] = stru::sfmt() << "I_" << alias_decl->second;
+                }
+            } else {
+                // for return nodes, input and output are the same
+                ed.ialiases[iid(n)] = stru::sfmt() << "O_" << f.first;
+            }
+        }
+        std::map<std::string, std::set<int>> refs;
+        get_deep_node_references(refs, f.first);
+        for(auto d: refs) if(d.first != ed.input_label)
+            ed.depends[f.first].push_back(d.first);
+    }
 
-    --indenter;
-    out << "}\n";
+    out_stream << ed << "\n";
     return error_count - irc;
 }
 int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
@@ -936,4 +1057,19 @@ int compiler::generate_valx_msgexp(stru::indented_stream &indenter, int mn, bool
 
     return error_count - irc;
 }
+}
+std::ostream &operator<< (std::ostream &out, fc::entry_data const &ed) {
+    out << "entry_node: " << ed.entry_n << "\n"
+        << "valx_node: " << ed.return_valx_n << "\n"
+        << "input_label: " << ed.input_label << "\n"
+        << "families: " << ed.families << "\n"
+        << "node_inputs: " << ed.node_inputs << "\n"
+        << "node_outputs: " << ed.node_outputs << "\n"
+        << "ialiases: " << ed. ialiases << "\n"
+        << "oaliases: " << ed.oaliases << "\n"
+        << "output_type: " << ed.output_type << "\n"
+        << "name " << ed.name << "\n"
+        << "intput_type: " << ed.input_type << "\n"
+        << "depends: " << ed.depends << "\n";
+    return out;
 }

@@ -129,8 +129,6 @@ void compiler::ast_to_json(std::ostream &out, int node) const {
             out << ",\"rpc\":" << stru::json_escape(rpc.get(*p));
         if(cmsg.has(*p)) 
             out << ",\"cmsg\":" << stru::json_escape(cmsg.get(*p));
-        if(amsg.has(*p)) 
-            out << ",\"amsg\":" << stru::json_escape(amsg.get(*p));
         if(node.children.size() > 0) {
             int cc = 0;
             out << ",\"children\": [";
@@ -156,8 +154,8 @@ void compiler::print_ast(std::ostream &out, int node) const {
         out << ANSI_BOLD << type << ANSI_RESET;
         if(node.children.size()) out << "[" << node.children.size() << "]";
         int attrs = 0;
-        if(vtype.has(*p) || ref.has(*p) || rpc.has(*p) || cmsg.has(*p) || amsg.has(*p) || iid.has(*p))
-            out << "(";
+        if(vtype.has(*p) || ref.has(*p) || rpc.has(*p) || cmsg.has(*p) || iid.has(*p) || const_expr.has(*p))
+            out << "{";
         if(iid.has(*p)) {
             out << ANSI_BOLD+ANSI_HRED << iid.get(*p) << ANSI_RESET;
             ++attrs;
@@ -177,18 +175,18 @@ void compiler::print_ast(std::ostream &out, int node) const {
             out << "rpc: " << ANSI_BOLD+ANSI_YELLOW << rpc.get(*p) << ANSI_RESET;
             ++attrs;
         }
-        if(cmsg.has(*p)) {
-            if(attrs) out << ", ";
-            out << "cmsg: " << ANSI_BOLD+ANSI_HGREEN << cmsg.get(*p) << ANSI_RESET;
+        if(const_expr.has(*p) && const_expr.get(*p)) {
+            if(attrs) out << ", <";
+            out << ANSI_BOLD+ANSI_HBLUE << "*" << ANSI_RESET << ">";
             ++attrs;
         }
-        if(amsg.has(*p)) {
+        if(cmsg.has(*p)) {
             if(attrs) out << ", ";
-            out << "amsg: " << ANSI_BOLD+ANSI_HGREEN << amsg.get(*p) << ANSI_RESET;
+            out << "cmsg: " << ANSI_BOLD+ANSI_YELLOW << cmsg.get(*p) << ANSI_RESET;
             ++attrs;
         }
         if(attrs)
-            out << ")";
+            out << "}";
         out << " ";
         p_token(out, at(*p).token) << "\n";
 
