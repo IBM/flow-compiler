@@ -114,8 +114,8 @@ stmt(A) ::= CONTAINER(K) id(N) bblock(B).                    { A = ast->nappend(
 // node 
 stmt(A) ::= NODE(K) id(N) fcond(C) bblock(B).                { A = ast->nappend(K, N, B, C); }
 stmt(A) ::= NODE(K) id(N) bblock(B).                         { A = ast->nappend(K, N, B); }
-stmt(A) ::= NODE(K) id(N) COLON id(T) fcond(C) bblock(B).    { A = ast->nappend(K, N, T, B, C); ast->iid.set(K, ast->node_text(T)); }
-stmt(A) ::= NODE(K) id(N) COLON id(T) bblock(B).             { A = ast->nappend(K, N, T, B); ast->iid.set(K, ast->node_text(T)); }
+stmt(A) ::= NODE(K) id(N) COLON id(T) fcond(C) bblock(B).    { A = ast->nappend(K, N, T, B, C); }
+stmt(A) ::= NODE(K) id(N) COLON id(T) bblock(B).             { A = ast->nappend(K, N, T, B); }
 
 // error check
 stmt(A) ::= ERRCHK(K) fcond(C) SEMICOLON.                       { A = ast->nappend(K, C); }
