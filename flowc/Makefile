@@ -72,7 +72,7 @@ else
 endif
 
 ## one of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
-BASE_IMAGE?=redhat-ubi8
+BASE_IMAGE?=redhat-ubi9
 
 INSTALL_PREFIX?=/usr/local/bin
 
