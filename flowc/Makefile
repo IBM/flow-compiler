@@ -11,7 +11,7 @@
 #INSTALL_PREFIX?=/usr/local/bin
 #
 #   Base image label - Default base image for when --runtime is not used with flowc 
-#BASE_IMAGE?=alpine-3.15
+#BASE_IMAGE?=alpine-3.19
 #
 # 	Force gRPC or CivetWeb to a certain version instead of using the default in the Dockerfile.
 #GRPC_VERSION?=1.49.1
@@ -19,11 +19,18 @@
 
 -include makefile.local
 
-BUILD_VERSION?=0.22.0
+HOST_OS:=$(shell uname -s)
+BUILD_VERSION?=0.23.0
 
 ifndef BUILD_ID
 
 GIT_TS:=$(shell git show -s --format=%cD)
+GIT_TSU:=$(shell git show -s --format=%ct)
+ifeq ($(HOST_OS), Darwin)
+    GIT_TS=$(shell TZ=UTC date -r $(GIT_TSU) -R)
+else 
+    GIT_TS=$(shell TZ=UTC date -d @$(GIT_TSU) -R)
+endif
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
 ifeq ($(GIT_MODIFIED_COUNT), 0)
 	GIT_MODIFIED_COUNT:=
@@ -78,7 +85,6 @@ ifneq ($(CIVETWEB_VERSION), )
 endif
 
 # Find a suitable tar - needed for building the image
-HOST_OS:=$(shell uname -s)
 ifeq ($(TAR), )
 	ifeq ($(HOST_OS), Darwin)
 		ifeq ($(shell which gnutar), )
@@ -114,7 +120,7 @@ else
 	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 endif
 
-RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
+#RUNTIMES:=alpine-3.19 redhat-ubi9 ubuntu-22.04 debian-bullseye
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
@@ -264,6 +270,10 @@ alpine-3.18:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
+alpine-3.19:
+	@rm -f flow-templates.[CH]
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
+
 ubuntu-20.04:
 	@rm -f flow-templates.[CH] 
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
@@ -272,11 +282,23 @@ ubuntu-22.04:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
+ubuntu-24.04:
+	@rm -f flow-templates.[CH]
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
+
 debian-bullseye:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
+debian-bookworm:
+	@rm -f flow-templates.[CH]
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
+
 redhat-ubi8:
+	@rm -f flow-templates.[CH]
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
+
+redhat-ubi9:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
