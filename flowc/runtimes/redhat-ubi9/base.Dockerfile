@@ -4,16 +4,17 @@ ARG GRPC_VERSION=latest
 
 user root
 
+COPY runtimes/redhat-ubi9/centos-gpg-keys-9.0-24.el9.noarch.rpm /etc
+RUN rpm -i /etc/centos-gpg-keys-9.0-24.el9.noarch.rpm
+COPY runtimes/redhat-ubi9/centos9.repo /etc/yum.repos.d/
+
 RUN microdnf -y update && microdnf -y install bind-utils \
+    jq unzip psmisc \
     iputils net-tools procps-ng glibc-langpack-en.x86_64 \
     git make autoconf automake pkgconfig libtool cmake zlib gdb \
-    vim shadow-utils wget findutils gcc-c++ file \
+    vim wget findutils gcc-c++ file \
     openssl iproute uuid-devel libcurl-devel zlib-devel openssl-devel \
   && microdnf -y upgrade && microdnf clean all
-
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
 
 USER worker
 WORKDIR /home/worker
