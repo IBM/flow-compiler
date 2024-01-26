@@ -14,7 +14,7 @@
 #BASE_IMAGE?=alpine-3.18
 #
 # 	Force gRPC or CivetWeb to a certain version instead of using the default in the Dockerfile.
-#GRPC_VERSION?=1.49.1
+#GRPC_VERSION?=1.60.0
 #CIVETWEB_VERSION?=1.15
 
 -include makefile.local
@@ -71,7 +71,7 @@ else
 endif
 
 ## one of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
-BASE_IMAGE?=debian-bullseye
+BASE_IMAGE?=debian-bookworm
 
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -269,15 +269,7 @@ alpine-3.18:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" "STACK_TRACE=0" flowc-image
 
-ubuntu-20.04:
-	@rm -f flow-templates.[CH] 
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
-
 ubuntu-22.04:
-	@rm -f flow-templates.[CH]
-	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
-
-debian-bullseye:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
@@ -285,7 +277,7 @@ debian-bookworm:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
-redhat-ubi8:
+redhat-ubi9:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
