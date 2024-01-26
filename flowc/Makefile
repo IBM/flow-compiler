@@ -24,7 +24,6 @@ BUILD_VERSION?=0.23.0
 
 ifndef BUILD_ID
 
-GIT_TS:=$(shell git show -s --format=%cD)
 GIT_TSU:=$(shell git show -s --format=%ct)
 ifeq ($(HOST_OS), Darwin)
     GIT_TS=$(shell TZ=UTC date -r $(GIT_TSU) -R)
@@ -120,7 +119,6 @@ else
 	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 endif
 
-#RUNTIMES:=alpine-3.19 redhat-ubi9 ubuntu-22.04 debian-bullseye
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
