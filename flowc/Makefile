@@ -11,7 +11,7 @@
 #INSTALL_PREFIX?=/usr/local/bin
 #
 #   Base image label - Default base image for when --runtime is not used with flowc 
-#BASE_IMAGE?=alpine-3.15
+#BASE_IMAGE?=alpine-3.18
 #
 # 	Force gRPC or CivetWeb to a certain version instead of using the default in the Dockerfile.
 #GRPC_VERSION?=1.49.1
@@ -19,11 +19,17 @@
 
 -include makefile.local
 
+HOST_OS:=$(shell uname -s)
 BUILD_VERSION?=0.0.1r
 
 ifndef BUILD_ID
 
-GIT_TS:=$(shell git show -s --format=%cD)
+GIT_TSU:=$(shell git show -s --format=%ct)
+ifeq ($(HOST_OS), Darwin)
+    GIT_TS=$(shell TZ=UTC date -r $(GIT_TSU) -R)
+else 
+    GIT_TS=$(shell TZ=UTC date -d @$(GIT_TSU) -R)
+endif
 GIT_MODIFIED_COUNT:=$(strip $(shell git status -suno | wc -l))
 ifeq ($(GIT_MODIFIED_COUNT), 0)
 	GIT_MODIFIED_COUNT:=
@@ -65,7 +71,7 @@ else
 endif
 
 ## one of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
-BASE_IMAGE?=redhat-ubi8
+BASE_IMAGE?=debian-bullseye
 
 INSTALL_PREFIX?=/usr/local/bin
 
@@ -77,9 +83,7 @@ ifneq ($(CIVETWEB_VERSION), )
 	DOCKER_ARG_CIVETWEB_VERSION:=--build-arg "CIVETWEB_VERSION=$(CIVETWEB_VERSION)"
 endif
 
-
 # Find a suitable tar - needed for building the image
-HOST_OS:=$(shell uname -s)
 ifeq ($(TAR), )
 	ifeq ($(HOST_OS), Darwin)
 		ifeq ($(shell which gnutar), )
@@ -115,8 +119,8 @@ else
 	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
 endif
 
-RUNTIMES:=alpine-3.18 redhat-ubi8 ubuntu-22.04 debian-bullseye ubuntu-20.04
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
+RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 TOOLS=recli vex
 
 .PHONY: $(RUNTIMES)
@@ -135,7 +139,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 
 %.o: %.C
 	@echo ${CXX} -std=c++17 $(CCFLAGS) -c $<
-	@${CXX} -std=c++17 "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -c -MMD -MF $*.dep -o $@ $<
+	@${CXX} "-DSTACK_TRACE=$(STACK_TRACE)" ${GRPC_INCS} $(CCFLAGS) -std=c++17 -c -MMD -MF $*.dep -o $@ $<
 
 %.C: %.hlp
 	@echo Writing $@ from $^
@@ -149,8 +153,8 @@ flowc: $(OBJS)
 	@./$@ --version
 
 version.o: version.C build.id
-	@echo ${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -c $<
-	@${CXX} -std=c++17 "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -c -MMD -MF $*.dep -o $@ $<
+	@echo ${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -std=c++17 -c $<
+	@${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -std=c++17 -c -MMD -MF $*.dep -o $@ $<
 
 flow-compiler.o: flow-parser.c
 
@@ -164,7 +168,10 @@ flowc.o: flow-templates.H
 
 version.o: flow-templates.H
 
-%.c %.h: %.y
+flow-parser.h: flow-parser.c
+	@echo $@ > /dev/null
+
+flow-parser.c: flow-parser.y
 	$(LEMON) $<
 
 flow-scanner.C: flow-scanner.lex
@@ -173,7 +180,6 @@ flow-scanner.C: flow-scanner.lex
 clean:
 	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
 
-RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	@echo Writing $@ $(patsubst %.C,%.H,$@)
@@ -272,6 +278,10 @@ ubuntu-22.04:
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
 debian-bullseye:
+	@rm -f flow-templates.[CH]
+	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
+
+debian-bookworm:
 	@rm -f flow-templates.[CH]
 	@$(MAKE) "RUNTIMES=$@" "BASE_IMAGE=$@" flowc-image
 
