@@ -148,7 +148,7 @@ MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-template
 	@echo "}" >> $@
 
 flowc: $(OBJS) 
-	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} $(LFLAGS)
+	${CXX} -o $@ $(CCFLAGS) $^ ${GRPC_LIBS} -lz
 	@echo "====================================================================="
 	@./$@ --version
 
