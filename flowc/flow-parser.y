@@ -164,10 +164,10 @@ blke ::= ENVIRONMENT OPENBRA error CLOSEBRA.
 
 blke(A) ::= HEADER(B) vassgn(C).                               { A = ast->nappend(B, C); }
 blke(A) ::= HEADER(B) OPENBRA vlst(C) CLOSEBRA.                { A = ast->graft(B, C); }
-blke(A) ::= HEADER(B) OPENBRA CLOSEBRA.                        { A = B; }
+blke ::= HEADER OPENBRA CLOSEBRA.                              
 blke ::= HEADER OPENBRA error CLOSEBRA.                        
 
-blke(A) ::= lment(B).                                          { A = B;}
+blke(A) ::= lment(B).                                          { A = B; }
 
 lment(A) ::= limit(L) lmval(V) SEMICOLON.                      { A = ast->node(FTK_LIMIT, L, V); }
 lment(A) ::= LIMIT(K) id(L) lmval(V) SEMICOLON.                { A = ast->nappend(K, L, V); }
@@ -315,8 +315,8 @@ valx(A) ::= OPENSQB range(R) CLOSESQB.                      {
     A = R; 
 }
 
-valx(A) ::= TILDA id(F) OPENPAR CLOSEPAR.                   { A = ast->node(FTK_fun, F); }
-valx(A) ::= TILDA id(F) OPENPAR vala(L) CLOSEPAR.           { A = ast->graft(ast->node(FTK_fun, F), L, 1); }
+valx(A) ::= TILDA id(F) OPENPAR CLOSEPAR.                   { A = ast->node(FTK_valx, ast->node(FTK_fun, F)); }
+valx(A) ::= TILDA id(F) OPENPAR vala(L) CLOSEPAR.           { A = ast->node(FTK_valx, ast->graft(ast->node(FTK_fun, F), L, 1)); }
 
 valx(A) ::= PLUS valx(X).                                   { A = X; } [BANG]
 valx(A) ::= MINUS(O) valx(X).                               { A = ast->node(FTK_valx, O, X); } [BANG]
