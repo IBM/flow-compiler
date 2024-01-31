@@ -106,6 +106,11 @@ struct attribute {
         return values.find(n) != values.end();
     }
 };
+template<class T, T none_value>
+struct attribute2: public attribute<T> {
+    attribute2():attribute<T>(none_value) {
+    }
+};
 struct tree {
     int root_n = 0;
     std::vector<struct node> store;
