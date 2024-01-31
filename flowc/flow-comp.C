@@ -147,14 +147,14 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
         // tagged node
         if(nids.size() > 1) {
             std::string id = stru::sfmt() << family << "_" << node_text(nids[1]);
-            iid.set(n, id);
+            unid.set(n, id);
             idset.insert(id);
             continue;
         }
         // singleton node
         if(node_counts[family] == 1) {
             std::string id = family;
-            iid.set(n, id);
+            unid.set(n, id);
             idset.insert(id);
             continue;
         }
@@ -163,7 +163,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
             std::string id = stru::sfmt() << family << "_" << i;
             if(idset.find(id) == idset.end()) {
                 idset.insert(id);
-                iid.set(n, id);
+                unid.set(n, id);
                 break;
             }
         }
@@ -211,6 +211,9 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
 
     check_node_types(debug_on) ||
     check_node_references(debug_on);
+    if(error_count == 0)  {
+        set_const_level();
+    }
    
     if(error_count == 0) 
         for(int en: get("//ENTRY"))  {
@@ -653,20 +656,28 @@ value_type op2_type(int op, value_type l, value_type r) {
 }
 static
 std::map<std::string, value_type> predef_rt = {
-    {"rand", value_type(fvt_flt) },
+    {"after", value_type(fvt_str) },
+    {"before", value_type(fvt_str) },
+    {"ceil", value_type(fvt_flt) },
     {"exp", value_type(fvt_flt) },
-    {"log", value_type(fvt_flt) },
-    {"tolower", value_type(fvt_str) },
-    {"toupper", value_type(fvt_str) },
-    {"toid", value_type(fvt_str) },
-    {"tocname", value_type(fvt_str) },
-    {"str", value_type(fvt_str) },
-    {"substr", value_type(fvt_str) },
-    {"int", value_type(fvt_int) },
+    {"floor", value_type(fvt_flt) },
     {"flt", value_type(fvt_flt) },
     {"format", value_type(fvt_flt) },
+    {"int", value_type(fvt_int) },
     {"join", value_type(fvt_str) },
+    {"length", value_type(fvt_int) },
+    {"log", value_type(fvt_flt) },
+    {"rand", value_type(fvt_flt) },
+    {"remainder", value_type(fvt_flt) },
+    {"round", value_type(fvt_flt) },
     {"split", value_type(fvt_array, {value_type(fvt_str)}) },
+    {"str", value_type(fvt_str) },
+    {"substr", value_type(fvt_str) },
+    {"tocname", value_type(fvt_str) },
+    {"toid", value_type(fvt_str) },
+    {"tolower", value_type(fvt_str) },
+    {"toupper", value_type(fvt_str) },
+    {"trunc", value_type(fvt_flt) },
 };
 
 static 
@@ -739,9 +750,13 @@ int compiler::compute_value_type(bool debug_on, int node) {
             if(vtype.has(n.children[3]))
                 vtype.copy(n.children[3], node);
         break;
+        case FTK_fun:
+            if(vtype.has(n.children[0]))
+                vtype.copy(n.children[0], node);
+        break;
 
         default:
-            std::cerr << "internal not implemented propagating value for valx of type " << atc(node, 0).type << "\n"; 
+            std::cerr << "internal: not implemented propagating value type for \"valx\" of type \"" << tk_to_string(atc(node, 0).type) << "\" (" << atc(node, 0).type << ")\n"; 
             print_ast(node);
             assert(false);
     } else if(n.type == FTK_list) {
@@ -765,7 +780,7 @@ int compiler::compute_value_type(bool debug_on, int node) {
             if(!vt.is_null()) vtype.set(node, vt);
         }
     } else {
-        std::cerr << "internal propagating value type for " << n.type << "\n"; 
+        std::cerr << "internal: propagating value type for \"" << tk_to_string(n.type) << "\" (" << n.type << ")\n"; 
         assert(false);
     }
     return error_count - irc;
@@ -882,6 +897,33 @@ static std::map<int, std::string> non_terminals = {
     {FTK_range, "range"},
     {FTK_valx, "valx"},
 };
+static bool is_operator(int ftk) {
+    switch(ftk) {
+        case FTK_PLUS:
+        case FTK_MINUS:
+        case FTK_HASH:
+        case FTK_BANG:
+        case FTK_SLASH:
+        case FTK_STAR:
+        case FTK_PERCENT:
+        case FTK_POW:
+        case FTK_COMP:
+        case FTK_EQ:
+        case FTK_NE:
+        case FTK_LT:
+        case FTK_GT:
+        case FTK_LE:
+        case FTK_GE:
+        case FTK_AND:
+        case FTK_OR:
+        case FTK_SHL:
+        case FTK_SHR:
+        case FTK_QUESTION:
+            return true;
+        default:
+            return false;
+    }
+};
 std::string compiler::tk_to_string(int ftk) const {
     assert(ftk >= 0 && ftk < FTK_MAX_NONTERM);
     if(ftk < FTK_ACCEPT) {
@@ -904,8 +946,103 @@ int compiler::string_to_tk(std::string ftk) const {
     assert(false);
     return 0;
 }
-bool compiler::is_const_valx(int node) const {
-    return false;
+int compiler::set_const_level(int node) {
+    int added = 0, count = 0, level = 0;
+    // repeatedly mark nodes for the entire tree 
+    // until no new nodes can be marked
+    if(node == 0) 
+        for(int root: get("//flow")) {
+            for(int p = 1; p < 500; ++p) {
+                int newly_added = set_const_level(root);
+                if(newly_added == 0) 
+                    break;
+                std::cerr << "for node " << root << ", at pass " << p << " marked " << newly_added << " nodes\n";
+
+            }
+        }
+    else if(!const_level.has(node)) switch(at(node).type) {
+        case FTK_INTEGER: case FTK_STRING: case FTK_FLOAT:
+            level = 3;
+            break;
+        case FTK_DOLLAR:
+            level = 2;
+            break;
+        case FTK_EQUALS: case FTK_fassgn: case FTK_LIMIT:
+            added = set_const_level(child(node, 1));
+            level =  const_level(child(node, 1));
+            break;
+        case FTK_fun:
+            if(at(node).children.size() > 1) {
+                level = 3;
+                for(unsigned i = 1, e = at(node).children.size(); i < e; ++i) {
+                    int c = child(node, i);
+                    added += set_const_level(c);
+                    level = std::min(const_level(c), level);
+                }
+            }
+            break;
+        case FTK_COLON: case FTK_range:
+            added = set_const_level(child(node, 0))+
+                    set_const_level(child(node, 1));
+            level = atc(node, 0).type == FTK_STAR? 3: const_level(child(node, 0)); 
+            level = std::min(level, atc(node, 1).type == FTK_STAR? 3: const_level(child(node, 1))); 
+            break;
+        case FTK_NODE: case FTK_ENTRY:
+            for(int c: at(node).children)
+                added += set_const_level(c);
+            level = 3;
+            for(int cn: get("valx", node)) 
+                level = std::min(level, const_level(cn));
+            for(int cn: get("//RETURN/valx", node)) 
+                level = std::min(level, const_level(cn));
+            for(int cn: get("//ERRCHK", node)) 
+                level = std::min(level, const_level(cn));
+            for(int cn: get("//OUTPUT", node)) 
+                level = 0;
+            break;
+        case FTK_ndid:
+            for(int iidn: get("//flow/INPUT/ID")) if(node_text(child(node, 0)) == node_text(iidn)) {
+                level = 1;
+                break;
+            }
+            if(level == 0) {
+                level = 3;
+                for(int nid: get("//flow/NODE")) if(node_text(child(node, 0)) == node_text(nid)) 
+                    level = std::min(level, const_level(nid));
+            }
+            break;
+        case FTK_ERRCHK: case FTK_list:
+            level = 3;
+            for(int c: at(node).children) {
+                added += set_const_level(c);
+                level = std::min(const_level(c), level);
+            }
+            break;
+        case FTK_valx: 
+            if(ref.has(node)) {
+                level = const_level(ref(node));
+            } else if(vtype.has(node) && vtype(node).type == fvt_enum) {
+                level = 3;
+            } else {
+                level = 3;
+                for(unsigned i = 0, e = at(node).children.size(); i < e; ++i) {
+                    int c = child(node, i);
+                    if(i == 0 && is_operator(at(c).type))
+                        continue;
+                    added += set_const_level(c);
+                    level = std::min(const_level(c), level);
+                }
+            }
+            break;
+        default:
+            for(int c: at(node).children)
+                added += set_const_level(c);
+            break;
+    }
+    if(level > 0) {
+        const_level.set(node, level); ++added;
+    }
+    return added;
 }
 std::vector<int> compiler::node_family(std::string family_name) const {
     std::vector<int> nodes;
@@ -928,7 +1065,7 @@ struct entry_data {
     std::vector<std::pair<std::string, std::vector<int>>> families;
     // declared mesage stores name->type
     std::map<std::string, std::string> node_inputs, node_outputs;
-    // maps from the node iid->name in the maps above
+    // maps from the node unid->name in the maps above
     std::map<std::string, std::string> ialiases, oaliases;
     // output type, method name, input type
     std::string output_type, name, input_type;
@@ -974,30 +1111,30 @@ int compiler::generate(std::ostream &out_stream, int en, int input_node, bool de
         std::map<std::string, std::string> inputs;
         // declare output and input for all nodes in the family, skip over error nodes
         for(int n: nodes) if(vtype.has(n)) {
-            std::string input_symbol = stru::sfmt() << "I_" << iid(n);
-            std::string output_symbol = stru::sfmt() << "O_" << iid(n);
+            std::string input_symbol = stru::sfmt() << "I_" << unid(n);
+            std::string output_symbol = stru::sfmt() << "O_" << unid(n);
 
             if(output_type.empty()) {
                 // vtype will always be a meessage type for a node
                 output_type = vtype(n).struct_name();
                 ed.node_outputs[stru::sfmt() << "O_" << f.first] = output_type;
             }
-            ed.oaliases[iid(n)] = stru::sfmt() << "O_" << f.first;
+            ed.oaliases[unid(n)] = stru::sfmt() << "O_" << f.first;
             if(rpc.has(n)) {
                 std::string input_type = gstore.method_input_full_name(rpc(n));
                 auto alias_decl = inputs.find(input_type);
                 // for rpc nodes check if inputs can be shared
                 if(alias_decl == inputs.end()) {
-                    inputs[input_type] = iid(n);
+                    inputs[input_type] = unid(n);
                     ed.node_inputs[input_symbol] = input_type;
-                    ed.ialiases[iid(n)] = input_symbol;
+                    ed.ialiases[unid(n)] = input_symbol;
                 } else {
-                    //out << input_type << " &I_" << iid(n) << " = I_" << alias_decl->second << ";\n";
-                    ed.ialiases[iid(n)] = stru::sfmt() << "I_" << alias_decl->second;
+                    //out << input_type << " &I_" << unid(n) << " = I_" << alias_decl->second << ";\n";
+                    ed.ialiases[unid(n)] = stru::sfmt() << "I_" << alias_decl->second;
                 }
             } else {
                 // for return nodes, input and output are the same
-                ed.ialiases[iid(n)] = stru::sfmt() << "O_" << f.first;
+                ed.ialiases[unid(n)] = stru::sfmt() << "O_" << f.first;
             }
         }
         std::map<std::string, std::set<int>> refs;
@@ -1006,7 +1143,20 @@ int compiler::generate(std::ostream &out_stream, int en, int input_node, bool de
             ed.depends[f.first].push_back(d.first);
     }
 
+
     out_stream << ed << "\n";
+    out_stream << "\n//-----> Begin " << ed.name << "(" << ed.input_label << ") -----\n\n";
+    out_stream << "grpc::Status " << ed.name << "(grpc::ServerContext *P_CTX, " << ed.input_type << " const *P_" << ed.input_label << ", " << ed.output_type << " *P_OUT) {\n";
+    out_stream << "    grpc::Status STS;\n";
+    for(auto f: ed.families) {
+        out_stream << "    " << "type" << " O_" << f.first << ";\n";
+    }
+    out_stream << "    while(!ERR, && !QU.empty()) {\n";
+    out_stream << "         // process event\n";
+    out_stream << "    };\n";
+    out_stream << "    return STS;\n";
+    out_stream << "};\n";
+    out_stream << "//-----< End " << ed.name << "(" << ed.input_label << ") -------\n\n";
     return error_count - irc;
 }
 int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {

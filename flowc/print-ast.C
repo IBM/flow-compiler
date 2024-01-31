@@ -58,7 +58,8 @@ std::ostream &p_token(std::ostream &out, ast::token const &token) {
            out << ANSI_MAGENTA << token.text << ANSI_RESET;
            break;
        default:
-           out << ANSI_CYAN << token.text << ANSI_RESET;
+           if(!token.text.empty())
+            out << ANSI_CYAN << '\'' << token.text << '\'' << ANSI_RESET;
    }
    return out;
 }
@@ -149,35 +150,52 @@ void compiler::print_ast(std::ostream &out, int node) const {
     for(auto p = begin(node), e = end(); p != e; ++p) {
         out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
         auto node = at(*p);
-        std::string type = tk_to_string(node.type);
         out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
-        out << ANSI_BOLD << type << ANSI_RESET;
+        out << ANSI_BOLD << tk_to_string(node.type) << ANSI_RESET;
         if(node.children.size()) out << "[" << node.children.size() << "]";
-        int attrs = 0;
-        if(vtype.has(*p) || ref.has(*p) || rpc.has(*p) || cmsg.has(*p) || iid.has(*p) || const_expr.has(*p))
-            out << "{";
-        if(iid.has(*p)) {
-            out << ANSI_BOLD+ANSI_HRED << iid.get(*p) << ANSI_RESET;
-            ++attrs;
-        }
-        if(vtype.has(*p)) {
-            if(attrs) out << ", ";
-            out << "vtype: " << vtype.get(*p);
-            ++attrs;
-        }
-        if(ref.has(*p)) {
-            if(attrs) out << ", ";
+        if(unid.has(*p))
+            out << ":" << ANSI_BOLD+ANSI_HRED << unid.get(*p) << ANSI_RESET;
+
+        if(ref.has(*p)) 
             out << ANSI_BOLD+ANSI_RED << "->" << ref.get(*p) << ANSI_RESET;
-            ++attrs;
+        
+        if(vtype.has(*p) || const_level(*p)) {
+            out << " ";
+            switch(const_level(*p)) {
+                case 3:
+                    out << ANSI_BOLD+ANSI_GREEN << "««" << ANSI_RESET;
+                    break;
+                case 2:
+                    out << ANSI_BOLD+ANSI_BLUE << "«" << ANSI_RESET;
+                    break;
+                case 1:
+                    out << ANSI_BOLD+ANSI_YELLOW << "<" << ANSI_RESET;
+                    break;
+            }
+            if(vtype.has(*p))
+                out << vtype.get(*p);
+            else
+                out << ".";
+            switch(const_level(*p)) {
+                case 3:
+                    out << ANSI_BOLD+ANSI_GREEN << "»»" << ANSI_RESET;
+                    break;
+                case 2:
+                    out << ANSI_BOLD+ANSI_BLUE << "»" << ANSI_RESET;
+                    break;
+                case 1:
+                    out << ANSI_BOLD+ANSI_YELLOW << ">" << ANSI_RESET;
+                    break;
+            }
+        }
+
+        int attrs = 0; char close = 0;
+        if(rpc.has(*p) || cmsg.has(*p)) {
+            out << " {"; close = '}';
         }
         if(rpc.has(*p)) {
             if(attrs) out << ", ";
             out << "rpc: " << ANSI_BOLD+ANSI_YELLOW << rpc.get(*p) << ANSI_RESET;
-            ++attrs;
-        }
-        if(const_expr.has(*p) && const_expr.get(*p)) {
-            if(attrs) out << ", <";
-            out << ANSI_BOLD+ANSI_HBLUE << "*" << ANSI_RESET << ">";
             ++attrs;
         }
         if(cmsg.has(*p)) {
@@ -185,11 +203,10 @@ void compiler::print_ast(std::ostream &out, int node) const {
             out << "cmsg: " << ANSI_BOLD+ANSI_YELLOW << cmsg.get(*p) << ANSI_RESET;
             ++attrs;
         }
-        if(attrs)
-            out << "}";
+        if(close != 0)
+            out << close;
         out << " ";
         p_token(out, at(*p).token) << "\n";
-
     }
 }
 }

@@ -87,12 +87,11 @@ struct value_type {
 class compiler: public ast::tree {
 public:
     ast::attribute<value_type> vtype;   // type expression for NODE, ENTRY, INPUT and valx
-    ast::attribute<int> ref;            // reference to another valx
+    ast::attribute2<int, 0> ref;        // reference to another valx
     ast::attribute<std::string> rpc;    // grpc method for NODE, ENTRY
-    ast::attribute<bool> const_expr;    // true when valx is a constant expression
+    ast::attribute2<int, 0> const_level;// 3 when valx is a constant expression, 2 when constant at global level, 1 when constant at call level
     ast::attribute<std::string> cmsg;   // msg type for msgexp nodes
-    //ast::attribute<std::string> amsg;
-    ast::attribute<std::string> iid;    // individual node identifier
+    ast::attribute<std::string> unid;   // individual node identifier
     grpcu::store gstore;
 protected:
     std::ostream *errs;
@@ -183,7 +182,7 @@ public:
      */
     void reset();
     compiler(std::ostream *error_stream):
-        vtype(value_type(fvt_none)), ref(0), 
+        vtype(value_type(fvt_none)), 
         errs(error_stream) {
         reset();
     }
@@ -237,9 +236,11 @@ public:
         get_deep_family_references(refs, n, input_label);
         return refs;
     }
-    /** Check if expression is constant
+    /** Annotators
      */
-    bool is_const_valx(int node) const;
+    /** Set the const attribute *const_level*
+     */
+    int set_const_level(int node=0);
 };
 }
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt);
