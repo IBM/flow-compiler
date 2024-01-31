@@ -956,8 +956,6 @@ int compiler::set_const_level(int node) {
                 int newly_added = set_const_level(root);
                 if(newly_added == 0) 
                     break;
-                std::cerr << "for node " << root << ", at pass " << p << " marked " << newly_added << " nodes\n";
-
             }
         }
     else if(!const_level.has(node)) switch(at(node).type) {
@@ -1143,7 +1141,7 @@ int compiler::generate(std::ostream &out_stream, int en, int input_node, bool de
             ed.depends[f.first].push_back(d.first);
     }
 
-
+/*
     out_stream << ed << "\n";
     out_stream << "\n//-----> Begin " << ed.name << "(" << ed.input_label << ") -----\n\n";
     out_stream << "grpc::Status " << ed.name << "(grpc::ServerContext *P_CTX, " << ed.input_type << " const *P_" << ed.input_label << ", " << ed.output_type << " *P_OUT) {\n";
@@ -1157,6 +1155,7 @@ int compiler::generate(std::ostream &out_stream, int en, int input_node, bool de
     out_stream << "    return STS;\n";
     out_stream << "};\n";
     out_stream << "//-----< End " << ed.name << "(" << ed.input_label << ") -------\n\n";
+    */
     return error_count - irc;
 }
 int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
