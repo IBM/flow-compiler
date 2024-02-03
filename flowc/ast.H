@@ -355,6 +355,16 @@ struct tree {
             return 0;
         return at(node).children[child_index];
     }
+    int first_child(int node) const {
+        if(at(node).children.size() > 0)
+            return at(node).children[0];
+        return 0;
+    }
+    int last_child(int node) const {
+        if(at(node).children.size() > 0)
+            return at(node).children.back();
+        return 0;
+    }
     /** Node accessors
      */
     
@@ -375,7 +385,7 @@ struct tree {
                 n = *p;
         return n;
     }
-    /** Get all the nodes of type <node_type> that is are subnodes of <node>
+    /** Get all the nodes of type <node_type> that are subnodes of <node>
      */
     std::vector<int> all_of_type(int node_type, int node=0) const {
         std::vector<int> n;
@@ -403,6 +413,14 @@ struct tree {
     /** path expression accessors
      */
     std::vector<int> get(std::string path_expression, int node=0) const;
+    template<class UnaryPredicate> 
+    std::vector<int> getp(std::string path_expression, UnaryPredicate sel, int node=0) const {
+        std::vector<int> nodes;
+        for(int n: get(path_expression, node))
+            if(sel(n))
+                nodes.push_back(n);
+        return nodes;
+    }
 };
 }
 
