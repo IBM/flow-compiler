@@ -14,12 +14,6 @@
 #define YYCOVERAGE
 #include "flow-parser.c"
 namespace fc {
-    struct entry_data;
-}
-
-std::ostream &operator<< (std::ostream &out, struct fc::entry_data const &ed);
-
-namespace fc {
 
 int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
     input_filename = filename;
@@ -216,11 +210,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
     }
    
     if(error_count == 0) 
-        for(int en: get("//ENTRY"))  {
-            auto ins = get("//INPUT", en);
-            if(ins.size() == 0) ins = get("//flow/INPUT");
-            generate(std::cout, en, ins[0], debug_on);
-        }
+        return cpp_generator(std::cout);
 
     return error_count;
 }
@@ -1005,8 +995,9 @@ int compiler::set_const_level(int node) {
             }
             if(level == 0) {
                 level = 3;
-                for(int nid: get("//flow/NODE")) if(node_text(child(node, 0)) == node_text(nid)) 
-                    level = std::min(level, const_level(nid));
+                for(int nid: get("//flow/NODE")) 
+                    if(node_text(child(node, 0)) == node_text(child(nid, 0))) 
+                        level = std::min(level, const_level(nid));
             }
             break;
         case FTK_ERRCHK: case FTK_list:
@@ -1056,108 +1047,6 @@ std::vector<int> compiler::node_family(std::string family_name) const {
         nodes.push_back(d_node);
     return nodes;
 }
-struct entry_data {
-    int entry_n, return_valx_n;
-    std::string input_label;
-    // all node families used by this entry, excluding input
-    std::vector<std::pair<std::string, std::vector<int>>> families;
-    // declared mesage stores name->type
-    std::map<std::string, std::string> node_inputs, node_outputs;
-    // maps from the node unid->name in the maps above
-    std::map<std::string, std::string> ialiases, oaliases;
-    // output type, method name, input type
-    std::string output_type, name, input_type;
-    // families this entry depends at the firt level, without input
-    std::map<std::string, std::vector<std::string>> depends;
-};
-int compiler::generate(std::ostream &out_stream, int en, int input_node, bool debug_on) {
-    int irc = error_count;
-    entry_data ed;
-    ed.input_label = node_text(get("ID", input_node)[0]);
-    ed.entry_n = en;
-    // it was already verified that there is one and only one RETURN/valx subsequence
-    ed.return_valx_n = get("//RETURN/valx", en)[0];
-    auto entry_names = gstore.all_method_full_names(stru::join(get_ids(child(en, 0)), "."));
-
-    ed.name = entry_names[1];
-    ed.input_type = entry_names[2];
-    ed.output_type = entry_names[0];
-
-    for(auto family: get_family_references(en)) if(family != ed.input_label) 
-        ed.depends[""].push_back(family);
-
-    if(ed.depends.size() > 0) {
-        std::vector<std::pair<std::string, std::vector<int>>> node_families;
-        std::vector<std::pair<int, int>> order;  
-        for(auto f: get_deep_family_references(ed.return_valx_n, ed.input_label)) {
-            node_families.emplace_back(std::make_pair(f, node_family(f)));
-            order.push_back(std::make_pair(
-                        node_families.back().second.size() == 0? 0: 
-                        *std::min_element(node_families.back().second.begin(), node_families.back().second.end()),
-                        node_families.size()-1));
-        }
-        std::sort(order.begin(), order.end());
-        for(auto f: order) if(node_families[f.second].first != ed.input_label) 
-            ed.families.push_back(node_families[f.second]);
-    }
-
-    stru::indented_stream indenter(out_stream, 0);
-    auto &out = indenter;
-    for(auto &f: ed.families) { 
-        auto &nodes = f.second;
-        std::string output_type;
-        std::map<std::string, std::string> inputs;
-        // declare output and input for all nodes in the family, skip over error nodes
-        for(int n: nodes) if(vtype.has(n)) {
-            std::string input_symbol = stru::sfmt() << "I_" << unid(n);
-            std::string output_symbol = stru::sfmt() << "O_" << unid(n);
-
-            if(output_type.empty()) {
-                // vtype will always be a meessage type for a node
-                output_type = vtype(n).struct_name();
-                ed.node_outputs[stru::sfmt() << "O_" << f.first] = output_type;
-            }
-            ed.oaliases[unid(n)] = stru::sfmt() << "O_" << f.first;
-            if(rpc.has(n)) {
-                std::string input_type = gstore.method_input_full_name(rpc(n));
-                auto alias_decl = inputs.find(input_type);
-                // for rpc nodes check if inputs can be shared
-                if(alias_decl == inputs.end()) {
-                    inputs[input_type] = unid(n);
-                    ed.node_inputs[input_symbol] = input_type;
-                    ed.ialiases[unid(n)] = input_symbol;
-                } else {
-                    //out << input_type << " &I_" << unid(n) << " = I_" << alias_decl->second << ";\n";
-                    ed.ialiases[unid(n)] = stru::sfmt() << "I_" << alias_decl->second;
-                }
-            } else {
-                // for return nodes, input and output are the same
-                ed.ialiases[unid(n)] = stru::sfmt() << "O_" << f.first;
-            }
-        }
-        std::map<std::string, std::set<int>> refs;
-        get_deep_node_references(refs, f.first);
-        for(auto d: refs) if(d.first != ed.input_label)
-            ed.depends[f.first].push_back(d.first);
-    }
-
-/*
-    out_stream << ed << "\n";
-    out_stream << "\n//-----> Begin " << ed.name << "(" << ed.input_label << ") -----\n\n";
-    out_stream << "grpc::Status " << ed.name << "(grpc::ServerContext *P_CTX, " << ed.input_type << " const *P_" << ed.input_label << ", " << ed.output_type << " *P_OUT) {\n";
-    out_stream << "    grpc::Status STS;\n";
-    for(auto f: ed.families) {
-        out_stream << "    " << "type" << " O_" << f.first << ";\n";
-    }
-    out_stream << "    while(!ERR, && !QU.empty()) {\n";
-    out_stream << "         // process event\n";
-    out_stream << "    };\n";
-    out_stream << "    return STS;\n";
-    out_stream << "};\n";
-    out_stream << "//-----< End " << ed.name << "(" << ed.input_label << ") -------\n\n";
-    */
-    return error_count - irc;
-}
 int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
     auto &out = indenter;
     // iterate over all ndid children of vn
@@ -1181,6 +1070,28 @@ int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string inpu
     }
     return 0; 
 }
+
+std::set<std::string> compiler::get_referenced_families(int valx_node) const {
+    std::set<std::string> families;
+    std::vector<int> refd;
+    refd.push_back(valx_node);
+    unsigned i = 0;
+    while(i < refd.size()) {
+        int rvx = refd[i++];
+        if(atc(rvx, 0).type == FTK_ndid) 
+            families.insert(node_text(child(child(rvx, 0), 0)));
+        for(int vx: get("//valx", rvx)) {
+            if(ref.has(vx)) {
+                if(std::find(refd.begin(), refd.end(), ref(vx)) == refd.end())
+                    refd.push_back(ref(vx));
+            } else if(atc(vx, 0).type == FTK_ndid) {
+                families.insert(node_text(child(child(vx, 0), 0)));
+            }
+        }
+    }
+    return families;
+}
+
 int compiler::generate_valx(stru::indented_stream &indenter, int vn, bool debug_on) {
     int irc = error_count;
     auto &out = indenter;
@@ -1206,19 +1117,4 @@ int compiler::generate_valx_msgexp(stru::indented_stream &indenter, int mn, bool
 
     return error_count - irc;
 }
-}
-std::ostream &operator<< (std::ostream &out, fc::entry_data const &ed) {
-    out << "entry_node: " << ed.entry_n << "\n"
-        << "valx_node: " << ed.return_valx_n << "\n"
-        << "input_label: " << ed.input_label << "\n"
-        << "families: " << ed.families << "\n"
-        << "node_inputs: " << ed.node_inputs << "\n"
-        << "node_outputs: " << ed.node_outputs << "\n"
-        << "ialiases: " << ed. ialiases << "\n"
-        << "oaliases: " << ed.oaliases << "\n"
-        << "output_type: " << ed.output_type << "\n"
-        << "name " << ed.name << "\n"
-        << "intput_type: " << ed.input_type << "\n"
-        << "depends: " << ed.depends << "\n";
-    return out;
 }

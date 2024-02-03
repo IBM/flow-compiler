@@ -171,6 +171,9 @@ private:
     int compute_value_type(bool debug_on, int node);
     int propagate_value_types(bool debug_on);
 
+    int cpp_generator(std::ostream &buf) const;
+    int cpp_initiate_nf(std::string family, struct cpp_data &) const;
+
     int generate(std::ostream &buf, int entry_node, int input_node, bool debug_on);
     int generate_valx(stru::indented_stream &indenter, int vn, bool debug_on);
     int generate_valx_ndid(stru::indented_stream &indenter, int nn, bool debug_on);
@@ -210,6 +213,9 @@ public:
     /** Retrive the entire node family in code order
      */
     std::vector<int> node_family(std::string family_name) const;
+    /** Get all referenced families in the expression node
+     */
+    std::set<std::string> get_referenced_families(int valx_node) const;
 
     /** Get all the node referenced by the subtree at <node_node>
      */
