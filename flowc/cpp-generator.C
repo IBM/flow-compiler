@@ -30,16 +30,24 @@ std::map<event_type, std::string> event_prefix = {
     {ev_check_flags, "eh_check_flags" },
 };
 
-
 struct cpp_data {
+    // temp store - names of family nodes processed so far
     std::set<std::string> refd_nf;
+    // all event names
     std::set<std::string> events;
     std::set<std::string> process;
+    // events and their dependent variables
     std::map<std::string, std::set<std::string>> triggers;
+    // input node name
     std::string input_name;
-    std::vector<std::string> entry;
+    // process info for each event
     std::map<std::string, std::vector<std::string>> cases;
+    // process info for the entry 
+    std::vector<std::string> entry;
+    // node families that need to evaluate a condition expression
     std::set<std::string> conditions;
+    // right expressions
+    std::map<std::string, std::string> rexpr;
 };
 static std::string ev(event_type e, std::string label) {
     return label.empty()? event_prefix[e]:
@@ -51,6 +59,12 @@ static std::set<std::string> ev(event_type e, std::set<std::string> labels) {
         r.insert(ev(e, label));
     return r;
 }
+static std::string cv(std::string label) {
+    return std::string("c_") + label;
+}
+static std::string rx(std::string label, int node) {
+    return stru::sfmt() << "rx_" << label << "_" << node;
+}
 }
 std::ostream &operator<< (std::ostream &out, struct fc::cpp_data const &ed);
 std::string to_string(struct fc::cpp_data const &ed) {
@@ -60,7 +74,25 @@ std::string to_string(struct fc::cpp_data const &ed) {
 }
 namespace fc {
 
-int compiler::cpp_initiate_nf(std::string family, cpp_data &data) const {
+int compiler::cpp_rexpr(cpp_data &data, int node, std::string name) const {
+    std::ostringstream out_sstream;
+    stru::indented_stream out(out_sstream, 0);
+
+    out << "bool " << name << "() {\n";
+    ++out;
+    std::ostringstream asts; 
+    print_ast(asts, node);
+    out << "/*\n" << asts.str() << "*/\n\n";
+    out << "return true;\n";
+    --out;
+    out << "};\n";
+
+    data.rexpr[name] = out_sstream.str();
+    return 0;
+}
+
+int compiler::cpp_initiate_nf(cpp_data &data, std::string family) const {
+    int err_count = 0;
     std::set<std::string> dep_families;
 
     auto is_family = [this, &family](int n) { return node_text(child(n, 0)) == family; };
@@ -79,8 +111,11 @@ int compiler::cpp_initiate_nf(std::string family, cpp_data &data) const {
         data.events.insert(event_s);
         int n_cvalx = last_child(n);
         if(const_level(n_cvalx) > 0) { // can evaluate in this body
-            body->push_back(stru::sfmt() << "c_" << family << " = XPR(" << n_cvalx << ")? " << n_cvalx << ": 0;");
-            body->push_back(stru::sfmt() << "if(c_" << family << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
+            auto cond_var_name = cv(family);
+            auto cond_xpr_label = rx(unid(n), n_cvalx);
+            err_count += cpp_rexpr(data, n_cvalx, cond_xpr_label);
+            body->push_back(stru::sfmt() << cond_var_name << " = " << cond_xpr_label << "()? " << n_cvalx << ": 0;");
+            body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
             continue;
         }
         auto refd_nf = get_referenced_families(n_cvalx);
@@ -144,7 +179,7 @@ int compiler::cpp_initiate_nf(std::string family, cpp_data &data) const {
             data.triggers[event_r].insert(event_r);
             body = &data.cases[event_r];
         }
-        body->push_back(stru::sfmt() << "auto r_" << unid(n) << " = ACTXPR(" << action_node << ");");
+        body->push_back(stru::sfmt() << "auto r_" << unid(n) << " = SETM_" << unid(n) << "_" << action_node << "();");
         switch(node_type(action_node)) {
             case FTK_OUTPUT:
                 body->push_back(stru::sfmt() << "queue_call(r_" << unid(n) << ", f_" << event_a << ");");
@@ -162,9 +197,9 @@ int compiler::cpp_initiate_nf(std::string family, cpp_data &data) const {
     for(auto nf: dep_families) 
         if(data.refd_nf.count(nf) == 0) {
             data.refd_nf.insert(nf);
-            cpp_initiate_nf(nf, data);
+            cpp_initiate_nf(data, nf);
         }
-    return 0;
+    return err_count;
 }
 
 int compiler::cpp_generator(std::ostream &out_stream) const {
@@ -176,8 +211,6 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         auto ins = get("//INPUT", en);
         if(ins.size() == 0) ins = get("//flow/INPUT");
         data.input_name = node_text(child(ins[0], 0));
-        out << "// entry " << en << " \"" << rpc(en) << "\"  with " << ins[0] << " \"" << data.input_name << "\"\n";
-        ++out;
 
         // it was already verified that there is one and only one RETURN/valx subsequence
         int en_rvalx = get("//RETURN/valx", en)[0];
@@ -186,18 +219,18 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         data.refd_nf = refd_nf;
 
         if(refd_nf.size() == 0) {
-            data.entry.push_back(stru::sfmt() << "return XPR(" << en_rvalx << ");");
+            data.entry.push_back(stru::sfmt() << "return SETM_" << en_rvalx << "();");
         } else {
             for(auto nf: refd_nf) {
                 auto event_i = ev(ev_initiate, nf);
                 data.entry.push_back(stru::sfmt() << "evq.push(" << event_i << ");");
-                cpp_initiate_nf(nf, data);
+                cpp_initiate_nf(data, nf);
             }
             auto event_d = ev(ev_done, "");
             data.events.insert(event_d);
             data.process.insert(event_d);
             data.triggers[event_d] = ev(ev_available, refd_nf);
-            data.cases[event_d].push_back(stru::sfmt() << "return XPR(" << en_rvalx << ");");
+            data.cases[event_d].push_back(stru::sfmt() << "return SETM_" << en_rvalx << "();");
         }
         std::set<std::string> flagvars;
         for(auto &te: data.triggers) {
@@ -214,7 +247,6 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
             }
 
         out << "// nodes needed: " << data.refd_nf << "\n"; 
-        //out << "// events generated: " << data.events << "\n";
         out << "// event processors: " << data.process << "\n";
         out << "// triggers: " << data.triggers << "\n";
         out << "enum entry_" << en << "_event {\n";
@@ -224,10 +256,16 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "event_count\n";
         --out;
         out << "};\n";
+        for(auto rx: data.rexpr) {
+            out << rx.second << "\n";
+        }
+        out << "grpc::Status " << rpc(en) << "(grpc::ServerContext *pcontext, const *pinput, *poutput) {  // with " << ins[0] << " \"" << data.input_name << "\"\n";
+        ++out;
         out << stru::join(flagvars, ", ", ", ", "bool ", "f_", " = false", "") << ";\n";
         out << stru::join(data.conditions, ",", ",", "int", " c_", " = 0", ";") << "\n";
         out << "std::queue<entry_" << en << "_event> evq;\n";
         out << "grpc::CompletionQueue acq;\n";
+        out << "grpc::Status status;\n";
         out << "\n";
         for(auto l: data.entry)
             out << l << "\n";
@@ -249,7 +287,9 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         }
         --out;
         out << "}\n";
+        out << "return status;\n";
         --out;
+        out << "};\n";
         out << "\n";
     }
     return 0;

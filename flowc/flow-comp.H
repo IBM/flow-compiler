@@ -172,7 +172,8 @@ private:
     int propagate_value_types(bool debug_on);
 
     int cpp_generator(std::ostream &buf) const;
-    int cpp_initiate_nf(std::string family, struct cpp_data &) const;
+    int cpp_initiate_nf(struct cpp_data &, std::string family) const;
+    int cpp_rexpr(struct cpp_data &, int node, std::string name) const;
 
     int generate(std::ostream &buf, int entry_node, int input_node, bool debug_on);
     int generate_valx(stru::indented_stream &indenter, int vn, bool debug_on);
