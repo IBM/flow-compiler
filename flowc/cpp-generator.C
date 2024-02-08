@@ -6,7 +6,8 @@
 #include <vector>
 
 #include "flow-comp.H"
-#include "stru.H"
+//#include "stru.H"
+#include "filtstream.H"
 
 namespace fc {
 
@@ -76,7 +77,7 @@ namespace fc {
 
 int compiler::cpp_rexpr(cpp_data &data, int node, std::string name) const {
     std::ostringstream out_sstream;
-    stru::indented_stream out(out_sstream, 0);
+    stru::indent_ostream out(out_sstream, 0);
 
     out << "bool " << name << "() {\n";
     ++out;
@@ -203,7 +204,7 @@ int compiler::cpp_initiate_nf(cpp_data &data, std::string family) const {
 }
 
 int compiler::cpp_generator(std::ostream &out_stream) const {
-    stru::indented_stream out(out_stream, 0);
+    stru::indent_ostream out(out_stream, 0);
 
     for(int en: get("//ENTRY"))  {
         cpp_data data;
@@ -246,13 +247,17 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
                 out << "//########### event \"" << pe << "\" is never generated!\n";
             }
 
-        out << "// nodes needed: " << data.refd_nf << "\n"; 
-        out << "// event processors: " << data.process << "\n";
-        out << "// triggers: " << data.triggers << "\n";
+        out << "/***\n";
+        ++out;
+        out << "nodes needed: " << data.refd_nf << "\n"; 
+        out << "event processors: " << data.process << "\n";
+        out << "triggers: " << data.triggers << "\n";
+        --out;
+        out << "*/\n";
         out << "enum entry_" << en << "_event {\n";
         ++out;
         for(auto ev: data.events)
-            out << ev << ",\n";
+            out << ev << ", ";
         out << "event_count\n";
         --out;
         out << "};\n";
@@ -280,7 +285,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
                     out << l.c_str() << "\n";
             if(e == ev(ev_check_flags, "")) for(auto te: data.triggers) {
                 out << "if(" << stru::join(te.second, " && ", " && ", "", "f_") << ")\n";
-                out << stru::indent() <<  "evq.push(" << te.first << ");\n" << stru::unindent();
+                ++out <<  "evq.push(" << te.first << ");\n"; --out;
             }
             out << "break;\n";
             --out;
