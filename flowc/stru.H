@@ -74,69 +74,6 @@ public:
         os << v; return *this;
     }
 };
-// Indentation manipulators
-struct indent {
-    bool add;
-    indent(bool doit = true): add(doit) {}
-};
-struct unindent {
-    bool add;
-    unindent(): add(false) {}
-};
-class indented_stream {
-    int indent_value;
-    int indent_level;
-    std::ostream &os;
-    bool add_indentation;
-public:    
-    indented_stream(std::ostream &a_os, int initial_indent=1, int a_indent_value=4):
-        indent_value(a_indent_value > 0? a_indent_value: 0), indent_level(initial_indent), os(a_os), add_indentation(initial_indent > 0) {
-        }
-
-    template <class T> inline indented_stream &operator << (T t);
-    inline indented_stream &operator++ () {
-        ++indent_level; return *this;
-    }
-    inline indented_stream &operator-- () {
-        --indent_level; return *this;
-    }
-    void indent() {
-        if(add_indentation) {
-            if(indent_level > 0) os << std::string(indent_value * indent_level, ' ');
-            add_indentation = false;
-        }
-
-    }
-};
-template <> inline indented_stream &indented_stream::operator << (std::string const &t){
-    for(auto c: t) {
-        indent();
-        os << c; 
-        if(c == '\n') add_indentation = true;
-    }
-    return *this;
-}
-template <> inline indented_stream &indented_stream::operator << (char const *t) {
-    if(t == nullptr) return *this;
-    for(; *t != '\0'; ++t) {
-        indent();
-        os << *t; 
-        if(*t == '\n') add_indentation = true;
-    }
-    return *this;
-}
-template <> inline indented_stream &indented_stream::operator << (struct indent ind) {
-    return ind.add? ++(*this): --(*this);
-    return *this;
-}
-template <> inline indented_stream &indented_stream::operator << (struct unindent ind) {
-    return --(*this);
-}
-template <class T> indented_stream &indented_stream::operator << (T t) {
-    indent();
-    os << t; 
-    return *this;
-}
 inline static 
 std::string reps(std::string const &rep, unsigned count) {
     std::stringstream buf;
