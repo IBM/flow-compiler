@@ -1047,6 +1047,7 @@ std::vector<int> compiler::node_family(std::string family_name) const {
         nodes.push_back(d_node);
     return nodes;
 }
+/*
 int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
     auto &out = indenter;
     // iterate over all ndid children of vn
@@ -1070,7 +1071,7 @@ int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string inpu
     }
     return 0; 
 }
-
+*/
 std::set<std::string> compiler::get_referenced_families(int valx_node) const {
     std::set<std::string> families;
     std::vector<int> refd;
@@ -1091,7 +1092,7 @@ std::set<std::string> compiler::get_referenced_families(int valx_node) const {
     }
     return families;
 }
-
+/*
 int compiler::generate_valx(stru::indented_stream &indenter, int vn, bool debug_on) {
     int irc = error_count;
     auto &out = indenter;
@@ -1117,4 +1118,5 @@ int compiler::generate_valx_msgexp(stru::indented_stream &indenter, int mn, bool
 
     return error_count - irc;
 }
+*/
 }
