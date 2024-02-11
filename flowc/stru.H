@@ -169,13 +169,8 @@ std::vector<std::string> const &split(std::vector<std::string> &buf, std::string
     return buf;
 }
 std::string remove_empty_lines(std::string s);
-inline static 
-bool isspace(std::string const &s) {
-    for(auto c: s)
-        if(!std::isspace(c))
-            return false;
-    return true;
-}
+bool isspace(std::string const &s);
+
 inline static
 std::string to_upper(std::string const &s) {
     std::string u(s);
@@ -251,6 +246,7 @@ std::string c_escape(std::string const &s);
 std::string json_escape(const std::string &s);
 std::string json_unescape(std::string const &s);
 std::string to_unicode(unsigned long cp1, unsigned long cp2 = 0);
+
 inline static
 std::ostream &to_json(std::ostream &out, std::string const *x) { return out << json_escape(*x); }
 inline static
@@ -279,6 +275,7 @@ std::ostream &to_json(std::ostream &out, std::map<std::string, V> const &v) {
     out << "}";
     return out;
 }
+
 template <class CP> // assumes a correctly formed json
 inline static std::string scan_json(std::pair<CP, CP> &x) {
     std::string tok;
@@ -308,6 +305,7 @@ inline static std::string scan_json(std::pair<CP, CP> &x) {
     }
     return tok;
 }
+
 /**
  * Merge a list of E1 .. En into a string:
  * The result is: j_begin+P1+j1+...+Pn-1+j_last+Pn+j_end

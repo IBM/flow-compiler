@@ -1,6 +1,8 @@
-#include <sstream>
-#include <utility>
+#include <cstdlib>
 #include <iomanip>
+#include <sstream>
+#include <string>
+#include <utility>
 
 namespace stru {
 std::string to_unicode(unsigned long cp1, unsigned long cp2) {
