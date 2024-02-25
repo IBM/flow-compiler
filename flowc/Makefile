@@ -129,9 +129,9 @@ TOOLS=recli vex
 
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
-OBJS:=ast-walk.o filu.o filugz.o flow-comp.o flow-templates.o flowc.o strtrs.o strconv.o \
+OBJS:=ast-walk.o filu.o filugz.o flow-comp.o value-type.o flow-templates.o flowc.o strtrs.o strconv.o \
 		veximpl.o version.o ansi-escapes.o flow-scanner.o flow-pmsg.o print-ast.o \
-		grpcu.o flow-eval.o flow-accesors.o flow-gen.o cpp-generator.o json.o b64.o
+		grpcu.o flow-eval.o flow-accesors.o flow-gen.o cpp-generator.o json.o b64.o 
 
 ## minimal set of files to portably build flow-compiler,
 ## includes intermediate files, but will require only the gRPC libraries to build
