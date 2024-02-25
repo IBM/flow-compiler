@@ -171,6 +171,9 @@ void compiler::print_ast(std::ostream &out, int node) const {
                 case 1:
                     out << ANSI_BOLD+ANSI_YELLOW << "‹" << ANSI_RESET;
                     break;
+                default:
+                    out << ANSI_BOLD+ANSI_YELLOW << "≤" << ANSI_RESET;
+                    break;
             }
             if(vtype.has(*p))
                 out << vtype.get(*p);
@@ -185,6 +188,9 @@ void compiler::print_ast(std::ostream &out, int node) const {
                     break;
                 case 1:
                     out << ANSI_BOLD+ANSI_YELLOW << "›" << ANSI_RESET;
+                    break;
+                default:
+                    out << ANSI_BOLD+ANSI_YELLOW << "≥" << ANSI_RESET;
                     break;
             }
         }
