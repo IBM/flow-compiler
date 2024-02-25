@@ -8,9 +8,9 @@
 
 #include "flow-comp.H"
 #include "stru.H"
-#include "filtstream.H"
+#include "filtered-stream.H"
 
-
+#include <iostream>
 namespace {
 
 enum event_type {
@@ -55,9 +55,7 @@ std::string rx(std::string label, int node) {
 struct cpp_gen {
     // the AST
     fc::compiler const &ast;
-    // temp store - names of family nodes processed so far
-    std::set<std::string> refd_nf;
-    // all the dependent families
+    // families referenced only by other nodes
     std::set<std::string> dep_families;
     // all event names
     std::set<std::string> events;
@@ -74,10 +72,14 @@ struct cpp_gen {
     std::set<std::string> conditions;
     // right expressions
     std::map<std::string, std::string> rexpr;
+    // message set expressions
+    std::map<std::string, std::string> mexpr;
     // flag variable names for each node 
     std::set<std::string> flagvars;
-    // keep track of the number of errors generated
-    int error_count;
+    // node family processing order
+    std::vector<std::string> family_process_order;
+    // node family size (dimension)
+    std::map<std::string, int> family_dim;
 
     cpp_gen(fc::compiler const &ast, std::string input_name);
     /***
@@ -103,23 +105,135 @@ struct cpp_gen {
      * Generate a right expession method <name> at valx <node> 
      */
     int rexpr_method(int node, std::string name);
+    int mexpr_method(int node, std::string name);
     std::string inline_expr(int valx_node);
     std::string field_reference(int ndid_node);
-    
+    int checkset_dim2(int left_base_dim, int node);
+    int checkset_dim(int left_base_dim, int node);
+
+    // keep track of the number of errors generated
+    int error_count;
 };
+
+bool check_assign(int left_dim, fc::value_type left, fc::value_type right) {
+    std::cerr << "CHECK  LEFT: " << left << "\n";
+    std::cerr << "CHECK RIGHT: " << right << "\n";
+    fc::value_type l = left;
+    for(int d = 0; d < left_dim; ++d)
+        l = fc::value_type(fc::fvt_array, {l});
+    return l == right;
+}
 
 cpp_gen::cpp_gen(fc::compiler const &a_ast, std::string a_input_name): 
     ast(a_ast), input_name(a_input_name), error_count(0) {
+    family_dim[input_name] = 0;
+}
+int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
+    std::cerr << "AT " << valx_node << " x " << left_base_dim << " ";
+    int dim = left_base_dim;
+    switch(ast.atc(valx_node, 0).type) {
+        case FTK_msgexp:
+            std::cerr << "got msgexp\n";
+            // valx's vtype has the expected type for this message.
+            // It was either explicitly set or deducted from the node/entry type.
+            std::cerr << "LVT: " << ast.vtype(valx_node) << "\n";
+            break;
+        case FTK_ndid:
+            std::cerr << "got ndid -- node alias -- need to check all node families\n";
+            std::cerr << "LVT: " << ast.vtype(valx_node) << "\n";
+            std::cerr << "The family is ***" << ast.node_text(ast.path(valx_node, "cc", 0, 0)) << "***\n";
+            std::cerr << "The family is ***+ " << ast.get("0/0", valx_node) << " +***\n";
+            std::cerr << "The family is ***" << ast.node_text(ast.getf("0/0", valx_node)) << "***\n";
+            for(int fam_node: ast.node_family(ast.node_text(ast.path(valx_node, "cc", 0, 0)))) {
+                bool can_assign = check_assign(left_base_dim, ast.vtype(valx_node), ast.vtype(fam_node));
+                std::cerr << "int dim = checkset_dim("<< left_base_dim << ", node="<<  fam_node << ")\n";
+                // one and only one action node
+                // TODO deal with ERROR
+                int action_valx = 0;
+                for(int a: ast.get("//(RETURN|OUTPUT)/valx", fam_node)) {
+                    action_valx = a; break;
+                }
+                assert(action_valx != 0);
+                std::cerr << "int dim = checkset_dim("<< left_base_dim << ", "<<  action_valx << ")\n";
+                dim = checkset_dim(left_base_dim, action_valx);
+                std::cerr << "GOT DIM " << dim << " CAN ASSIGN? " << (can_assign? "YES": "NO") << "\n";
+            }
+            break;
+        default:
+            std::cerr << "hit default with " << ast.tk_to_string(ast.atc(valx_node, 0).type);
+    }
+    std::cerr << "\n";
+    return dim;
+}
+int cpp_gen::checkset_dim2(int left_base_dim, int valx_node) {
+    std::cerr << "entering checkset_dim(base_dim: " << left_base_dim << ", valx_node: " << valx_node << ") >>> {\n";
+    int node_dim = -1; 
+    bool done = true;
+    switch(ast.atc(valx_node, 0).type) {
+        case FTK_msgexp:
+            done = false;
+            break;
+        case FTK_ndid:  // node alias
+            if(ast.atc(valx_node, 0).children.size() == 1) {
+                std::cerr << "node alias case\n";
+                std::string family = ast.node_text(ast.child(ast.child(valx_node, 0), 0));
+                if(family_dim.find(family) != family_dim.end()) { 
+                    node_dim = family_dim.find(family)->second;
+                    if(node_dim != left_base_dim) {
+                        std::cerr << "******* bubu node_dim " << node_dim << " is not the expected " << left_base_dim << "!\n";
+                    }
+                } else {
+                    family_dim[family] = left_base_dim;
+                    for(int node_node: ast.node_family(family)) {
+                        std::cerr << "getting action for node " << node_node << "\n";
+                        for(int action_node: ast.get("//(ERRCHK|RETURN|OUTPUT)", node_node)) 
+                            for(int vx_node: ast.at(action_node).children) {
+                                int a_node_dim = checkset_dim(left_base_dim, vx_node);
+                                if(node_dim == -1) {
+                                    node_dim = a_node_dim;
+                                } else if(a_node_dim != node_dim) {
+                                    // mismatch
+                                    ++error_count;
+                                }
+                            }
+                    }
+                }
+                break;
+            }
+            // fall through if this is actually a field expression
+        default:
+            
+            ++error_count;
+            std::cerr << "ooopsy at node " << valx_node << "!\n";
+            break;
+    }
+    if(!done) {
+        auto type = ast.vtype(valx_node);
+        int list_node = ast.last_child(ast.first_child(valx_node));
+        std::cerr << "msgexp case, list node " << list_node << "\n";
+        std::cerr << "setting to type " << type << "\n";
+        for(int fassgn_node: ast.at(list_node).children) {
+            auto field_name = ast.node_text(ast.first_child(fassgn_node));
+            auto field_type = type.field_type(field_name);
+            int left_dim = left_base_dim + field_type.dimension();
+            std::cerr << "assign " << fassgn_node << " " << field_name << " of " << field_type;
+            std::cerr << "\n";
+            int xpr_dim = checkset_dim(left_dim, ast.last_child(fassgn_node));
+
+        }
+    }
+    std::cerr << "exiting  checkset_dim(base_dim: " << left_base_dim << ", valx_node: " << valx_node << "): " << node_dim << " <<< }\n";
+    return node_dim;
 }
 int cpp_gen::entry_body(int entry_node) {
     // it was already verified that there is one and only one RETURN/valx subsequence
     int en_rvalx = ast.get("//RETURN/valx", entry_node)[0];
     auto refd_nf = ast.get_referenced_families(en_rvalx);
     refd_nf.erase(input_name);
-    this->refd_nf = refd_nf;
 
+    checkset_dim(0, en_rvalx);
     if(refd_nf.size() == 0) {
-        entry.push_back(stru::sfmt() << "return SETM_" << en_rvalx << "();");
+        entry.push_back(stru::sfmt() << "return mrx_" << en_rvalx << "();");
     } else {
         for(auto nf: refd_nf) {
             auto event_i = ev(ev_initiate, nf);
@@ -130,7 +244,7 @@ int cpp_gen::entry_body(int entry_node) {
         events.insert(event_d);
         process.insert(event_d);
         triggers[event_d] = ev(ev_available, refd_nf);
-        cases[event_d].push_back(stru::sfmt() << "return SETM_" << en_rvalx << "();");
+        cases[event_d].push_back(stru::sfmt() << "return mrx_" << en_rvalx << "();");
     }
     for(auto &te: triggers) {
         events.insert(te.first);
@@ -211,13 +325,17 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
         body = &cases[body_event];
     }
     auto event_a = ev(ev_available, family);
+    auto msgset_xpr_label = rx(unid, action_node);
+
     switch(ast.node_type(action_node)) {
         case FTK_OUTPUT:
-            body->push_back(stru::sfmt() << "auto r_" << unid << " = smsg_" << unid << "_" << action_node << "();");
+            mexpr_method(action_node, msgset_xpr_label);
+            body->push_back(stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
             body->push_back(stru::sfmt() << "queue_call(r_" << unid << ", f_" << event_a << ");");
             break;
         case FTK_RETURN:
-            body->push_back(stru::sfmt() << "auto r_" << unid << " = smsg_" << unid << "_" << action_node << "();");
+            mexpr_method(action_node, msgset_xpr_label);
+            body->push_back(stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
             body->push_back(stru::sfmt() << "f_" << event_a << " = true;");
             body->push_back(stru::sfmt() << "evq.push(" << ev(ev_check_flags, "") << ");");
             break;
@@ -228,7 +346,11 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
     return body_event;
 }
 int cpp_gen::node_family(std::string family) {
+    if(std::find(family_process_order.begin(), family_process_order.end(), family) != family_process_order.end()) 
+        return 0;
+
     int fam_count = 1;
+    family_process_order.push_back(family);
 
     auto is_family = [this, &family](int n) { return ast.node_text(ast.child(n, 0)) == family; };
     std::vector<int> nodes  = ast.getp("//flow/NODE", is_family);
@@ -272,10 +394,8 @@ int cpp_gen::node_family(std::string family) {
     }
     // process the dependents
     for(auto nf: dep_families) 
-        if(refd_nf.count(nf) == 0) {
-            refd_nf.insert(nf);
-            fam_count += node_family(nf);
-        }
+        fam_count += node_family(nf);
+        
     return fam_count;
 }
 std::string cpp_gen::inline_expr(int valx_node) {
@@ -370,6 +490,37 @@ int cpp_gen::rexpr_method(int node, std::string name) {
     return 0;
 }
 
+int cpp_gen::mexpr_method(int node, std::string name) {
+    std::ostringstream out_sstream;
+    stru::indent_ostream out(out_sstream);
+
+    // both OUTPUT and RETURN have one valx of type msgexp or ndid
+    int valx_node = ast.child(node, 0);
+    int msgexp_node = ast.child(valx_node, 0);
+    out << "void m" << name << "(" << ast.cmsg(msgexp_node) << " &msg_" << msgexp_node << ") {\n";
+    ++out;
+
+    std::ostringstream asts; 
+    ast.print_ast(asts, node);
+    out << "/*\n" << asts.str() << "*/\n\n";
+
+    if(ast.at(msgexp_node).type == FTK_ndid) {
+        // direct node reference    
+        std::string refd_node = ast.node_text(ast.child(msgexp_node, 0));   
+        out << "msg_" << msgexp_node << ".copyFrom(result_" << refd_node << ");\n";
+    } else {
+        // setup message
+        int list_node = ast.last_child(msgexp_node);
+        out << "// list at " << list_node << "\n";
+    }
+
+    out << "return;\n";
+    --out;
+    out << "};\n";
+    rexpr[name] = std::move(out_sstream).str();
+    return 0;
+}
+
 }
 
 namespace fc {
@@ -394,7 +545,8 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
             
         out << "/***\n";
         ++out;
-        out << "nodes needed: " << data.refd_nf << "\n"; 
+        out << "process order: " << data.family_process_order << "\n";
+        out << "node sizes: " << data.family_dim << "\n";
         out << "event processors: " << data.process << "\n";
         out << "triggers: " << data.triggers << "\n";
         --out;
@@ -411,8 +563,8 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         }
         out << "grpc::Status " << rpc(en) << "(grpc::ServerContext *pcontext, const *pinput, *poutput) {  // with " << ins[0] << " \"" << data.input_name << "\"\n";
         ++out;
-        out << stru::join(data.flagvars, ", ", ", ", "bool ", "f_", " = false", "") << ";\n";
-        out << stru::join(data.conditions, ",", ",", "int", " c_", " = 0", ";") << "\n";
+        out << stru::join(data.flagvars, ", ", ", ", "bool ", "f_", "=false", "") << ";\n";
+        out << stru::join(data.conditions, ",", ",", "int", " c_", "=0", ";") << "\n";
         out << "std::queue<entry_" << en << "_event> evq;\n";
         out << "grpc::CompletionQueue acq;\n";
         out << "grpc::Status status;\n";

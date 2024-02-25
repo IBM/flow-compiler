@@ -9,6 +9,7 @@
 #include "ast.H"
 #include "stru.H"
 #include "grpcu.H"
+#include "value-type.H"
 
 // AST node types -- 
 // Some of these overlap with non-terminals but there is no way currently 
@@ -39,50 +40,6 @@ enum ast_nonterm {
 #endif
 
 namespace fc {
-
-enum fvt_type {
-    fvt_none = 0,
-    fvt_int, fvt_flt, fvt_str,  
-    fvt_enum, 
-    fvt_array, 
-    fvt_struct,
-};
-
-struct value_type {
-    fvt_type type;
-    std::vector<value_type> inf;
-    std::string gname;
-    std::string fname;
-
-    value_type(fvt_type t=fvt_none, std::string gn=""):type(t), gname(gn) {
-    }
-    value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn=""):
-        type(t), inf(tl), gname(gn) { 
-    }
-    void add_type(value_type t) {
-        inf.push_back(t);
-    }
-    std::string to_string() const;
-    std::string struct_name() const { return gname; }
-    std::string enum_name() const { return gname; }
-    std::string field_name() const { return fname; }
-    bool is_basic() const { return type == fvt_int || type == fvt_flt || type == fvt_str; }
-    bool is_null() const { return type == fvt_none; }
-    bool is_str() const { return type == fvt_str; }
-    bool is_num() const { return type == fvt_int || type == fvt_flt; }
-    bool is_int() const { return type == fvt_int; }
-    bool is_flt() const { return type == fvt_int; }
-    bool is_array() const { return type == fvt_array; }
-    bool is_struct() const { return type == fvt_struct; }
-    value_type a_type() const { return type == fvt_array? inf[0]: value_type(); }
-
-    inline bool operator ==(value_type const &other) const {
-        return type == other.type;
-    }
-    inline bool operator !=(value_type const &other) const {
-        return !(*this == other);
-    }
-};
 
 class compiler: public ast::tree {
 public:

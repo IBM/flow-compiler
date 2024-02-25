@@ -502,7 +502,8 @@ int compiler::resolve_node_types(bool debug_on) {
             }
             continue;
         }
-        if(at(parent(p)).type == FTK_ENTRY) {
+        if(at(parent(p)).type == FTK_ENTRY) { 
+            // Set the vtype attribute for ENTRY to the type of the result
             rpc.set(parent(p), mm);
             vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
             for(int i: get("INPUT", parent(p))) 
