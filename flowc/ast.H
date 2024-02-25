@@ -2,6 +2,7 @@
 #define H_AST_H
 
 #include <cassert>
+#include <cstdarg>
 #include <cstdlib>
 #include <map>
 #include <string>
@@ -355,6 +356,38 @@ struct tree {
             return 0;
         return at(node).children[child_index];
     }
+    int path(int node, int child_index...) const {
+        va_list args;
+        va_start(args, child_index);
+        int c = child(node, child_index);
+        for(int next = va_arg(args, int); next != -1; next = va_arg(args, int))
+            c = child(c, next);
+        va_end(args);
+        return c;
+    }
+    int path(int node, std::string path, ...) const {
+        va_list args;
+        va_start(args, path);
+
+        for(char p: path) switch(p) {
+            case 'c': case 'C':
+                node = child(node, va_arg(args, int));
+                break;
+            case 'p': case 'P':
+                node = parent(node);
+                break;
+            case 's': case 'S':
+                child(parent(node), va_arg(args, int));
+                break;
+            case 'r': case 'R':
+                child(parent(node), va_arg(args, int)+sibling_index(node));
+                break;
+            default:
+                assert(false);
+        }
+        va_end(args);
+        return node;
+    }
     int first_child(int node) const {
         if(at(node).children.size() > 0)
             return at(node).children[0];
@@ -413,6 +446,11 @@ struct tree {
     /** path expression accessors
      */
     std::vector<int> get(std::string path_expression, int node=0) const;
+    int getf(std::string path_expression, int node=0) const {
+        for(int n: get(path_expression, node)) 
+            return n;
+        return 0;
+    }
     template<class UnaryPredicate> 
     std::vector<int> getp(std::string path_expression, UnaryPredicate sel, int node=0) const {
         std::vector<int> nodes;
@@ -420,6 +458,13 @@ struct tree {
             if(sel(n))
                 nodes.push_back(n);
         return nodes;
+    }
+    template<class UnaryPredicate> 
+    int getpf(std::string path_expression, UnaryPredicate sel, int node=0) const {
+        for(int n: get(path_expression, node))
+            if(sel(n))
+                return n;
+        return 0;
     }
 };
 }
