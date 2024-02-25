@@ -1,5 +1,5 @@
-#ifndef H_FILTSTREAM_H
-#define H_FILTSTREAM_H
+#ifndef H_FILTERED_STREAM_H
+#define H_FILTERED_STREAM_H
 
 #include <ostream>
 #include <sstream>
@@ -12,6 +12,8 @@
 
 namespace stru {
 
+/**** Inserter functor for a stream that prints with line count
+ */
 class lc_inserter {
 private:
     bool at_start_of_line;
@@ -33,6 +35,8 @@ public:
         return got_error? EOF: dst.sputc(ch);
     }
 };
+/**** Inserter functor for a stream that prints a timestamp at the beginning of line
+ */
 class ts_inserter {
 private:
     bool at_start_of_line;
@@ -63,14 +67,20 @@ public:
         return got_error? EOF: dst.sputc(ch);
     }
 };
+/*** Inserter functor for a stream that writes each line indented and wraps at a specified line length.
+ * Increase indentation with indent(), ++ operator or stru::indent manipulator.
+ * Decrease indentation with unindent(), -- operator or stru::unindent manipulator.
+ * The default line wrap length is 120. Set to 0 dsable wrapping.
+ *
+ */
 class indenter_inserter {
 private:
     int indent_level;
     int indent_width;
     char fill_char;
-    int current_line_width;
+    unsigned current_line_width;
     std::string indentation;
-    int wrap_length;
+    unsigned wrap_length;
 public:
     indenter_inserter(int level = 0, int width=4, int line_wrap = 120, int fill_ch=' '):
         indent_level(level >= 0? level: 0), 
@@ -90,12 +100,25 @@ public:
         current_line_width = ch == '\n'? 0: current_line_width+1;
         return got_error? EOF: dst.sputc(ch);
     }
-    void set_level(int new_level) {
+    /** Set the indentation level to an arbitraty value.
+     * Returns the previous indent level.
+     */
+    int set_level(int new_level) {
+        int r = indent_level;
         if(new_level < 0) new_level = 0;
         if(new_level != indent_level) {
             indent_level = new_level;
             indentation = std::string(indent_width*indent_level, fill_char);
         }
+        return r;
+    }
+    /** Set the line wrapping length to an arbitraty value.
+     * Returns the previously held value.
+     */
+    unsigned set_wrap_length(unsigned new_wrap_length) {
+        unsigned r = wrap_length;
+        wrap_length = new_wrap_length;
+        return r;
     }
     void indent() {
        set_level(indent_level+1);
@@ -111,7 +134,7 @@ public:
     }
 };
 /***********
- * Template for a filtering streambuffer that use a functor to filter the content
+ * Template for a filtering streambuffer that uses a functor to filter the content
  * in the overflow call.
  */
 template <class INSERTER>
