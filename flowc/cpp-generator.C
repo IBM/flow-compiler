@@ -116,12 +116,12 @@ struct cpp_gen {
 };
 
 bool check_assign(int left_dim, fc::value_type left, fc::value_type right) {
-    std::cerr << "CHECK  LEFT: " << left << "\n";
-    std::cerr << "CHECK RIGHT: " << right << "\n";
-    fc::value_type l = left;
-    for(int d = 0; d < left_dim; ++d)
-        l = fc::value_type(fc::fvt_array, {l});
-    return l == right;
+    bool can_assign =  right.can_assign_to(fc::value_type(left_dim, left));
+    if(!can_assign) {
+        std::cerr << "CANNOT ASSIGN: " << right << "\n";
+        std::cerr << "           TO: " << left << "\n";
+    }
+    return can_assign;
 }
 
 cpp_gen::cpp_gen(fc::compiler const &a_ast, std::string a_input_name): 
