@@ -20,10 +20,13 @@ struct value_type {
     std::string gname;
     std::string fname;
 
+    // copy constructor
     value_type(value_type const &a_val);
-    value_type(fvt_type t=fvt_none, std::string gn="");
-    value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn="");
+    // basic type 
+    value_type(fvt_type t=fvt_none, std::string group_name="", std::string field_name="");
+    // array of arbitrary type
     value_type(int array_dim, value_type element_type);
+
     void add_type(value_type const &t) {
         inf.push_back(t);
     }
@@ -43,10 +46,7 @@ struct value_type {
     bool is_array() const { return type == fvt_array; }
     bool is_struct() const { return type == fvt_struct; }
     value_type a_type() const { return type == fvt_array? inf[0]: value_type(); }
-    value_type field_type(std::string field_name) const {
-        for(auto const &vt: inf) if(vt.fname == field_name) return vt;
-        return value_type();
-    }
+    value_type field_type(std::string field_name) const;
     bool operator ==(value_type const &other) const;
     bool operator !=(value_type const &other) const {
         return !(*this == other);
@@ -55,6 +55,8 @@ struct value_type {
         return !is_array()? 0:
             1+a_type().dimension();
     }
+    bool can_assign_from(value_type const &right) const;
+    bool can_assign_to(value_type const &left) const;
 };
 }
 #endif
