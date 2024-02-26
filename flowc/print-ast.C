@@ -158,6 +158,9 @@ void compiler::print_ast(std::ostream &out, int node) const {
 
         if(ref.has(*p)) 
             out << ANSI_BOLD+ANSI_RED << "->" << ref.get(*p) << ANSI_RESET;
+
+        if(precedence.has(*p)) 
+            out << ANSI_BOLD+ANSI_BLUE << "^" << precedence.get(*p) << ANSI_RESET;
         
         if(vtype.has(*p) || const_level(*p)) {
             out << " ";

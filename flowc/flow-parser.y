@@ -319,26 +319,32 @@ valx(A) ::= TILDA id(F) OPENPAR CLOSEPAR.                   { A = ast->node(FTK_
 valx(A) ::= TILDA id(F) OPENPAR vala(L) CLOSEPAR.           { A = ast->node(FTK_valx, ast->graft(ast->node(FTK_fun, F), L, 1)); }
 
 valx(A) ::= PLUS valx(X).                                   { A = X; } [BANG]
-valx(A) ::= MINUS(O) valx(X).                               { A = ast->node(FTK_valx, O, X); } [BANG]
-valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); } // size of repeated field
-valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }
-valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }
-valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, ast->node(FTK_PLUS), L, ast->node(FTK_valx, O, R)); }  
-valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); }  
-valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); }  
-valx(A) ::= valx(L) PERCENT(O) valx(R).                     { A = ast->node(FTK_valx, O, L, R); }  
+valx(A) ::= MINUS(O) valx(X).                               { A = ast->node(FTK_valx, O, X); ast->precedence.set(A, 3); } [BANG]
+valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3); } // size of repeated field
+valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3); }
+/** bitwise NOT
+valx(A) ::= BNOT(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3); }
+*/
+valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6); }
+valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, ast->node(FTK_PLUS), L, ast->node(FTK_valx, O, R)); ast->precedence.set(A, 6); }  
+valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); }  
+valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); }  
+valx(A) ::= valx(L) PERCENT(O) valx(R).                     { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); }  
 valx(A) ::= valx(L) POW(O) valx(R).                         { A = ast->node(FTK_valx, O, L, R); }  
 
-valx(A) ::= valx(B) COMP(C) valx(D).                        { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) EQ(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) NE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) LT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) GT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) LE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) GE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) AND(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) OR(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) SHL(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) SHR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); }  
-valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); }
+valx(A) ::= valx(B) COMP(C) valx(D).                        { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 8); }  
+valx(A) ::= valx(B) EQ(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 10); }  
+valx(A) ::= valx(B) NE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 10); }
+valx(A) ::= valx(B) LT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9); }  
+valx(A) ::= valx(B) GT(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9); }  
+valx(A) ::= valx(B) LE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9); }  
+valx(A) ::= valx(B) GE(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9); }  
+valx(A) ::= valx(B) AMP(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 11); }  
+valx(A) ::= valx(B) BAR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 13); }  
+valx(A) ::= valx(B) CARET(C) valx(D).                       { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 12); }  
+valx(A) ::= valx(B) AND(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 14); }  
+valx(A) ::= valx(B) OR(C) valx(D).                          { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 15); }  
+valx(A) ::= valx(B) SHL(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 7); }  
+valx(A) ::= valx(B) SHR(C) valx(D).                         { A = ast->node(FTK_valx, C, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 7); }   
+valx(A) ::= valx(B) QUESTION(C) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, C, B, D, E); ast->precedence.set(A, 16); }
 

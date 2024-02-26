@@ -49,6 +49,7 @@ public:
     ast::attribute2<int, 0> const_level;// 3 when valx is a constant expression, 2 when constant at global level, 1 when constant at call level
     ast::attribute<std::string> cmsg;   // msg type for msgexp nodes
     ast::attribute<std::string> unid;   // individual node identifier
+    ast::attribute2<int, 0> precedence; // operator precedence
     grpcu::store gstore;
 protected:
     std::ostream *errs;
@@ -62,7 +63,6 @@ public:
      */
     enum message_type { mt_error, mt_warning, mt_note };
     void message(std::string filename, int line, int column, message_type type, bool prompt, std::string const &msg) const;
-
     void error(std::string filename, int line, int column, std::string const &msg) {
         message(filename, line, column, mt_error, true, msg);
         ++error_count;
