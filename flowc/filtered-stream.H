@@ -80,22 +80,32 @@ private:
     char fill_char;
     unsigned current_line_width;
     std::string indentation;
-    unsigned wrap_length;
+    unsigned wrap_length, saved_wrap_length;
+    int wrap_indent_width;
+    std::string wrap_indentation;
 public:
     indenter_inserter(int level = 0, int width=4, int line_wrap = 120, int fill_ch=' '):
         indent_level(level >= 0? level: 0), 
         indent_width(width >= 0? width: 0), 
         fill_char(fill_ch), current_line_width(0), 
         indentation(indent_width*indent_level, fill_char),
-        wrap_length(line_wrap) {
+        wrap_length(line_wrap), saved_wrap_length(0), 
+        wrap_indent_width(line_wrap != 0? indent_width/2+1: 0),
+        wrap_indentation(wrap_indent_width, fill_char) {
     }    
     int operator()(std::streambuf &dst, int ch) {
         bool got_error = false;
-        if(ch == ' ' && wrap_length > 0 && current_line_width > wrap_length) 
+        bool wrapping = ch == ' ' && wrap_length > 0 && current_line_width > wrap_length;
+        if(wrapping)
             ch = '\n';
         
-        if(current_line_width == 0 && ch != '\n' && indentation.length() > 0) 
+        if(current_line_width == 0 && ch != '\n' && indentation.length() > 0) {
             got_error = dst.sputn(indentation.c_str(), current_line_width = indentation.length()) != indentation.length();
+            if(!got_error && wrap_indent_width && wrapping) {
+                got_error = dst.sputn(wrap_indentation.c_str(), wrap_indent_width) != wrap_indent_width;
+                current_line_width += wrap_indent_width;
+            }
+        }
         
         current_line_width = ch == '\n'? 0: current_line_width+1;
         return got_error? EOF: dst.sputc(ch);
@@ -118,7 +128,28 @@ public:
     unsigned set_wrap_length(unsigned new_wrap_length) {
         unsigned r = wrap_length;
         wrap_length = new_wrap_length;
+        wrap_indentation = std::string(wrap_indent_width, fill_char);
         return r;
+    }
+    int set_wrap_indent_width(int new_wrap_indent_width) {
+        int r = wrap_indent_width;
+        wrap_indent_width = new_wrap_indent_width;
+        return r;
+    }
+    bool set_nowrap() {
+        bool wrap = wrap_length > 0;
+        if(wrap) {
+            saved_wrap_length = wrap_length;
+            wrap_length = 0;
+        }
+        return wrap;
+    }
+    bool set_wrap() {
+        if(wrap_length == 0 && saved_wrap_length > 0) {
+            wrap_length = saved_wrap_length;
+            saved_wrap_length = 0;
+        }
+        return wrap_length > 0;
     }
     void indent() {
        set_level(indent_level+1);
@@ -205,6 +236,18 @@ public:
     }
     indent_ostream &operator-- () {
         inserter().unindent(); return *this;
+    }
+    int set_level(int indent_level) {
+        return inserter().set_level(indent_level);
+    }
+    unsigned set_wrap_length(unsigned new_wrap_length) {
+        return inserter().set_wrap_length(new_wrap_length);
+    }
+    bool set_wrap() {
+        return inserter().set_wrap();
+    }
+    bool set_nowrap() {
+        return inserter().set_nowrap();
     }
 };
 }
