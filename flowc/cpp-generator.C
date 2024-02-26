@@ -104,8 +104,11 @@ struct cpp_gen {
     /***
      * Generate a right expession method <name> at valx <node> 
      */
-    int rexpr_method(int node, std::string name);
+    int conditional_expr_method(int node, std::string name);
+    int status_expr_method(int node, std::string name);
     int mexpr_method(int node, std::string name);
+    std::map<unsigned, std::string> ienfref;
+    void inline_expr(std::ostringstream &out, int valx_node, int precedence);
     std::string inline_expr(int valx_node);
     std::string field_reference(int ndid_node);
     int checkset_dim2(int left_base_dim, int node);
@@ -233,8 +236,10 @@ int cpp_gen::entry_body(int entry_node) {
 
     checkset_dim(0, en_rvalx);
     if(refd_nf.size() == 0) {
+        // result doesn't depend on any nodes
         entry.push_back(stru::sfmt() << "return mrx_" << en_rvalx << "();");
     } else {
+        // check availability of nodes, initiate processing if needed
         for(auto nf: refd_nf) {
             auto event_i = ev(ev_initiate, nf);
             entry.push_back(stru::sfmt() << "evq.push(" << event_i << ");");
@@ -262,17 +267,10 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
     events.insert(event_s);
     int n_cvalx = ast.last_child(node);
 
-    // if the current conditional is a local constant we can evaluate it
-    // in the current event (i.e. case block) and avoid creating another event
-    if(ast.const_level(n_cvalx) > 0) { 
-        auto cond_var_name = cv(family);
-        auto cond_xpr_label = rx(unid, n_cvalx);
-        rexpr_method(n_cvalx, cond_xpr_label);
-        body->push_back(stru::sfmt() << cond_var_name << " = " << cond_xpr_label << "()? " << n_cvalx << ": 0;");
-        body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
-        return body_event;
-    } else {
-        // otherwise get the dependent node and add them to the intiate list
+    // if the current conditional requires other nodes to be evaluated
+    // add them to the dependency list and continue processing when available
+    if(ast.const_level(n_cvalx) == 0) { 
+        // otherwise get the dependent nodes and add them to the intiate list
         auto refd_nf = ast.get_referenced_families(n_cvalx);
         refd_nf.erase(input_name);
         for(auto nf: refd_nf) { 
@@ -289,8 +287,16 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
             triggers[event_c].insert(event_c);
             process.insert(event_c);
             body_event = event_c;
+
+            body = &cases[body_event];
         }
     }
+    // the current event condition can be evaluated now
+    auto cond_var_name = cv(family);
+    auto cond_xpr_label = rx(unid, n_cvalx);
+    conditional_expr_method(n_cvalx, cond_xpr_label);
+    body->push_back(stru::sfmt() << cond_var_name << " = c" << cond_xpr_label << "()? " << n_cvalx << ": 0;");
+    body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
     return body_event;
 }
 std::string cpp_gen::node_event(std::string family, int node, std::string body_event) {
@@ -340,20 +346,23 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
             body->push_back(stru::sfmt() << "evq.push(" << ev(ev_check_flags, "") << ");");
             break;
         case FTK_ERRCHK:
-            body->push_back(stru::sfmt() << "gen_error(rxpr_" << unid << ");");
+            body->push_back(stru::sfmt() << "reactor->Finish(erx_" << unid << "());");
             break;
     }
     return body_event;
 }
 int cpp_gen::node_family(std::string family) {
+    // return if we already processed this family
     if(std::find(family_process_order.begin(), family_process_order.end(), family) != family_process_order.end()) 
         return 0;
 
     int fam_count = 1;
     family_process_order.push_back(family);
 
+    // get all the nodes in this family in tree order
     auto is_family = [this, &family](int n) { return ast.node_text(ast.child(n, 0)) == family; };
     std::vector<int> nodes  = ast.getp("//flow/NODE", is_family);
+
     auto event_i = ev(ev_initiate, family);
     auto event_a = ev(ev_available, family);
     events.insert(event_i);
@@ -361,11 +370,16 @@ int cpp_gen::node_family(std::string family) {
     std::string body_event = event_i;
     auto *body = &cases[body_event];
 
+    // allow for events to be requested more than once, but process only once. 
     body->push_back(stru::sfmt() << "if(f_" << event_i << ") break;");
     body->push_back(stru::sfmt() << "f_" << event_i << " = true;");
+    body->push_back(stru::sfmt() << "/** will do " << nodes << " */");
 
     int def_n = 0, cond_events = 0;
     for(int n: nodes) if(ast.node_type(ast.last_child(n)) == FTK_valx) {
+        // process any condition for the node
+        body->push_back(stru::sfmt() << "/** condition for " << n << " */");
+        
         std::string prev_body_event = body_event;
         body_event = condition_event(family, n, body_event);
         if(prev_body_event != body_event) {
@@ -373,6 +387,7 @@ int cpp_gen::node_family(std::string family) {
             body = &cases[body_event];
         }
     } else {
+        // remember the node without condition (can be at most one)
         def_n = n;
     }
     if(def_n != 0) {
@@ -390,9 +405,8 @@ int cpp_gen::node_family(std::string family) {
         if(pass != 1) 
             body_event = ev(ev_setup, ast.unid(n));
         body_event = node_event(family, n, body_event);
-        
     }
-    // process the dependents
+    // process the dependents before returning
     for(auto nf: dep_families) 
         fam_count += node_family(nf);
         
@@ -400,65 +414,82 @@ int cpp_gen::node_family(std::string family) {
 }
 std::string cpp_gen::inline_expr(int valx_node) {
     std::ostringstream out;
-    int first_c = ast.first_child(valx_node);
-    switch(ast.at(first_c).type) {
-        case FTK_HASH: 
+    inline_expr(out, valx_node, 16);
+    return std::move(out).str();
+}
+void cpp_gen::inline_expr(std::ostringstream &out, int valx_node, int precedence) {
+    int op_node = ast.first_child(valx_node);
+    int op_precedence = ast.precedence(valx_node);
+    if(op_precedence > precedence)
+        out << "(";
+
+    switch(ast.at(op_node).type) {
+        case FTK_HASH:
             out << "fci::length(";
-            out << inline_expr(ast.child(valx_node, 1));
+            inline_expr(out, ast.child(valx_node, 1), 17);
             out << ")";
             break;
 
         case FTK_BANG: case FTK_MINUS: 
             if(ast.at(valx_node).children.size() == 2)
-                out << ast.node_text(first_c);
-                out << inline_expr(ast.child(valx_node, 1));
+                out << ast.node_text(op_node);
+                inline_expr(out, ast.child(valx_node, 1), op_precedence);
                 break;
 
         case FTK_AND: case FTK_COMP: case FTK_EQ: case FTK_GT: case FTK_LE: 
         case FTK_LT: case FTK_NE: case FTK_OR: case FTK_PERCENT: 
         case FTK_PLUS: case FTK_SLASH: case FTK_STAR: 
-            out << inline_expr(ast.child(valx_node, 1));
-            out << " " << ast.node_text(first_c) << " ";
-            out << inline_expr(ast.child(valx_node, 2));
+            inline_expr(out, ast.child(valx_node, 1), op_precedence);
+            out << " " << ast.node_text(op_node) << " ";
+            inline_expr(out, ast.child(valx_node, 2), op_precedence);
             break;
 
         case FTK_QUESTION:
-            out << inline_expr(ast.child(valx_node, 1));
+            inline_expr(out, ast.child(valx_node, 1), op_precedence);
             out << "? ";
-            out << inline_expr(ast.child(valx_node, 2));
+            inline_expr(out, ast.child(valx_node, 2), op_precedence);
             out << ": ";
-            out << inline_expr(ast.child(valx_node, 3));
+            inline_expr(out, ast.child(valx_node, 3), op_precedence);
             break;
 
         case FTK_SHL: case FTK_SHR:
-            out << ast.node_text(first_c) << "(";
-            out << inline_expr(ast.child(valx_node, 1));
-            out << ", ";
-            out << inline_expr(ast.child(valx_node, 2));
-            out << ")";
+            inline_expr(out, ast.child(valx_node, 1), op_precedence);
+            out << " " << ast.node_text(op_node) << " ";
+            inline_expr(out, ast.child(valx_node, 2), op_precedence);
             break;
 
         case FTK_fun:
-            out << "fci::" << ast.node_text(ast.first_child(first_c)) << "(";
-            for(int c = 1, e = ast.at(first_c).children.size(); c < e; ++c) {
+            out << "fci::" << ast.node_text(ast.first_child(op_node)) << "(";
+            for(int c = 1, e = ast.at(op_node).children.size(); c < e; ++c) {
                 if(c > 2) out << ", ";
-                out << inline_expr(ast.child(first_c, c));
+                inline_expr(out, ast.child(op_node, c), 17);
             }
             out << ")";
             break;
 
         case FTK_did:
-            out << field_reference(first_c); 
+            out << field_reference(op_node); 
             break;
 
         case FTK_ndid:
-            out << field_reference(first_c);
+            ienfref[out.str().length()] = ast.node_text(ast.first_child(op_node));
+            out << field_reference(op_node);
+            break;
+
+        case FTK_INTEGER: case FTK_FLOAT:
+            out << ast.node_text(op_node);
+            break;
+
+        case FTK_STRING: 
+            out << ast.node_text(op_node);
             break;
 
         default:
+            out << " /* " << op_node << ": " << ast.node_text(op_node) << " */ ";
             break;
     }
-    return std::move(out).str();
+    if(op_precedence > precedence)
+        out << ")";
 }
     
 std::string cpp_gen::field_reference(int ndid_node) {
@@ -468,9 +499,10 @@ std::string cpp_gen::field_reference(int ndid_node) {
     return stru::join(fields, ".");
 }
 
-int cpp_gen::rexpr_method(int node, std::string name) {
+int cpp_gen::conditional_expr_method(int node, std::string name) {
     std::ostringstream out_sstream;
     stru::indent_ostream out(out_sstream);
+    out.set_wrap_length(0);
 
     out << "bool c" << name << "() {\n";
     ++out;
@@ -478,15 +510,21 @@ int cpp_gen::rexpr_method(int node, std::string name) {
     ast.print_ast(asts, node);
     out << "/*\n" << asts.str() << "*/\n\n";
 
+    out << "/* calling inline_expr(" << node << ") */\n";
     out << "auto val = ";
+    out.set_nowrap();
+    ienfref.clear();
     out << inline_expr(node);
     out << ";\n";
-
+    out.set_wrap();
+    if(ienfref.size() > 0)
+        out << " /**** nfrefs: \n" << ienfref << "\n*/\n";
     out << "return val;\n";
     --out;
     out << "};\n";
 
     rexpr[name] = std::move(out_sstream).str();
+    std::cerr << rexpr[name] << "\n";
     return 0;
 }
 
@@ -558,9 +596,11 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "event_count\n";
         --out;
         out << "};\n";
+        auto wrap_length = out.set_wrap_length(0);
         for(auto rx: data.rexpr) {
             out << rx.second << "\n";
         }
+        out.set_wrap_length(wrap_length);
         out << "grpc::Status " << rpc(en) << "(grpc::ServerContext *pcontext, const *pinput, *poutput) {  // with " << ins[0] << " \"" << data.input_name << "\"\n";
         ++out;
         out << stru::join(data.flagvars, ", ", ", ", "bool ", "f_", "=false", "") << ";\n";
