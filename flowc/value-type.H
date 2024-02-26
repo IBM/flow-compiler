@@ -20,12 +20,14 @@ struct value_type {
     std::string gname;
     std::string fname;
 
-    value_type(fvt_type t=fvt_none, std::string gn=""):type(t), gname(gn) {
+    value_type(value_type const &a_val);
+    value_type(fvt_type t=fvt_none, std::string gn="");
+    value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn="");
+    value_type(int array_dim, value_type element_type);
+    void add_type(value_type const &t) {
+        inf.push_back(t);
     }
-    value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn=""):
-        type(t), inf(tl), gname(gn) { 
-    }
-    void add_type(value_type t) {
+    void add_type(value_type &&t) {
         inf.push_back(t);
     }
     std::string to_string() const;
