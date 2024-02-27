@@ -12,6 +12,13 @@
 
 namespace stru {
 
+class streambuf_inserter {
+public:
+     int operator()(std::streambuf &dst, int ch) {
+         return dst.sputc(ch);
+     }
+};
+
 /**** Inserter functor for a stream that prints with line count
  */
 class lc_inserter {
@@ -75,18 +82,18 @@ public:
  */
 class indenter_inserter {
 private:
-    int indent_level;
-    int indent_width;
+    unsigned indent_level;
+    unsigned indent_width;
     char fill_char;
     unsigned current_line_width;
     std::string indentation;
     unsigned wrap_length, saved_wrap_length;
-    int wrap_indent_width;
+    unsigned wrap_indent_width;
     std::string wrap_indentation;
 public:
-    indenter_inserter(int level = 0, int width=4, int line_wrap = 120, int fill_ch=' '):
-        indent_level(level >= 0? level: 0), 
-        indent_width(width >= 0? width: 0), 
+    indenter_inserter(unsigned level = 0, unsigned width=4, unsigned line_wrap = 120, int fill_ch=' '):
+        indent_level(level), 
+        indent_width(width), 
         fill_char(fill_ch), current_line_width(0), 
         indentation(indent_width*indent_level, fill_char),
         wrap_length(line_wrap), saved_wrap_length(0), 
@@ -113,11 +120,18 @@ public:
     /** Set the indentation level to an arbitraty value.
      * Returns the previous indent level.
      */
-    int set_level(int new_level) {
+    unsigned set_level(unsigned new_level) {
         int r = indent_level;
-        if(new_level < 0) new_level = 0;
         if(new_level != indent_level) {
             indent_level = new_level;
+            indentation = std::string(indent_width*indent_level, fill_char);
+        }
+        return r;
+    }
+    unsigned set_width(unsigned new_width) {
+        int r = indent_width;
+        if(new_width != indent_width) {
+            indent_width = new_width;
             indentation = std::string(indent_width*indent_level, fill_char);
         }
         return r;
@@ -131,8 +145,8 @@ public:
         wrap_indentation = std::string(wrap_indent_width, fill_char);
         return r;
     }
-    int set_wrap_indent_width(int new_wrap_indent_width) {
-        int r = wrap_indent_width;
+    unsigned set_wrap_indent_width(unsigned new_wrap_indent_width) {
+        unsigned r = wrap_indent_width;
         wrap_indent_width = new_wrap_indent_width;
         return r;
     }
@@ -226,6 +240,18 @@ typedef filtering_ostream<ts_inserter> lc_ostream;
 /******
  * Stream that indents and wraps lines.
  */
+struct indent_width {
+    unsigned width;
+    indent_width(unsigned w): width(w) {}
+};
+struct wrap_length {
+    unsigned length;
+    wrap_length(unsigned l): length(l) {}
+};
+struct wrap_indent {
+    unsigned width;
+    wrap_indent(unsigned w): width(w) {}
+};
 class indent_ostream: public filtering_ostream<indenter_inserter> {
 public:
     indent_ostream(std::ostream &os, int level = 0, int width = 4, int line_wrap = 120, int fill_ch = ' '):
@@ -237,18 +263,58 @@ public:
     indent_ostream &operator-- () {
         inserter().unindent(); return *this;
     }
-    int set_level(int indent_level) {
+    unsigned set_level(unsigned indent_level) {
         return inserter().set_level(indent_level);
     }
+    unsigned set_width(unsigned indent_width) {
+        flush();
+        return inserter().set_width(indent_width);
+    }
     unsigned set_wrap_length(unsigned new_wrap_length) {
+        flush();
         return inserter().set_wrap_length(new_wrap_length);
     }
+    unsigned set_wrap_indent(unsigned wrap_width) {
+        flush();
+        return inserter().set_wrap_indent_width(wrap_width);
+    }
     bool set_wrap() {
+        flush();
         return inserter().set_wrap();
     }
     bool set_nowrap() {
+        flush();
         return inserter().set_nowrap();
     }
 };
+inline static void wrap(indent_ostream &o) {
+    o.set_wrap();
 }
+inline static void nowrap(indent_ostream &o) {
+    o.set_nowrap();
+}
+inline static void indent(indent_ostream &o) {
+    ++o;
+}
+inline static void unindent(indent_ostream &o) {
+    --o;
+}
+}
+stru::indent_ostream &operator << (stru::indent_ostream &out, stru::indent_width w) {
+    out.set_width(w.width); return out;
+}
+stru::indent_ostream &operator << (stru::indent_ostream &out, stru::wrap_length l) {
+    out.set_wrap_length(l.length); return out;
+}
+stru::indent_ostream &operator << (stru::indent_ostream &out, stru::wrap_indent w) {
+    out.set_wrap_indent(w.width); return out;
+}
+template <class T>
+inline static 
+stru::indent_ostream &operator<<(stru::indent_ostream &out, T t) {
+    std::ostream &o = out;
+    o << t;
+    return out;
+}
+
 #endif
