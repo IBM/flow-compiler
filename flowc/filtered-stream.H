@@ -64,5 +64,14 @@ public:
     }
 };
 }
-
+/******
+ * Operator to delegate to the std::stream operator and allow for specific manipulators
+ */
+template <class T, class F>
+inline static
+stru::filtering_ostream<F> &operator<<(stru::filtering_ostream<F> &out, T t) {
+    std::ostream &o = out;
+    o << t;
+    return out;
+}
 #endif

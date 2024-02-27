@@ -184,12 +184,4 @@ stru::indent_ostream &operator << (stru::indent_ostream &out, stru::wrap_length 
 stru::indent_ostream &operator << (stru::indent_ostream &out, stru::wrap_indent w) {
     out.set_wrap_indent(w.width); return out;
 }
-template <class T>
-inline static 
-stru::indent_ostream &operator<<(stru::indent_ostream &out, T t) {
-    std::ostream &o = out;
-    o << t;
-    return out;
-}
-
 #endif
