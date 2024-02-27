@@ -8,7 +8,7 @@
 
 #include "flow-comp.H"
 #include "stru.H"
-#include "filtered-stream.H"
+#include "ind-stream.H"
 
 #include <iostream>
 namespace {
@@ -512,11 +512,8 @@ int cpp_gen::conditional_expr_method(int node, std::string name) {
 
     out << "/* calling inline_expr(" << node << ") */\n";
     out << "auto val = ";
-    out.set_nowrap();
     ienfref.clear();
-    out << inline_expr(node);
-    out << ";\n";
-    out.set_wrap();
+    out << stru::nowrap << inline_expr(node) << ";\n" << stru::wrap;
     if(ienfref.size() > 0)
         out << " /**** nfrefs: \n" << ienfref << "\n*/\n";
     out << "return val;\n";
