@@ -150,17 +150,21 @@ public:
         return inserter().set_nowrap();
     }
 };
-inline static void wrap(indent_ostream &o) {
-    o.set_wrap();
+inline static std::ostream &wrap(std::ostream &o) {
+    dynamic_cast<indent_ostream &>(o).set_wrap(); 
+    return o;
 }
-inline static void nowrap(indent_ostream &o) {
-    o.set_nowrap();
+inline static std::ostream & nowrap(std::ostream &o) {
+    dynamic_cast<indent_ostream &>(o).set_nowrap();
+    return o;
 }
-inline static void indent(indent_ostream &o) {
-    ++o;
+inline static std::ostream &indent(std::ostream &o) {
+    ++dynamic_cast<indent_ostream &>(o);
+    return o;
 }
-inline static void unindent(indent_ostream &o) {
-    --o;
+inline static std::ostream &unindent(std::ostream &o) {
+    --dynamic_cast<indent_ostream &>(o);
+    return o;
 }
 struct indent_width {
     unsigned width;
