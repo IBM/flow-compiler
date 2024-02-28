@@ -8,7 +8,7 @@
 
 #include "flow-comp.H"
 #include "stru.H"
-#include "ind-stream.H"
+#include "indent-stream.H"
 
 #include <iostream>
 namespace {
