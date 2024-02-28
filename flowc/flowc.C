@@ -17,6 +17,7 @@
 #include "flow-templates.H"
 #include "helpo.H"
 #include "stru.H"
+#include "sfmt.H"
 
 #if defined(STACK_TRACE) && STACK_TRACE
 #include <execinfo.h>

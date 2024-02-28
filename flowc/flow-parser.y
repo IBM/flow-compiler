@@ -62,6 +62,7 @@
 
 %include {
 #include "flow-comp.H"
+#include "sfmt.H"
 // undefine this to disable error productions
 //#define YYNOERRORRECOVERY
 }

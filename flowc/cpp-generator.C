@@ -10,6 +10,7 @@
 #include "cont-shop.H"
 #include "stru.H"
 #include "indent-ostream.H"
+#include "sfmt.H"
 
 #include <iostream>
 namespace {

@@ -6,6 +6,7 @@
 #include <functional>
 #include "stru.H"
 #include "strsli.H"
+#include "sfmt.H"
 
 #include <iostream>
 

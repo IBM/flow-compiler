@@ -10,16 +10,6 @@
 #include <vector>
 
 namespace stru {
-class sfmt {
-    std::ostringstream os;
-public:
-    inline operator std::string() {
-        return os.str();
-    }
-    template <class T> sfmt &operator <<(T v) {
-        os << v; return *this;
-    }
-};
 inline static 
 std::string reps(std::string const &rep, unsigned count) {
     std::stringstream buf;
