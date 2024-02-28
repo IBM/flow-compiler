@@ -1,11 +1,11 @@
-#ifndef H_LOG_STREAM_H
-#define H_LOG_STREAM_H
+#ifndef H_LOG_OSTREAM_H
+#define H_LOG_OSTREAM_H
 
 #include <ostream>
 #include <string>
 #include <ctime>
 #include <sys/time.h>
-#include "filtered-stream.H"
+#include "filtered-ostream.H"
 
 namespace stru {
 /**** Inserter functor for a stream that prints a timestamp at the beginning of line

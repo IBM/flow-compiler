@@ -5,6 +5,29 @@
 #include <utility>
 
 namespace stru {
+std::string json_escape(const std::string &s) {
+    std::ostringstream o;
+    o << '\"';
+    for(auto c: s) {
+        switch (c) {
+        case '"': o << "\\\""; break;
+        case '\\': o << "\\\\"; break;
+        case '\b': o << "\\b"; break;
+        case '\f': o << "\\f"; break;
+        case '\n': o << "\\n"; break;
+        case '\r': o << "\\r"; break;
+        case '\t': o << "\\t"; break;
+        default:
+            if('\x00' <= c && c <= '\x1f') {
+                o << "\\u" << std::hex << std::setw(4) << std::setfill('0') << int(c);
+            } else {
+                o << c;
+            }
+        }
+    }
+    o << '\"';
+    return std::move(o).str();
+}
 std::string to_unicode(unsigned long cp1, unsigned long cp2) {
     std::string u;
     auto cp = cp1;
@@ -36,29 +59,6 @@ std::string to_unicode(unsigned long cp1, unsigned long cp2) {
         // invalid code point
     }
     return u;
-}
-std::string json_escape(const std::string &s) {
-    std::ostringstream o;
-    o << '\"';
-    for(auto c: s) {
-        switch (c) {
-        case '"': o << "\\\""; break;
-        case '\\': o << "\\\\"; break;
-        case '\b': o << "\\b"; break;
-        case '\f': o << "\\f"; break;
-        case '\n': o << "\\n"; break;
-        case '\r': o << "\\r"; break;
-        case '\t': o << "\\t"; break;
-        default:
-            if('\x00' <= c && c <= '\x1f') {
-                o << "\\u" << std::hex << std::setw(4) << std::setfill('0') << int(c);
-            } else {
-                o << c;
-            }
-        }
-    }
-    o << '\"';
-    return o.str();
 }
 std::string json_unescape(std::string const &s) {
     std::ostringstream o;
@@ -98,6 +98,6 @@ std::string json_unescape(std::string const &s) {
     } else {
         o << c;
     }
-    return o.str();
+    return std::move(o).str();
 }
 }

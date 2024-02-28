@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iomanip>
 #include <iosfwd>
-#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -193,35 +192,6 @@ std::string c_escape(std::string const &s);
 std::string json_escape(const std::string &s);
 std::string json_unescape(std::string const &s);
 std::string to_unicode(unsigned long cp1, unsigned long cp2 = 0);
-
-inline static
-std::ostream &to_json(std::ostream &out, std::string const *x) { return out << json_escape(*x); }
-inline static
-std::ostream &to_json(std::ostream &out, std::string const &x) { return out << json_escape(x); }
-inline static
-std::ostream &to_json(std::ostream &out, char const *x) { return out << json_escape(x); }
-template <class T> inline static 
-std::ostream &to_json(std::ostream &out, T x) { return out << x; }
-template <class E> 
-std::ostream &to_json(std::ostream &out, std::vector<E> const &v) { 
-    out << "[";
-    if(v.size() > 0) to_json(out, v[0]);
-    for(unsigned i = 1, e = v.size(); i < e; ++i) {
-        out << ","; to_json(out, v[i]);
-    }
-    out << "]";
-    return out;
-}
-template <class V> 
-std::ostream &to_json(std::ostream &out, std::map<std::string, V> const &v) { 
-    out << "{";
-    char const *sep = "";
-    for(auto const &p: v) {
-        out << sep; to_json(out, p.first); out << ":"; to_json(out, p.second); sep = ",";
-    }
-    out << "}";
-    return out;
-}
 
 template <class CP> // assumes a correctly formed json
 inline static std::string scan_json(std::pair<CP, CP> &x) {
