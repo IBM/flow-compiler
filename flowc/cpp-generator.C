@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "flow-comp.H"
+#include "cont-shop.H"
 #include "stru.H"
 #include "indent-stream.H"
 
@@ -542,7 +543,8 @@ std::string cpp_gen::conditional_expr_method(int node, std::string name) {
     out << "/* calling inline_expr(" << node << ") */\n";
     out << "auto val = ";
     ienfref.clear();
-    out << stru::nowrap << inline_expr(node) << ";\n" << stru::wrap;
+    std::string iexpr = inline_expr(node);
+    out << stru::nowrap << iexpr << ";\n" << stru::wrap;
     if(ienfref.size() > 0)
         out << " /**** nfrefs: \n" << ienfref << "\n*/\n";
     out << "return val;\n";

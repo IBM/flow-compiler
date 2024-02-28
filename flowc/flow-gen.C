@@ -1,5 +1,4 @@
 #include "flow-comp.H"
-#include "stru.H"
 #include <iostream>
 #include <map>
 #include <set>
@@ -7,6 +6,8 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
+#include "cont-shop.H"
+#include "stru.H"
 
 namespace fc {
 int compiler::walk(int node) {
