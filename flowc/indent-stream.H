@@ -1,5 +1,5 @@
-#ifndef H_IND_STREAM_H
-#define H_IND_STREAM_H
+#ifndef H_INDENT_STREAM_H
+#define H_INDENT_STREAM_H
 
 #include <ostream>
 #include <string>
