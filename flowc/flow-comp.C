@@ -505,9 +505,9 @@ int compiler::resolve_node_types(bool debug_on) {
         if(at(parent(p)).type == FTK_ENTRY) { 
             // Set the vtype attribute for ENTRY to the type of the result
             rpc.set(parent(p), mm);
-            vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
+            vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(mm), ""));
             for(int i: get("INPUT", parent(p))) 
-                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(mm)));
+                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(mm), std::string("<")+node_text(i)));
 
             if(get("INPUT", parent(p)).size() == 0) {
                 if(first_default_input_entry == 0) {
@@ -520,15 +520,15 @@ int compiler::resolve_node_types(bool debug_on) {
             }
         } else {
             cmsg.set(parent(p), gstore.method_input_full_name(mm));
-            vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(mm)));
+            vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(mm), ""));
             rpc.set(ancestor(p, 5), mm);
-            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(mm)));
+            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(mm), ""));
         }
     }
     if(first_default_input_entry != 0 && !default_input_type.empty()) 
         for(int i: get("//flow/INPUT")) 
             if(!vtype.has(i))
-                vtype.set(i, gstore.message_to_value_type(default_input_type));
+                vtype.set(i, gstore.message_to_value_type(default_input_type, "<"));
     
     // Other message expressions with identifiers refer to the gRPC message type explicitly. 
     // They can be solved now, before the expression types are resolved.
@@ -545,7 +545,7 @@ int compiler::resolve_node_types(bool debug_on) {
             }
         }
         cmsg.set(parent(p), mm);
-        vtype.set(ancestor(p, 2), gstore.message_to_value_type(mm));
+        vtype.set(ancestor(p, 2), gstore.message_to_value_type(mm, "?did"));
     }
     // If the return msgexp does not have an explicit type, use the entry output type
     for(auto p: get("//ENTRY/block/RETURN/valx/msgexp")) if(!cmsg.has(p)) {
@@ -553,7 +553,7 @@ int compiler::resolve_node_types(bool debug_on) {
         if(!mn.empty()) {
             auto inpm = gstore.method_output_full_name(mn);
             cmsg.set(p, inpm);
-            vtype.set(parent(p), gstore.message_to_value_type(inpm));
+            vtype.set(parent(p), gstore.message_to_value_type(inpm, "?return"));
         }
     }
     // Grab the node families
@@ -697,7 +697,7 @@ int compiler::compute_value_type(bool debug_on, int node) {
                         error(n, stru::sfmt() << "message of type \"" << vtype.get(mn).struct_name() << "\" does not have a field \"" << did << "\"");
                         notep(at(mn), stru::sfmt() << "message type deduced from here");
                     }
-                    vtype.set(node, gstore.field_to_value_type(vtype.get(mn).struct_name(), did));
+                    vtype.set(node, gstore.field_to_value_type(vtype.get(mn).struct_name(), did, node_text(path(node, 0, 0))));
                 } else {
                     vtype.copy(mn, node);
                 }
