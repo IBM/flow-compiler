@@ -80,21 +80,25 @@ inline static std::ostream &print_container(std::ostream &out, T const &m);
 }
 
 template <typename T, std::enable_if_t<stru::is_dict<T>::value, bool> = true>
-inline static std::ostream &operator << (std::ostream &out, T const &m) {
+inline static 
+std::ostream &operator << (std::ostream &out, T const &m) {
     return stru::print_dict(out, m);
 }
 template <typename T, std::enable_if_t<std::conjunction< stru::is_container<T>, std::negation<stru::is_dict<T>> >::value, bool> = true>
-inline static std::ostream &operator << (std::ostream &out, T const &m) {
+inline static 
+std::ostream &operator << (std::ostream &out, T const &m) {
     return stru::print_container(out, m);
 }
-template <class A, class B> inline static 
+template <typename A, typename B> 
+inline static 
 std::ostream &operator << (std::ostream &s, std::pair<A, B> const &p) {
     return s << "<" << p.first << ", "<< p.second << ">";
 }
 
 namespace stru {
 template<typename T>
-inline static std::ostream &print_dict(std::ostream &out, T const &m) {
+inline static 
+std::ostream &print_dict(std::ostream &out, T const &m) {
     out << "{";
     char const *sep = "";
     for(auto const &kv: m) {
@@ -105,7 +109,8 @@ inline static std::ostream &print_dict(std::ostream &out, T const &m) {
     return out;
 }
 template<typename T>
-inline static std::ostream &print_container(std::ostream &out, T const &m) {
+inline static 
+std::ostream &print_container(std::ostream &out, T const &m) {
     out << "[";
     char const *sep = "";
     for(auto const &v: m) {
