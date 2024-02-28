@@ -121,7 +121,7 @@ endif
 
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))
 RUNTIME_TEMPLATES?=$(addsuffix /template.runtime.Dockerfile,$(addprefix runtimes/,$(RUNTIMES)))
-TOOLS=recli vex
+TOOLS=recli vex strt
 
 .PHONY: $(RUNTIMES)
 .PHONY: clean tar image image-info install targets image-info-Darwin.ts image-info-Darwin image-info-Linux all-images flowc-image 
@@ -179,7 +179,6 @@ flow-scanner.C: flow-scanner.lex
 
 clean:
 	rm -f flowc $(TOOLS) cdmp $(OBJS:.o=.dep) $(OBJS) flow-templatez.C flow-compiler-src.tgz flow-base-image-info.json flow-compiler-minsrc.tgz 
-
 
 flow-templates.C: $(TEMPLATE_FILES) rr-keys.sh rr-get.sh $(RUNTIME_TEMPLATES)
 	@echo Writing $@ $(patsubst %.C,%.H,$@)
@@ -288,11 +287,15 @@ recli: recli.C
 	@echo "====================================================================="
 	@./$@ --version
 
-vex: vex.C vex.H stru.H veximpl.C strtrs.C vex-help.C filu.C filugz.C ansi-escapes.C strconv.C
+vex: vex.C vex.H stru.H veximpl.C strtrs.C vex-help.C filu.C filugz.C ansi-escapes.C strconv.C json.C b64.C
 	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o vex $(filter-out %.H,$^) $(LFLAGS) -lz
 	@echo "====================================================================="
 	@./$@ --version
 
+strt: strt.C stru.H b64.C strconv.C json.C filu.C
+	$(CXX) -std=c++17 $(CCFLAGS) "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" -o $@ $(filter-out %.H,$^) $(LFLAGS) -lz
+	@echo "====================================================================="
+	@./$@ --version
 
 tools: $(TOOLS)
 
