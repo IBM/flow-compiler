@@ -9,7 +9,7 @@
 #include "flow-comp.H"
 #include "cont-shop.H"
 #include "stru.H"
-#include "indent-stream.H"
+#include "indent-ostream.H"
 
 #include <iostream>
 namespace {
