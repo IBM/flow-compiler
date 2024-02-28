@@ -3,65 +3,12 @@
 
 #include <algorithm>
 #include <cstring>
-#include <deque>
 #include <iomanip>
 #include <iosfwd>
 #include <map>
-#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
-
-template <class A, class B> inline static 
-std::ostream &operator << (std::ostream &s, std::map<A, B> const &m);
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::vector<A> const &m);
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::set<A> const &m);
-template <class A, class B> inline static 
-std::ostream &operator << (std::ostream &s, std::pair<A, B> const &p) {
-    return s << p.first << ": "<< p.second;
-}
-template <class A, class B> inline static 
-std::ostream &operator << (std::ostream &s, std::map<A, B> const &m) {
-    s << "{";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << "}";
-}
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::vector<A> const &m) {
-    s << "[";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << "]";
-}
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::set<A> const &m) {
-    s << "{";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << "}";
-}
-template <class A> inline static 
-std::ostream &operator << (std::ostream &s, std::deque<A> const &m) {
-    s << "(";
-    int c = 0;
-    for(auto const &p: m) {
-        if(++c > 1) s << ", ";
-        s << p;
-    }
-    return s << ")";
-}
 
 namespace stru {
 class sfmt {
