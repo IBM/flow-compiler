@@ -17,8 +17,12 @@ enum fvt_type {
 struct value_type {
     fvt_type type;
     std::vector<value_type> inf;
+    // group name - the typename of the structure or the enum this is part of
     std::string gname;
+    // filed name - the filed name when this is a structure member
     std::string fname;
+    // reference information (the node family name)
+    std::string reference;
 
     // copy constructor
     value_type(value_type const &a_val);
@@ -37,6 +41,7 @@ struct value_type {
     std::string struct_name() const { return gname; }
     std::string enum_name() const { return gname; }
     std::string field_name() const { return fname; }
+    std::string ref() const { return reference; }
     bool is_basic() const { return type == fvt_int || type == fvt_flt || type == fvt_str; }
     bool is_null() const { return type == fvt_none; }
     bool is_str() const { return type == fvt_str; }

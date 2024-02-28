@@ -9,7 +9,7 @@
 #include "stru.H"
 #include "filu.H"
 #include "ansi-escapes.H"
-#include "flow-comp.H"
+#include "value-type.H"
 
 using namespace google::protobuf;
 
@@ -100,7 +100,7 @@ fc::value_type fd_to_value_type(FieldDescriptor const *fd) {
                 break;
         }
         if(fd->is_repeated())
-            ft = fc::value_type(fc::fvt_array, {ft});
+            ft = fc::value_type(1, ft);
         ft.fname = fd->name();
     }
     return ft;
@@ -114,6 +114,26 @@ fc::value_type d_to_value_type(Descriptor const *md) {
     }
     return vt;
 }
+
+std::map<std::string, int> grpc_error_codes = {
+{"OK", 0},
+{"CANCELLED", 1},
+{"UNKNOWN", 2},
+{"INVALID_ARGUMENT", 3},
+{"DEADLINE_EXCEEDED", 4},
+{"NOT_FOUND", 5},
+{"ALREADY_EXISTS", 6},
+{"PERMISSION_DENIED", 7},
+{"RESOURCE_EXHAUSTED", 8},
+{"FAILED_PRECONDITION", 9},
+{"ABORTED", 10},
+{"OUT_OF_RANGE", 11},
+{"UNIMPLEMENTED", 12},
+{"INTERNAL", 13},
+{"UNAVAILABLE", 14},
+{"DATA_LOSS", 15},
+{"UNAUTHENTICATED", 16},
+};
 
 }
 
@@ -159,25 +179,6 @@ int store::import_file(std::string file, bool add_to_path) {
     return 0;
 }
 
-static std::map<std::string, int> grpc_error_codes = {
-{"OK", 0},
-{"CANCELLED", 1},
-{"UNKNOWN", 2},
-{"INVALID_ARGUMENT", 3},
-{"DEADLINE_EXCEEDED", 4},
-{"NOT_FOUND", 5},
-{"ALREADY_EXISTS", 6},
-{"PERMISSION_DENIED", 7},
-{"RESOURCE_EXHAUSTED", 8},
-{"FAILED_PRECONDITION", 9},
-{"ABORTED", 10},
-{"OUT_OF_RANGE", 11},
-{"UNIMPLEMENTED", 12},
-{"INTERNAL", 13},
-{"UNAVAILABLE", 14},
-{"DATA_LOSS", 15},
-{"UNAUTHENTICATED", 16},
-};
 
 int store::error_code(std::string id) {
     auto f = grpc_error_codes.find(id);
@@ -302,14 +303,18 @@ int store::enum_value(std::string name) const {
     if(found.size() != 1) return -1;
     return ((EnumValueDescriptor const *) *found.begin())->number();
 }
-fc::value_type store::message_to_value_type(std::string name) const {
+fc::value_type store::message_to_value_type(std::string name, std::string reference) const {
     auto found = find_messages(name);
     if(found.size() != 1) 
         return fc::value_type();
-    return d_to_value_type((Descriptor const *) *found.begin());
+    auto vt = d_to_value_type((Descriptor const *) *found.begin());
+    vt.reference = reference;
+    return vt;
 }
-fc::value_type store::field_to_value_type(std::string message_name, std::string field_name) const {
+fc::value_type store::field_to_value_type(std::string message_name, std::string field_name, std::string reference) const {
     auto md = importer.pool()->FindMessageTypeByName(message_name);
-    return fd_to_value_type(find_field_descriptor(md, field_name));
+    auto vt = fd_to_value_type(find_field_descriptor(md, field_name));
+    vt.reference = reference;
+    return vt;
 }
 }

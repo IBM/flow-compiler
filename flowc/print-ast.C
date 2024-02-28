@@ -6,8 +6,10 @@
 #include "stru.H"
 
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
+    if(!vt.ref().empty())
+        s << ANSI_BLUE+ANSI_BOLD << vt.ref() << ANSI_RESET<< "@";
     if(!vt.field_name().empty()) 
-        s << vt.field_name() << ": "; 
+        s << vt.field_name() << ": ";
     switch(vt.type) {
         case fc::fvt_none:
             s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;

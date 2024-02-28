@@ -12,6 +12,10 @@
 
 #include <iostream>
 namespace {
+    struct expression;
+}
+static std::ostream &operator << (std::ostream &out, expression const &x);
+namespace {
 
 enum event_type {
     ev_initiate,
@@ -51,7 +55,18 @@ std::string cv(std::string label) {
 std::string rx(std::string label, int node) {
     return stru::sfmt() << "rx_" << label << "_" << node;
 }
+struct expression {
+    std::string src;
+    //std::set<std::pair<std::string, int>> fam_refs;
+    std::map<int, std::string> fam_refs;
+    std::string unid;
+    std::string family;
+    int node;
+    char type;
 
+    expression(char t, int n, std::string f, std::string u):
+        unid(u), family(f), node(n), type(t) {}
+};
 struct cpp_gen {
     // the AST
     fc::compiler const &ast;
@@ -80,6 +95,8 @@ struct cpp_gen {
     std::vector<std::string> family_process_order;
     // node family size (dimension)
     std::map<std::string, int> family_dim;
+    // all expressions
+    std::vector<expression> exprs;
 
     cpp_gen(fc::compiler const &ast, std::string input_name);
     /***
@@ -104,10 +121,11 @@ struct cpp_gen {
     /***
      * Generate a right expession method <name> at valx <node> 
      */
-    int conditional_expr_method(int node, std::string name);
+    std::string conditional_expr_method(int node, std::string name);
     int status_expr_method(int node, std::string name);
     int mexpr_method(int node, std::string name);
-    std::map<unsigned, std::string> ienfref;
+    //std::set<std::pair<std::string, int>> ienfref;
+    std::map<int, std::string> ienfref;
     void inline_expr(std::ostringstream &out, int valx_node, int precedence);
     std::string inline_expr(int valx_node);
     std::string field_reference(int ndid_node);
@@ -294,7 +312,9 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
     // the current event condition can be evaluated now
     auto cond_var_name = cv(family);
     auto cond_xpr_label = rx(unid, n_cvalx);
-    conditional_expr_method(n_cvalx, cond_xpr_label);
+    exprs.push_back(expression('c', node, family, unid));
+    exprs.back().src = conditional_expr_method(n_cvalx, cond_xpr_label);
+    exprs.back().fam_refs = ienfref;
     body->push_back(stru::sfmt() << cond_var_name << " = c" << cond_xpr_label << "()? " << n_cvalx << ": 0;");
     body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
     return body_event;
@@ -472,7 +492,16 @@ void cpp_gen::inline_expr(std::ostringstream &out, int valx_node, int precedence
             break;
 
         case FTK_ndid:
-            ienfref[out.str().length()] = ast.node_text(ast.first_child(op_node));
+            ienfref[out.str().length()]=
+                        ast.node_text(ast.first_child(op_node));
+            /*
+            ienfref.insert(std::make_pair(
+                        ast.node_text(ast.first_child(op_node)),
+                        out.str().length()));
+            ienfref.push_back(std::make_pair(
+                        ast.node_text(ast.first_child(op_node)),
+                        out.str().length()));
+                        */
             out << field_reference(op_node);
             break;
 
@@ -499,7 +528,7 @@ std::string cpp_gen::field_reference(int ndid_node) {
     return stru::join(fields, ".");
 }
 
-int cpp_gen::conditional_expr_method(int node, std::string name) {
+std::string cpp_gen::conditional_expr_method(int node, std::string name) {
     std::ostringstream out_sstream;
     stru::indent_ostream out(out_sstream);
     out.set_wrap_length(0);
@@ -522,7 +551,7 @@ int cpp_gen::conditional_expr_method(int node, std::string name) {
 
     rexpr[name] = std::move(out_sstream).str();
     std::cerr << rexpr[name] << "\n";
-    return 0;
+    return iexpr;
 }
 
 int cpp_gen::mexpr_method(int node, std::string name) {
@@ -630,8 +659,16 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         --out;
         out << "};\n";
         out << "\n";
+        for(auto x: data.exprs)
+            out_stream << x << "\n";
     }
     return error_count;
 }
-
+}
+std::ostream &operator << (std::ostream &out, expression const &x) {
+    out << x.type << " " << x.type << "__" << x.unid << "() {\n";
+    out << "    /* " << x.fam_refs << " */\n";
+    out << "    return " << x.src << ";\n";
+    out << "}\n";
+    return out;
 }
