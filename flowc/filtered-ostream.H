@@ -1,5 +1,5 @@
-#ifndef H_FILTERED_STREAM_H
-#define H_FILTERED_STREAM_H
+#ifndef H_FILTERED_OSTREAM_H
+#define H_FILTERED_OSTREAM_H
 
 #include <ostream>
 #include <cstdio>

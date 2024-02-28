@@ -1,10 +1,10 @@
-#ifndef H_INDENT_STREAM_H
-#define H_INDENT_STREAM_H
+#ifndef H_INDENT_OSTREAM_H
+#define H_INDENT_OSTREAM_H
 
 #include <ostream>
 #include <string>
 #include <cstdio>
-#include "filtered-stream.H"
+#include "filtered-ostream.H"
 
 namespace stru {
 
