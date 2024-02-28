@@ -126,7 +126,6 @@ struct cpp_gen {
     std::string conditional_expr_method(int node, std::string name);
     int status_expr_method(int node, std::string name);
     int mexpr_method(int node, std::string name);
-    //std::set<std::pair<std::string, int>> ienfref;
     std::map<int, std::string> ienfref;
     void inline_expr(std::ostringstream &out, int valx_node, int precedence);
     std::string inline_expr(int valx_node);
@@ -139,7 +138,7 @@ struct cpp_gen {
 };
 
 bool check_assign(int left_dim, fc::value_type left, fc::value_type right) {
-    bool can_assign =  right.can_assign_to(fc::value_type(left_dim, left));
+    bool can_assign = right.can_assign_to(fc::value_type(left_dim, left));
     if(!can_assign) {
         std::cerr << "CANNOT ASSIGN: " << right << "\n";
         std::cerr << "           TO: " << left << "\n";
@@ -547,7 +546,7 @@ std::string cpp_gen::conditional_expr_method(int node, std::string name) {
     std::string iexpr = inline_expr(node);
     out << stru::nowrap << iexpr << ";\n" << stru::wrap;
     if(ienfref.size() > 0)
-        out << " /**** nfrefs: \n" << ienfref << "\n*/\n";
+        out << "/**** nfrefs: \n" << ienfref << "\n*/\n";
     out << "return val;\n";
     --out;
     out << "};\n";
