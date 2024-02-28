@@ -393,7 +393,7 @@ struct macro_parser {
         } else if(transf == "lchop") {
             value = value.length() <= 1? std::string(): value.substr(1);
         } else if(transf == "rchop") {
-            value = value.length() <= 1? std::string(): value.substr(1, value.length()-1);
+            value = value.length() <= 1? std::string(): value.substr(0, value.length()-1);
         } else if(transf == "chop") {
             value = value.length() <= 2? std::string(): value.substr(1, value.length()-2);
         } else if(transf == "camelize") {
