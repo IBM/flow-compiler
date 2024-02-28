@@ -43,9 +43,9 @@ SYNTAX
 
        begin1 begin2 "name" [ / transform ]* [ + "name" [/ transform]* ]* - default-value end1 end2
        
-       "name" is looked up and its immediately following transforms are applied. Subsequent "names"
-       are looked up until a value is found. If no lookup is successful, the default value is used.
-       If no default value is given, the macro is left unexpanded in the output.
+       The first "name" is looked up and its immediately following transforms are applied. If the first "name" id
+       not found, subsequent "names" are looked up until a value is found. If no lookup is successful, 
+       the default value is used. If no default value is given, the macro is left unexpanded in the output.
 
        The second form renders a template in a loop:
 
