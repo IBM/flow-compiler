@@ -5,12 +5,11 @@ USAGE
 
 DESCRIPTION
 
-       "vex" replaces variable references in a "template file" with the values defined in the
+       "vex" replaces variable references in the "template file" with values defined in the
        "variable files" or the "environment". Variables are looked up from left to right as given
        in the command line.
 
 OPTIONS
-
 
        --inner-begin STRING
               The second escape string in a substitution. The default is "{".
@@ -43,7 +42,7 @@ SYNTAX
 
        begin1 begin2 "name" [ / transform ]* [ + "name" [/ transform]* ]* - default-value end1 end2
        
-       The first "name" is looked up and its immediately following transforms are applied. If the first "name" id
+       The first "name" is looked up and its immediately following transforms are applied. If the first "name" is
        not found, subsequent "names" are looked up until a value is found. If no lookup is successful, 
        the default value is used. If no default value is given, the macro is left unexpanded in the output.
 
