@@ -7,10 +7,31 @@
 
 #include <ostream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
 namespace stru {
+
+const auto container_left = '[';
+const auto container_right = ']';
+const auto container_sep = ", ";
+
+const auto dict_left = '{';
+const auto dict_right = '}';
+const auto dict_sep = ", ";
+const auto dict_element_left = "";
+const auto dict_element_right = "";
+const auto dict_element_sep = ": ";
+
+const auto pair_left = '<';
+const auto pair_right = '>';
+const auto pair_sep = ", ";
+
+const auto tuple_left = '(';
+const auto tuple_right = ')';
+const auto tuple_sep = ", ";
+
 template<typename S>
 struct is_string_type: std::is_convertible<S, std::string> {};
 
@@ -77,6 +98,15 @@ template<typename T>
 inline static std::ostream &print_dict(std::ostream &out, T const &m);
 template<typename T>
 inline static std::ostream &print_container(std::ostream &out, T const &m);
+/***
+ * Helper to allow redefinition of separator types
+ */
+template <typename S>
+inline static 
+std::ostream &outsep(std::ostream &out, int n, S sep) {
+    if(n != 1) out << sep;
+    return out;
+}
 }
 
 template <typename T, std::enable_if_t<stru::is_dict<T>::value, bool> = true>
@@ -91,35 +121,47 @@ std::ostream &operator << (std::ostream &out, T const &m) {
 }
 template <typename A, typename B> 
 inline static 
-std::ostream &operator << (std::ostream &s, std::pair<A, B> const &p) {
-    return s << "<" << p.first << ", "<< p.second << ">";
+std::ostream &operator << (std::ostream &out, std::pair<A, B> const &p) {
+    return out << stru::pair_left << p.first << stru::pair_sep << p.second << stru::pair_right;
+}
+template<typename... T>
+inline static 
+std::ostream &operator<<(std::ostream &out, std::tuple<T...> const &tu) {
+    std::apply(
+        [&out](T const &... ta) {
+            out << stru::tuple_left;
+            int n = 0;
+            ((stru::outsep(out, ++n, stru::tuple_sep) << ta), ...);
+            out << stru::tuple_right;
+        }, tu
+    );
+    return out;
 }
 
 namespace stru {
 template<typename T>
 inline static 
 std::ostream &print_dict(std::ostream &out, T const &m) {
-    out << "{";
-    char const *sep = "";
-    for(auto const &kv: m) {
-        out << sep << kv.first << ": " << kv.second;
-        sep = ", ";
-    }
-    out << "}";
+    out << stru::dict_left;
+    int n = 0;
+    for(auto const &kv: m) 
+        stru::outsep(out, ++n, stru::dict_sep)
+            << stru::dict_element_left << kv.first 
+            << stru::dict_element_sep << kv.second 
+            << stru::dict_element_right;
+    out << stru::dict_right;
     return out;
 }
 template<typename T>
 inline static 
 std::ostream &print_container(std::ostream &out, T const &m) {
-    out << "[";
-    char const *sep = "";
-    for(auto const &v: m) {
-        out << sep << v;
-        sep = ", ";
-    }
-    out << "]";
+    out << stru::container_left;
+    int n = 0;
+    for(auto const &v: m) 
+        stru::outsep(out, ++n, stru::container_sep) << v;
+    
+    out << stru::container_right;
     return out;
 }
 }
-
 #endif
