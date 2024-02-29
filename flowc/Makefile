@@ -130,7 +130,7 @@ TOOLS=recli vex strt
 TEMPLATE_FILES:=$(filter-out %~,$(wildcard template.*)) flowc.help
 
 OBJS:=ast-walk.o filu.o filugz.o flow-comp.o value-type.o flow-templates.o flowc.o strtrs.o strconv.o \
-		veximpl.o version.o ansi-escapes.o flow-scanner.o flow-pmsg.o print-ast.o \
+		veximpl.o version.o ansi-escapes.o flow-scanner.o flow-pmsg.o print-ast.o setattr-value-type.o \
 		grpcu.o flow-eval.o flow-accesors.o flow-gen.o cpp-generator.o json.o b64.o 
 
 ## minimal set of files to portably build flow-compiler,
