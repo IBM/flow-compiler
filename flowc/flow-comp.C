@@ -492,8 +492,8 @@ int compiler::resolve_node_types(bool debug_on) {
     for(auto p: get("//(NODE/block/OUTPUT/valx/msgexp/did|ENTRY/did)")) {
         auto ids = get_ids(p);
         std::set<std::string> methods;
-        std::string mm; 
-        if(gstore.lookup(mm, ids, &methods, grpcu::MO_METHODS) != 1) {
+        std::string matched_method; 
+        if(gstore.lookup(matched_method, ids, &methods, grpcu::MO_METHODS) != 1) {
             if(methods.size() > 0) {
                 error(at(p), stru::sfmt() << "ambiguous reference to rpc \"" << stru::join(ids, ".") << "\"");
                 note(at(p), stru::sfmt() << "matches " << stru::join(methods, ", ", " and ", "", "\"", "\""));
@@ -503,40 +503,48 @@ int compiler::resolve_node_types(bool debug_on) {
             continue;
         }
         if(at(parent(p)).type == FTK_ENTRY) { 
-            rpc.set(parent(p), mm);
+            rpc.set(parent(p), matched_method);
             // Set the vtype attribute for ENTRY to the type of the result
-            vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(mm), ""));
-            for(int i: get("INPUT", parent(p))) 
-                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(mm), std::string("<")+node_text(i)));
+            vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
+            // Set the value type for the input if an input symbol is declared
+            for(int i: get("INPUT", parent(p)))
+                // TODO check node_text here -- has to be the input name
+                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(matched_method), node_text(i)));
 
             if(get("INPUT", parent(p)).size() == 0) {
                 if(first_default_input_entry == 0) {
                     first_default_input_entry = parent(p);
-                    default_input_type = gstore.method_input_full_name(mm);
-                } else if(default_input_type != gstore.method_input_full_name(mm)) {
-                    error(at(p), stru::sfmt() << "input type mismatch, \"" << gstore.method_input_full_name(mm) << "\" instead of \"" << default_input_type << "\"");
+                    default_input_type = gstore.method_input_full_name(matched_method);
+                } else if(default_input_type != gstore.method_input_full_name(matched_method)) {
+                    error(at(p), stru::sfmt() << "input type mismatch, \"" << gstore.method_input_full_name(matched_method) << "\" instead of \"" << default_input_type << "\"");
                     notep(at(first_default_input_entry),  stru::sfmt() << "first implied from here");
                 }
             }
         } else {
-            cmsg.set(parent(p), gstore.method_input_full_name(mm));
-            vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(mm), ""));
-            rpc.set(ancestor(p, 5), mm);
-            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(mm), ""));
+            // FTK_NODE
+            cmsg.set(parent(p), gstore.method_input_full_name(matched_method));
+            // The valx vtype attribute is the left value type for the message assignemt
+            vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(matched_method), ""));
+            // Set the rpc attribute for the node
+            rpc.set(ancestor(p, 5), matched_method);
+            // Set the value type for this node, (ref to istelf).
+            // TODO check node text here -- has to be the node family
+            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), node_text(ancestor(p, 5))));
         }
     }
     if(first_default_input_entry != 0 && !default_input_type.empty()) 
         for(int i: get("//flow/INPUT")) 
             if(!vtype.has(i))
-                vtype.set(i, gstore.message_to_value_type(default_input_type, "<"));
+                // TODO check node text here -- has to be the input name
+                vtype.set(i, gstore.message_to_value_type(default_input_type, node_text(i)));
     
     // Other message expressions with identifiers refer to the gRPC message type explicitly. 
     // They can be solved now, before the expression types are resolved.
     for(auto p: get("//valx/msgexp/did")) if(!cmsg.has(parent(p))) {
         auto ids = get_ids(p);
         std::set<std::string> messages;
-        std::string mm; 
-        if(gstore.lookup(mm, ids, &messages, grpcu::MO_MESSAGES) != 1) {
+        std::string matched_message; 
+        if(gstore.lookup(matched_message, ids, &messages, grpcu::MO_MESSAGES) != 1) {
             if(messages.size() > 0) {
                 error(at(p), stru::sfmt() << "ambiguous reference to message type \"" << stru::join(ids, ".") << "\"");
                 note(at(p), stru::sfmt() << "matches " << stru::join(messages, ", ", " and ", "", "\"", "\""));
@@ -544,8 +552,9 @@ int compiler::resolve_node_types(bool debug_on) {
                 error(at(p), stru::sfmt() << "message not found \"" << stru::join(ids, ".") << "\"");
             }
         }
-        cmsg.set(parent(p), mm);
-        vtype.set(ancestor(p, 2), gstore.message_to_value_type(mm, "?did"));
+        cmsg.set(parent(p), matched_message);
+        // The valx message assignment (left value type) has no node reference
+        vtype.set(ancestor(p, 2), gstore.message_to_value_type(matched_message, ""));
     }
     // If the return msgexp does not have an explicit type, use the entry output type
     for(auto p: get("//ENTRY/block/RETURN/valx/msgexp")) if(!cmsg.has(p)) {
@@ -553,23 +562,24 @@ int compiler::resolve_node_types(bool debug_on) {
         if(!mn.empty()) {
             auto inpm = gstore.method_output_full_name(mn);
             cmsg.set(p, inpm);
-            vtype.set(parent(p), gstore.message_to_value_type(inpm, "?return"));
+            // No node reference since this is a left value type
+            vtype.set(parent(p), gstore.message_to_value_type(inpm, ""));
         }
     }
     // Grab the node families
     std::map<std::string, std::vector<int>> nfams, idefs; 
-    for(int p: get("//NODE/1")) { 
-        // first node child is always ID in a healthy ast
+    for(int p: get("//NODE/1")) {
+        // First node child is always ID in a healthy ast
         if(at(p).type != FTK_ID)
             continue;
         // don't bother with error nodes
         //if(get("//ERRCHK", parent(p)).size() != 0)
         //    continue;
-        nfams[at(p).token.text].push_back(parent(p));
+        nfams[node_text(p)].push_back(parent(p));
     }
     // Grab the inputs and check for name collision with nodes
     for(int i: get("//INPUT/ID")) {
-        std::string iname = at(i).token.text;
+        std::string iname = node_text(i);
         if(idefs.find(iname) == idefs.end()) {
             auto cf = nfams.find(iname);
             if(cf != nfams.end()) {
@@ -583,9 +593,10 @@ int compiler::resolve_node_types(bool debug_on) {
     }
     // Check for undefined node references 
     for(int n: get("//ndid/1")) {
-        if(nfams.find(at(n).token.text) == nfams.end() &&
-           idefs.find(at(n).token.text) == idefs.end())
-            error(at(n), stru::sfmt() << "reference to undefined node or input \"" << at(n).token.text << "\"");
+        std::string nodefam = node_text(n);
+        if(nfams.find(nodefam) == nfams.end() &&
+           idefs.find(nodefam) == idefs.end())
+            error(at(n), stru::sfmt() << "reference to undefined node or input \"" << nodefam << "\"");
     }
     return error_count-irc;
 }
@@ -610,7 +621,7 @@ int compiler::fixup_nodes(bool debug_on) {
 
     // At this point some nodes could have return statements without type.
     // If there is a type, and only one, already deduced for this node family, 
-    // propagate that type as a requirement. Othewise generate errors... 
+    // propagate that type as a requirement. Otherwise generate errors...
     std::map<std::string, std::vector<int>> nfams; 
     for(int p: get("//NODE/1")) { 
         // first node child is always ID in a healthy ast
@@ -619,7 +630,7 @@ int compiler::fixup_nodes(bool debug_on) {
         // don't bother with error nodes
         if(get("//ERRCHK", parent(p)).size() != 0)
             continue;
-        nfams[at(p).token.text].push_back(parent(p));
+        nfams[node_text(p)].push_back(parent(p));
     }
     /*
     for(auto nfe: nfams) {
