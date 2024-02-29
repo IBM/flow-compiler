@@ -10,6 +10,9 @@ namespace fc {
 }
 
 namespace grpcu {
+enum match_option {
+    MO_METHODS=1, MO_MESSAGES=2, MO_ENUMS=4,
+};
 class store {
     std::vector<void const *> file_descriptors;
     std::set<std::string> filenames;
@@ -17,13 +20,12 @@ class store {
 public:
     int add_to_proto_path(std::string directory, std::string mapped_to="");
     int import_file(std::string filename, bool add_to_path);
-
     /**
      * Attempt to match <did> with all descriptors and return the matches in the vector pointed by <allmp>.
-     * If there is only one match it will be returned in <match>, otherwise <match> set to the empty string.
+     * If there is only one match it will be returned in <match>, otherwise <match> is set to the empty string.
      * Returns the number of matches.
      */
-    int lookup(std::string &match, std::vector<std::string> did, std::set<std::string> *allmp=nullptr, bool match_methods=true, bool match_messages=true, bool match_enums=true) const;
+    int lookup(std::string &match, std::vector<std::string> did, std::set<std::string> *allmp=nullptr, int match_options=MO_MESSAGES|MO_METHODS|MO_ENUMS) const;
    
     std::set<void const *> find_methods(std::string name) const;
     std::set<void const *> find_messages(std::string name) const;

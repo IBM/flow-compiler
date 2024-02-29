@@ -184,18 +184,18 @@ int store::error_code(std::string id) {
     auto f = grpc_error_codes.find(id);
     return f ==  grpc_error_codes.end()? -1: f->second;
 }
-int store::lookup(std::string &match, std::vector<std::string> did, std::set<std::string> *allmp, bool match_methods, bool match_messages, bool match_enums) const {
+int store::lookup(std::string &match, std::vector<std::string> did, std::set<std::string> *allmp, int match_options) const {
     std::set<std::string> allm;
     if(allmp == nullptr) allmp = &allm;
     std::string dids = stru::join(did, ".");
 
-    if(match_methods) for(auto vp: find_methods(dids)) 
+    if(match_options & MO_METHODS) for(auto vp: find_methods(dids)) 
         allmp->insert(((MethodDescriptor const *) vp)->full_name());
 
-    if(match_messages) for(auto vp: find_messages(dids)) 
+    if(match_options & MO_MESSAGES) for(auto vp: find_messages(dids)) 
         allmp->insert(((Descriptor const *) vp)->full_name());
 
-    if(match_enums) for(auto vp: find_enum_values(dids)) 
+    if(match_options & MO_ENUMS) for(auto vp: find_enum_values(dids)) 
         allmp->insert(((EnumValueDescriptor const *) vp)->full_name());
 
     if(allmp->size() == 1)
