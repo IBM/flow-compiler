@@ -236,6 +236,16 @@ int compiler::propagate_value_types(bool debug_on) {
             }
         propagate_node_return_types(debug_on);
     } while(todo.size() != unfixed_nodes);
+    // All node return types are set now, 
+    // time to fix up all node references
+    for(int n: get("//valx/ndid")) {
+        int v = parent(n);
+        if(vtype(v).ref().empty()) {
+            auto nv = vtype(v);
+            nv.reference =  node_text(child(n, 0));
+            vtype.update(v, nv);
+        }
+    }
     return error_count - irc;
 }
 }
