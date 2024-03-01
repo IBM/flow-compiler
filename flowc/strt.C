@@ -54,6 +54,10 @@ std::string transform(std::string const &transf, std::string value, int &rc) {
         value = stru::to_underscore(value);
     } else if(transf == "base64") {
         value = stru::base64(value);
+    } else if(transf == "gz") {
+        value = stru::base64(value);
+    } else if(transf == "dgz") {
+        value = stru::base64d(value);
     } else if(transf == "base64d") {
         value = stru::base64d(value);
     } else if(transf == "json") {
@@ -76,7 +80,6 @@ int main(int argc, char *argv[]) {
 #endif
         return 0;
     }
-    
     if(argc <= 2 || argc == 3 && (std::strcmp(argv[2], "-f") == 0 || std::strcmp(argv[2], "-c") == 0)) {
         std::cerr << "Usage " << CMD_NAME << " <transform> ([-c] string... | -f filename...) \n";
         return 1;
