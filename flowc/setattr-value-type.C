@@ -194,6 +194,33 @@ int compiler::compute_value_type(bool debug_on, int node) {
     }
     return error_count - irc;
 }
+int compiler::propagate_node_return_types(bool debug_on) {
+    int irc = error_count;
+    // Propagate the return type to the node/entry attribute
+    for(auto p: get("//(NODE|ENTRY)/block/RETURN/valx/msgexp")) {
+        int nn = ancestor(p, 4);
+        if(!vtype.has(nn) && vtype.has(parent(p))) {
+            auto nv = vtype(parent(p));
+            // since this is a node type, make it reference its own family
+            nv.reference = node_text(child(nn, 0));
+            vtype.set(nn, nv);
+        }
+    }
+    // At this point some nodes could have return statements without type.
+    // If there is a type, and only one, already deduced for this node family, 
+    // propagate that type as a requirement. Otherwise generate errors...
+    std::map<std::string, std::vector<int>> nfams; 
+    for(int p: get("//NODE/1")) { 
+        // first node child is always ID in a healthy ast
+        if(at(p).type != FTK_ID)
+            continue;
+        // don't bother with error nodes
+        if(get("//ERRCHK", parent(p)).size() != 0)
+            continue;
+        nfams[node_text(p)].push_back(parent(p));
+    }
+    return error_count-irc;
+}
 int compiler::propagate_value_types(bool debug_on) {
     int irc = error_count, step = 0;
     unsigned unfixed_nodes;
@@ -207,8 +234,7 @@ int compiler::propagate_value_types(bool debug_on) {
                 todo.push_back(p);
                 compute_value_type(debug_on, p);
             }
-        //std::cerr << "FIXVT " << step << " " << todo << "\n";
-        fixup_nodes(debug_on);
+        propagate_node_return_types(debug_on);
     } while(todo.size() != unfixed_nodes);
     return error_count - irc;
 }

@@ -123,9 +123,9 @@ private:
     int check_node_references(bool debug_on);
     int check_node_types(bool debug_on);
     int fixup_symbol_references(bool debug_on);
-    int fixup_nodes(bool debug_on);
     int compute_value_type(bool debug_on, int node);
     int propagate_value_types(bool debug_on);
+    int propagate_node_return_types(bool debug_on);
 
     int cpp_generator(std::ostream &buf) const;
 public:
@@ -197,6 +197,5 @@ public:
     int set_const_level(int node=0);
 };
 }
-std::ostream &operator << (std::ostream &s, fc::value_type const &vt);
 
 #endif

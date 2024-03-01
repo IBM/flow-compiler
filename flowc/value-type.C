@@ -3,12 +3,13 @@
 #include "value-type.H"
 
 namespace fc {
-
+/*
 value_type::value_type(value_type const &a_val):
     type(a_val.type), inf(a_val.inf), gname(a_val.gname), fname(a_val.fname) {
 }
-value_type::value_type(fvt_type t, std::string group_name, std::string field_name):
-    type(t), gname(group_name), fname(field_name) {
+*/
+value_type::value_type(fvt_type t, std::string group_name, std::string field_name, std::string ref):
+    type(t), gname(group_name), fname(field_name), reference(ref) {
 }
 /*
 value_type::value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn):

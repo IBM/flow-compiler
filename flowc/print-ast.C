@@ -4,6 +4,7 @@
 #include "ansi-escapes.H"
 #include "flow-comp.H"
 #include "stru.H"
+#include "value-type.H"
 
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     if(!vt.ref().empty())

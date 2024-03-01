@@ -13,7 +13,6 @@ enum fvt_type {
     fvt_array, 
     fvt_struct,
 };
-
 struct value_type {
     fvt_type type;
     std::vector<value_type> inf;
@@ -25,9 +24,9 @@ struct value_type {
     std::string reference;
 
     // copy constructor
-    value_type(value_type const &a_val);
+    //value_type(value_type const &a_val);
     // basic type 
-    value_type(fvt_type t=fvt_none, std::string group_name="", std::string field_name="");
+    value_type(fvt_type t=fvt_none, std::string group_name="", std::string field_name="", std::string ref="");
     // array of arbitrary type
     value_type(int array_dim, value_type element_type);
 
@@ -63,5 +62,9 @@ struct value_type {
     bool can_assign_from(value_type const &right) const;
     bool can_assign_to(value_type const &left) const;
 };
+
 }
+
+std::ostream &operator << (std::ostream &s, fc::value_type const &vt);
+
 #endif

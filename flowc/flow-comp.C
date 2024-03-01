@@ -507,9 +507,8 @@ int compiler::resolve_node_types(bool debug_on) {
             // Set the vtype attribute for ENTRY to the type of the result
             vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
             // Set the value type for the input if an input symbol is declared
-            for(int i: get("INPUT", parent(p)))
-                // TODO check node_text here -- has to be the input name
-                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(matched_method), node_text(i)));
+            for(int i: get("INPUT", parent(p))) 
+                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(matched_method), node_text(child(i, 0))));
 
             if(get("INPUT", parent(p)).size() == 0) {
                 if(first_default_input_entry == 0) {
@@ -528,15 +527,13 @@ int compiler::resolve_node_types(bool debug_on) {
             // Set the rpc attribute for the node
             rpc.set(ancestor(p, 5), matched_method);
             // Set the value type for this node, (ref to istelf).
-            // TODO check node text here -- has to be the node family
-            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), node_text(ancestor(p, 5))));
+            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), node_text(child(ancestor(p, 5), 0))));
         }
     }
     if(first_default_input_entry != 0 && !default_input_type.empty()) 
         for(int i: get("//flow/INPUT")) 
-            if(!vtype.has(i))
-                // TODO check node text here -- has to be the input name
-                vtype.set(i, gstore.message_to_value_type(default_input_type, node_text(i)));
+            if(!vtype.has(i))  
+                vtype.set(i, gstore.message_to_value_type(default_input_type, node_text(child(i, 0))));
     
     // Other message expressions with identifiers refer to the gRPC message type explicitly. 
     // They can be solved now, before the expression types are resolved.
@@ -562,7 +559,7 @@ int compiler::resolve_node_types(bool debug_on) {
         if(!mn.empty()) {
             auto inpm = gstore.method_output_full_name(mn);
             cmsg.set(p, inpm);
-            // No node reference since this is a left value type
+            // Nor reference, this is a left value
             vtype.set(parent(p), gstore.message_to_value_type(inpm, ""));
         }
     }
@@ -598,77 +595,6 @@ int compiler::resolve_node_types(bool debug_on) {
            idefs.find(nodefam) == idefs.end())
             error(at(n), stru::sfmt() << "reference to undefined node or input \"" << nodefam << "\"");
     }
-    return error_count-irc;
-}
-int compiler::fixup_nodes(bool debug_on) {
-    int irc = error_count;
-    // Propagate the return type to the node/entry attribute
-    for(auto p: get("//(NODE|ENTRY)/block/RETURN/valx/msgexp")) {
-        int nn = ancestor(p, 4);
-        if(vtype.has(nn))
-            continue;
-        if(vtype.has(parent(p))) {
-            vtype.copy(parent(p), nn);
-            continue;
-        }
-        /*
-        if(cmsg.has(p)) {
-            vtype.set(nn, gstore.message_to_value_type(cmsg(p)));
-            vtype.copy(nn, parent(p));
-        }
-        */
-    }
-
-    // At this point some nodes could have return statements without type.
-    // If there is a type, and only one, already deduced for this node family, 
-    // propagate that type as a requirement. Otherwise generate errors...
-    std::map<std::string, std::vector<int>> nfams; 
-    for(int p: get("//NODE/1")) { 
-        // first node child is always ID in a healthy ast
-        if(at(p).type != FTK_ID)
-            continue;
-        // don't bother with error nodes
-        if(get("//ERRCHK", parent(p)).size() != 0)
-            continue;
-        nfams[node_text(p)].push_back(parent(p));
-    }
-    /*
-    for(auto nfe: nfams) {
-        if(nfe.second.size() == 1) {
-            // all is ok if we have a type
-            if(!vtype.has(nfe.second[0])) 
-                error(at(nfe.second[0]), stru::sfmt() << "cannot deduce type for node \"" << nfe.first << "\"");
-            continue;
-        }
-        // pick the first node with a type as reference node
-        int rn = 0;
-        for(int nn: nfe.second)
-            if(vtype.has(nn)) {
-                rn = nn;
-                break;
-            }
-        for(int nn: nfe.second) if(nn != rn) {
-            auto cns = get("//RETURN", nn);
-            if(cns.size() != 1) // this node has genrerated an error already 
-                continue;
-
-            if(vtype.has(nn)) { // check that the types are compatible
-                std::cerr << "CHECK " << vtype.get(nn).to_string() << " AND " << vtype.get(rn).to_string() << "\n";
-                continue;
-            }
-            // assume success but add typechek mandate
-            vtype.copy(rn, nn);
-            auto mns = get("valx/msgexp", cns[0]);
-            std::cerr << "cns: " << cns << " mns: " << mns << "\n";
-            print_ast(nn);
-            assert(mns.size() == 1);
-            assert(!cmsg.has(mns[0]));
-            cmsg.set(mns[0], vtype.get(rn).gname);
-        }
-
-    }
-    */
-    //std::cerr << "NODES: " << nfams << "\n";
     return error_count-irc;
 }
 void compiler::reset() {

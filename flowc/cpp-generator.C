@@ -127,7 +127,7 @@ struct cpp_gen {
     int status_expr_method(int node, std::string name);
     int mexpr_method(int node, std::string name);
     std::map<int, std::string> ienfref;
-    void inline_expr(std::ostringstream &out, int valx_node, int precedence);
+    void inline_expr(stru::indent_ostream &out, int valx_node, int precedence);
     std::string inline_expr(int valx_node);
     std::string field_reference(int ndid_node);
     int checkset_dim2(int left_base_dim, int node);
@@ -434,11 +434,12 @@ int cpp_gen::node_family(std::string family) {
     return fam_count;
 }
 std::string cpp_gen::inline_expr(int valx_node) {
-    std::ostringstream out;
+    std::ostringstream ssout;
+    stru::indent_ostream out(ssout);
     inline_expr(out, valx_node, 16);
-    return std::move(out).str();
+    return std::move(ssout).str();
 }
-void cpp_gen::inline_expr(std::ostringstream &out, int valx_node, int precedence) {
+void cpp_gen::inline_expr(stru::indent_ostream &out, int valx_node, int precedence) {
     int op_node = ast.first_child(valx_node);
     int op_precedence = ast.precedence(valx_node);
     if(op_precedence > precedence)
@@ -493,16 +494,8 @@ void cpp_gen::inline_expr(std::ostringstream &out, int valx_node, int precedence
             break;
 
         case FTK_ndid:
-            ienfref[out.str().length()]=
-                        ast.node_text(ast.first_child(op_node));
-            /*
-            ienfref.insert(std::make_pair(
-                        ast.node_text(ast.first_child(op_node)),
-                        out.str().length()));
-            ienfref.push_back(std::make_pair(
-                        ast.node_text(ast.first_child(op_node)),
-                        out.str().length()));
-                        */
+            ienfref[op_node]= ast.node_text(ast.first_child(op_node));
+            // FIXME: ienfref[out.str().length()]= ast.node_text(ast.first_child(op_node));
             out << field_reference(op_node);
             break;
 
@@ -511,7 +504,7 @@ void cpp_gen::inline_expr(std::ostringstream &out, int valx_node, int precedence
             break;
 
         case FTK_STRING: 
-            out << ast.node_text(op_node);
+            out << stru::nowrap << ast.node_text(op_node) << stru::wrap;
             break;
 
         default:
