@@ -222,9 +222,6 @@ std::set<void const *> store::find_messages(std::string name) const {
                 ptrs.insert((void const *) fd->message_type(i));
         }
     }
-    if(ptrs.size() == 0) {
-        ptrs.insert((void *)p);
-    }
     return ptrs;
 }
 std::set<void const *> store::find_methods(std::string name) const {
