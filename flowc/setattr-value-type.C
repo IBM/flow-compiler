@@ -169,6 +169,7 @@ int compiler::compute_value_type(bool debug_on, int node) {
             print_ast(node);
             assert(false);
     } else if(n.type == FTK_list) {
+        std::cerr << "WE ARE if vtype for list!\n";
         unsigned solved = 0;
         value_type t(fvt_struct);
         for(int fa: n.children) if(vtype.has(at(fa).children[1])) {
@@ -180,6 +181,7 @@ int compiler::compute_value_type(bool debug_on, int node) {
         if(solved == n.children.size())
             vtype.set(node, t);
     } else if(n.type == FTK_fun) {
+        std::cerr << "WE ARE if vtype for fun!\n";
         std::vector<value_type> avt;
         for(unsigned a = 1, e = n.children.size(); a < e; ++a) 
             if(vtype.has(n.children[a])) 

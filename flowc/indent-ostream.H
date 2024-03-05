@@ -152,12 +152,12 @@ public:
 };
 inline static std::ostream &wrap(std::ostream &o) {
     auto p = dynamic_cast<indent_ostream *>(&o);
-    if(p != nullptr) p-set_wrap();
+    if(p != nullptr) p->set_wrap();
     return o;
 }
 inline static std::ostream & nowrap(std::ostream &o) {
     auto p = dynamic_cast<indent_ostream *>(&o);
-    if(p != nullptr) p-set_nowrap();
+    if(p != nullptr) p->set_nowrap();
     return o;
 }
 inline static std::ostream &indent(std::ostream &o) {

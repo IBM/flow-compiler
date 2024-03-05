@@ -610,13 +610,15 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "triggers: " << data.triggers << "\n";
         --out;
         out << "*/\n";
-        out << "enum entry_" << en << "_event {\n";
-        ++out;
-        for(auto ev: data.events)
-            out << ev << ", ";
-        out << "event_count\n";
-        --out;
-        out << "};\n";
+        if(data.events.size() > 0) {
+            out << "enum entry_" << en << "_event {\n";
+            ++out;
+            for(auto ev: data.events)
+                out << ev << ", ";
+            out << "event_count\n";
+            --out;
+            out << "};\n";
+        }
         auto wrap_length = out.set_wrap_length(0);
         for(auto rx: data.rexpr) {
             out << rx.second << "\n";
@@ -624,32 +626,36 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out.set_wrap_length(wrap_length);
         out << "grpc::Status " << rpc(en) << "(grpc::ServerContext *pcontext, const *pinput, *poutput) {  // with " << ins[0] << " \"" << data.input_name << "\"\n";
         ++out;
-        out << stru::join(data.flagvars, ", ", ", ", "bool ", "f_", "=false", "") << ";\n";
-        out << stru::join(data.conditions, ",", ",", "int", " c_", "=0", ";") << "\n";
-        out << "std::queue<entry_" << en << "_event> evq;\n";
-        out << "grpc::CompletionQueue acq;\n";
-        out << "grpc::Status status;\n";
+        if(data.flagvars.size() > 0)
+            out << stru::join(data.flagvars, ", ", ", ", "bool ", "f_", "=false", "") << ";\n";
+        if(data.conditions.size() > 0)
+            out << stru::join(data.conditions, ",", ",", "int", " c_", "=0", ";") << "\n";
+        if(data.events.size() > 0) {
+            out << "std::queue<entry_" << en << "_event> evq;\n";
+            out << "grpc::CompletionQueue acq;\n";
+        }
+        out << "grpc::Status status = grpc::OK;\n";
         out << "\n";
         for(auto l: data.entry)
             out << l << "\n";
         out << "\n";
-        out << "for(; !evq.empty(); evq.pop()) switch(evq.front()) {\n";
-        ++out;
-        for(auto e: data.events) {
-            out << "case " << e << ":\n";
+        if(data.events.size() > 0) {
+            out << "for(; !evq.empty(); evq.pop()) switch(evq.front()) {\n";
             ++out;
-            if(data.cases.find(e) != data.cases.end()) 
-                for(auto l: data.cases[e])
-                    out << l.c_str() << "\n";
-            if(e == ev(ev_check_flags, "")) for(auto te: data.triggers) {
-                out << "if(" << stru::join(te.second, " && ", " && ", "", "f_") << ")\n";
-                ++out <<  "evq.push(" << te.first << ");\n"; --out;
+            for(auto e: data.events) {
+                out << "case " << e << ":\n" << stru::indent;
+                if(data.cases.find(e) != data.cases.end()) 
+                    for(auto l: data.cases[e])
+                        out << l.c_str() << "\n";
+                if(e == ev(ev_check_flags, "")) for(auto te: data.triggers) {
+                    out << "if(" << stru::join(te.second, " && ", " && ", "", "f_") << ")\n";
+                    out << stru::indent <<  "evq.push(" << te.first << ");\n" << stru::unindent;
+                }
+                out << "break;\n" << stru::unindent;
             }
-            out << "break;\n";
             --out;
+            out << "}\n";
         }
-        --out;
-        out << "}\n";
         out << "return status;\n";
         --out;
         out << "};\n";
