@@ -151,19 +151,23 @@ public:
     }
 };
 inline static std::ostream &wrap(std::ostream &o) {
-    dynamic_cast<indent_ostream &>(o).set_wrap(); 
+    auto p = dynamic_cast<indent_ostream *>(&o);
+    if(p != nullptr) p-set_wrap();
     return o;
 }
 inline static std::ostream & nowrap(std::ostream &o) {
-    dynamic_cast<indent_ostream &>(o).set_nowrap();
+    auto p = dynamic_cast<indent_ostream *>(&o);
+    if(p != nullptr) p-set_nowrap();
     return o;
 }
 inline static std::ostream &indent(std::ostream &o) {
-    ++dynamic_cast<indent_ostream &>(o);
+    auto p = dynamic_cast<indent_ostream *>(&o);
+    if(p != nullptr) ++(*p);
     return o;
 }
 inline static std::ostream &unindent(std::ostream &o) {
-    --dynamic_cast<indent_ostream &>(o);
+    auto p = dynamic_cast<indent_ostream *>(&o);
+    if(p != nullptr) --(*p);
     return o;
 }
 struct indent_width {
