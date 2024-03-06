@@ -1,11 +1,13 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <tuple>
 #include <vector>
 #include "flow-comp.H"
-#include "value-type.H"
-#include "stru.H"
 #include "sfmt.H"
+#include "stru.H"
+#include "value-type.H"
+#include "container-strinsop.H" 
 
 namespace {
 fc::value_type op1_type(int op, fc::value_type l) {
@@ -62,39 +64,43 @@ fc::value_type op2_type(int op, fc::value_type l, fc::value_type r) {
     }
     return vt;
 }
-std::map<std::string, fc::value_type> predef_rt = {
-    {"after", fc::value_type(fc::fvt_str) },
-    {"before", fc::value_type(fc::fvt_str) },
-    {"ceil", fc::value_type(fc::fvt_flt) },
-    {"exp", fc::value_type(fc::fvt_flt) },
-    {"float", fc::value_type(fc::fvt_flt) },
-    {"floor", fc::value_type(fc::fvt_flt) },
-    {"flt", fc::value_type(fc::fvt_flt) },
-    {"format", fc::value_type(fc::fvt_flt) },
-    {"int", fc::value_type(fc::fvt_int) },
-    {"integer", fc::value_type(fc::fvt_int) },
-    {"join", fc::value_type(fc::fvt_str) },
-    {"length", fc::value_type(fc::fvt_int) },
-    {"log", fc::value_type(fc::fvt_flt) },
-    {"rand", fc::value_type(fc::fvt_flt) },
-    {"remainder", fc::value_type(fc::fvt_flt) },
-    {"round", fc::value_type(fc::fvt_flt) },
-    {"split", fc::value_type(1, fc::value_type(fc::fvt_str)) },
-    {"str", fc::value_type(fc::fvt_str) },
-    {"substr", fc::value_type(fc::fvt_str) },
-    {"tocname", fc::value_type(fc::fvt_str) },
-    {"toid", fc::value_type(fc::fvt_str) },
-    {"tolower", fc::value_type(fc::fvt_str) },
-    {"toupper", fc::value_type(fc::fvt_str) },
-    {"trunc", fc::value_type(fc::fvt_flt) },
+std::multimap<std::string, std::tuple<fc::value_type, int, fc::value_type>> predef_rt = {
+    {"after", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int)})} },
+    {"batch", { fc::value_type(2, fc::value_type(fc::fvt_any)), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_any)), fc::value_type(fc::fvt_int)})} },
+    {"before", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int)})} },
+    {"ceil", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)} },
+    {"exp", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)} },
+    {"float", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_any)} },
+    {"floor", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)} },
+    {"flt", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_any)} },
+    {"int", { fc::value_type(fc::fvt_int), 1, fc::value_type(fc::fvt_any)} },
+    {"integer", { fc::value_type(fc::fvt_int), 1, fc::value_type(fc::fvt_any)},  },
+    {"join", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_any)), fc::value_type(fc::fvt_str)})}, },
+    {"length", { fc::value_type(fc::fvt_int), 1, fc::value_type(fc::fvt_str)} },
+    {"ln", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)}, },
+    {"rand", { fc::value_type(fc::fvt_flt), 0, fc::value_type(fc::fvt_int)}, },
+    {"remainder", { fc::value_type(fc::fvt_flt), 2,  fc::value_type({fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})}, },
+    {"round", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)},  },
+    {"split", { fc::value_type(1, fc::value_type(fc::fvt_str)), 1, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
+    {"str", { fc::value_type(fc::fvt_str), 1, fc::value_type(fc::fvt_any)} },
+    {"substr", { fc::value_type(fc::fvt_str), 3, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})},  },
+    {"tocname", { fc::value_type(fc::fvt_str), 1, fc::value_type(fc::fvt_str)} },
+    {"toid", { fc::value_type(fc::fvt_str), 1, fc::value_type(fc::fvt_str)} },
+    {"tolower", { fc::value_type(fc::fvt_str), 1, fc::value_type(fc::fvt_str)} },
+    {"toupper", { fc::value_type(fc::fvt_str), 1, fc::value_type(fc::fvt_str)} },
+    {"trunc", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)} },
 };
 fc::value_type fun_type(std::string fname, std::vector<fc::value_type> const &avt) {
+    static int show = 0;
+    if(++show == 1) {
+        std::cerr << predef_rt << "\n";
+    }
     fc::value_type vt;
-    auto pp = predef_rt.find(fname);
-    if(pp != predef_rt.end())
-        return pp->second;
-    if(fname == "batch" && avt.size() == 1) 
-        return fc::value_type(1, avt[0]);
+    for(auto pp = predef_rt.equal_range(fname); pp.first != pp.second; ++pp.first) 
+        if(std::get<2>(pp.first->second).can_assign_from(fc::value_type(avt.begin(), avt.end()))) {
+            vt = std::get<0>(pp.first->second);
+            break;
+        }
     return vt;
 }
 }
@@ -102,6 +108,7 @@ namespace fc {
 /* Solve expression types by computing them from subexpression types.
  */
 int compiler::compute_value_type(bool debug_on, int node) {
+    std::cerr << "Entering with node: " << node << "\n";
     int irc = error_count;
     auto const &n = at(node); 
     // did, ndid, msgexp, vala, range, fun, hash, bang, minus 
@@ -169,11 +176,11 @@ int compiler::compute_value_type(bool debug_on, int node) {
             print_ast(node);
             assert(false);
     } else if(n.type == FTK_list) {
-        std::cerr << "WE ARE if vtype for list!\n";
+        std::cerr << "WE ARE if vtype for list! Node is " << node << "\n";
         unsigned solved = 0;
         value_type t(fvt_struct);
-        for(int fa: n.children) if(vtype.has(at(fa).children[1])) {
-            value_type ft = vtype.get(at(fa).children[1]);
+        for(int fa: n.children) if(vtype.has(child(fa, 1))) {
+            value_type ft = vtype.get(child(fa, 1));
             ft.fname = atc(fa, 0).token.text;
             t.add_type(ft);
             ++solved;
@@ -181,19 +188,20 @@ int compiler::compute_value_type(bool debug_on, int node) {
         if(solved == n.children.size())
             vtype.set(node, t);
     } else if(n.type == FTK_fun) {
-        std::cerr << "WE ARE if vtype for fun!\n";
+        std::cerr << "WE ARE if vtype for fun! Node is " << node << "\n";
         std::vector<value_type> avt;
         for(unsigned a = 1, e = n.children.size(); a < e; ++a) 
-            if(vtype.has(n.children[a])) 
-                avt.push_back(vtype.get(n.children[a]));
+            if(vtype.has(child(node, a))) 
+                avt.push_back(vtype.get(child(node, a)));
         if(avt.size()+1 == n.children.size()) {
-            value_type vt = fun_type(at(n.children[0]).token.text, avt);
+            value_type vt = fun_type(node_text(child(node, 0)), avt);
             if(!vt.is_null()) vtype.set(node, vt);
         }
     } else {
         std::cerr << "internal: propagating value type for \"" << tk_to_string(n.type) << "\" (" << n.type << ")\n"; 
         assert(false);
     }
+    std::cerr << "Done with node: " << node << "\n";
     return error_count - irc;
 }
 int compiler::propagate_node_return_types(bool debug_on) {

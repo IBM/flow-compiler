@@ -3,12 +3,15 @@
 
 #include <string>
 #include <vector>
+#include <initializer_list>
+
 
 namespace fc {
 
 enum fvt_type {
     fvt_none = 0,
-    fvt_int, fvt_flt, fvt_str,  
+    fvt_any, 
+    fvt_int, fvt_flt, fvt_str, 
     fvt_enum, 
     fvt_array, 
     fvt_struct,
@@ -23,12 +26,16 @@ struct value_type {
     // reference information (the node family name)
     std::string reference;
 
-    // copy constructor
-    //value_type(value_type const &a_val);
     // basic type 
     value_type(fvt_type t=fvt_none, std::string group_name="", std::string field_name="", std::string ref="");
     // array of arbitrary type
     value_type(int array_dim, value_type element_type);
+    // struct of arbitrary types
+    value_type(std::initializer_list<value_type> stypes): type(fvt_struct), inf(stypes) {
+    };
+    template<class IT>
+    value_type(IT be, IT en): type(fvt_struct), inf(be, en) {
+    };
 
     void add_type(value_type const &t) {
         inf.push_back(t);

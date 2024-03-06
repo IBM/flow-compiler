@@ -1,6 +1,9 @@
 #include <string>
 
+#include <ostream>
+#include <string>
 #include "value-type.H"
+#include "ansi-escapes.H"
 
 namespace fc {
 /*
@@ -34,8 +37,11 @@ value_type value_type::field_type(std::string field_name) const {
 }
 bool value_type::operator ==(value_type const &other) const {
     switch(type) {
-        case fvt_none: case fvt_int: case fvt_flt: case fvt_str: case fvt_enum:
+        case fvt_none: case fvt_int: case fvt_flt: case fvt_str: case fvt_enum: case fvt_any:
             return type == other.type;
+            // return type == other.type || other.type == fvt_any || type == fvt_any && (
+            // other.type == fvt_none || other.type == fvt_int || other.type == fvt_flt || other.type == fvt_enum
+            // )
         case fvt_array:
             return other.type == fvt_array && inf[0] == other.inf[0];
         case fvt_struct:
@@ -70,4 +76,45 @@ bool value_type::can_assign_from(value_type const &right) const {
         
     return can_assign;
 }
+}
+std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
+    if(!vt.ref().empty())
+        s << ANSI_BLUE+ANSI_BOLD << vt.ref() << ANSI_RESET<< "@";
+    if(!vt.field_name().empty()) 
+        s << vt.field_name() << ": ";
+    switch(vt.type) {
+        case fc::fvt_any:
+            s << ANSI_MAGENTA+ANSI_BOLD << "*" << ANSI_RESET;
+            break;
+        case fc::fvt_none:
+            s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;
+            break;
+        case fc::fvt_int:
+            s << ANSI_CYAN+ANSI_BOLD << "int" << ANSI_RESET;
+            break;
+        case fc::fvt_flt:
+            s << ANSI_YELLOW+ANSI_BOLD << "flt" << ANSI_RESET;
+            break;
+        case fc::fvt_str:
+            s << ANSI_GREEN+ANSI_BOLD << "str" << ANSI_RESET;
+            break;
+        case fc::fvt_enum:
+            s << "enum: " << ANSI_CYAN+ANSI_BOLD << vt.enum_name() << ANSI_RESET;
+            break;
+        case fc::fvt_array:
+            s << ANSI_BOLD << "[" << ANSI_RESET << vt.inf[0] << ANSI_BOLD << "]" << ANSI_RESET;
+            break;
+
+        case fc::fvt_struct:
+            if(!vt.struct_name().empty()) 
+                s << ANSI_MAGENTA+ANSI_BOLD << vt.struct_name() << ANSI_RESET;
+            s << "(";
+            for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
+                if(u > 0) s << ", ";
+                s << vt.inf[u];
+            }
+            s << ")";
+            break;
+    }
+    return s;
 }
