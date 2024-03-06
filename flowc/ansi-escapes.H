@@ -63,14 +63,9 @@ inline ANSI_ESCAPE operator + (ANSI_ESCAPE e1, ANSI_ESCAPE e2) {
 
 namespace ansi {
 
-enum class ctl {
-    off = 0,
-    on = 1,
-    toggle = 2
-};
-const ctl on = ctl::on;
-const ctl off = ctl::off;
-const ctl toggle = ctl::toggle;
+std::ostream &toggle(std::ostream &o);
+std::ostream &on(std::ostream &o);
+std::ostream &off(std::ostream &o);
 
 inline ANSI_ESCAPE rgb(int red, int green, int blue) {
     return ANSI_ESCAPE( uint64_t((red << 16) | (green << 8) | blue) << 16 );
@@ -93,6 +88,5 @@ std::string emphasize2(std::string message, ANSI_ESCAPE dquot_em=ANSI_GREEN+ANSI
     return emphasize(emphasize(message, dquot_em, "\"", "\""), squot_em, "'", "'");
 }
 }
-std::ostream &operator << (std::ostream &s, ansi::ctl onoff);
 std::ostream &operator << (std::ostream &s, ANSI_ESCAPE esc);
 #endif

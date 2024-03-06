@@ -4,7 +4,7 @@
 #include <string>
 #include "ansi-escapes.H"
 
-static 
+namespace {
 std::string::size_type find_after_word_boundary(std::string const &string, std::string const &set, std::string::size_type pos=0) {
     if(pos == std::string::npos) return std::string::npos;
     auto p = string.find_first_of(set, pos); 
@@ -15,7 +15,7 @@ std::string::size_type find_after_word_boundary(std::string const &string, std::
     }
     return p;
 }
-
+}
 namespace ansi {
 std::string escape(ANSI_ESCAPE esc) {
     if(esc == ANSI_NONE)
@@ -81,14 +81,28 @@ std::string emphasize(std::string const &message, ANSI_ESCAPE em, std::string co
     }
     return oss.str();
 }
-bool other_enabled = true;
 }
-std::ostream &operator << (std::ostream &s, ansi::ctl onoff) {
-    ansi::other_enabled = onoff == ansi::ctl::toggle? (ansi::other_enabled != true): (onoff==ansi::ctl::on);
-    return s;
+namespace {
+int ansi_x = std::ios_base::xalloc();
+}
+namespace ansi {
+std::ostream &toggle(std::ostream &o) {
+    o.iword(ansi_x) = o.iword(ansi_x) == 1? 0: 1;
+    return o;
+}
+std::ostream &on(std::ostream &o) {
+    o.iword(ansi_x) = 1;
+    std::cerr << "WE ARE ON: " << o.iword(ansi_x) << "\n";
+    return o;
+}
+std::ostream &off(std::ostream &o) {
+    o.iword(ansi_x) = 0;
+    std::cerr << "WE ARE FF: " << o.iword(ansi_x) << "\n";
+    return o;
+}
 }
 std::ostream &operator << (std::ostream &s, ANSI_ESCAPE esc) {
-    if(ansi::other_enabled)
+    if(s.iword(ansi_x))
         s << ansi::escape(esc);
     return s;
 }
