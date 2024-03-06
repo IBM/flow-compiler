@@ -10,10 +10,10 @@ namespace fc {
 
 enum fvt_type {
     fvt_none = 0,
-    fvt_any, 
-    fvt_int, fvt_flt, fvt_str, 
-    fvt_enum, 
-    fvt_array, 
+    fvt_any, fvt_basic, fvt_num,
+    fvt_int, fvt_flt, fvt_str,
+    fvt_enum,
+    fvt_array,
     fvt_struct,
 };
 struct value_type {

@@ -37,7 +37,7 @@ value_type value_type::field_type(std::string field_name) const {
 }
 bool value_type::operator ==(value_type const &other) const {
     switch(type) {
-        case fvt_none: case fvt_int: case fvt_flt: case fvt_str: case fvt_enum: case fvt_any:
+        case fvt_none: case fvt_int: case fvt_flt: case fvt_str: case fvt_enum: case fvt_any: case fvt_basic: case fvt_num:
             return type == other.type;
             // return type == other.type || other.type == fvt_any || type == fvt_any && (
             // other.type == fvt_none || other.type == fvt_int || other.type == fvt_flt || other.type == fvt_enum
@@ -83,11 +83,17 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     if(!vt.field_name().empty()) 
         s << vt.field_name() << ": ";
     switch(vt.type) {
+        case fc::fvt_none:
+            s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;
+            break;
         case fc::fvt_any:
             s << ANSI_MAGENTA+ANSI_BOLD << "*" << ANSI_RESET;
             break;
-        case fc::fvt_none:
-            s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;
+        case fc::fvt_basic:
+            s << ANSI_MAGENTA+ANSI_BOLD << "b" << ANSI_RESET;
+            break;
+        case fc::fvt_num:
+            s << ANSI_MAGENTA+ANSI_BOLD << "n" << ANSI_RESET;
             break;
         case fc::fvt_int:
             s << ANSI_CYAN+ANSI_BOLD << "int" << ANSI_RESET;

@@ -36,6 +36,12 @@ std::ostream &to_json(std::ostream &s, fc::value_type const &vt) {
         case fc::fvt_any:
             s << "\"*\"";
             break;
+        case fc::fvt_num:
+            s << "\"n\"";
+            break;
+        case fc::fvt_basic:
+            s << "\"b\"";
+            break;
         case fc::fvt_int:
             s << "\"int\"";
             break;
