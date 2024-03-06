@@ -92,12 +92,10 @@ std::ostream &toggle(std::ostream &o) {
 }
 std::ostream &on(std::ostream &o) {
     o.iword(ansi_x) = 1;
-    std::cerr << "WE ARE ON: " << o.iword(ansi_x) << "\n";
     return o;
 }
 std::ostream &off(std::ostream &o) {
     o.iword(ansi_x) = 0;
-    std::cerr << "WE ARE FF: " << o.iword(ansi_x) << "\n";
     return o;
 }
 }
