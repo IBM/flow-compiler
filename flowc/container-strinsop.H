@@ -13,6 +13,11 @@
 
 namespace stru {
 
+template<typename T>
+inline static std::ostream &print_dict(std::ostream &out, T const &m);
+template<typename T>
+inline static std::ostream &print_container(std::ostream &out, T const &m);
+
 const auto container_left = '[';
 const auto container_right = ']';
 const auto container_sep = ", ";
@@ -94,10 +99,6 @@ struct is_dict_test {
 };
 template<typename T>
 struct is_dict: decltype(is_dict_test::test<T>(0)) {};
-template<typename T>
-inline static std::ostream &print_dict(std::ostream &out, T const &m);
-template<typename T>
-inline static std::ostream &print_container(std::ostream &out, T const &m);
 /***
  * Helper to allow redefinition of separator types
  */
@@ -108,16 +109,22 @@ std::ostream &outsep(std::ostream &out, int n, S sep) {
     return out;
 }
 }
-
-template <typename T, std::enable_if_t<stru::is_dict<T>::value, bool> = true>
+template<typename... T>
 inline static 
-std::ostream &operator << (std::ostream &out, T const &m) {
-    return stru::print_dict(out, m);
-}
+std::ostream &operator<<(std::ostream &out, std::tuple<T...> const &tu);
+template <typename A, typename B> 
+inline static 
+std::ostream &operator << (std::ostream &out, std::pair<A, B> const &p);
+
 template <typename T, std::enable_if_t<std::conjunction< stru::is_container<T>, std::negation<stru::is_dict<T>> >::value, bool> = true>
 inline static 
 std::ostream &operator << (std::ostream &out, T const &m) {
     return stru::print_container(out, m);
+}
+template <typename T, std::enable_if_t<stru::is_dict<T>::value, bool> = true>
+inline static 
+std::ostream &operator << (std::ostream &out, T const &m) {
+    return stru::print_dict(out, m);
 }
 template <typename A, typename B> 
 inline static 
