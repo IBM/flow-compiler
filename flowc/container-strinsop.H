@@ -1,5 +1,5 @@
-#ifndef H_CONT_SHOP_H
-#define H_CONT_SHOP_H
+#ifndef H_CONTAINER_STRINSOP_H
+#define H_CONTAINER_STRINSOP_H
 
 /****
  * Stream shift operators for containers

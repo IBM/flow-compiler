@@ -6,7 +6,7 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
-#include "cont-shop.H"
+#include "container-strinsop.H"
 #include "stru.H"
 
 namespace fc {

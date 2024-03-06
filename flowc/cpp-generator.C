@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "flow-comp.H"
-#include "cont-shop.H"
+#include "container-strinsop.H"
 #include "stru.H"
 #include "indent-ostream.H"
 #include "sfmt.H"
