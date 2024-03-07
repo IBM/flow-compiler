@@ -125,19 +125,10 @@ struct tree {
         return store[n-1];
     }
     /** Reference to node's child
+     * TODO remove
      */
     struct node const &atc(int n, int c) const {
         return at(at(n).children[c]);
-    }
-    /** Reference to a node's subnode 
-     */
-    struct node const &atp(int n, int c) const {
-        return at(at(n).children[c]);
-    }
-    template <typename C, typename... MC>
-    struct node const &atp(int n, C c, MC... mc) const {
-        int m = at(n).children[c];
-        return atp(m, mc...);
     }
     /** Create new node for token
      */
@@ -352,41 +343,17 @@ struct tree {
         return (int) at(p).children.size();
     }
     int child(int node, int child_index) const {
-        if(child_index < 0 || child_index >= at(node).children.size())
+        if(node == 0 || child_index < 0 || child_index >= at(node).children.size())
             return 0;
         return at(node).children[child_index];
     }
-    int path(int node, int child_index...) const {
-        va_list args;
-        va_start(args, child_index);
-        int c = child(node, child_index);
-        for(int next = va_arg(args, int); next != -1; next = va_arg(args, int))
-            c = child(c, next);
-        va_end(args);
-        return c;
+    int descendant(int node, int child_index) const {
+        return child(node, child_index);
     }
-    int path(int node, std::string path, ...) const {
-        va_list args;
-        va_start(args, path);
-
-        for(char p: path) switch(p) {
-            case 'c': case 'C':
-                node = child(node, va_arg(args, int));
-                break;
-            case 'p': case 'P':
-                node = parent(node);
-                break;
-            case 's': case 'S':
-                child(parent(node), va_arg(args, int));
-                break;
-            case 'r': case 'R':
-                child(parent(node), va_arg(args, int)+sibling_index(node));
-                break;
-            default:
-                assert(false);
-        }
-        va_end(args);
-        return node;
+    template <typename... MC>
+    int descendant(int node, int child_index, MC... mcx) const {
+        int chn = child(node, child_index);
+        return chn == 0? 0: descendant(chn, mcx...);
     }
     int first_child(int node) const {
         if(at(node).children.size() > 0)
@@ -397,6 +364,13 @@ struct tree {
         if(at(node).children.size() > 0)
             return at(node).children.back();
         return 0;
+    }
+    int child_count(int node) const {
+        if(node == 0) return 0;
+        return at(node).children.size();
+    }
+    bool is_leaf(int node) const {
+        return node != 0 && child_count(node) == 0;
     }
     /** Node accessors
      */
@@ -427,21 +401,24 @@ struct tree {
                 n.push_back(*p);
         return n;
     }
-    /** Get the text value of node
-     */
-    std::string const &node_text(int node) const {
-        return at(node).token.text;
-    }
-    int node_type(int node) const {
-        return at(node).type;
-    }
-    /** token type to string
+    /** token type to string conversions
      */
     virtual std::string tk_to_string(int ftk) const {
         return std::to_string(ftk);
     }
     virtual int string_to_tk(std::string ftk) const {
         return ATK_NONE;
+    }
+    /** Get the text value of node
+     */
+    std::string const &node_text(int node) const {
+        return at(node).token.text;
+    }
+    int node_type(int node) const {
+        return node == 0? ATK_NONE: at(node).type;
+    }
+    std::string node_token(int node) const {
+        return tk_to_string(node_type(node));
     }
     /** path expression accessors
      */

@@ -163,10 +163,10 @@ int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
         case FTK_ndid:
             std::cerr << "got ndid -- node alias -- need to check all node families\n";
             std::cerr << "LVT: " << ast.vtype(valx_node) << "\n";
-            std::cerr << "The family is ***" << ast.node_text(ast.path(valx_node, "cc", 0, 0)) << "***\n";
+            std::cerr << "The family is ***" << ast.node_text(ast.descendant(valx_node, 0, 0)) << "***\n";
             std::cerr << "The family is ***+ " << ast.get("0/0", valx_node) << " +***\n";
             std::cerr << "The family is ***" << ast.node_text(ast.getf("0/0", valx_node)) << "***\n";
-            for(int fam_node: ast.node_family(ast.node_text(ast.path(valx_node, "cc", 0, 0)))) {
+            for(int fam_node: ast.node_family(ast.node_text(ast.descendant(valx_node, 0, 0)))) {
                 bool can_assign = check_assign(left_base_dim, ast.vtype(valx_node), ast.vtype(fam_node));
                 std::cerr << "int dim = checkset_dim("<< left_base_dim << ", node="<<  fam_node << ")\n";
                 // one and only one action node

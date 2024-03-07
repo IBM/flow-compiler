@@ -2061,7 +2061,7 @@ static YYACTIONTYPE yy_reduce(
       case 26: /* blke ::= OUTPUT valx SEMICOLON */
 #line 152 "flow-parser.y"
 { 
-    if(ast->at(yymsp[-1].minor.yy0).children.size() != 1 || ast->atc(yymsp[-1].minor.yy0, 0).type != FTK_msgexp || ast->atp(yymsp[-1].minor.yy0, 0, 0).type != FTK_did) 
+    if(ast->child_count(yymsp[-1].minor.yy0) != 1 || ast->node_type(ast->child(yymsp[-1].minor.yy0, 0)) != FTK_msgexp || ast->node_type(ast->descendant(yymsp[-1].minor.yy0, 0, 0)) != FTK_did) 
         ast->error(ast->at(yymsp[-1].minor.yy0), "rpc call expected as \"output\" argument");
     yylhsminor.yy0 = ast->nappend(yymsp[-2].minor.yy0, yymsp[-1].minor.yy0); 
 }

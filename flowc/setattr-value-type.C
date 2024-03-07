@@ -106,16 +106,26 @@ fc::value_type fun_type(std::string fname, std::vector<fc::value_type> const &av
 }
 }
 namespace fc {
+int compiler::compute_value_type(int node) {
+    int irc = error_count;
+    std::map<std::string, int> family_dimensions;
+    if(!vtype.has(node)) {
+        auto vt = compute_value_type(node, family_dimensions, true);
+        if(!vt.is_null())
+            vtype.set(node, vt);
+    }
+    return error_count - irc; 
+}
 /* Solve expression types by computing them from subexpression types.
  */
-int compiler::compute_value_type(bool debug_on, int node) {
-    std::cerr << "Entering with node: " << node << "\n";
-    int irc = error_count;
-    auto const &n = at(node); 
+value_type compiler::compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool err_check) {
+    std::cerr << "Entering with node: " << node << ", dims: " << fam_dims << "\n";
+    auto const &n = at(node);
+    value_type rvt;
     // did, ndid, msgexp, vala, range, fun, hash, bang, minus 
-    if(n.type == FTK_valx) switch(atc(node, 0).type) {  
+    if(n.type == FTK_valx) switch(node_type(child(node, 0))) {  
         case FTK_ndid: {
-            int mn = main_node_by_type(atp(node, 0, 0).token.text);
+            int mn = main_node_by_type(node_text(descendant(node, 0, 0)));
             if(mn != 0) {
                 auto did = stru::join(get_ids(n.children[0]), ".");
                 if(!did.empty()) {
@@ -123,28 +133,29 @@ int compiler::compute_value_type(bool debug_on, int node) {
                         error(n, stru::sfmt() << "message of type \"" << vtype.get(mn).struct_name() << "\" does not have a field \"" << did << "\"");
                         notep(at(mn), stru::sfmt() << "message type deduced from here");
                     }
-                    vtype.set(node, gstore.field_to_value_type(vtype.get(mn).struct_name(), did, node_text(path(node, 0, 0))));
+                    rvt = gstore.field_to_value_type(vtype.get(mn).struct_name(), did, node_text(descendant(node, 0, 0)));
                 } else {
-                    vtype.copy(mn, node);
+                    rvt = vtype(mn);
                 }
             }
         }
         break;
         case FTK_did: 
-            if(ref.has(n.children[0]) && vtype.has(ref.get(n.children[0]))) {
+            if(ref.has(child(node, 0)) && vtype.has(ref.get(child(node, 0)))) {
                 // WARNING not covered
-                vtype.copy(ref.get(n.children[0]), n.children[0]); 
+                //vtype.copy(ref.get(n.children[0]), n.children[0]); 
+                rvt = vtype(ref.get(child(node, 0)));
             }
         break;
         case FTK_msgexp: 
-            if(vtype.has(atc(node, 0).children[0]))
-                vtype.copy(atc(node, 0).children[0], node);
+            if(vtype.has(atc(node, 0).children[0])) 
+                rvt = vtype(atc(node, 0).children[0]);
         break;
         case FTK_MINUS: 
             if(vtype.has(n.children[1])) {
-                value_type t = op1_type(FTK_MINUS, vtype.get(n.children[1]));
-                vtype.set(node, t);
-                if(t.type == fvt_none)
+                value_type t = op1_type(FTK_MINUS, vtype.get(child(node, 1)));
+                rvt = t;
+                if(err_check && t.type == fvt_none && err_check)
                     error(n, stru::sfmt() << "incompatible type for operator \"-\"");
             }
         break;
@@ -158,26 +169,28 @@ int compiler::compute_value_type(bool debug_on, int node) {
         case FTK_POW:
             if(vtype.has(n.children[1]) && vtype.has(n.children[2])) {
                 value_type t = op2_type(atc(node, 0).type, vtype.get(n.children[1]), vtype.get(n.children[2]));
-                vtype.set(node, t);
-                if(t.type == fvt_none)
-                    error(n, stru::sfmt() << "incompatible types for operator \"" << atc(node, 0).token.text << "\"");
+                rvt = t;
+                if(err_check && t.type == fvt_none)
+                    error(n, stru::sfmt() << "incompatible types for operator \"" << node_text(child(node, 0)) << "\"");
             }
         break;
         case FTK_QUESTION:
-            if(vtype.has(n.children[3]))
-                vtype.copy(n.children[3], node);
+            // TODO when error checking, make sure both branches return compatible types
+            //
+            if(vtype.has(child(node, 3)))
+                rvt = vtype(child(node, 3));
         break;
         case FTK_fun:
-            if(vtype.has(n.children[0]))
-                vtype.copy(n.children[0], node);
+            /*** TODO We should never get here! 
+             */
+            if(vtype.has(child(node, 0)))
+                rvt = vtype(child(node, 0));
         break;
-
         default:
-            std::cerr << "internal: not implemented propagating value type for \"valx\" of type \"" << tk_to_string(atc(node, 0).type) << "\" (" << atc(node, 0).type << ")\n"; 
+            std::cerr << "internal: not implemented propagating value type for \"valx\" of type \"" << node_token(child(node, 0)) << "\" (" << node_type(child(node, 0))  << ")\n"; 
             print_ast(node);
             assert(false);
     } else if(n.type == FTK_list) {
-        std::cerr << "WE ARE if vtype for list! Node is " << node << "\n";
         unsigned solved = 0;
         value_type t(fvt_struct);
         for(int fa: n.children) if(vtype.has(child(fa, 1))) {
@@ -187,23 +200,22 @@ int compiler::compute_value_type(bool debug_on, int node) {
             ++solved;
         }
         if(solved == n.children.size())
-            vtype.set(node, t);
+            rvt = t;
     } else if(n.type == FTK_fun) {
-        std::cerr << "WE ARE if vtype for fun! Node is " << node << "\n";
         std::vector<value_type> avt;
         for(unsigned a = 1, e = n.children.size(); a < e; ++a) 
             if(vtype.has(child(node, a))) 
                 avt.push_back(vtype.get(child(node, a)));
         if(avt.size()+1 == n.children.size()) {
             value_type vt = fun_type(node_text(child(node, 0)), avt);
-            if(!vt.is_null()) vtype.set(node, vt);
+            rvt = vt;
         }
     } else {
         std::cerr << "internal: propagating value type for \"" << tk_to_string(n.type) << "\" (" << n.type << ")\n"; 
         assert(false);
     }
     std::cerr << "Done with node: " << node << "\n";
-    return error_count - irc;
+    return rvt;
 }
 int compiler::propagate_node_return_types(bool debug_on) {
     int irc = error_count;
@@ -243,7 +255,7 @@ int compiler::propagate_value_types(bool debug_on) {
         for(int p: get("//(valx|msgexp/list|fun)"))
             if(!vtype.has(p)) {
                 todo.push_back(p);
-                compute_value_type(debug_on, p);
+                compute_value_type(p);
             }
         propagate_node_return_types(debug_on);
     } while(todo.size() != unfixed_nodes);

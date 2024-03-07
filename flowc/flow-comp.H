@@ -123,7 +123,8 @@ private:
     int check_node_references(bool debug_on);
     int check_node_types(bool debug_on);
     int fixup_symbol_references(bool debug_on);
-    int compute_value_type(bool debug_on, int node);
+    int compute_value_type(int node);
+    value_type compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool check_errors=false);
     int propagate_value_types(bool debug_on);
     int propagate_node_return_types(bool debug_on);
 
