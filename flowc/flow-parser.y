@@ -311,7 +311,7 @@ valx(A) ::= OPENSQB vala(L) CLOSESQB.                       { A = L; if(ast->vty
 valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E, FTK_list); /*ast->vtype.set(A, fc::value_type(fc::fvt_none));*/}
 valx(A) ::= OPENSQB range(R) CLOSESQB.                      { 
     /* do not accept open ended ranges here */ 
-    if(ast->atc(R, 0).type == FTK_STAR || ast->atc(R, 1).type == FTK_STAR) 
+    if(ast->node_type(ast->child(R, 0)) == FTK_STAR || ast->node_type(ast->child(R, 1)) == FTK_STAR) 
         ast->error(ast->at(R), "cannot initialize list from open range");
     A = R; 
 }

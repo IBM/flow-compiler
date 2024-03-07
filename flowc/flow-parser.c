@@ -2310,7 +2310,7 @@ static YYACTIONTYPE yy_reduce(
 #line 312 "flow-parser.y"
 { 
     /* do not accept open ended ranges here */ 
-    if(ast->atc(yymsp[-1].minor.yy0, 0).type == FTK_STAR || ast->atc(yymsp[-1].minor.yy0, 1).type == FTK_STAR) 
+    if(ast->node_type(ast->child(yymsp[-1].minor.yy0, 0)) == FTK_STAR || ast->node_type(ast->child(yymsp[-1].minor.yy0, 1)) == FTK_STAR) 
         ast->error(ast->at(yymsp[-1].minor.yy0), "cannot initialize list from open range");
     yymsp[-2].minor.yy0 = yymsp[-1].minor.yy0; 
 }
