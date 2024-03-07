@@ -148,8 +148,8 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
             }
         break;
         case FTK_msgexp: 
-            if(vtype.has(atc(node, 0).children[0])) 
-                rvt = vtype(atc(node, 0).children[0]);
+            if(vtype.has(descendant(node, 0, 0)))
+                rvt = vtype(descendant(node, 0, 0));
         break;
         case FTK_MINUS: 
             if(vtype.has(n.children[1])) {
@@ -167,8 +167,8 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
         case FTK_STAR:    // allow only numeric
         case FTK_SLASH:
         case FTK_POW:
-            if(vtype.has(n.children[1]) && vtype.has(n.children[2])) {
-                value_type t = op2_type(atc(node, 0).type, vtype.get(n.children[1]), vtype.get(n.children[2]));
+            if(vtype.has(child(node, 1)) && vtype.has(child(node, 2))) {
+                value_type t = op2_type(node_type(child(node, 0)), vtype.get(n.children[1]), vtype.get(n.children[2]));
                 rvt = t;
                 if(err_check && t.type == fvt_none)
                     error(n, stru::sfmt() << "incompatible types for operator \"" << node_text(child(node, 0)) << "\"");
@@ -195,7 +195,7 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
         value_type t(fvt_struct);
         for(int fa: n.children) if(vtype.has(child(fa, 1))) {
             value_type ft = vtype.get(child(fa, 1));
-            ft.fname = atc(fa, 0).token.text;
+            ft.fname = node_text(child(fa, 0));
             t.add_type(ft);
             ++solved;
         }

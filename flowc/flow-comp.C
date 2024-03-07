@@ -353,7 +353,7 @@ int compiler::resolve_references(bool debug_on) {
             case 1:
                 // Lookup local, global, enums and grpc errors, in this order.
                 // Get the last match.
-                for(int m: *this) if(m == p) break; else if(at(m).type == FTK_EQUALS && atc(m, 0).token.text == ids[0]) {
+                for(int m: *this) if(m == p) break; else if(at(m).type == FTK_EQUALS && node_text(child(m, 0)) == ids[0]) {
                     match_catnod.push_back(std::make_pair('p', m));
                     last_match = at(m).children[1];
                     //std::cerr << "CHECKING 1 " << m << " " << atc(m, 0).token.text << "\n";
@@ -366,7 +366,7 @@ int compiler::resolve_references(bool debug_on) {
                 // Error if ambiguous.
                 for(int nid: get("//NODE/ID")) if(at(nid).token.text == ids[0]) {
                     int node_last_match = 0;
-                    for(int m: get("//EQUALS", parent(nid))) if(atc(m, 0).token.text == ids[1]) {
+                    for(int m: get("//EQUALS", parent(nid))) if(node_text(child(m, 0)) == ids[1]) {
                         node_last_match = m;
                         //std::cerr << "CHECKING 2 " << m << " " << atc(m, 0).token.text << "\n";
                         //print_ast(std::cerr, m);
@@ -387,7 +387,7 @@ int compiler::resolve_references(bool debug_on) {
                 for(int nid: get("//NODE")) {
                     std::string nids = stru::join(get_ids(nid), ".");
                     int node_last_match = 0;
-                    for(int m: get("//EQUALS", nid)) if(nids+"."+atc(m, 0).token.text == stru::join(ids, ".")) {
+                    for(int m: get("//EQUALS", nid)) if(nids+"."+node_text(child(m, 0)) == stru::join(ids, ".")) {
                         node_last_match = m;
                         //std::cerr << "CHECKING 3 " << m << " " << atc(m, 0).token.text << "\n";
                         //print_ast(std::cerr, m);
@@ -699,8 +699,8 @@ int compiler::set_const_level(int node) {
         case FTK_COLON: case FTK_range:
             added = set_const_level(child(node, 0))+
                     set_const_level(child(node, 1));
-            level = atc(node, 0).type == FTK_STAR? 3: const_level(child(node, 0)); 
-            level = std::min(level, atc(node, 1).type == FTK_STAR? 3: const_level(child(node, 1))); 
+            level = node_type(child(node, 0)) == FTK_STAR? 3: const_level(child(node, 0)); 
+            level = std::min(level, node_type(child(node, 1)) == FTK_STAR? 3: const_level(child(node, 1))); 
             break;
         case FTK_NODE: case FTK_ENTRY:
             for(int c: at(node).children)
@@ -806,14 +806,14 @@ std::set<std::string> compiler::get_referenced_families(int valx_node) const {
     unsigned i = 0;
     while(i < refd.size()) {
         int rvx = refd[i++];
-        if(atc(rvx, 0).type == FTK_ndid) 
+        if(node_type(child(rvx, 0)) == FTK_ndid) 
             families.insert(node_text(child(child(rvx, 0), 0)));
         for(int vx: get("//valx", rvx)) {
             if(ref.has(vx)) {
                 if(std::find(refd.begin(), refd.end(), ref(vx)) == refd.end())
                     refd.push_back(ref(vx));
-            } else if(atc(vx, 0).type == FTK_ndid) {
-                families.insert(node_text(child(child(vx, 0), 0)));
+            } else if(node_type(child(vx, 0)) == FTK_ndid) {
+                families.insert(node_text(descendant(vx, 0, 0)));
             }
         }
     }

@@ -153,7 +153,7 @@ cpp_gen::cpp_gen(fc::compiler const &a_ast, std::string a_input_name):
 int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
     std::cerr << "AT " << valx_node << " x " << left_base_dim << " ";
     int dim = left_base_dim;
-    switch(ast.atc(valx_node, 0).type) {
+    switch(ast.node_type(ast.first_child(valx_node))) {
         case FTK_msgexp:
             std::cerr << "got msgexp\n";
             // valx's vtype has the expected type for this message.
@@ -182,7 +182,7 @@ int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
             }
             break;
         default:
-            std::cerr << "hit default with " << ast.tk_to_string(ast.atc(valx_node, 0).type);
+            std::cerr << "hit default with " << ast.node_token(ast.first_child(valx_node));
     }
     std::cerr << "\n";
     return dim;
@@ -191,12 +191,12 @@ int cpp_gen::checkset_dim2(int left_base_dim, int valx_node) {
     std::cerr << "entering checkset_dim(base_dim: " << left_base_dim << ", valx_node: " << valx_node << ") >>> {\n";
     int node_dim = -1; 
     bool done = true;
-    switch(ast.atc(valx_node, 0).type) {
+    switch(ast.node_type(ast.first_child(valx_node))) {
         case FTK_msgexp:
             done = false;
             break;
         case FTK_ndid:  // node alias
-            if(ast.atc(valx_node, 0).children.size() == 1) {
+            if(ast.child_count(ast.first_child(valx_node)) == 1) {
                 std::cerr << "node alias case\n";
                 std::string family = ast.node_text(ast.child(ast.child(valx_node, 0), 0));
                 if(family_dim.find(family) != family_dim.end()) { 

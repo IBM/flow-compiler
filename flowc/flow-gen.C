@@ -36,7 +36,7 @@ int compiler::walk(int node) {
     while(nnq.size() > 0) {
         done.push_back(nnq.front());
         int cpn = nnq.front();
-        std::string cnn = cpn == node? std::string("@")+std::to_string(node): atc(parent(cpn), 0).token.text;
+        std::string cnn = cpn == node? std::string("@")+std::to_string(node): node_text(first_child(parent(cpn)));
         
         for(int ni: get("//ndid/1", nnq.front())) {
             std::string nn = at(ni).token.text;

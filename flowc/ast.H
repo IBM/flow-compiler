@@ -2,7 +2,6 @@
 #define H_AST_H
 
 #include <cassert>
-#include <cstdarg>
 #include <cstdlib>
 #include <map>
 #include <string>
@@ -123,12 +122,6 @@ struct tree {
      */
     struct node const &at(int n) const {
         return store[n-1];
-    }
-    /** Reference to node's child
-     * TODO remove
-     */
-    struct node const &atc(int n, int c) const {
-        return at(at(n).children[c]);
     }
     /** Create new node for token
      */
