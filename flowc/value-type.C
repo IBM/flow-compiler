@@ -63,6 +63,14 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
 
     bool can_assign = true;
     switch(type) {
+        case fvt_any:
+            break;
+        case fvt_basic:
+            can_assign = right.type == fvt_str || right.type == fvt_flt || right.type == fvt_int;
+            break;
+        case fvt_num:
+            can_assign = right.type == fvt_int || right.type == fvt_flt;
+            break;
         case fvt_array:
             std::cerr << "CASE 1 arrays?\n";
             can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0], allow_promotions);
@@ -88,7 +96,7 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
             can_assign = type == right.type;
             break;
     }
-    std::cerr << (can_assign? "yes": "no") << "\n";  
+    std::cerr << (can_assign? "yes": "no") << "\n";
     return can_assign;
 }
     
@@ -150,10 +158,10 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
             s << ANSI_MAGENTA+ANSI_BOLD << "*" << ANSI_RESET;
             break;
         case fc::fvt_basic:
-            s << ANSI_MAGENTA+ANSI_BOLD << "b" << ANSI_RESET;
+            s << ANSI_MAGENTA+ANSI_BOLD << "$" << ANSI_RESET;
             break;
         case fc::fvt_num:
-            s << ANSI_MAGENTA+ANSI_BOLD << "n" << ANSI_RESET;
+            s << ANSI_MAGENTA+ANSI_BOLD << "&" << ANSI_RESET;
             break;
         case fc::fvt_int:
             s << ANSI_CYAN+ANSI_BOLD << "int" << ANSI_RESET;
@@ -174,12 +182,12 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
         case fc::fvt_struct:
             if(!vt.struct_name().empty()) 
                 s << ANSI_MAGENTA+ANSI_BOLD << vt.struct_name() << ANSI_RESET;
-            s << "(";
+            s << "“";
             for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
                 if(u > 0) s << ", ";
                 s << vt.inf[u];
             }
-            s << ")";
+            s << "”";
             break;
     }
     return s;
