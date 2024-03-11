@@ -1,6 +1,7 @@
 #include <string>
 
 #include <ostream>
+#include <sstream>
 #include <string>
 #include "value-type.H"
 #include "ansi-escapes.H"
@@ -16,6 +17,7 @@ value_type::value_type(int array_dim, value_type element_type) {
         type = element_type.type;
         inf = element_type.inf;
         gname = element_type.gname;
+        reference = element_type.reference;
     } else {
         type = fvt_array;
         inf.push_back(value_type(array_dim-1, element_type));
@@ -53,30 +55,33 @@ bool value_type::operator ==(value_type const &other) const {
     }
     return false;
 }
-bool value_type::can_assign_to(value_type const &left) const {
-    return left.can_assign_from(*this);
+bool value_type::can_assign_to(value_type const &left, bool allow_promotions) const {
+    return left.can_assign_from(*this, allow_promotions);
 }
-bool value_type::can_assign_from(value_type const &right) const {
+bool value_type::can_assign_from(value_type const &right, bool allow_promotions) const {
     std::cerr << "CAN " << *this << "\n    " << right << ":\n";
 
     bool can_assign = true;
     switch(type) {
         case fvt_array:
             std::cerr << "CASE 1 arrays?\n";
-            can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0]);
+            can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0], allow_promotions);
             break;
         case fvt_struct:
             if(has_field_names() && right.has_field_names()) {
                 // match by field name
                 std::cerr << "CASE 2a struct by field name\n";
                 for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
-                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(field_type(fi).field_name()));
+                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(field_type(fi).field_name()), allow_promotions);
             } else {
                 // match in order
                 std::cerr << "CASE 2a struct in order\n";
                 for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
-                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(fi));
+                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(fi), allow_promotions);
             }
+            break;
+        case fvt_flt:
+            can_assign = right.type == fvt_flt || right.type == fvt_int && allow_promotions;
             break;
         default:
             std::cerr << "CASE d any\n";
@@ -85,6 +90,51 @@ bool value_type::can_assign_from(value_type const &right) const {
     }
     std::cerr << (can_assign? "yes": "no") << "\n";  
     return can_assign;
+}
+    
+int value_type::can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
+    if(can_assign_from(values, allow_promotions))
+        return 0;
+    if(dimension() > values.dimension())
+        return -1;
+    int rdim = -1;
+    /*
+
+    switch(type) {
+        case fvt_array:
+            std::cerr << "CASE 1 arrays?\n";
+            can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0], allow_promotions);
+            break;
+        case fvt_struct:
+            if(has_field_names() && right.has_field_names()) {
+                // match by field name
+                std::cerr << "CASE 2a struct by field name\n";
+                for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
+                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(field_type(fi).field_name()), allow_promotions);
+            } else {
+                // match in order
+                std::cerr << "CASE 2a struct in order\n";
+                for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
+                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(fi), allow_promotions);
+            }
+            break;
+        case fvt_flt:
+            can_assign = right.type == fvt_flt || right.type == fvt_int && allow_promotions;
+            break;
+        default:
+            std::cerr << "CASE d any\n";
+            can_assign = type == right.type;
+            break;
+    }
+    */
+
+    return rdim;
+}
+
+std::string value_type::to_string() const {
+    std::ostringstream out;
+    out << ansi::off << to_string();
+    return out.str();
 }
 }
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
