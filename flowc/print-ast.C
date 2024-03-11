@@ -75,11 +75,6 @@ std::ostream &to_json(std::ostream &s, fc::value_type const &vt) {
 }
 }
 namespace fc {
-std::string value_type::to_string() const {
-    std::ostringstream out;
-    out << to_string();
-    return out.str();
-}
 void compiler::ast_to_json(std::ostream &out, int node) const {
     std::map<int, int> nm;
     int n = 0;
