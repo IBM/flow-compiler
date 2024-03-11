@@ -56,8 +56,13 @@ struct value_type {
     bool is_flt() const { return type == fvt_int; }
     bool is_array() const { return type == fvt_array; }
     bool is_struct() const { return type == fvt_struct; }
+    bool has_field_names() const;
+    unsigned field_count() const { return is_struct()? inf.size(): 0; }
     value_type a_type() const { return type == fvt_array? inf[0]: value_type(); }
     value_type field_type(std::string field_name) const;
+    value_type field_type(unsigned field_x) const {
+        return field_x < field_count()? inf[field_x]: value_type();
+    }
     bool operator ==(value_type const &other) const;
     bool operator !=(value_type const &other) const {
         return !(*this == other);

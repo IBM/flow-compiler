@@ -5,20 +5,12 @@
 #include "value-type.H"
 #include "ansi-escapes.H"
 
+#include <iostream>
+
 namespace fc {
-/*
-value_type::value_type(value_type const &a_val):
-    type(a_val.type), inf(a_val.inf), gname(a_val.gname), fname(a_val.fname) {
-}
-*/
 value_type::value_type(fvt_type t, std::string group_name, std::string field_name, std::string ref):
     type(t), gname(group_name), fname(field_name), reference(ref) {
 }
-/*
-value_type::value_type(fvt_type t, std::initializer_list<value_type> tl, std::string gn):
-    type(t), inf(tl), gname(gn) { 
-}
-*/
 value_type::value_type(int array_dim, value_type element_type) {
     if(array_dim <= 0) {
         type = element_type.type;
@@ -34,6 +26,13 @@ value_type value_type::field_type(std::string field_name) const {
         if(vt.fname == field_name)
             return vt;
     return value_type();
+}
+bool value_type::has_field_names() const {
+    bool hfn = field_count() > 0;
+    for(auto const &vt: inf)
+        if((hfn = hfn && !vt.fname.empty()))
+            break;
+    return hfn;
 }
 bool value_type::operator ==(value_type const &other) const {
     switch(type) {
@@ -58,22 +57,33 @@ bool value_type::can_assign_to(value_type const &left) const {
     return left.can_assign_from(*this);
 }
 bool value_type::can_assign_from(value_type const &right) const {
+    std::cerr << "CAN " << *this << "\n    " << right << ":\n";
+
+    bool can_assign = true;
     switch(type) {
         case fvt_array:
-            return right.type == fvt_array && inf[0].can_assign_from(right.inf[0]);
+            std::cerr << "CASE 1 arrays?\n";
+            can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0]);
+            break;
         case fvt_struct:
-            if(right.type != fvt_struct)
-                break;
+            if(has_field_names() && right.has_field_names()) {
+                // match by field name
+                std::cerr << "CASE 2a struct by field name\n";
+                for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
+                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(field_type(fi).field_name()));
+            } else {
+                // match in order
+                std::cerr << "CASE 2a struct in order\n";
+                for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
+                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(fi));
+            }
             break;
         default:
-            return type == right.type;
+            std::cerr << "CASE d any\n";
+            can_assign = type == right.type;
+            break;
     }
-    bool can_assign = true;
-    for(auto const &lfvt: inf) 
-        for(auto const &rfvt: right.inf) 
-            if(lfvt.fname == rfvt.fname)
-                can_assign = can_assign && lfvt.can_assign_from(rfvt);
-        
+    std::cerr << (can_assign? "yes": "no") << "\n";  
     return can_assign;
 }
 }
