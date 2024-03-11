@@ -12,7 +12,7 @@
 namespace {
 fc::value_type op1_type(int op, fc::value_type l) {
     fc::value_type vt;
-    switch(op) {
+    if(!l.is_null()) switch(op) {
         case FTK_MINUS:
             if(l.type == fc::fvt_int) 
                 vt = fc::value_type(fc::fvt_int);
@@ -28,7 +28,7 @@ fc::value_type op1_type(int op, fc::value_type l) {
 }
 fc::value_type op2_type(int op, fc::value_type l, fc::value_type r) {
     fc::value_type vt;
-    switch(op) {
+    if(!l.is_null() && !r.is_null()) switch(op) {
         case FTK_PLUS:
             if(l.type == r.type && l.is_basic()) 
                 vt = l;
@@ -65,9 +65,9 @@ fc::value_type op2_type(int op, fc::value_type l, fc::value_type r) {
     return vt;
 }
 std::multimap<std::string, std::tuple<fc::value_type, int, fc::value_type>> predef_rt = {
-    {"after", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int)})} },
+    {"after", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
     {"batch", { fc::value_type(2, fc::value_type(fc::fvt_any)), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_any)), fc::value_type(fc::fvt_int)})} },
-    {"before", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int)})} },
+    {"before", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
     {"ceil", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)} },
     {"exp", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_flt)} },
     {"float", { fc::value_type(fc::fvt_flt), 1, fc::value_type(fc::fvt_basic)} },
@@ -97,11 +97,13 @@ fc::value_type fun_type(std::string fname, std::vector<fc::value_type> const &av
         std::cerr << predef_rt << "\n";
     }
     fc::value_type vt;
-    for(auto pp = predef_rt.equal_range(fname); pp.first != pp.second; ++pp.first) 
-        if(std::get<2>(pp.first->second).can_assign_from(fc::value_type(avt.begin(), avt.end()))) {
-            vt = std::get<0>(pp.first->second);
-            break;
-        }
+    for(auto pp = predef_rt.equal_range(fname); pp.first != pp.second; ++pp.first) {
+        int rdim = std::get<2>(pp.first->second).can_be_called_with(fc::value_type(avt.begin(), avt.end()));
+        if(rdim < 0) 
+            continue;
+        vt = fc::value_type(rdim, std::get<0>(pp.first->second));
+        break;
+    }
     return vt;
 }
 }
@@ -129,7 +131,7 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
             if(mn != 0) {
                 auto did = stru::join(get_ids(n.children[0]), ".");
                 if(!did.empty()) {
-                    if(gstore.field_full_name(vtype.get(mn).struct_name(), did).empty()) {
+                    if(err_check && gstore.field_full_name(vtype.get(mn).struct_name(), did).empty()) {
                         error(n, stru::sfmt() << "message of type \"" << vtype.get(mn).struct_name() << "\" does not have a field \"" << did << "\"");
                         notep(at(mn), stru::sfmt() << "message type deduced from here");
                     }
@@ -155,7 +157,7 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
             if(vtype.has(n.children[1])) {
                 value_type t = op1_type(FTK_MINUS, vtype.get(child(node, 1)));
                 rvt = t;
-                if(err_check && t.type == fvt_none && err_check)
+                if(err_check && t.type == fvt_none)
                     error(n, stru::sfmt() << "incompatible type for operator \"-\"");
             }
         break;
@@ -166,14 +168,23 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
         case FTK_PERCENT: // allow string % vala
         case FTK_STAR:    // allow only numeric
         case FTK_SLASH:
-        case FTK_POW:
-            if(vtype.has(child(node, 1)) && vtype.has(child(node, 2))) {
-                value_type t = op2_type(node_type(child(node, 0)), vtype.get(n.children[1]), vtype.get(n.children[2]));
-                rvt = t;
-                if(err_check && t.type == fvt_none)
+        case FTK_POW: {
+          /*                
+            value_type tl = compute_value_type(child(node, 1), fam_dims, err_check);
+            value_type tr = compute_value_type(child(node, 2), fam_dims, err_check);
+            if(!t1.is_null() && !t2.is_null()) {
+                rvt = op2_type(node_type(child(node, 0)), tl, tr);
+                if(err_check && rvt.type == fvt_none)
                     error(n, stru::sfmt() << "incompatible types for operator \"" << node_text(child(node, 0)) << "\"");
             }
-        break;
+            */
+
+            if(vtype.has(child(node, 1)) && vtype.has(child(node, 2))) {
+                rvt = op2_type(node_type(child(node, 0)), vtype.get(child(node, 1)), vtype.get(child(node, 2)));
+                if(err_check && rvt.type == fvt_none)
+                    error(n, stru::sfmt() << "incompatible types for operator \"" << node_text(child(node, 0)) << "\"");
+            }
+        } break;
         case FTK_QUESTION:
             // TODO when error checking, make sure both branches return compatible types
             //
