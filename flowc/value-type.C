@@ -1,12 +1,12 @@
-#include <string>
-
+#include <cassert>
+#include <iostream>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include "value-type.H"
+#include <vector>
 #include "ansi-escapes.H"
-
-#include <iostream>
+#include "value-type.H"
+#include "container-strinsop.H"
 
 namespace fc {
 value_type::value_type(fvt_type t, std::string group_name, std::string field_name, std::string ref):
@@ -35,6 +35,10 @@ bool value_type::has_field_names() const {
         if((hfn = hfn && !vt.fname.empty()))
             break;
     return hfn;
+}
+int value_type::dimension() const {
+    return !is_array()? 0:
+        1+elem_type().dimension();
 }
 bool value_type::operator ==(value_type const &other) const {
     switch(type) {
@@ -99,46 +103,37 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
     std::cerr << (can_assign? "yes": "no") << "\n";
     return can_assign;
 }
-    
+/***
+ * The left struct members need to be assignable from the right side members either directly or
+ * repeatedly from an array.
+ */
 int value_type::can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
-    if(can_assign_from(values, allow_promotions))
-        return 0;
-    if(dimension() > values.dimension())
-        return -1;
-    int rdim = -1;
-    /*
-
-    switch(type) {
-        case fvt_array:
-            std::cerr << "CASE 1 arrays?\n";
-            can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0], allow_promotions);
-            break;
-        case fvt_struct:
-            if(has_field_names() && right.has_field_names()) {
-                // match by field name
-                std::cerr << "CASE 2a struct by field name\n";
-                for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
-                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(field_type(fi).field_name()), allow_promotions);
-            } else {
-                // match in order
-                std::cerr << "CASE 2a struct in order\n";
-                for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
-                    can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(fi), allow_promotions);
-            }
-            break;
-        case fvt_flt:
-            can_assign = right.type == fvt_flt || right.type == fvt_int && allow_promotions;
-            break;
-        default:
-            std::cerr << "CASE d any\n";
-            can_assign = type == right.type;
-            break;
+    std::cerr << "CAN CALL " << *this << "\n";
+    std::cerr << "    WITH " << values << "\n";
+    std::vector<int> tmpad;
+    std::vector<int> &ads = arg_dims == nullptr? tmpad: *arg_dims;
+    if(!is_struct() || !values.is_struct()) {
+        std::cerr << "internal error: both types need to be struct\n"
+                     "left is " << *this << "\nright is " << values << "\n"; 
+        assert(false);
     }
-    */
+    int pdim = -1;
 
-    return rdim;
+    if(values.field_count() == field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
+        auto const &lf = field_type(f);
+        int dim = 0; bool can_assign = false;
+        for(value_type rf = values.field_type(f); !(can_assign = lf.can_assign_from(rf)) && rf.is_array(); rf = rf.elem_type())
+            ++dim;
+        if(!can_assign) {
+            pdim = -1;
+            break;
+        }
+        pdim = std::max(pdim, dim);
+        ads.push_back(dim);
+    }
+    std::cerr << pdim << " " << ads << "\n";
+    return pdim;
 }
-
 std::string value_type::to_string() const {
     std::ostringstream out;
     out << ansi::off << to_string();

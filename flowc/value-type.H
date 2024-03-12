@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <initializer_list>
-
+#include <iosfwd>
 
 namespace fc {
 
@@ -64,7 +64,7 @@ struct value_type {
     // the number of fields if this is a struct, 0 otherwise
     unsigned field_count() const { return is_struct()? inf.size(): 0; }
     // the array type
-    value_type a_type() const { return type == fvt_array? inf[0]: value_type(); }
+    value_type elem_type() const { return type == fvt_array? inf[0]: value_type(); }
     // field type by name
     value_type field_type(std::string field_name) const;
     // field type by index
@@ -72,10 +72,7 @@ struct value_type {
         return field_x < field_count()? inf[field_x]: value_type();
     }
     // number of dimensions if this is an array type
-    int dimension() const {
-        return !is_array()? 0:
-            1+a_type().dimension();
-    }
+    int dimension() const;
     bool operator ==(value_type const &other) const;
     bool operator !=(value_type const &other) const {
         return !(*this == other);

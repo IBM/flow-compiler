@@ -34,11 +34,11 @@ fc::value_type op2_type(int op, fc::value_type l, fc::value_type r) {
                 vt = l;
             else if(l.is_basic() && r.is_basic())
                 vt = fc::value_type(l.is_str()? fc::fvt_str: fc::fvt_flt);
-            else if(l.a_type().type == r.type)
+            else if(l.elem_type().type == r.type)
                 vt = l;
-            else if(l.type == r.a_type().type)
+            else if(l.type == r.elem_type().type)
                 vt = r;
-            else if(l.is_array() && l.a_type().type == r.a_type().type)
+            else if(l.is_array() && l.elem_type().type == r.elem_type().type)
                 vt = l;
             break;
         case FTK_STAR:   
