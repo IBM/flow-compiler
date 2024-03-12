@@ -64,32 +64,37 @@ fc::value_type op2_type(int op, fc::value_type l, fc::value_type r) {
     }
     return vt;
 }
-std::multimap<std::string, std::tuple<fc::value_type, int, fc::value_type>> predef_rt = {
-    {"after", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
-    {"batch", { fc::value_type(2, fc::value_type(fc::fvt_any)), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_any)), fc::value_type(fc::fvt_int)})} },
-    {"before", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
-    {"ceil", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-    {"exp", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-    {"float", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"floor", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-    {"flt", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"int", { fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"integer", { fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_basic)})},  },
-    {"join", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_basic)), fc::value_type(fc::fvt_str)})}, },
-    {"join", { fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_basic)), fc::value_type(1, fc::value_type(fc::fvt_str))})}, },
-    {"length", { fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"ln", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})}, },
-    {"rand", { fc::value_type(fc::fvt_flt), 0, fc::value_type({fc::value_type(fc::fvt_int)})}, },
-    {"remainder", { fc::value_type(fc::fvt_flt), 2, fc::value_type({fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})}, },
-    {"round", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})},  },
-    {"split", { fc::value_type(1, fc::value_type(fc::fvt_str)), 1, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
-    {"str", { fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"substr", { fc::value_type(fc::fvt_str), 3, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})},  },
-    {"tocname", { fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"toid", { fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"tolower", { fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"toupper", { fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"trunc", { fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
+/**
+ * Function definition table
+ * name -> preserve const return type, min num args, arg types, preserve const
+ */
+std::multimap<std::string, std::tuple<bool, fc::value_type, int, fc::value_type>> predef_rt = {
+    {"after",     { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
+    {"batch",     { true, fc::value_type(2, fc::value_type(fc::fvt_any)), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_any)), fc::value_type(fc::fvt_int)})} },
+    {"before",    { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
+    {"ceil",      { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
+    {"exp",       { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
+    {"float",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
+    {"floor",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
+    {"flt",       { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
+    {"int",       { true, fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
+    {"integer",   { true, fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_basic)})},  },
+    {"join",      { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_basic)), fc::value_type(fc::fvt_str)})}, },
+    {"join",      { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_basic)), fc::value_type(1, fc::value_type(fc::fvt_str))})}, },
+    {"length",    { true, fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
+    {"ln",        { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})}, },
+    {"now",       { false, fc::value_type(fc::fvt_int), 0, fc::value_type()}, },
+    {"rand",      { false, fc::value_type(fc::fvt_flt), 0, fc::value_type({fc::value_type(fc::fvt_int)})}, },
+    {"remainder", { true, fc::value_type(fc::fvt_flt), 2, fc::value_type({fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})}, },
+    {"round",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})},  },
+    {"split",     { true, fc::value_type(1, fc::value_type(fc::fvt_str)), 1, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
+    {"str",       { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
+    {"substr",    { true, fc::value_type(fc::fvt_str), 3, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})},  },
+    {"tocname",   { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
+    {"toid",      { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
+    {"tolower",   { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
+    {"toupper",   { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
+    {"trunc",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
 };
 fc::value_type fun_type(std::string fname, std::vector<fc::value_type> const &avt) {
     static int show = 0;
@@ -98,10 +103,10 @@ fc::value_type fun_type(std::string fname, std::vector<fc::value_type> const &av
     }
     fc::value_type vt;
     for(auto pp = predef_rt.equal_range(fname); pp.first != pp.second; ++pp.first) {
-        int rdim = std::get<2>(pp.first->second).can_be_called_with(fc::value_type(avt.begin(), avt.end()));
+        int rdim = std::get<3>(pp.first->second).can_be_called_with(fc::value_type(avt.begin(), avt.end()));
         if(rdim < 0) 
             continue;
-        vt = fc::value_type(rdim, std::get<0>(pp.first->second));
+        vt = fc::value_type(rdim, std::get<1>(pp.first->second));
         break;
     }
     return vt;
