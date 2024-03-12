@@ -1,9 +1,12 @@
 #include <algorithm>
 #include "flow-comp.H"
 
+#include <iostream>
+
 namespace fc {
 
 int compiler::set_const_level(int node) {
+    std::cerr << "setting const level for " << node << "\n";
     int added = 0, count = 0, level = 0;
     // repeatedly mark nodes for the entire tree 
     // until no new nodes can be marked
@@ -25,6 +28,14 @@ int compiler::set_const_level(int node) {
         case FTK_EQUALS: case FTK_fassgn: case FTK_LIMIT:
             added = set_const_level(child(node, 1));
             level = const_level(child(node, 1));
+            break;
+        case FTK_msgexp:
+            if(child_count(node) > 0) {
+                added = set_const_level(last_child(node));
+                level = const_level(last_child(node));
+            } else {
+                level = 3;
+            }
             break;
         case FTK_fun:
             // TODO should lookup the function table
@@ -82,7 +93,7 @@ int compiler::set_const_level(int node) {
                 level = 3;
             } else {
                 level = 3;
-                for(unsigned i = 0, e = at(node).children.size(); i < e; ++i) {
+                for(unsigned i = 0, e = child_count(node); i < e; ++i) {
                     int c = child(node, i);
                     if(i == 0 && is_operator(c))
                         continue;
@@ -99,6 +110,7 @@ int compiler::set_const_level(int node) {
     if(level > 0) {
         const_level.set(node, level); ++added;
     }
+    std::cerr << "sett--- const level for " << node << " to " << level << "\n";
     return added;
 }
 }
