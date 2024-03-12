@@ -1,117 +1,14 @@
 #include <iostream>
 #include <map>
 #include <string>
-#include <tuple>
 #include <vector>
 #include "flow-comp.H"
 #include "sfmt.H"
 #include "stru.H"
 #include "value-type.H"
 #include "container-strinsop.H" 
+#include "func-table.H"
 
-namespace {
-fc::value_type op1_type(int op, fc::value_type l) {
-    fc::value_type vt;
-    if(!l.is_null()) switch(op) {
-        case FTK_MINUS:
-            if(l.type == fc::fvt_int) 
-                vt = fc::value_type(fc::fvt_int);
-            else if(l.is_basic()) 
-                vt = fc::value_type(fc::fvt_flt);
-            break;
-        default:
-            std::cerr << "internal " << __FUNCTION__ << " not implemented for: " << op << "\n";
-            assert(false);
-            break;
-    }
-    return vt;
-}
-fc::value_type op2_type(int op, fc::value_type l, fc::value_type r) {
-    fc::value_type vt;
-    if(!l.is_null() && !r.is_null()) switch(op) {
-        case FTK_PLUS:
-            if(l.type == r.type && l.is_basic()) 
-                vt = l;
-            else if(l.is_basic() && r.is_basic())
-                vt = fc::value_type(l.is_str()? fc::fvt_str: fc::fvt_flt);
-            else if(l.elem_type().type == r.type)
-                vt = l;
-            else if(l.type == r.elem_type().type)
-                vt = r;
-            else if(l.is_array() && l.elem_type().type == r.elem_type().type)
-                vt = l;
-            break;
-        case FTK_STAR:   
-            if(l.is_str() && r.is_num())
-                vt = fc::value_type(fc::fvt_str);
-            else if(l.is_int() && r.is_int())
-                vt = fc::value_type(fc::fvt_int);
-            else if(l.is_num() && r.is_num())
-                vt = fc::value_type(fc::fvt_flt);
-            break;
-        case FTK_PERCENT: 
-        case FTK_SLASH:
-        case FTK_POW:
-            if(l.is_int() && r.is_int())
-                vt = fc::value_type(fc::fvt_int);
-            else if(l.is_num() && r.is_num())
-                vt = fc::value_type(fc::fvt_flt);
-            break;
-        default:
-            std::cerr << "internal " << __FUNCTION__ << " not implemented for: " << op << "\n";
-            assert(false);
-            break;
-    }
-    return vt;
-}
-/**
- * Function definition table
- * name -> preserve const return type, min num args, arg types, preserve const
- */
-std::multimap<std::string, std::tuple<bool, fc::value_type, int, fc::value_type>> predef_rt = {
-    {"after",     { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
-    {"batch",     { true, fc::value_type(2, fc::value_type(fc::fvt_any)), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_any)), fc::value_type(fc::fvt_int)})} },
-    {"before",    { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
-    {"ceil",      { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-    {"exp",       { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-    {"float",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"floor",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-    {"flt",       { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"int",       { true, fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"integer",   { true, fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_basic)})},  },
-    {"join",      { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_basic)), fc::value_type(fc::fvt_str)})}, },
-    {"join",      { true, fc::value_type(fc::fvt_str), 2, fc::value_type({fc::value_type(1, fc::value_type(fc::fvt_basic)), fc::value_type(1, fc::value_type(fc::fvt_str))})}, },
-    {"length",    { true, fc::value_type(fc::fvt_int), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"ln",        { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})}, },
-    {"now",       { false, fc::value_type(fc::fvt_int), 0, fc::value_type()}, },
-    {"rand",      { false, fc::value_type(fc::fvt_flt), 0, fc::value_type({fc::value_type(fc::fvt_int)})}, },
-    {"remainder", { true, fc::value_type(fc::fvt_flt), 2, fc::value_type({fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})}, },
-    {"round",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})},  },
-    {"split",     { true, fc::value_type(1, fc::value_type(fc::fvt_str)), 1, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_str)})} },
-    {"str",       { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_basic)})} },
-    {"substr",    { true, fc::value_type(fc::fvt_str), 3, fc::value_type({fc::value_type(fc::fvt_str), fc::value_type(fc::fvt_int), fc::value_type(fc::fvt_int)})},  },
-    {"tocname",   { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"toid",      { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"tolower",   { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"toupper",   { true, fc::value_type(fc::fvt_str), 1, fc::value_type({fc::value_type(fc::fvt_str)})} },
-    {"trunc",     { true, fc::value_type(fc::fvt_flt), 1, fc::value_type({fc::value_type(fc::fvt_flt)})} },
-};
-fc::value_type fun_type(std::string fname, std::vector<fc::value_type> const &avt) {
-    static int show = 0;
-    if(++show == 1) {
-        std::cerr << predef_rt << "\n";
-    }
-    fc::value_type vt;
-    for(auto pp = predef_rt.equal_range(fname); pp.first != pp.second; ++pp.first) {
-        int rdim = std::get<3>(pp.first->second).can_be_called_with(fc::value_type(avt.begin(), avt.end()));
-        if(rdim < 0) 
-            continue;
-        vt = fc::value_type(rdim, std::get<1>(pp.first->second));
-        break;
-    }
-    return vt;
-}
-}
 namespace fc {
 int compiler::compute_value_type(int node) {
     int irc = error_count;

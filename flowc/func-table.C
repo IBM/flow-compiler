@@ -1,6 +1,7 @@
 #include "value-type.H"
 #include "container-strinsop.H" 
 #include "flow-parser.h"
+#include "func-table.H"
 
 #include <cassert>
 #include <map>
@@ -67,7 +68,7 @@ value_type op2_type(int op, value_type l, value_type r) {
  * Function definition table
  * name -> preserve const return type, min num args, arg types, preserve const
  */
-std::multimap<std::string, std::tuple<bool, value_type, int, value_type>> supp_fun_table = {
+std::multimap<std::string, fun_info_t> supp_fun_table = {
     {"after",     { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})} },
     {"batch",     { true, value_type(2, value_type(fvt_any)), 2, value_type({value_type(1, value_type(fvt_any)), value_type(fvt_int)})} },
     {"before",    { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})} },
@@ -95,6 +96,15 @@ std::multimap<std::string, std::tuple<bool, value_type, int, value_type>> supp_f
     {"toupper",   { true, value_type(fvt_str), 1, value_type({value_type(fvt_str)})} },
     {"trunc",     { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
 };
+static fun_info_t no_func;
+fun_info_t const &fun_first_match(std::string fun_name) {
+    for(auto pp = supp_fun_table.equal_range(fun_name); pp.first != pp.second; ++pp.first) 
+        return pp.first->second;
+
+    assert(false);
+    return no_func;
+}
+
 value_type fun_type(std::string fname, std::vector<value_type> const &avt) {
     static int show = 0;
     if(++show == 1) 
