@@ -49,6 +49,7 @@ public:
     ast::attribute<std::string> cmsg;   // msg type for msgexp nodes
     ast::attribute<std::string> unid;   // individual node identifier
     ast::attribute2<int, 0> precedence; // operator precedence
+    ast::attribute2<bool, false> is_operator; // operator indicator
     grpcu::store gstore;
 protected:
     std::ostream *errs;

@@ -614,33 +614,6 @@ static std::map<int, std::string> non_terminals = {
     {FTK_range, "range"},
     {FTK_valx, "valx"},
 };
-static bool is_operator(int ftk) {
-    switch(ftk) {
-        case FTK_PLUS:
-        case FTK_MINUS:
-        case FTK_HASH:
-        case FTK_BANG:
-        case FTK_SLASH:
-        case FTK_STAR:
-        case FTK_PERCENT:
-        case FTK_POW:
-        case FTK_COMP:
-        case FTK_EQ:
-        case FTK_NE:
-        case FTK_LT:
-        case FTK_GT:
-        case FTK_LE:
-        case FTK_GE:
-        case FTK_AND:
-        case FTK_OR:
-        case FTK_SHL:
-        case FTK_SHR:
-        case FTK_QUESTION:
-            return true;
-        default:
-            return false;
-    }
-};
 std::string compiler::tk_to_string(int ftk) const {
     assert(ftk >= 0 && ftk < FTK_MAX_NONTERM);
     if(ftk < FTK_ACCEPT) {
@@ -662,103 +635,6 @@ int compiler::string_to_tk(std::string ftk) const {
     std::cerr << "internal error unknown token " << ftk << "\n";
     assert(false);
     return 0;
-}
-int compiler::set_const_level(int node) {
-    int added = 0, count = 0, level = 0;
-    // repeatedly mark nodes for the entire tree 
-    // until no new nodes can be marked
-    if(node == 0) 
-        for(int root: get("//flow")) {
-            for(int p = 1; p < 500; ++p) {
-                int newly_added = set_const_level(root);
-                if(newly_added == 0) 
-                    break;
-            }
-        }
-    else if(!const_level.has(node)) switch(at(node).type) {
-        case FTK_INTEGER: case FTK_STRING: case FTK_FLOAT:
-            level = 3;
-            break;
-        case FTK_DOLLAR:
-            level = 2;
-            break;
-        case FTK_EQUALS: case FTK_fassgn: case FTK_LIMIT:
-            added = set_const_level(child(node, 1));
-            level =  const_level(child(node, 1));
-            break;
-        case FTK_fun:
-            if(at(node).children.size() > 1) {
-                level = 3;
-                for(unsigned i = 1, e = at(node).children.size(); i < e; ++i) {
-                    int c = child(node, i);
-                    added += set_const_level(c);
-                    level = std::min(const_level(c), level);
-                }
-            }
-            break;
-        case FTK_COLON: case FTK_range:
-            added = set_const_level(child(node, 0))+
-                    set_const_level(child(node, 1));
-            level = node_type(child(node, 0)) == FTK_STAR? 3: const_level(child(node, 0)); 
-            level = std::min(level, node_type(child(node, 1)) == FTK_STAR? 3: const_level(child(node, 1))); 
-            break;
-        case FTK_NODE: case FTK_ENTRY:
-            for(int c: at(node).children)
-                added += set_const_level(c);
-            level = 3;
-            for(int cn: get("valx", node)) 
-                level = std::min(level, const_level(cn));
-            for(int cn: get("//RETURN/valx", node)) 
-                level = std::min(level, const_level(cn));
-            for(int cn: get("//ERRCHK", node)) 
-                level = std::min(level, const_level(cn));
-            for(int cn: get("//OUTPUT", node)) 
-                level = 0;
-            break;
-        case FTK_ndid:
-            for(int iidn: get("//flow/INPUT/ID")) if(node_text(child(node, 0)) == node_text(iidn)) {
-                level = 1;
-                break;
-            }
-            if(level == 0) {
-                level = 3;
-                for(int nid: get("//flow/NODE")) 
-                    if(node_text(child(node, 0)) == node_text(child(nid, 0))) 
-                        level = std::min(level, const_level(nid));
-            }
-            break;
-        case FTK_ERRCHK: case FTK_list:
-            level = 3;
-            for(int c: at(node).children) {
-                added += set_const_level(c);
-                level = std::min(const_level(c), level);
-            }
-            break;
-        case FTK_valx: 
-            if(ref.has(node)) {
-                level = const_level(ref(node));
-            } else if(vtype.has(node) && vtype(node).type == fvt_enum) {
-                level = 3;
-            } else {
-                level = 3;
-                for(unsigned i = 0, e = at(node).children.size(); i < e; ++i) {
-                    int c = child(node, i);
-                    if(i == 0 && is_operator(at(c).type))
-                        continue;
-                    added += set_const_level(c);
-                    level = std::min(const_level(c), level);
-                }
-            }
-            break;
-        default:
-            for(int c: at(node).children)
-                added += set_const_level(c);
-            break;
-    }
-    if(level > 0) {
-        const_level.set(node, level); ++added;
-    }
-    return added;
 }
 std::vector<int> compiler::node_family(std::string family_name) const {
     std::vector<int> nodes;
@@ -819,31 +695,4 @@ std::set<std::string> compiler::get_referenced_families(int valx_node) const {
     }
     return families;
 }
-/*
-int compiler::generate_valx(stru::indented_stream &indenter, int vn, bool debug_on) {
-    int irc = error_count;
-    auto &out = indenter;
-    switch(atc(vn, 0).type) {
-        case FTK_msgexp:
-            out << "// msgexp " << child(vn, 0) << " for " << vn << "\n";
-            break;
-        case FTK_ndid:
-            out << "// ndid " << child(vn, 0) << " for " << vn << "\n";
-            break;
-        default:
-            std::cerr << "internal error: generate not implemented for " << tk_to_string(atc(vn, 0).type) << " at node " << vn << "\n";
-    }
-    return error_count - irc;
-}
-int compiler::generate_valx_ndid(stru::indented_stream &indenter, int nn, bool debug_on) {
-    int irc = error_count;
-
-    return error_count - irc;
-}
-int compiler::generate_valx_msgexp(stru::indented_stream &indenter, int mn, bool debug_on) {
-    int irc = error_count;
-
-    return error_count - irc;
-}
-*/
 }
