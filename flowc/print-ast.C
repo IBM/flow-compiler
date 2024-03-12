@@ -131,20 +131,23 @@ void compiler::print_ast(std::ostream &out, int node) const {
         if(precedence.has(*p)) 
             out << ANSI_BOLD+ANSI_BLUE << "^" << precedence.get(*p) << ANSI_RESET;
         
+        if(is_operator(*p)) 
+            out << ANSI_BOLD+ANSI_BLUE << "º" << ANSI_RESET;
+
         if(vtype.has(*p) || const_level(*p)) {
             out << " ";
             switch(const_level(*p)) {
                 case 3:
-                    out << ANSI_BOLD+ANSI_GREEN << "«‹" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_GREEN << "⦑" << ANSI_RESET;
                     break;
                 case 2:
-                    out << ANSI_BOLD+ANSI_BLUE << "«" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_BLUE << "⟨" << ANSI_RESET;
                     break;
                 case 1:
-                    out << ANSI_BOLD+ANSI_YELLOW << "‹" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_YELLOW << "⦗" << ANSI_RESET;
                     break;
                 default:
-                    out << ANSI_BOLD+ANSI_YELLOW << "≤" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_YELLOW << "⧼" << ANSI_RESET;
                     break;
             }
             if(vtype.has(*p))
@@ -153,16 +156,16 @@ void compiler::print_ast(std::ostream &out, int node) const {
                 out << ".";
             switch(const_level(*p)) {
                 case 3:
-                    out << ANSI_BOLD+ANSI_GREEN << "›»" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_GREEN << "⦒" << ANSI_RESET;
                     break;
                 case 2:
-                    out << ANSI_BOLD+ANSI_BLUE << "»" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_BLUE << "⟩" << ANSI_RESET;
                     break;
                 case 1:
-                    out << ANSI_BOLD+ANSI_YELLOW << "›" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_YELLOW << "⦘" << ANSI_RESET;
                     break;
                 default:
-                    out << ANSI_BOLD+ANSI_YELLOW << "≥" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_YELLOW << "⧽" << ANSI_RESET;
                     break;
             }
         }

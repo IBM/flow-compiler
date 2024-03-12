@@ -64,7 +64,6 @@ bool value_type::can_assign_to(value_type const &left, bool allow_promotions) co
 }
 bool value_type::can_assign_from(value_type const &right, bool allow_promotions) const {
     std::cerr << "CAN " << *this << "\n    " << right << ":\n";
-
     bool can_assign = true;
     switch(type) {
         case fvt_any:
@@ -110,15 +109,13 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
 int value_type::can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
     std::cerr << "CAN CALL " << *this << "\n";
     std::cerr << "    WITH " << values << "\n";
-    std::vector<int> tmpad;
-    std::vector<int> &ads = arg_dims == nullptr? tmpad: *arg_dims;
+    std::vector<int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
     if(!is_struct() || !values.is_struct()) {
         std::cerr << "internal error: both types need to be struct\n"
                      "left is " << *this << "\nright is " << values << "\n"; 
         assert(false);
     }
     int pdim = -1;
-
     if(values.field_count() == field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
         auto const &lf = field_type(f);
         int dim = 0; bool can_assign = false;
@@ -147,7 +144,7 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
         s << vt.field_name() << ": ";
     switch(vt.type) {
         case fc::fvt_none:
-            s << ANSI_RED+ANSI_BOLD << "??" << ANSI_RESET;
+            s << ANSI_RED+ANSI_BOLD << "⍉" << ANSI_RESET;
             break;
         case fc::fvt_any:
             s << ANSI_MAGENTA+ANSI_BOLD << "*" << ANSI_RESET;
@@ -156,7 +153,7 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
             s << ANSI_MAGENTA+ANSI_BOLD << "$" << ANSI_RESET;
             break;
         case fc::fvt_num:
-            s << ANSI_MAGENTA+ANSI_BOLD << "&" << ANSI_RESET;
+            s << ANSI_MAGENTA+ANSI_BOLD << "ℝ" << ANSI_RESET;
             break;
         case fc::fvt_int:
             s << ANSI_CYAN+ANSI_BOLD << "int" << ANSI_RESET;
@@ -168,21 +165,21 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
             s << ANSI_GREEN+ANSI_BOLD << "str" << ANSI_RESET;
             break;
         case fc::fvt_enum:
-            s << "enum: " << ANSI_CYAN+ANSI_BOLD << vt.enum_name() << ANSI_RESET;
+            s << ANSI_CYAN+ANSI_BOLD << "⦚" << vt.enum_name() << ANSI_RESET;
             break;
         case fc::fvt_array:
-            s << ANSI_BOLD << "[" << ANSI_RESET << vt.inf[0] << ANSI_BOLD << "]" << ANSI_RESET;
+            s << ANSI_BOLD << '[' << ANSI_RESET << vt.inf[0] << ANSI_BOLD << ']' << ANSI_RESET;
             break;
 
         case fc::fvt_struct:
+            s << ANSI_BOLD << '(' << ANSI_RESET;
             if(!vt.struct_name().empty()) 
-                s << ANSI_MAGENTA+ANSI_BOLD << vt.struct_name() << ANSI_RESET;
-            s << "“";
+                s << ANSI_MAGENTA+ANSI_BOLD << vt.struct_name() << " "<< ANSI_RESET;
             for(unsigned u = 0, e = vt.inf.size(); u < e; ++u) {
                 if(u > 0) s << ", ";
                 s << vt.inf[u];
             }
-            s << "”";
+            s << ANSI_BOLD << ')' << ANSI_RESET;
             break;
     }
     return s;
