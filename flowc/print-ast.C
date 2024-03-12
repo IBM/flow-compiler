@@ -138,7 +138,7 @@ void compiler::print_ast(std::ostream &out, int node) const {
             out << " ";
             switch(const_level(*p)) {
                 case 3:
-                    out << ANSI_BOLD+ANSI_GREEN << "⦑" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_GREEN << "⟪" << ANSI_RESET;
                     break;
                 case 2:
                     out << ANSI_BOLD+ANSI_BLUE << "⟨" << ANSI_RESET;
@@ -156,7 +156,7 @@ void compiler::print_ast(std::ostream &out, int node) const {
                 out << ".";
             switch(const_level(*p)) {
                 case 3:
-                    out << ANSI_BOLD+ANSI_GREEN << "⦒" << ANSI_RESET;
+                    out << ANSI_BOLD+ANSI_GREEN << "⟫" << ANSI_RESET;
                     break;
                 case 2:
                     out << ANSI_BOLD+ANSI_BLUE << "⟩" << ANSI_RESET;
