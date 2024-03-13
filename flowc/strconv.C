@@ -97,4 +97,84 @@ std::string remove_empty_lines(std::string s) {
     }
     return std::move(out).str();
 }
+static char const *supn[] = {
+    "\u2070",
+    "\u00B9",
+    "\u00B2",
+    "\u00B3",
+    "\u2074",
+    "\u2075",
+    "\u2076",
+    "\u2077",
+    "\u2078",
+    "\u2079",
+};
+std::string sup(std::string s) {
+    std::ostringstream out;
+    for(char c: s) 
+        switch(c) {
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                out << supn[c-'0'];
+                break;
+            case '+':
+                out << "\u207A";
+                break;
+            case '-':
+                out << "\u207B";
+                break;
+            case '=':
+                out << "\u207C";
+                break;
+            case '(':
+                out << "\u207D";
+                break;
+            case ')':
+                out << "\u207E";
+                break;
+            default:
+                out << c;
+        }
+    return std::move(out).str();
+}
+static char const *subn[] = {
+    "\u2080",
+    "\u0081",
+    "\u0082",
+    "\u0083",
+    "\u2084",
+    "\u2085",
+    "\u2086",
+    "\u2087",
+    "\u2088",
+    "\u2089",
+};
+std::string sub(std::string s) {
+    std::ostringstream out;
+    for(char c: s) 
+        switch(c) {
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                out << subn[c-'0'];
+                break;
+            case '+':
+                out << "\u208A";
+                break;
+            case '-':
+                out << "\u208B";
+                break;
+            case '=':
+                out << "\u208C";
+                break;
+            case '(':
+                out << "\u208D";
+                break;
+            case ')':
+                out << "\u208E";
+                break;
+            default:
+                out << c;
+        }
+    return std::move(out).str();
+}
 }

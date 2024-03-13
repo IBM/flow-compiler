@@ -268,5 +268,10 @@ std::string decamelize(std::string const &s);
  * Capitalize any letter preceeded by space.
  */
 std::string camelize(std::string const &s, bool capitalize_first=false);
+/** 
+ * Unicode superscript and subscript for numbers
+ */
+std::string sub(std::string s);
+std::string sup(std::string s);
 }
 #endif
