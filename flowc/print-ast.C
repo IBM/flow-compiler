@@ -132,7 +132,7 @@ void compiler::print_ast(std::ostream &out, int node) const {
             out << ANSI_BOLD+ANSI_BLUE << "^" << precedence.get(*p) << ANSI_RESET;
         
         if(is_operator(*p)) 
-            out << ANSI_BOLD+ANSI_BLUE << "º" << ANSI_RESET;
+            out << ANSI_BOLD+ANSI_BLUE << "⁺" << ANSI_RESET;
 
         if(vtype.has(*p) || const_level(*p)) {
             out << " ";
@@ -152,8 +152,6 @@ void compiler::print_ast(std::ostream &out, int node) const {
             }
             if(vtype.has(*p))
                 out << vtype.get(*p);
-            else
-                out << ".";
             switch(const_level(*p)) {
                 case 3:
                     out << ANSI_BOLD+ANSI_GREEN << "⟫" << ANSI_RESET;
