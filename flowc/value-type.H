@@ -63,8 +63,10 @@ struct value_type {
     bool has_field_names() const;
     // the number of fields if this is a struct, 0 otherwise
     unsigned field_count() const { return is_struct()? inf.size(): 0; }
-    // the array type
+    // the array element type
     value_type elem_type() const { return type == fvt_array? inf[0]: value_type(); }
+    // the element type of multi-dimensional arrays
+    value_type zd_type() const { return type == fvt_array? elem_type().zd_type(): *this; }
     // field type by name
     value_type field_type(std::string field_name) const;
     // field type by index

@@ -119,7 +119,7 @@ int value_type::can_be_called_with(value_type const &values, bool allow_promotio
     if(values.field_count() == field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
         auto const &lf = field_type(f);
         int dim = 0; bool can_assign = false;
-        for(value_type rf = values.field_type(f); !(can_assign = lf.can_assign_from(rf)) && rf.is_array(); rf = rf.elem_type())
+        for(value_type rf = values.field_type(f); !(can_assign = lf.can_assign_from(rf, allow_promotions)) && rf.is_array(); rf = rf.elem_type())
             ++dim;
         if(!can_assign) {
             pdim = -1;
