@@ -105,14 +105,14 @@ fun_info_t const &fun_first_match(std::string fun_name) {
     return no_func;
 }
 
-value_type fun_type(std::string fname, std::vector<value_type> const &avt) {
+value_type fun_type(std::string fname, std::vector<value_type> const &avt, bool allow_promotions) {
     static int show = 0;
     if(++show == 1) 
         std::cerr << supp_fun_table  << "\n";
     
     value_type vt;
     for(auto pp = supp_fun_table.equal_range(fname); pp.first != pp.second; ++pp.first) {
-        int rdim = std::get<3>(pp.first->second).can_be_called_with(value_type(avt.begin(), avt.end()));
+        int rdim = std::get<3>(pp.first->second).can_be_called_with(value_type(avt.begin(), avt.end()), allow_promotions);
         if(rdim < 0) 
             continue;
         vt = value_type(rdim, std::get<1>(pp.first->second));

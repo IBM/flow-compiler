@@ -120,7 +120,7 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
             if(vtype.has(child(node, a))) 
                 avt.push_back(vtype.get(child(node, a)));
         if(avt.size()+1 == n.children.size()) {
-            value_type vt = fun_type(node_text(child(node, 0)), avt);
+            value_type vt = fun_type(node_text(child(node, 0)), avt, true);
             rvt = vt;
         }
     } else {
