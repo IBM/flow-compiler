@@ -118,7 +118,8 @@ int value_type::can_be_called_with(value_type const &values, bool allow_promotio
     int pdim = -1;
     if(values.field_count() == field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
         auto const &lf = field_type(f);
-        int dim = 0; bool can_assign = false;
+        int dim = 0; 
+        bool can_assign = false;
         for(value_type rf = values.field_type(f); !(can_assign = lf.can_assign_from(rf, allow_promotions)) && rf.is_array(); rf = rf.elem_type())
             ++dim;
         if(!can_assign) {
@@ -137,13 +138,27 @@ int value_type::can_be_called_with(value_type const &values, bool allow_promotio
 int value_type::can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
     std::cerr << "CAN MASS " << *this << "\n";
     std::cerr << "    FROM " << values << "\n";
+    int pdim = dimension();
+    auto lvt = zd_type();
+
     std::vector<int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
-    if(!is_struct() || !values.is_struct()) {
-        std::cerr << "internal error: both types need to be struct\n"
+    if(!lvt.is_struct() || !values.is_struct()) {
+        std::cerr << "internal error: both types need to be of type struct\n"
                      "left is " << *this << "\nright is " << values << "\n"; 
         assert(false);
     }
-    int pdim = -1;
+    unsigned match_count = 0;
+    if(lvt.field_count() >= values.field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
+        auto rf = values.field_type(f);
+        auto lf = lvt.field_type(rf.field_name());
+        if(lf.is_null() || !lf.can_assign_from(rf, allow_promotions)) {
+            pdim = -1;
+            break;
+        }
+        ++match_count;
+    }
+    if(match_count != values.field_count()) 
+        pdim = -1;
     std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
