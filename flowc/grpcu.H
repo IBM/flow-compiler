@@ -18,7 +18,7 @@ class store {
     std::set<std::string> filenames;
     std::string grpccc, protocc; 
 public:
-    int add_to_proto_path(std::string directory, std::string mapped_to="");
+    int add_to_proto_path(std::string directory, std::string mapped_to="", bool prepend=false);
     int import_file(std::string filename, bool add_to_path);
     /**
      * Attempt to match <did> with all descriptors and return the matches in the vector pointed by <allmp>.

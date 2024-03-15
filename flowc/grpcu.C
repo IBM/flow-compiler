@@ -8,6 +8,7 @@
 #include "grpcu.H"
 #include "stru.H"
 #include "filu.H"
+#include "sfmt.H"
 #include "ansi-escapes.H"
 #include "value-type.H"
 
@@ -142,12 +143,17 @@ namespace grpcu {
  * Add the directory to the proto path
  * Return 0 on success or 1 if can't access directory
  */
-int store::add_to_proto_path(std::string directory, std::string mapped_to) {
+int store::add_to_proto_path(std::string directory, std::string mapped_to, bool prepend) {
     if(!filu::is_dir(directory))
         return 1;
     source_tree.MapPath(mapped_to, directory);
-    grpccc += "-I"; grpccc += directory; grpccc += " ";
-    protocc += "-I"; protocc += directory; protocc += " ";
+    if(prepend) {
+        grpccc += stru::sfmt() << "-I" << directory << " ";
+        protocc += stru::sfmt() << "-I" << directory << " ";
+    } else {
+        grpccc = stru::sfmt() << "-I" << directory << " " << grpccc;
+        protocc = stru::sfmt() << "-I" << directory << " " << protocc;
+    }
     return 0;
 }
 int store::import_file(std::string file, bool add_to_path) {
