@@ -327,7 +327,7 @@ valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_
 valx(A) ::= BNOT(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3); }
 */
 valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6);  ast->is_operator.set(O, true); }
-valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, ast->node(FTK_PLUS), L, ast->node(FTK_valx, O, R)); ast->precedence.set(A, 6);  ast->is_operator.set(O, true); }  
+valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6);  ast->is_operator.set(O, true); }  
 valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5);  ast->is_operator.set(O, true); }  
 valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5);  ast->is_operator.set(O, true); }  
 valx(A) ::= valx(L) PERCENT(O) valx(R).                     { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); ast->is_operator.set(O, true); }  

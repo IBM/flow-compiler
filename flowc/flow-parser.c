@@ -2345,52 +2345,47 @@ static YYACTIONTYPE yy_reduce(
   yymsp[-1].minor.yy0 = yylhsminor.yy0;
         break;
       case 118: /* valx ::= valx PLUS valx */
+      case 119: /* valx ::= valx MINUS valx */ yytestcase(yyruleno==119);
 #line 329 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->precedence.set(yylhsminor.yy0, 6);  ast->is_operator.set(yymsp[-1].minor.yy0, true); }
-#line 2350 "flow-parser.c"
-  yymsp[-2].minor.yy0 = yylhsminor.yy0;
-        break;
-      case 119: /* valx ::= valx MINUS valx */
-#line 330 "flow-parser.y"
-{ yylhsminor.yy0 = ast->node(FTK_valx, ast->node(FTK_PLUS), yymsp[-2].minor.yy0, ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[0].minor.yy0)); ast->precedence.set(yylhsminor.yy0, 6);  ast->is_operator.set(yymsp[-1].minor.yy0, true); }
-#line 2356 "flow-parser.c"
+#line 2351 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 120: /* valx ::= valx SLASH valx */
       case 121: /* valx ::= valx STAR valx */ yytestcase(yyruleno==121);
 #line 331 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->precedence.set(yylhsminor.yy0, 5);  ast->is_operator.set(yymsp[-1].minor.yy0, true); }
-#line 2363 "flow-parser.c"
+#line 2358 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 122: /* valx ::= valx PERCENT valx */
 #line 333 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->precedence.set(yylhsminor.yy0, 5); ast->is_operator.set(yymsp[-1].minor.yy0, true); }
-#line 2369 "flow-parser.c"
+#line 2364 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 123: /* valx ::= valx POW valx */
 #line 334 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); }
-#line 2375 "flow-parser.c"
+#line 2370 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 124: /* valx ::= valx COMP valx */
 #line 336 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 8);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2381 "flow-parser.c"
+#line 2376 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 125: /* valx ::= valx EQ valx */
 #line 337 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 10); ast->is_operator.set(yymsp[-1].minor.yy0, true); }
-#line 2387 "flow-parser.c"
+#line 2382 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 126: /* valx ::= valx NE valx */
 #line 338 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 10);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2393 "flow-parser.c"
+#line 2388 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 127: /* valx ::= valx LT valx */
@@ -2399,50 +2394,50 @@ static YYACTIONTYPE yy_reduce(
       case 130: /* valx ::= valx GE valx */ yytestcase(yyruleno==130);
 #line 339 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 9);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2402 "flow-parser.c"
+#line 2397 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 131: /* valx ::= valx AMP valx */
 #line 343 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 11);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2408 "flow-parser.c"
+#line 2403 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 132: /* valx ::= valx BAR valx */
 #line 344 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 13);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2414 "flow-parser.c"
+#line 2409 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 133: /* valx ::= valx CARET valx */
 #line 345 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 12);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2420 "flow-parser.c"
+#line 2415 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 134: /* valx ::= valx AND valx */
 #line 346 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 14);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2426 "flow-parser.c"
+#line 2421 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 135: /* valx ::= valx OR valx */
 #line 347 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 15);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2432 "flow-parser.c"
+#line 2427 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 136: /* valx ::= valx SHL valx */
       case 137: /* valx ::= valx SHR valx */ yytestcase(yyruleno==137);
 #line 348 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-1].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->vtype.set(yylhsminor.yy0, fc::value_type(fc::fvt_int)); ast->precedence.set(yylhsminor.yy0, 7);  ast->is_operator.set(yymsp[-1].minor.yy0, true);}
-#line 2439 "flow-parser.c"
+#line 2434 "flow-parser.c"
   yymsp[-2].minor.yy0 = yylhsminor.yy0;
         break;
       case 138: /* valx ::= valx QUESTION valx COLON valx */
 #line 350 "flow-parser.y"
 { yylhsminor.yy0 = ast->node(FTK_valx, yymsp[-3].minor.yy0, yymsp[-4].minor.yy0, yymsp[-2].minor.yy0, yymsp[0].minor.yy0); ast->precedence.set(yylhsminor.yy0, 16);  ast->is_operator.set(yymsp[-3].minor.yy0, true);}
-#line 2445 "flow-parser.c"
+#line 2440 "flow-parser.c"
   yymsp[-4].minor.yy0 = yylhsminor.yy0;
         break;
       default:
@@ -2498,7 +2493,7 @@ static void yy_parse_failed(
 #line 96 "flow-parser.y"
 
     ast->node(FTK_FAILED, ast->root());
-#line 2501 "flow-parser.c"
+#line 2496 "flow-parser.c"
 /************ End %parse_failure code *****************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
@@ -2538,7 +2533,7 @@ static void yy_syntax_error(
     } else {
         ast->error(ast->input_filename, stru::sfmt() << "syntax at " << yymajor << " of " << yyminor);
     }
-#line 2541 "flow-parser.c"
+#line 2536 "flow-parser.c"
 /************ End %syntax_error code ******************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
@@ -2567,7 +2562,7 @@ static void yy_accept(
 #line 93 "flow-parser.y"
 
     //std::cerr << "parsed just fine, ast size: " << ast->store.size() << " root: " << ast->store.back().children[0] << "\n";
-#line 2570 "flow-parser.c"
+#line 2565 "flow-parser.c"
 /*********** End %parse_accept code *******************************************/
   flow_parserARG_STORE /* Suppress warning about unused %extra_argument variable */
   flow_parserCTX_STORE
