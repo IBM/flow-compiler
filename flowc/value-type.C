@@ -128,7 +128,23 @@ int value_type::can_be_called_with(value_type const &values, bool allow_promotio
         pdim = std::max(pdim, dim);
         ads.push_back(dim);
     }
-    std::cerr << pdim << " " << ads << "\n";
+    std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
+    return pdim;
+}
+/**
+ * The right side structure needs to be generated once or repeatedly to match the left
+ */
+int value_type::can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
+    std::cerr << "CAN MASS " << *this << "\n";
+    std::cerr << "    FROM " << values << "\n";
+    std::vector<int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
+    if(!is_struct() || !values.is_struct()) {
+        std::cerr << "internal error: both types need to be struct\n"
+                     "left is " << *this << "\nright is " << values << "\n"; 
+        assert(false);
+    }
+    int pdim = -1;
+    std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
 std::string value_type::to_string() const {
@@ -144,13 +160,13 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
         s << vt.field_name() << ": ";
     switch(vt.type) {
         case fc::fvt_none:
-            s << ANSI_RED+ANSI_BOLD << "⍉" << ANSI_RESET;
+            s << ANSI_RED+ANSI_BOLD << "ø" << ANSI_RESET;
             break;
         case fc::fvt_any:
-            s << ANSI_MAGENTA+ANSI_BOLD << "*" << ANSI_RESET;
+            s << ANSI_MAGENTA+ANSI_BOLD << "\u2200" << ANSI_RESET;
             break;
         case fc::fvt_basic:
-            s << ANSI_MAGENTA+ANSI_BOLD << "$" << ANSI_RESET;
+            s << ANSI_MAGENTA+ANSI_BOLD << "\u27E1" << ANSI_RESET;
             break;
         case fc::fvt_num:
             s << ANSI_MAGENTA+ANSI_BOLD << "ℝ" << ANSI_RESET;
@@ -165,7 +181,7 @@ std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
             s << ANSI_GREEN+ANSI_BOLD << "str" << ANSI_RESET;
             break;
         case fc::fvt_enum:
-            s << ANSI_CYAN+ANSI_BOLD << "⦚" << vt.enum_name() << ANSI_RESET;
+            s << ANSI_CYAN+ANSI_BOLD << "\u2026" << vt.enum_name() << ANSI_RESET;
             break;
         case fc::fvt_array:
             s << ANSI_BOLD << '[' << ANSI_RESET << vt.inf[0] << ANSI_BOLD << ']' << ANSI_RESET;

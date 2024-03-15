@@ -23,7 +23,7 @@ int compiler::compute_value_type(int node) {
 /* Solve expression types by computing them from subexpression types.
  */
 value_type compiler::compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool err_check) {
-    std::cerr << "Entering with node: " << node << ", dims: " << fam_dims << "\n";
+    //std::cerr << "Entering with node: " << node << ", dims: " << fam_dims << "\n";
     auto const &n = at(node);
     value_type rvt;
     // did, ndid, msgexp, vala, range, fun, hash, bang, minus 
@@ -127,7 +127,7 @@ value_type compiler::compute_value_type(int node, std::map<std::string, int> con
         std::cerr << "internal: propagating value type for \"" << tk_to_string(n.type) << "\" (" << n.type << ")\n"; 
         assert(false);
     }
-    std::cerr << "Done with node: " << node << "\n";
+    //std::cerr << "Done with node: " << node << "\n";
     return rvt;
 }
 int compiler::propagate_node_return_types(bool debug_on) {

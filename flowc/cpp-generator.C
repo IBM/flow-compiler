@@ -130,7 +130,6 @@ struct cpp_gen {
     void inline_expr(stru::indent_ostream &out, int valx_node, int precedence);
     std::string inline_expr(int valx_node);
     std::string field_reference(int ndid_node);
-    int checkset_dim2(int left_base_dim, int node);
     int checkset_dim(int left_base_dim, int node);
 
     // keep track of the number of errors generated
@@ -151,17 +150,17 @@ cpp_gen::cpp_gen(fc::compiler const &a_ast, std::string a_input_name):
     family_dim[input_name] = 0;
 }
 int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
-    std::cerr << "AT " << valx_node << " x " << left_base_dim << " ";
-    int dim = left_base_dim;
+    std::cerr << "CHECKSET DIM AT " << valx_node << " x " << left_base_dim << " ";
+    int dim = left_base_dim, right_dim = -1;
     switch(ast.node_type(ast.first_child(valx_node))) {
         case FTK_msgexp:
-            std::cerr << "got msgexp\n";
             // valx's vtype has the expected type for this message.
-            // It was either explicitly set or deducted from the node/entry type.
-            std::cerr << "LVT: " << ast.vtype(valx_node) << "\n";
+            // It was either explicitly set or deduced from the node/entry type.
+            std::cerr << "with msgexp\n";
+            right_dim = ast.vtype(valx_node).can_be_generated_from(ast.vtype(ast.last_child(ast.first_child(valx_node))), true);
             break;
         case FTK_ndid:
-            std::cerr << "got ndid -- node alias -- need to check all node families\n";
+            std::cerr << "with ndid -- node alias -- need to check all node families\n";
             std::cerr << "LVT: " << ast.vtype(valx_node) << "\n";
             std::cerr << "The family is ***" << ast.node_text(ast.descendant(valx_node, 0, 0)) << "***\n";
             std::cerr << "The family is ***+ " << ast.get("0/0", valx_node) << " +***\n";
@@ -186,66 +185,6 @@ int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
     }
     std::cerr << "\n";
     return dim;
-}
-int cpp_gen::checkset_dim2(int left_base_dim, int valx_node) {
-    std::cerr << "entering checkset_dim(base_dim: " << left_base_dim << ", valx_node: " << valx_node << ") >>> {\n";
-    int node_dim = -1; 
-    bool done = true;
-    switch(ast.node_type(ast.first_child(valx_node))) {
-        case FTK_msgexp:
-            done = false;
-            break;
-        case FTK_ndid:  // node alias
-            if(ast.child_count(ast.first_child(valx_node)) == 1) {
-                std::cerr << "node alias case\n";
-                std::string family = ast.node_text(ast.child(ast.child(valx_node, 0), 0));
-                if(family_dim.find(family) != family_dim.end()) { 
-                    node_dim = family_dim.find(family)->second;
-                    if(node_dim != left_base_dim) {
-                        std::cerr << "******* bubu node_dim " << node_dim << " is not the expected " << left_base_dim << "!\n";
-                    }
-                } else {
-                    family_dim[family] = left_base_dim;
-                    for(int node_node: ast.node_family(family)) {
-                        std::cerr << "getting action for node " << node_node << "\n";
-                        for(int action_node: ast.get("//(ERRCHK|RETURN|OUTPUT)", node_node)) 
-                            for(int vx_node: ast.at(action_node).children) {
-                                int a_node_dim = checkset_dim(left_base_dim, vx_node);
-                                if(node_dim == -1) {
-                                    node_dim = a_node_dim;
-                                } else if(a_node_dim != node_dim) {
-                                    // mismatch
-                                    ++error_count;
-                                }
-                            }
-                    }
-                }
-                break;
-            }
-            // fall through if this is actually a field expression
-        default:
-            
-            ++error_count;
-            std::cerr << "ooopsy at node " << valx_node << "!\n";
-            break;
-    }
-    if(!done) {
-        auto type = ast.vtype(valx_node);
-        int list_node = ast.last_child(ast.first_child(valx_node));
-        std::cerr << "msgexp case, list node " << list_node << "\n";
-        std::cerr << "setting to type " << type << "\n";
-        for(int fassgn_node: ast.at(list_node).children) {
-            auto field_name = ast.node_text(ast.first_child(fassgn_node));
-            auto field_type = type.field_type(field_name);
-            int left_dim = left_base_dim + field_type.dimension();
-            std::cerr << "assign " << fassgn_node << " " << field_name << " of " << field_type;
-            std::cerr << "\n";
-            int xpr_dim = checkset_dim(left_dim, ast.last_child(fassgn_node));
-
-        }
-    }
-    std::cerr << "exiting  checkset_dim(base_dim: " << left_base_dim << ", valx_node: " << valx_node << "): " << node_dim << " <<< }\n";
-    return node_dim;
 }
 int cpp_gen::entry_body(int entry_node) {
     // it was already verified that there is one and only one RETURN/valx subsequence

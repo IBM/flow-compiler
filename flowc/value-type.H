@@ -83,7 +83,8 @@ struct value_type {
     bool can_assign_from(value_type const &right, bool allow_promotions=false) const;
     bool can_assign_to(value_type const &left, bool allow_promotions=false) const;
     // whether <values> can be mathched to this argument list, return the number of dimensions or -1 if incompatible
-    int can_be_called_with(value_type const &values, bool allow_promotions=false, std::vector<int> *arg_dims=nullptr) const;
+    int can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims=nullptr) const;
+    int can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims=nullptr) const;
 };
 }
 
