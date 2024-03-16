@@ -144,7 +144,7 @@ namespace grpcu {
  * Return 0 on success or 1 if can't access directory
  */
 int store::add_to_proto_path(std::string directory, std::string mapped_to, bool prepend) {
-    if(!filu::is_dir(directory))
+    if(directory.empty() || !filu::is_dir(directory))
         return 1;
     source_tree.MapPath(mapped_to, directory);
     if(prepend) {
