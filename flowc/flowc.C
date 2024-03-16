@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
-    // Make sure we use appropriate coloring for errors
+    // Make sure we use appropriate coloring for errors and output
     std::cout << (opts.optb("color", isatty(fileno(stdout)))? ansi::on: ansi::off);
     std::cerr << (opts.optb("color", isatty(fileno(stderr)))? ansi::on: ansi::off);
     // Debug flag
@@ -102,10 +102,10 @@ int main(int argc, char *argv[]) {
     // Compile the input file(s)
     int trc = 0;
     for(int c = 1; c < argc; ++c) {
-        std::cerr << argv[c] << ":\n";
-        int rc = comp.compile(argv[c], debug_on, trace_on, opts.opt("input-symbol", "input"));
-        //if(rc == 0) 
-        //    rc = comp.walk(0);
+        std::string flow_file = argv[c];
+        std::cerr << flow_file << ":\n";
+        comp.gstore.add_to_proto_path(filu::dirname(flow_file), "", true);
+        int rc = comp.compile(flow_file, debug_on, trace_on, opts.opt("input-symbol", "input"));
         if(rc != 0) 
             comp.note(argv[c], stru::sfmt() << rc << " error(s) generated");
         trc += rc;
