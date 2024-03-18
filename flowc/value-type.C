@@ -29,6 +29,20 @@ value_type value_type::field_type(std::string field_name) const {
             return vt;
     return value_type();
 }
+value_type value_type::field_type(std::vector<std::string> field_names) const {
+    int dim = 0;
+    value_type vt = *this;
+    for(unsigned fi = 0, fc = field_names.size(); !vt.is_null() && fi < fc; ++fi) {
+        vt = vt.field_type(field_names[fi]);
+        if(vt.dimension() > 0) {
+            dim += vt.dimension();
+            vt = vt.zd_type();
+        }
+    }
+    if(vt.is_null())
+        return value_type();
+    return value_type(dim, vt);
+}
 bool value_type::has_field_names() const {
     bool hfn = field_count() > 0;
     for(auto const &vt: inf)

@@ -68,6 +68,7 @@ struct value_type {
     // the element type of multi-dimensional arrays
     value_type zd_type() const { return type == fvt_array? elem_type().zd_type(): *this; }
     // field type by name
+    value_type field_type(std::vector<std::string> field_names) const;
     value_type field_type(std::string field_name) const;
     // field type by index
     value_type field_type(unsigned field_x) const {
