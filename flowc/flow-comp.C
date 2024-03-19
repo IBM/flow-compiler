@@ -212,7 +212,9 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
         resolve_expressions(debug_on);
         past_solved_nodes = resolve_nodes(debug_on);
     } while(past_solved_nodes != solved_nodes);
-
+    // set the const level
+    if(error_count == 0)  
+        set_const_level();
 /*
     resolve_references(debug_on) ||
     resolve_node_types(debug_on);
@@ -441,12 +443,15 @@ int compiler::resolve_did_references(bool debug_on) {
             ref.set(valx_n, last_match);
             if(vtype.has(last_match)) 
                 vtype.copy(last_match, parent(p));
+            if(const_level.has(last_match))
+                const_level.copy(last_match, parent(p));
             ++count;
         }
         if(ids.size() == 1 && last_match == 0 && grpcu::store::error_code(ids[0]) >= 0) {
             // FIXME the grpc error code could be hidden by a local variable or another enum. 
             // Would it make sense to issue a warning in such a case? maybe in the error context only?
             vtype.set(valx_n, value_type(fvt_int));
+            const_level.set(valx_n, 3);
             last_match = 1; 
             ++count;
         }
@@ -454,6 +459,7 @@ int compiler::resolve_did_references(bool debug_on) {
             std::string mm; // main match TODO check for interference with other matches
             if(gstore.lookup(mm, ids, &enums, grpcu::MO_ENUMS) == 1) {
                 vtype.set(valx_n, value_type(fvt_enum, gstore.enum_full_name_for_value(mm)));
+                const_level.set(valx_n, 3);
             } else if(enums.size() > 1) {
                 error(at(p), stru::sfmt() << "ambiguous reference to enum identifier");
                 note(at(p), stru::sfmt() << "matches " << stru::join(enums, ", ", " and ", "", "\"", "\""));
@@ -515,6 +521,7 @@ int compiler::resolve_input_references(bool debug_on) {
                     error(at(first_child(node)), stru::sfmt() << "\"" << stru::join(field_names, ".") << "\" does not refer to a field in the mesage of type \"" << vt.gname << "\"");
                 } else {
                     vtype.set(parent(node), vt);
+                    const_level.set(parent(node), 1);
                     ++count;
                 }
                 break;
@@ -598,7 +605,7 @@ int compiler::resolve_nodes(bool debug_on) {
         vtype.set(ancestor(o, 3), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
         vtype.set(ancestor(o, 1), gstore.message_to_value_type(gstore.method_input_full_name(matched_method), ""));
     }
-    for(auto r: get("//NODE/block/RETURN/valx/msgexp/did")) if(!vtype.has(ancestor(r, 3))) {
+    for(auto r: get("//(NODE|ENTRY)/block/RETURN/valx/msgexp/did")) if(!vtype.has(ancestor(r, 3))) {
         std::cerr << "NODE RETURN at " << r << "\n";
         auto ids = get_ids(r);
         std::set<std::string> messages;
@@ -618,125 +625,12 @@ int compiler::resolve_nodes(bool debug_on) {
         vtype.set(ancestor(r, 3), gstore.message_to_value_type(matched_message, ""));
         vtype.set(ancestor(r, 1), gstore.message_to_value_type(matched_message, ""));
     }
+    for(auto v: get("//NODE/block/(RETURN|OUTPUT)/valx")) if(vtype.has(v) && !vtype.has(ancestor(v, 3))) {
+        ++count;
+        // TODO check for type conflict
+        vtype.copy(v, ancestor(v, 3));
+    }
     return count;
-}
-/**
- * Initializes all explicitly typed message expressions.
- */
-int compiler::resolve_node_types(bool debug_on) {
-    int irc = error_count;
-    // All output statements in nodes are checked by the parser to have a message expression with 
-    // identifier (msgexp/did) that refers to a gRPC method.
-    // Entries must explicitly refer to a gRPC method (ENTRY/did)
-    std::string default_input_type;
-    int first_default_input_entry = 0;
-    for(auto p: get("//(NODE/block/OUTPUT/valx/msgexp/did|ENTRY/did)")) {
-        auto ids = get_ids(p);
-        std::set<std::string> methods;
-        std::string matched_method; 
-        if(gstore.lookup(matched_method, ids, &methods, grpcu::MO_METHODS) != 1) {
-            if(methods.size() > 0) {
-                error(at(p), stru::sfmt() << "ambiguous reference to rpc \"" << stru::join(ids, ".") << "\"");
-                note(at(p), stru::sfmt() << "matches " << stru::join(methods, ", ", " and ", "", "\"", "\""));
-            } else {
-                error(at(p), stru::sfmt() << "rpc not found \"" << stru::join(ids, ".") << "\"");
-            }
-            continue;
-        }
-        if(at(parent(p)).type == FTK_ENTRY) { 
-            rpc.set(parent(p), matched_method);
-            // Set the vtype attribute for ENTRY to the type of the result
-            vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
-            // Set the value type for the input if an input symbol is declared
-            for(int i: get("INPUT", parent(p))) 
-                vtype.set(i, gstore.message_to_value_type(gstore.method_input_full_name(matched_method), node_text(child(i, 0))));
-
-            if(get("INPUT", parent(p)).size() == 0) {
-                if(first_default_input_entry == 0) {
-                    first_default_input_entry = parent(p);
-                    default_input_type = gstore.method_input_full_name(matched_method);
-                } else if(default_input_type != gstore.method_input_full_name(matched_method)) {
-                    error(at(p), stru::sfmt() << "input type mismatch, \"" << gstore.method_input_full_name(matched_method) << "\" instead of \"" << default_input_type << "\"");
-                    notep(at(first_default_input_entry),  stru::sfmt() << "first implied from here");
-                }
-            }
-        } else {
-            // FTK_NODE
-            cmsg.set(parent(p), gstore.method_input_full_name(matched_method));
-            // The valx vtype attribute is the left value type for the message assignemt
-            vtype.set(ancestor(p, 2), gstore.message_to_value_type(gstore.method_input_full_name(matched_method), ""));
-            // Set the rpc attribute for the node
-            rpc.set(ancestor(p, 5), matched_method);
-            // Set the value type for this node, (ref to istelf).
-            vtype.set(ancestor(p, 5), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), node_text(child(ancestor(p, 5), 0))));
-        }
-    }
-    if(first_default_input_entry != 0 && !default_input_type.empty()) 
-        for(int i: get("//flow/INPUT")) 
-            if(!vtype.has(i))  
-                vtype.set(i, gstore.message_to_value_type(default_input_type, node_text(child(i, 0))));
-    
-    // Other message expressions with identifiers refer to the gRPC message type explicitly. 
-    // They can be solved now, before the expression types are resolved.
-    for(auto p: get("//valx/msgexp/did")) if(!cmsg.has(parent(p))) {
-        auto ids = get_ids(p);
-        std::set<std::string> messages;
-        std::string matched_message; 
-        if(gstore.lookup(matched_message, ids, &messages, grpcu::MO_MESSAGES) != 1) {
-            if(messages.size() > 0) {
-                error(at(p), stru::sfmt() << "ambiguous reference to message type \"" << stru::join(ids, ".") << "\"");
-                note(at(p), stru::sfmt() << "matches " << stru::join(messages, ", ", " and ", "", "\"", "\""));
-            } else {
-                error(at(p), stru::sfmt() << "message not found \"" << stru::join(ids, ".") << "\"");
-            }
-        }
-        cmsg.set(parent(p), matched_message);
-        // The valx message assignment (left value type) has no node reference
-        vtype.set(ancestor(p, 2), gstore.message_to_value_type(matched_message, ""));
-    }
-    // If the return msgexp does not have an explicit type, use the entry output type
-    for(auto p: get("//ENTRY/block/RETURN/valx/msgexp")) if(!cmsg.has(p)) {
-        std::string mn = rpc.get(ancestor(p, 4));
-        if(!mn.empty()) {
-            auto inpm = gstore.method_output_full_name(mn);
-            cmsg.set(p, inpm);
-            // Nor reference, this is a left value
-            vtype.set(parent(p), gstore.message_to_value_type(inpm, ""));
-        }
-    }
-    // Grab the node families
-    std::map<std::string, std::vector<int>> nfams, idefs; 
-    for(int p: get("//NODE/1")) {
-        // First node child is always ID in a healthy ast
-        if(at(p).type != FTK_ID)
-            continue;
-        // don't bother with error nodes
-        //if(get("//ERRCHK", parent(p)).size() != 0)
-        //    continue;
-        nfams[node_text(p)].push_back(parent(p));
-    }
-    // Grab the inputs and check for name collision with nodes
-    for(int i: get("//INPUT/ID")) {
-        std::string iname = node_text(i);
-        if(idefs.find(iname) == idefs.end()) {
-            auto cf = nfams.find(iname);
-            if(cf != nfams.end()) {
-                error(at(cf->second[0]), stru::sfmt() << "node uses a name already used for input");
-                if(at(i).token.line != 0)
-                    notep(at(i), stru::sfmt() << "input defined here");
-                continue;
-            }
-        }
-        idefs[iname].push_back(parent(i));
-    }
-    // Check for undefined node references 
-    for(int n: get("//ndid/1")) {
-        std::string nodefam = node_text(n);
-        if(nfams.find(nodefam) == nfams.end() &&
-           idefs.find(nodefam) == idefs.end())
-            error(at(n), stru::sfmt() << "reference to undefined node or input \"" << nodefam << "\"");
-    }
-    return error_count-irc;
 }
 void compiler::reset() {
     input_filename.clear();
