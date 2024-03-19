@@ -88,6 +88,22 @@ int compiler::set_const_level(int node) {
         case FTK_valx: 
             if(ref.has(node)) {
                 level = const_level(ref(node));
+
+            } else if(is_operator(first_child(node))) {
+                level = 3;
+                for(unsigned i = 1, e = child_count(node); i < e; ++i) {
+                    int c = child(node, i);
+                    added += set_const_level(c);
+                    level = std::min(const_level(c), level);
+                }
+            } else {
+                added = set_const_level(first_child(node));
+                if(const_level.has(first_child(node))) 
+                    level = const_level(first_child(node));
+            }
+            /*
+            if(ref.has(node)) {
+                level = const_level(ref(node));
             } else if(vtype.has(node) && vtype(node).type == fvt_enum) {
                 level = 3;
             } else {
@@ -100,6 +116,7 @@ int compiler::set_const_level(int node) {
                     level = std::min(const_level(c), level);
                 }
             }
+            */
             break;
         default:
             for(int c: at(node).children)

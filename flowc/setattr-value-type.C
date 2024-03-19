@@ -212,7 +212,8 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                     if(vtype.has(first_child(node)) && vtype.has(last_child(first_child(node)))) {
                         value_type t = vtype(last_child(first_child(node)));
                         value_type m = vtype(first_child(node));
-                        value_type v = rpc_type(m, m, t.inf, true);
+                        value_type r = node_type(parent(node)) == FTK_RETURN || node_type(parent(node)) == FTK_OUTPUT? vtype(parent(node)): m;
+                        value_type v = rpc_type(r, m, t.inf, true);
                         if(!v.is_null()) 
                             vtype.set(node, v);
                     }
@@ -221,8 +222,16 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                     assert(vtype.has(node));
                     break;
                 case FTK_ndid:
-                    std::cerr << "VALX/ndid " << node << "\n";
-                    
+                    for(int n: get("//NODE")) if(node_text(first_child(n)) == node_text(first_child(first_child(node))) && vtype.has(n)) {
+                        // TODO wait for all the nodes in the same family to be typed before attempting this
+                        int ndid = first_child(node);
+                        std::vector<std::string> field_names;
+                        for(unsigned ci = 1, ce = child_count(ndid); ci < ce; ++ci)
+                            field_names.push_back(node_text(child(ndid, ci)));
+                        rvt = value_type(vtype(n).dimension(), vtype(n).zd_type().field_type(field_names));
+                        std::cerr << "LOOKING FOR " << field_names << " in " << vtype(n) << ", and got: " << rvt << "\n";
+                        break;
+                    }
                     break;
                 case FTK_fun:
                     op_node = first_child(node);
