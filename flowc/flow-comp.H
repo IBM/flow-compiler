@@ -118,7 +118,13 @@ public:
      */
 private:
     int parse_file(struct yyParser *pp, std::string filename, bool trace_on);
-    int resolve_references(bool debug_on);
+    int resolve_did_references(bool debug_on);
+    int resolve_input_references(bool debug_on);
+    int resolve_entries(bool debug_on);
+    int resolve_expressions(bool debug_on);
+    int resolve_nodes(bool debug_on);
+    value_type compute_value_type(int node, bool debug_on, bool check_errors);
+
     int resolve_node_types(bool debug_on);
     int resolve_field_types(bool debug_on);
     int check_node_references(bool debug_on);
@@ -126,6 +132,7 @@ private:
     int fixup_symbol_references(bool debug_on);
     int compute_value_type(int node);
     value_type compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool check_errors=false);
+
     int propagate_value_types(bool debug_on);
     int propagate_node_return_types(bool debug_on);
 

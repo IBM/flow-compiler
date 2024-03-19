@@ -176,7 +176,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
     for(int i: get("//flow/IMPORT")) {
         value_type vt; std::string value;
         //print_ast(std::cerr, i);
-        if(eval(at(i).children[0] , value, &vt) != 0) { 
+        if(eval(first_child(i) , value, &vt) != 0) { 
             // TODO eval error here
             continue;
         }
@@ -184,6 +184,36 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
             error(at(i), stru::sfmt() << "failed to import \"" << value << "\"");
     }
 
+    /**** 
+     *  1. resolve entries with rpc and input type
+     *  2. resolve input types, both global and within entry
+     *  3. solve all expressions that depend on
+     *          - constants 
+     *          - inputs 
+     *  4. solve nodes 
+     *  5. loop back to 3 if more nodes could be solved
+     */
+    int rrc;
+    // solve all entry rpcs and input and output types 
+    rrc = resolve_entries(debug_on);
+    std::cerr << "RESOLVED " << rrc << " entries\n";
+    // solve all node rpcs, and the explicit return nodes
+    rrc = resolve_nodes(debug_on);
+    std::cerr << "RESOLVED " << rrc << " nodes\n";
+    // solve all indentifiers valx/did 
+    rrc = resolve_did_references(debug_on);
+    std::cerr << "RESOLVED " << rrc << " dids\n";
+    // resolve input field references (valx/ndid)
+    rrc = resolve_input_references(debug_on);
+    std::cerr << "RESOLVED " << rrc << " input refs\n";
+    int solved_nodes = 0, past_solved_nodes = 0;
+    do {
+        past_solved_nodes = solved_nodes;
+        resolve_expressions(debug_on);
+        past_solved_nodes = resolve_nodes(debug_on);
+    } while(past_solved_nodes != solved_nodes);
+
+/*
     resolve_references(debug_on) ||
     resolve_node_types(debug_on);
 
@@ -205,7 +235,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
    
     if(error_count == 0) 
         return cpp_generator(std::cout);
-
+*/
     return error_count;
 }
 int compiler::get_node_references(std::map<std::string, std::set<int>> &refs, int node_node) const {
@@ -338,8 +368,8 @@ int compiler::check_node_types(bool debug_on) {
  * to either node local variables for this or other nodes, 
  * or enum values.
  */
-int compiler::resolve_references(bool debug_on) {
-    int irc = error_count;
+int compiler::resolve_did_references(bool debug_on) {
+    int count = 0;
     // resolve references
     for(int p: get("//valx/did")) {
         auto ids = get_ids(p);
@@ -407,16 +437,18 @@ int compiler::resolve_references(bool debug_on) {
 
         std::set<std::string> enums;
         if(last_match != 0) {
-            // Set the current valex ref attribute to the node with the definition
+            // Set the current valx ref attribute to the node with the definition
             ref.set(valx_n, last_match);
             if(vtype.has(last_match)) 
                 vtype.copy(last_match, parent(p));
+            ++count;
         }
         if(ids.size() == 1 && last_match == 0 && grpcu::store::error_code(ids[0]) >= 0) {
             // FIXME the grpc error code could be hidden by a local variable or another enum. 
             // Would it make sense to issue a warning in such a case? maybe in the error context only?
             vtype.set(valx_n, value_type(fvt_int));
             last_match = 1; 
+            ++count;
         }
         if(last_match == 0) { 
             std::string mm; // main match TODO check for interference with other matches
@@ -441,9 +473,7 @@ int compiler::resolve_references(bool debug_on) {
         }
     }
     // Look for circular references
-    int count = 0;
     for(int s: get("//valx")) {
-        ++count;
         std::set<int> visited;
         std::vector<int> queue;
         queue.push_back(s);
@@ -470,8 +500,125 @@ int compiler::resolve_references(bool debug_on) {
                 notep(at(r), stru::sfmt() << "referenced here");
         }
     }
+    return count;
+}
+int compiler::resolve_input_references(bool debug_on) {
+    int count = 0;
+    for(int node: get("//valx/ndid")) {
+        for(int input_node: get("//INPUT"))
+            if(node_text(first_child(node)) == node_text(first_child(input_node))) {
+                std::vector<std::string> field_names;
+                for(unsigned ci = 1, ce = child_count(node); ci < ce; ++ci)
+                    field_names.push_back(node_text(child(node, ci)));
+                value_type vt = vtype(input_node).field_type(field_names);
+                if(vt.is_null()) {
+                    error(at(first_child(node)), stru::sfmt() << "\"" << stru::join(field_names, ".") << "\" does not refer to a field in the mesage of type \"" << vt.gname << "\"");
+                } else {
+                    vtype.set(parent(node), vt);
+                    ++count;
+                }
+                break;
+            }
+    }
+    return count;
+}
+/**
+ * Resolve the RPC for entries, along with their input and return type
+ */
+int compiler::resolve_entries(bool debug_on) {
+    int first_auto_input_entry = 0;
+    std::string auto_input_type;
+    int count = 0;
 
-    return error_count-irc;
+    for(auto p: get("//ENTRY/did")) {
+        auto ids = get_ids(p);
+        std::set<std::string> methods;
+        std::string matched_method; 
+        if(gstore.lookup(matched_method, ids, &methods, grpcu::MO_METHODS) != 1) {
+            // if not a unique match
+            if(methods.size() == 0) {
+                error(at(p), stru::sfmt() << "rpc not found \"" << stru::join(ids, ".") << "\"");
+            } else {
+                error(at(p), stru::sfmt() << "ambiguous reference to rpc \"" << stru::join(ids, ".") << "\"");
+                note(at(p), stru::sfmt() << "matches " << stru::join(methods, ", ", " and ", "", "\"", "\""));
+            }
+            // keep going to possibly report more errors
+            continue;
+        }
+        ++count;
+        // we have an unique match
+        rpc.set(parent(p), matched_method);
+        // set the vtype attribute for ENTRY to the type of the result
+        vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
+        // if this entry has an input, set its type
+        auto input_type = gstore.message_to_value_type(gstore.method_input_full_name(matched_method), "");
+        bool input_type_set = false;
+        for(int i: get("INPUT", parent(p))) {
+            vtype.set(i, input_type);
+            input_type_set = true;
+        }
+        if(input_type_set) 
+            continue;
+
+        if(first_auto_input_entry == 0) {
+            first_auto_input_entry = parent(p);
+            auto_input_type = gstore.method_input_full_name(matched_method);
+            for(int i: get("//flow/INPUT")) 
+                vtype.set(i, input_type);
+            continue;
+        }
+        // issue an error if out input type doesn't match the first deduced type
+        if(gstore.method_input_full_name(matched_method) != auto_input_type) {
+            error(at(p), stru::sfmt() << "input type mismatch, \"" << gstore.method_input_full_name(matched_method) << "\" instead of \"" << auto_input_type << "\"");
+            notep(at(first_auto_input_entry),  stru::sfmt() << "first implied from here");
+        }
+    }
+    return count;
+}
+int compiler::resolve_nodes(bool debug_on) {
+    int count = 0;
+    for(auto o: get("//NODE/block/OUTPUT/valx/msgexp/did")) if(!rpc.has(ancestor(o, 5))) {
+        std::cerr << "NODE OUTPUT at " << o << "\n";
+        auto ids = get_ids(o);
+        std::set<std::string> methods;
+        std::string matched_method; 
+        if(gstore.lookup(matched_method, ids, &methods, grpcu::MO_METHODS) != 1) {
+            // if not a unique match
+            if(methods.size() == 0) {
+                error(at(o), stru::sfmt() << "rpc not found \"" << stru::join(ids, ".") << "\"");
+            } else {
+                error(at(o), stru::sfmt() << "ambiguous reference to rpc \"" << stru::join(ids, ".") << "\"");
+                note(at(o), stru::sfmt() << "matches " << stru::join(methods, ", ", " and ", "", "\"", "\""));
+            }
+            continue;
+        }
+        ++count;
+        rpc.set(ancestor(o, 5), matched_method);
+        // node's zd types
+        vtype.set(ancestor(o, 3), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
+        vtype.set(ancestor(o, 1), gstore.message_to_value_type(gstore.method_input_full_name(matched_method), ""));
+    }
+    for(auto r: get("//NODE/block/RETURN/valx/msgexp/did")) if(!vtype.has(ancestor(r, 3))) {
+        std::cerr << "NODE RETURN at " << r << "\n";
+        auto ids = get_ids(r);
+        std::set<std::string> messages;
+        std::string matched_message; 
+        if(gstore.lookup(matched_message, ids, &messages, grpcu::MO_MESSAGES) != 1) {
+            // if not a unique match
+            if(messages.size() == 0) {
+                error(at(r), stru::sfmt() << "message not found \"" << stru::join(ids, ".") << "\"");
+            } else {
+                error(at(r), stru::sfmt() << "ambiguous reference to message \"" << stru::join(ids, ".") << "\"");
+                note(at(r), stru::sfmt() << "matches " << stru::join(messages, ", ", " and ", "", "\"", "\""));
+            }
+            continue;
+        }
+        ++count;
+        // node's zd type
+        vtype.set(ancestor(r, 3), gstore.message_to_value_type(matched_message, ""));
+        vtype.set(ancestor(r, 1), gstore.message_to_value_type(matched_message, ""));
+    }
+    return count;
 }
 /**
  * Initializes all explicitly typed message expressions.
