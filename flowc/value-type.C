@@ -77,7 +77,7 @@ bool value_type::can_assign_to(value_type const &left, bool allow_promotions) co
     return left.can_assign_from(*this, allow_promotions);
 }
 bool value_type::can_assign_from(value_type const &right, bool allow_promotions) const {
-    std::cerr << "CAN " << *this << "\n    " << right << ":\n";
+    //std::cerr << "CAN " << *this << "\n    " << right << ":\n";
     bool can_assign = true;
     switch(type) {
         case fvt_any:
@@ -89,18 +89,18 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
             can_assign = right.type == fvt_int || right.type == fvt_flt || right.type == fvt_enum;
             break;
         case fvt_array:
-            std::cerr << "CASE 1 arrays?\n";
+            //std::cerr << "CASE 1 arrays?\n";
             can_assign = right.type == fvt_array && inf[0].can_assign_from(right.inf[0], allow_promotions);
             break;
         case fvt_struct:
             if(has_field_names() && right.has_field_names()) {
                 // match by field name
-                std::cerr << "CASE 2a struct by field name\n";
+                //std::cerr << "CASE 2a struct by field name\n";
                 for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
                     can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(field_type(fi).field_name()), allow_promotions);
             } else {
                 // match in order
-                std::cerr << "CASE 2a struct in order\n";
+                //std::cerr << "CASE 2a struct in order\n";
                 for(unsigned fi = 0, fe = field_count(); can_assign && fi < fe; ++fi)
                     can_assign = can_assign && field_type(fi).can_assign_from(right.field_type(fi), allow_promotions);
             }
@@ -112,11 +112,11 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
             can_assign = right.type == fvt_int || right.type == fvt_enum && allow_promotions;
             break;
         default:
-            std::cerr << "CASE d any\n";
+            //std::cerr << "CASE d any\n";
             can_assign = type == right.type;
             break;
     }
-    std::cerr << (can_assign? "yes": "no") << "\n";
+    //std::cerr << (can_assign? "yes": "no") << "\n";
     return can_assign;
 }
 /***
@@ -182,36 +182,6 @@ int value_type::can_be_set_with(value_type const &values, bool allow_promotions,
     std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
-/**
- * The right side structure needs to be generated once or repeatedly to match the left
-int value_type::can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
-    std::cerr << "CAN MASS " << *this << "\n";
-    std::cerr << "    FROM " << values << "\n";
-    int pdim = dimension();
-    auto lvt = zd_type();
-
-    std::vector<int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
-    if(!lvt.is_struct() || !values.is_struct()) {
-        std::cerr << "internal error: both types need to be of type struct\n"
-                     "left is " << *this << "\nright is " << values << "\n"; 
-        assert(false);
-    }
-    unsigned match_count = 0;
-    if(lvt.field_count() >= values.field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
-        auto rf = values.field_type(f);
-        auto lf = lvt.field_type(rf.field_name());
-        if(lf.is_null() || !lf.can_assign_from(rf, allow_promotions)) {
-            pdim = -1;
-            break;
-        }
-        ++match_count;
-    }
-    if(match_count != values.field_count()) 
-        pdim = -1;
-    std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
-    return pdim;
-}
- */
 std::string value_type::to_string() const {
     std::ostringstream out;
     out << ansi::off << to_string();

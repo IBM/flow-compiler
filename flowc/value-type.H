@@ -89,6 +89,8 @@ struct value_type {
     // wheter this struct can be set unambiguously from values 
     int can_be_set_with(value_type const &values, bool allow_promotions, std::map<std::string, int> *arg_dims=nullptr) const;
    // int can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims=nullptr) const;
+   //
+    bool is_array_of(value_type const &e) const { return is_array() && elem_type() == e || elem_type().is_array_of(e); }
 };
 }
 
