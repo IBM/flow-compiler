@@ -184,4 +184,85 @@ int compiler::propagate_value_types(bool debug_on) {
     }
     return error_count - irc;
 }
+value_type compiler::compute_value_type(int node, bool debug_on, bool check_errors) {
+    //auto const &n = at(node);
+    std::vector<value_type> avt;
+    value_type rvt;
+    int op_node = node;
+
+    switch(node_type(node)) {
+        case FTK_list:
+            for(unsigned a = 0, e = child_count(node); a < e; ++a) 
+                if(node_type(child(node, a)) == FTK_fassgn) {
+                    if(vtype.has(last_child(child(node, a)))) {
+                        avt.push_back(vtype.get(last_child(child(node, a))));
+                        avt.back().fname = node_text(first_child(child(node, a)));
+                    }
+                } else {
+                    if(vtype.has(child(node, a))) 
+                        avt.push_back(vtype(child(node, a)));
+                }
+            if(avt.size() == child_count(node)) 
+                rvt = value_type(avt.begin(), avt.end());
+            break;
+        case FTK_valx:
+            switch(node_type(first_child(node))) {
+                case FTK_msgexp:
+                    // list is 
+                    if(vtype.has(first_child(node)) && vtype.has(last_child(first_child(node)))) {
+                        value_type t = vtype(last_child(first_child(node)));
+                        value_type m = vtype(first_child(node));
+                        value_type v = rpc_type(m, m, t.inf, true);
+                        if(!v.is_null()) 
+                            vtype.set(node, v);
+                    }
+                    break;
+                case FTK_did:
+                    assert(vtype.has(node));
+                    break;
+                case FTK_ndid:
+                    std::cerr << "VALX/ndid " << node << "\n";
+                    
+                    break;
+                case FTK_fun:
+                    op_node = first_child(node);
+                default:
+                    //std::cerr << "VALX/op or VALX/fun " << node << "\n";
+                    for(unsigned a = 1, e = child_count(op_node); a < e; ++a) 
+                        if(vtype.has(child(op_node, a))) 
+                            avt.push_back(vtype.get(child(op_node, a)));
+                    if(avt.size()+1 == child_count(op_node)) {
+                        rvt = fun_type(node_text(child(op_node, 0)), avt, true);
+                        if(rvt.is_null() && check_errors) {
+                            if(op_node == node) 
+                                error(at(child(op_node, 0)), stru::sfmt() << "no match for operator \"" << node_text(child(op_node, 0)) << "\" with these operands");
+                            else
+                                error(at(child(op_node, 0)), stru::sfmt() << "no match for function \"" << node_text(child(op_node, 0)) << "\" with these parameters");
+                        }
+                    }
+            }
+            break;
+        default:
+            std::cerr << "oooopsy!\n";
+            assert(false);
+    }
+    return rvt;
+} 
+int compiler::resolve_expressions(bool debug_on) {
+    int count = 0, prev_count;
+    do {
+        prev_count = count;
+        for(int n: get("//(valx|msgexp/list)")) 
+            if(!vtype.has(n)) {
+                auto n_vtype = compute_value_type(n, debug_on, true);
+                if(!n_vtype.is_null()) {
+                    vtype.set(n, n_vtype);
+                    ++count;
+                }
+            }
+        std::cerr << "resolve_expressions iteration: " << count << " solved\n";
+    } while(count != prev_count);
+    std::cerr << "resolve_expressions pass: " << count << " solved\n";
+    return count;
+}
 }
