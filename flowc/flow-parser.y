@@ -308,7 +308,7 @@ valx(A) ::= idex(B).                                        { A = ast->node(FTK_
 valx(A) ::= msgexp(B).                                      { A = ast->node(FTK_valx, B); }
 valx(A) ::= OPENPAR valx(B) CLOSEPAR.                       { A = B; } 
 valx(A) ::= OPENSQB vala(L) CLOSESQB.                       { A = L; if(ast->vtype.has(L)) ast->vtype.copy(L, A); }
-valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E, FTK_list); /*ast->vtype.set(A, fc::value_type(fc::fvt_none));*/}
+valx(A) ::= OPENSQB CLOSESQB(E).                            { A = ast->chtype(E, FTK_list); }
 valx(A) ::= OPENSQB range(R) CLOSESQB.                      { 
     /* do not accept open ended ranges here */ 
     if(ast->node_type(ast->child(R, 0)) == FTK_STAR || ast->node_type(ast->child(R, 1)) == FTK_STAR) 
@@ -321,31 +321,31 @@ valx(A) ::= TILDA id(F) OPENPAR vala(L) CLOSEPAR.           { A = ast->node(FTK_
 
 valx(A) ::= PLUS valx(X).                                   { A = X; } [BANG]
 valx(A) ::= MINUS(O) valx(X).                               { A = ast->node(FTK_valx, O, X); ast->precedence.set(A, 3); ast->is_operator.set(O, true); } [BANG]
-valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3);  ast->is_operator.set(O, true); } // size of repeated field
-valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3);  ast->is_operator.set(O, true); }
+valx(A) ::= HASH(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->precedence.set(A, 3); ast->is_operator.set(O, true); } // size of repeated field
+valx(A) ::= BANG(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->precedence.set(A, 3); ast->is_operator.set(O, true); }
 /** bitwise NOT
-valx(A) ::= BNOT(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 3); }
+valx(A) ::= BNOT(O) valx(X).                                { A = ast->node(FTK_valx, O, X); ast->precedence.set(A, 3); }
 */
-valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6);  ast->is_operator.set(O, true); }
-valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6);  ast->is_operator.set(O, true); }  
-valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5);  ast->is_operator.set(O, true); }  
-valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5);  ast->is_operator.set(O, true); }  
+valx(A) ::= valx(L) PLUS(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6); ast->is_operator.set(O, true); }
+valx(A) ::= valx(L) MINUS(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 6); ast->is_operator.set(O, true); }  
+valx(A) ::= valx(L) SLASH(O) valx(R).                       { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); ast->is_operator.set(O, true); }  
+valx(A) ::= valx(L) STAR(O) valx(R).                        { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); ast->is_operator.set(O, true); }  
 valx(A) ::= valx(L) PERCENT(O) valx(R).                     { A = ast->node(FTK_valx, O, L, R); ast->precedence.set(A, 5); ast->is_operator.set(O, true); }  
 valx(A) ::= valx(L) POW(O) valx(R).                         { A = ast->node(FTK_valx, O, L, R); }  
 
-valx(A) ::= valx(B) COMP(O) valx(D).                        { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 8);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) EQ(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 10); ast->is_operator.set(O, true); }  
-valx(A) ::= valx(B) NE(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 10);  ast->is_operator.set(O, true);}
-valx(A) ::= valx(B) LT(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) GT(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) LE(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) GE(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) AMP(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 11);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) BAR(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 13);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) CARET(O) valx(D).                       { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 12);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) AND(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 14);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) OR(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 15);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) SHL(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 7);  ast->is_operator.set(O, true);}  
-valx(A) ::= valx(B) SHR(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->vtype.set(A, fc::value_type(fc::fvt_int)); ast->precedence.set(A, 7);  ast->is_operator.set(O, true);}   
+valx(A) ::= valx(B) COMP(O) valx(D).                        { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 8);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) EQ(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 10); ast->is_operator.set(O, true); }  
+valx(A) ::= valx(B) NE(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 10);  ast->is_operator.set(O, true);}
+valx(A) ::= valx(B) LT(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) GT(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) LE(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) GE(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 9);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) AMP(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 11);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) BAR(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 13);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) CARET(O) valx(D).                       { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 12);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) AND(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 14);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) OR(O) valx(D).                          { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 15);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) SHL(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 7);  ast->is_operator.set(O, true);}  
+valx(A) ::= valx(B) SHR(O) valx(D).                         { A = ast->node(FTK_valx, O, B, D); ast->precedence.set(A, 7);  ast->is_operator.set(O, true);}   
 valx(A) ::= valx(B) QUESTION(O) valx(D) COLON valx(E).      { A = ast->node(FTK_valx, O, B, D, E); ast->precedence.set(A, 16);  ast->is_operator.set(O, true);}
 
