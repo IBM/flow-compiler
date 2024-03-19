@@ -66,15 +66,17 @@ value_type op2_type(int op, value_type l, value_type r) {
 }
 /**
  * Function definition table
- * name -> preserve const return type, min num args, arg types, preserve const
+ * name -> preserve const return type, min num args, arg types
  */
 std::multimap<std::string, fun_info_t> supp_fun_table = {
     {"after",     { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})} },
     {"batch",     { true, value_type(2, value_type(fvt_any)), 2, value_type({value_type(1, value_type(fvt_any)), value_type(fvt_int)})} },
     {"before",    { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})} },
     {"ceil",      { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
+    {"ceil",      { true, value_type(fvt_int), 1, value_type({value_type(fvt_int)})} },
     {"exp",       { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
     {"float",     { true, value_type(fvt_flt), 1, value_type({value_type(fvt_basic)})} },
+    {"floor",     { true, value_type(fvt_int), 1, value_type({value_type(fvt_int)})} },
     {"floor",     { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
     {"flt",       { true, value_type(fvt_flt), 1, value_type({value_type(fvt_basic)})} },
     {"int",       { true, value_type(fvt_int), 1, value_type({value_type(fvt_basic)})} },
@@ -85,8 +87,10 @@ std::multimap<std::string, fun_info_t> supp_fun_table = {
     {"ln",        { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})}, },
     {"now",       { false, value_type(fvt_int), 0, value_type()}, },
     {"rand",      { false, value_type(fvt_flt), 0, value_type({value_type(fvt_int)})}, },
-    {"remainder", { true, value_type(fvt_flt), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"remainder", { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"remainder", { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
     {"round",     { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})},  },
+    {"round",     { true, value_type(fvt_int), 1, value_type({value_type(fvt_int)})},  },
     {"split",     { true, value_type(1, value_type(fvt_str)), 1, value_type({value_type(fvt_str), value_type(fvt_str)})} },
     {"str",       { true, value_type(fvt_str), 1, value_type({value_type(fvt_basic)})} },
     {"substr",    { true, value_type(fvt_str), 3, value_type({value_type(fvt_str), value_type(fvt_int), value_type(fvt_int)})},  },
@@ -95,6 +99,66 @@ std::multimap<std::string, fun_info_t> supp_fun_table = {
     {"tolower",   { true, value_type(fvt_str), 1, value_type({value_type(fvt_str)})} },
     {"toupper",   { true, value_type(fvt_str), 1, value_type({value_type(fvt_str)})} },
     {"trunc",     { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
+    {"trunc",     { true, value_type(fvt_int), 1, value_type({value_type(fvt_int)})} },
+
+    {"+",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"+",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"+",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_basic)})}, },
+    {"-",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"-",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"-",   { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
+    {"-",   { true, value_type(fvt_int), 1, value_type({value_type(fvt_int)})} },
+    {"*",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_int)})}, },
+    {"*",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"*",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"/",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"/",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"%",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"%",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"**",  { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"**",  { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+
+    {"==",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"==",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"==",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"!=",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"!=",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"!=",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {">=",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {">=",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {">=",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"<=",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"<=",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"<=",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {">",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {">",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {">",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"<",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"<",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"<",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"<=>",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"<=>",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"<=>",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"&&",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"&&",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"&&",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"||",   { true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)})}, },
+    {"||",   { true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)})}, },
+    {"||",   { true, value_type(fvt_str), 2, value_type({value_type(fvt_str), value_type(fvt_str)})}, },
+
+    {"!",   { true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)})} },
+    {"!",   { true, value_type(fvt_int), 1, value_type({value_type(fvt_int)})} },
+    {"!",   { true, value_type(fvt_str), 1, value_type({value_type(fvt_str)})} },
+
+    {"?",    { true, value_type(fvt_any), 3, value_type({value_type(fvt_int), value_type(fvt_any), value_type(fvt_any)})},  },
 };
 static fun_info_t no_func;
 fun_info_t const &fun_first_match(std::string fun_name) {
@@ -104,20 +168,34 @@ fun_info_t const &fun_first_match(std::string fun_name) {
     assert(false);
     return no_func;
 }
-
 value_type fun_type(std::string fname, std::vector<value_type> const &avt, bool allow_promotions) {
+    std::cerr << "LOOKING for \"" << fname << "\" with " << avt << ", promotions: " << (allow_promotions? "yes": "no") << "\n";
     static int show = 0;
     if(++show == 1) 
         std::cerr << supp_fun_table  << "\n";
     
     value_type vt;
     for(auto pp = supp_fun_table.equal_range(fname); pp.first != pp.second; ++pp.first) {
+        std::cerr << "--- FOUND: \"" << pp.first->first << "\"" << pp.first->second << "\n";
         int rdim = std::get<3>(pp.first->second).can_be_called_with(value_type(avt.begin(), avt.end()), allow_promotions);
         if(rdim < 0) 
             continue;
-        vt = value_type(rdim, std::get<1>(pp.first->second));
+        if(pp.first->first == "?") {
+            vt = value_type(rdim, avt[1].zd_type());
+            // TODO check that avt[1] == avt[2]
+        } else {
+            vt = value_type(rdim, std::get<1>(pp.first->second));
+        }
         break;
     }
+    return vt;
+}
+value_type rpc_type(value_type ret_t, value_type arg_t, std::vector<value_type> const &avt, bool allow_promotions) {
+    std::cerr << "RPC -> " << ret_t << "matching " << arg_t << " with " << avt << ", promotions: " << (allow_promotions? "yes": "no") << "\n";
+    value_type vt;
+    int rdim = arg_t.can_be_set_with(value_type(avt.begin(), avt.end()), allow_promotions);
+    if(rdim >= 0) 
+        vt = value_type(rdim, ret_t);
     return vt;
 }
 }

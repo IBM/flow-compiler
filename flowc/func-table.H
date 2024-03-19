@@ -11,4 +11,5 @@ typedef std::tuple<bool, fc::value_type, int, fc::value_type> fun_info_t;
 extern std::multimap<std::string, fun_info_t> supp_fun_table;
 value_type fun_type(std::string fname, std::vector<value_type> const &avt, bool allow_promotions);
 fun_info_t const &fun_first_match(std::string fun_name);
+value_type rpc_type(value_type ret_t, value_type arg_t, std::vector<value_type> const &avt, bool allow_promotions);
 }
