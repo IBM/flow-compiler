@@ -157,7 +157,7 @@ int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
             // valx's vtype has the expected type for this message.
             // It was either explicitly set or deduced from the node/entry type.
             std::cerr << "with msgexp\n";
-            right_dim = fc::value_type(left_base_dim, ast.vtype(valx_node)).can_be_generated_from(ast.vtype(ast.last_child(ast.first_child(valx_node))), true);
+            //right_dim = fc::value_type(left_base_dim, ast.vtype(valx_node)).can_be_generated_from(ast.vtype(ast.last_child(ast.first_child(valx_node))), true);
             break;
         case FTK_ndid:
             std::cerr << "with ndid -- node alias -- need to check all node families\n";

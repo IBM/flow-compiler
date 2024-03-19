@@ -86,7 +86,7 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
             can_assign = right.type == fvt_str || right.type == fvt_flt || right.type == fvt_int;
             break;
         case fvt_num:
-            can_assign = right.type == fvt_int || right.type == fvt_flt;
+            can_assign = right.type == fvt_int || right.type == fvt_flt || right.type == fvt_enum;
             break;
         case fvt_array:
             std::cerr << "CASE 1 arrays?\n";
@@ -106,7 +106,10 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
             }
             break;
         case fvt_flt:
-            can_assign = right.type == fvt_flt || right.type == fvt_int && allow_promotions;
+            can_assign = right.type == fvt_flt || (right.type == fvt_int || right.type == fvt_enum) && allow_promotions;
+            break;
+        case fvt_int:
+            can_assign = right.type == fvt_int || right.type == fvt_enum && allow_promotions;
             break;
         default:
             std::cerr << "CASE d any\n";
@@ -146,9 +149,41 @@ int value_type::can_be_called_with(value_type const &values, bool allow_promotio
     std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
+int value_type::can_be_set_with(value_type const &values, bool allow_promotions, std::map<std::string, int> *arg_dims) const {
+    std::cerr << "CAN MASS " << *this << "\n";
+    std::cerr << "    FROM " << values << "\n";
+    int pdim = -1;
+    std::map<std::string, int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
+    if(!is_struct() || !values.is_struct()) {
+        std::cerr << "internal error: both types need to be of type struct\n"
+                     "left is " << *this << "\nright is " << values << "\n"; 
+        assert(false);
+    }
+    unsigned match_count = 0;
+    if(field_count() >= values.field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
+        std::string f_name = values.field_type(f).field_name();
+        auto lf = field_type(f_name);
+        int dim = 0; 
+
+        bool can_assign = false;
+        for(value_type rf = values.field_type(f); !(can_assign = lf.can_assign_from(rf, allow_promotions)) && rf.is_array(); rf = rf.elem_type())
+            ++dim;
+
+        if(!can_assign) {
+            pdim = -1;
+            break;
+        }
+        pdim = std::max(pdim, dim);
+        ads[f_name] = dim;
+        ++match_count;
+    }
+    if(match_count != values.field_count()) 
+        pdim = -1;
+    std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
+    return pdim;
+}
 /**
  * The right side structure needs to be generated once or repeatedly to match the left
- */
 int value_type::can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
     std::cerr << "CAN MASS " << *this << "\n";
     std::cerr << "    FROM " << values << "\n";
@@ -176,6 +211,7 @@ int value_type::can_be_generated_from(value_type const &values, bool allow_promo
     std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
+ */
 std::string value_type::to_string() const {
     std::ostringstream out;
     out << ansi::off << to_string();
