@@ -5,11 +5,12 @@
 #include <vector>
 
 namespace fc {
-value_type op1_type(int op, value_type l);
-value_type op2_type(int op, value_type l, value_type r);
-typedef std::tuple<bool, fc::value_type, int, fc::value_type> fun_info_t; 
-extern std::multimap<std::string, fun_info_t> supp_fun_table;
-value_type fun_type(std::string fname, std::vector<value_type> const &avt, bool allow_promotions);
+typedef std::tuple<std::string, bool, fc::value_type, int, fc::value_type> fun_info_t; 
+
+int lookup_fun(value_type *return_type, std::string fname, std::vector<value_type> const &avt, bool allow_promotions);
+
 fun_info_t const &fun_first_match(std::string fun_name);
+fun_info_t const &fun_info(int);
+
 value_type rpc_type(value_type ret_t, value_type arg_t, std::vector<value_type> const &avt, bool allow_promotions);
 }
