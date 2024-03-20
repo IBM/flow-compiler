@@ -91,6 +91,9 @@ struct value_type {
    // int can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims=nullptr) const;
    //
     bool is_array_of(value_type const &e) const { return is_array() && elem_type() == e || elem_type().is_array_of(e); }
+
+    // change any reference to fvt_any to nt
+    value_type retype(value_type const &nt);
 };
 }
 

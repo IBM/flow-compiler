@@ -187,6 +187,11 @@ std::string value_type::to_string() const {
     out << ansi::off << to_string();
     return out.str();
 }
+value_type value_type::retype(value_type const &nt) {
+    if(type == fvt_array) 
+        return value_type(dimension(), zd_type().retype(nt));
+    return type == fvt_any? nt: *this;
+}
 }
 std::ostream &operator << (std::ostream &s, fc::value_type const &vt) {
     if(!vt.ref().empty())
