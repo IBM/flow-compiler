@@ -79,6 +79,7 @@ std::string escape(ANSI_ESCAPE esc);
  * [em] should be an ANSI escape sequence. ANSI escapes are ignored if use_escapes is false.
  */
 std::string emphasize(std::string const &message, ANSI_ESCAPE em=ANSI_BOLD+ANSI_BLUE, std::string const &begin="\"", std::string const &end="\"", bool keep_quotes=false, bool start_at_word_boundary=false);
+std::ostream &emphasize(std::ostream &out, std::string const &message, ANSI_ESCAPE em=ANSI_BOLD+ANSI_BLUE, std::string const &begin="\"", std::string const &end="\"", bool keep_quotes=false, bool start_at_word_boundary=false);
 /**
  * Empahsize text between double quotes with [dquot_em] and text between single quotes with [squot_em]
  * This calls [emphasize] above.

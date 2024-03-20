@@ -57,6 +57,10 @@ std::string escape(ANSI_ESCAPE esc) {
 }
 std::string emphasize(std::string const &message, ANSI_ESCAPE em, std::string const &begin, std::string const &end, bool keep_quotes, bool start_at_word_boundary) {
     std::ostringstream oss;
+    emphasize(oss, message, em, begin, end, keep_quotes, start_at_word_boundary);
+    return std::move(oss.str());
+}
+std::ostream &emphasize(std::ostream &out, std::string const &message, ANSI_ESCAPE em, std::string const &begin, std::string const &end, bool keep_quotes, bool start_at_word_boundary) {
     for(size_t qb = (start_at_word_boundary? find_after_word_boundary(message, begin): message.find_first_of(begin)),
             qe = (qb == std::string::npos? std::string::npos: message.find_first_of(end, qb+1)),
             p = 0; 
@@ -67,19 +71,19 @@ std::string emphasize(std::string const &message, ANSI_ESCAPE em, std::string co
             qb = p == std::string::npos? std::string::npos: (start_at_word_boundary? find_after_word_boundary(message, begin, p):  message.find_first_of(begin, p)), 
             qe = qb == std::string::npos? std::string::npos: message.find_first_of(end, qb+1)) {
 
-        oss << message.substr(p, qb == std::string::npos? message.length(): qb-p);
+        out << message.substr(p, qb == std::string::npos? message.length(): qb-p);
         if(qb != std::string::npos && qe != std::string::npos) {
            
-            oss << em;
+            out << em;
             if(keep_quotes) 
-                oss << message.substr(qb, qe-qb+1); 
+                out << message.substr(qb, qe-qb+1); 
             else
-                oss << message.substr(qb+1, qe-qb-1);
+                out << message.substr(qb+1, qe-qb-1);
             if(em != ANSI_NONE)
-                oss << ANSI_RESET;
+                out << ANSI_RESET;
         }
     }
-    return oss.str();
+    return out;
 }
 }
 namespace {
