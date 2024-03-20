@@ -213,28 +213,11 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
         past_solved_nodes = resolve_nodes(debug_on);
     } while(past_solved_nodes != solved_nodes);
     // set the const level
+    check_node_types(debug_on);
+    check_node_references(debug_on);
     if(error_count == 0)  
         set_const_level();
-/*
-    resolve_references(debug_on) ||
-    resolve_node_types(debug_on);
-
-    if(get("flow/ENTRY").size() == 0) 
-        error(filename, stru::sfmt() << "no entry definition found");
-
-    // The follwing step will generate spurious errors if the compilation 
-    // was not without error so far.
-    error_count != 0 ||
-    propagate_value_types(debug_on) ||
-
-    // If all went well, check that node families have the same return type
-
-    check_node_types(debug_on) ||
-    check_node_references(debug_on);
-    if(error_count == 0)  {
-        set_const_level();
-    }
-   
+/*   
     if(error_count == 0) 
         return cpp_generator(std::cout);
 */
@@ -346,7 +329,7 @@ int compiler::check_node_types(bool debug_on) {
     int irc = error_count;
     std::map<std::string, std::vector<int>> node_families;
     for(int n: get("//NODE"))
-        node_families[node_text(child(n, 0))].push_back(n);
+        node_families[node_text(first_child(n))].push_back(n);
     for(auto const &ft: node_families) {
         value_type nft; int fn = 0;
         for(int n: ft.second) {

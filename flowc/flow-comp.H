@@ -50,7 +50,11 @@ public:
     ast::attribute<std::string> unid;   // individual node identifier
     ast::attribute2<int, 0> precedence; // operator precedence
     ast::attribute2<bool, false> is_operator; // operator indicator
+    ast::attribute2<int, 0> fun;        // index in the function table
     grpcu::store gstore;
+
+    // options set from the command line
+    bool allow_promotions = true;
 protected:
     std::ostream *errs;
 public:
@@ -133,7 +137,7 @@ private:
     int compute_value_type(int node);
     value_type compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool check_errors=false);
 
-    int propagate_value_types(bool debug_on);
+//    int propagate_value_types(bool debug_on);
     int propagate_node_return_types(bool debug_on);
 
     int cpp_generator(std::ostream &buf) const;
