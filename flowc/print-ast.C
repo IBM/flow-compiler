@@ -5,6 +5,8 @@
 #include "flow-comp.H"
 #include "stru.H"
 #include "value-type.H"
+#include "func-table.H"
+#include "container-strinsop.H"
 
 namespace {
     
@@ -167,6 +169,8 @@ void compiler::print_ast(std::ostream &out, int node) const {
                     break;
             }
         }
+        if(fun.has(*p) && fun(*p))
+            out << ANSI_BOLD+ANSI_BLUE << "ƒ" << ANSI_RESET << fun_info(fun(*p));
 
         int attrs = 0; char close = 0;
         if(rpc.has(*p) || cmsg.has(*p)) {
