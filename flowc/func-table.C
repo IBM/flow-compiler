@@ -47,8 +47,9 @@ static std::vector<fun_info_t> const supp_fun_table = {
     {"trunc",      true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)}) },
     {"trunc",      true, value_type(fvt_int), 1, value_type({value_type(fvt_int)}) },
 
-    {"repeated",   true, value_type(1,fvt_any), 2, value_type({value_type(fvt_int), value_type(fvt_any)}), },
+    {"repeated",   true, value_type(1, fvt_any), 2, value_type({value_type(fvt_int), value_type(fvt_any)}), },
     {"batch",      true, value_type(2, value_type(fvt_any)), 2, value_type({value_type(1, value_type(fvt_any)), value_type(fvt_int)}) },
+    {"slice",      true, value_type(1, fvt_any), 2, value_type({value_type(1, fvt_any), value_type(fvt_int), value_type(fvt_int)}), },
 
     {"+",    true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)}), },
     {"+",    true, value_type(fvt_flt), 2, value_type({value_type(fvt_flt), value_type(fvt_flt)}), },
@@ -106,6 +107,16 @@ static std::vector<fun_info_t> const supp_fun_table = {
     {"!",     true, value_type(fvt_flt), 1, value_type({value_type(fvt_flt)}) },
     {"!",     true, value_type(fvt_int), 1, value_type({value_type(fvt_int)}) },
     {"!",     true, value_type(fvt_str), 1, value_type({value_type(fvt_str)}) },
+
+    {"~",     true, value_type(fvt_int), 1, value_type({value_type(fvt_int)}) },
+    {"|",     true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)}), },
+    {"&",     true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)}), },
+    {"^",     true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)}), },
+
+    {">>",    true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)}), },
+    {">>",    true, value_type(1, fvt_any), 2, value_type({value_type(1, fvt_any), value_type(fvt_int)}), },
+    {"<<",    true, value_type(fvt_int), 2, value_type({value_type(fvt_int), value_type(fvt_int)}), },
+    {"<<",    true, value_type(1, fvt_any), 2, value_type({value_type(1, fvt_any), value_type(fvt_int)}), },
 
     {"#",     true, value_type(fvt_int), 1, value_type({value_type(1, fvt_any)}) },
     {"?",     true, value_type(fvt_any), 3, value_type({value_type(fvt_int), value_type(fvt_any), value_type(fvt_any)}),  },
