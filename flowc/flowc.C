@@ -49,7 +49,8 @@ int main(int argc, char *argv[]) {
     helpo::opts opts;
     int main_argc = argc;
     if(opts.parse(templates::flowc_help(), argc, argv) != 0 || opts.have("version") || opts.have("help") || opts.have("help-syntax") || argc != 2) {
-        std::cout << (opts.optb("color", isatty(fileno(stdout)))? ansi::on: ansi::off);
+        bool ansi_color = opts.optb("color", isatty(fileno(stdout)));
+        std::cout << (ansi_color? ansi::on: ansi::off);
         if(opts.have("help-syntax")) {
             /*
             std::cout << ansi::emphasize2(templates::syntax(), ANSI_BOLD+ANSI_GREEN, ANSI_BOLD+ANSI_MAGENTA) << "\n\n";
