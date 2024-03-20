@@ -124,8 +124,8 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
  * repeatedly from an array.
  */
 int value_type::can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
-    std::cerr << "CAN CALL " << *this << "\n";
-    std::cerr << "    WITH " << values << "\n";
+    //std::cerr << "CAN CALL " << *this << "\n";
+    //std::cerr << "    WITH " << values << "\n";
     std::vector<int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
     if(!is_struct() || !values.is_struct()) {
         std::cerr << "internal error: both types need to be struct\n"
@@ -146,12 +146,12 @@ int value_type::can_be_called_with(value_type const &values, bool allow_promotio
         pdim = std::max(pdim, dim);
         ads.push_back(dim);
     }
-    std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
+    //std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
 int value_type::can_be_set_with(value_type const &values, bool allow_promotions, std::map<std::string, int> *arg_dims) const {
-    std::cerr << "CAN MASS " << *this << "\n";
-    std::cerr << "    FROM " << values << "\n";
+    //std::cerr << "CAN MASS " << *this << "\n";
+    //std::cerr << "    FROM " << values << "\n";
     int pdim = -1;
     std::map<std::string, int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
     if(!is_struct() || !values.is_struct()) {
@@ -179,7 +179,7 @@ int value_type::can_be_set_with(value_type const &values, bool allow_promotions,
     }
     if(match_count != values.field_count()) 
         pdim = -1;
-    std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
+    //std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;
 }
 std::string value_type::to_string() const {

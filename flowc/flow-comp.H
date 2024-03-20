@@ -125,9 +125,10 @@ private:
     int resolve_nodes(bool debug_on);
     value_type compute_value_type(int node, bool debug_on, bool check_errors);
 
-    int resolve_field_types(bool debug_on);
-    int check_node_references(bool debug_on);
     int check_node_types(bool debug_on);
+    int check_node_references(bool debug_on);
+
+    int resolve_field_types(bool debug_on);
     int fixup_symbol_references(bool debug_on);
     int compute_value_type(int node);
     value_type compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool check_errors=false);

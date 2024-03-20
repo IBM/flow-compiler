@@ -585,7 +585,7 @@ int compiler::resolve_entries(bool debug_on) {
 int compiler::resolve_nodes(bool debug_on) {
     int count = 0;
     for(auto o: get("//NODE/block/OUTPUT/valx/msgexp/did")) if(!rpc.has(ancestor(o, 5))) {
-        std::cerr << "NODE OUTPUT at " << o << "\n";
+        //std::cerr << "NODE OUTPUT at " << o << "\n";
         auto ids = get_ids(o);
         std::set<std::string> methods;
         std::string matched_method; 
@@ -606,7 +606,7 @@ int compiler::resolve_nodes(bool debug_on) {
         vtype.set(ancestor(o, 1), gstore.message_to_value_type(gstore.method_input_full_name(matched_method), ""));
     }
     for(auto r: get("//(NODE|ENTRY)/block/RETURN/valx/msgexp/did")) if(!vtype.has(ancestor(r, 3))) {
-        std::cerr << "NODE RETURN at " << r << "\n";
+        //std::cerr << "NODE/ENTRY RETURN at " << r << "\n";
         auto ids = get_ids(r);
         std::set<std::string> messages;
         std::string matched_message; 

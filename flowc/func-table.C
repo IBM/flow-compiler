@@ -169,14 +169,14 @@ fun_info_t const &fun_first_match(std::string fun_name) {
     return no_func;
 }
 value_type fun_type(std::string fname, std::vector<value_type> const &avt, bool allow_promotions) {
-    std::cerr << "LOOKING for \"" << fname << "\" with " << avt << ", promotions: " << (allow_promotions? "yes": "no") << "\n";
-    static int show = 0;
-    if(++show == 1) 
-        std::cerr << supp_fun_table  << "\n";
+    //std::cerr << "LOOKING for \"" << fname << "\" with " << avt << ", promotions: " << (allow_promotions? "yes": "no") << "\n";
+//    static int show = 0;
+//    if(++show == 1) 
+//        std::cerr << supp_fun_table  << "\n";
     
     value_type vt;
     for(auto pp = supp_fun_table.equal_range(fname); pp.first != pp.second; ++pp.first) {
-        std::cerr << "--- FOUND: \"" << pp.first->first << "\"" << pp.first->second << "\n";
+        //std::cerr << "--- FOUND: \"" << pp.first->first << "\"" << pp.first->second << "\n";
         int rdim = std::get<3>(pp.first->second).can_be_called_with(value_type(avt.begin(), avt.end()), allow_promotions);
         if(rdim < 0) 
             continue;
@@ -191,7 +191,7 @@ value_type fun_type(std::string fname, std::vector<value_type> const &avt, bool 
     return vt;
 }
 value_type rpc_type(value_type ret_t, value_type arg_t, std::vector<value_type> const &avt, bool allow_promotions) {
-    std::cerr << "RPC -> " << ret_t << "matching " << arg_t << " with " << avt << ", promotions: " << (allow_promotions? "yes": "no") << "\n";
+    //std::cerr << "RPC -> " << ret_t << "matching " << arg_t << " with " << avt << ", promotions: " << (allow_promotions? "yes": "no") << "\n";
     value_type vt;
     int rdim = arg_t.can_be_set_with(value_type(avt.begin(), avt.end()), allow_promotions);
     if(rdim >= 0) 

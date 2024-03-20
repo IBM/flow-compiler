@@ -229,7 +229,7 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                         for(unsigned ci = 1, ce = child_count(ndid); ci < ce; ++ci)
                             field_names.push_back(node_text(child(ndid, ci)));
                         rvt = value_type(vtype(n).dimension(), vtype(n).zd_type().field_type(field_names));
-                        std::cerr << "LOOKING FOR " << field_names << " in " << vtype(n) << ", and got: " << rvt << "\n";
+                        //std::cerr << "LOOKING FOR " << field_names << " in " << vtype(n) << ", and got: " << rvt << "\n";
                         break;
                     }
                     break;
