@@ -38,8 +38,8 @@ int compiler::set_const_level(int node) {
             }
             break;
         case FTK_fun:
-            if(std::get<0>(fun_first_match(node_text(first_child(node))))) {
-                level = 3;
+            if(fun(node) > 0) {
+                level = std::get<1>(fun_info(fun(node)))? 3: 0;
                 for(unsigned i = 1, e = child_count(node); i < e; ++i) {
                     int c = child(node, i);
                     added += set_const_level(c);
@@ -101,22 +101,6 @@ int compiler::set_const_level(int node) {
                 if(const_level.has(first_child(node))) 
                     level = const_level(first_child(node));
             }
-            /*
-            if(ref.has(node)) {
-                level = const_level(ref(node));
-            } else if(vtype.has(node) && vtype(node).type == fvt_enum) {
-                level = 3;
-            } else {
-                level = 3;
-                for(unsigned i = 0, e = child_count(node); i < e; ++i) {
-                    int c = child(node, i);
-                    if(i == 0 && is_operator(c))
-                        continue;
-                    added += set_const_level(c);
-                    level = std::min(const_level(c), level);
-                }
-            }
-            */
             break;
         default:
             for(int c: at(node).children)
