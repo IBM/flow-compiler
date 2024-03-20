@@ -212,15 +212,13 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
         resolve_expressions(debug_on);
         past_solved_nodes = resolve_nodes(debug_on);
     } while(past_solved_nodes != solved_nodes);
-    // set the const level
-    check_node_types(debug_on);
-    check_node_references(debug_on);
-    if(error_count == 0)  
-        set_const_level();
-/*   
-    if(error_count == 0) 
-        return cpp_generator(std::cout);
-*/
+
+
+    check_node_types(debug_on) ||
+    check_node_references(debug_on) ||
+    set_const_level() ||
+    cpp_generator(std::cout);
+
     return error_count;
 }
 int compiler::get_node_references(std::map<std::string, std::set<int>> &refs, int node_node) const {
