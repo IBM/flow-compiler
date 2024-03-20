@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "cont-shop.H"
+#include "container-strinsop.H" 
 
 namespace stru {
 std::string json_escape(std::string const &s);
