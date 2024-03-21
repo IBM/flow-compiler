@@ -123,30 +123,31 @@ bool value_type::can_assign_from(value_type const &right, bool allow_promotions)
  * The left struct members need to be assignable from the right side members either directly or
  * repeatedly from an array.
  */
-int value_type::can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims) const {
-    //std::cerr << "CAN CALL " << *this << "\n";
-    //std::cerr << "    WITH " << values << "\n";
+int value_type::can_be_called_with(value_type const &values, bool allow_promotions, int min_argc, std::vector<int> *arg_dims) const {
     std::vector<int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
     if(!is_struct() || !values.is_struct()) {
         std::cerr << "internal error: both types need to be struct\n"
                      "left is " << *this << "\nright is " << values << "\n"; 
         assert(false);
     }
-    int pdim = -1;
-    if(values.field_count() == field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
+    int pdim = 0;
+    unsigned match_count = 0;
+    if(min_argc < 0 && field_count() == values.field_count() ||
+            min_argc >= 0 && values.field_count() >= min_argc && values.field_count() <= field_count())  
+    for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {
         auto const &lf = field_type(f);
         int dim = 0; 
         bool can_assign = false;
         for(value_type rf = values.field_type(f); !(can_assign = lf.can_assign_from(rf, allow_promotions)) && rf.is_array(); rf = rf.elem_type())
             ++dim;
-        if(!can_assign) {
-            pdim = -1;
+        if(!can_assign) 
             break;
-        }
         pdim = std::max(pdim, dim);
         ads.push_back(dim);
+        ++match_count;
     }
-    //std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
+    if(match_count != values.field_count())
+        pdim = -1;
     return pdim;
 }
 int value_type::can_be_set_with(value_type const &values, bool allow_promotions, std::map<std::string, int> *arg_dims) const {
@@ -177,7 +178,7 @@ int value_type::can_be_set_with(value_type const &values, bool allow_promotions,
         ads[f_name] = dim;
         ++match_count;
     }
-    if(match_count != values.field_count()) 
+    if(match_count != values.field_count())
         pdim = -1;
     //std::cerr << (pdim >= 0? "yes": "no") << " " << pdim << " " << ads << "\n";
     return pdim;

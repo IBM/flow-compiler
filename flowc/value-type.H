@@ -68,6 +68,8 @@ struct value_type {
     value_type elem_type() const { return type == fvt_array? inf[0]: value_type(); }
     // the element type of multi-dimensional arrays
     value_type zd_type() const { return type == fvt_array? elem_type().zd_type(): *this; }
+    // whether this is an array of <e>
+    bool is_array_of(value_type const &e) const { return is_array() && zd_type() == e; }
     // field type by name
     value_type field_type(std::vector<std::string> field_names) const;
     value_type field_type(std::string field_name) const;
@@ -85,13 +87,9 @@ struct value_type {
     bool can_assign_from(value_type const &right, bool allow_promotions=false) const;
     bool can_assign_to(value_type const &left, bool allow_promotions=false) const;
     // whether <values> can be mathched to this argument list, return the number of dimensions or -1 if incompatible
-    int can_be_called_with(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims=nullptr) const;
+    int can_be_called_with(value_type const &values, bool allow_promotions, int min_argc=-1, std::vector<int> *arg_dims=nullptr) const;
     // wheter this struct can be set unambiguously from values 
     int can_be_set_with(value_type const &values, bool allow_promotions, std::map<std::string, int> *arg_dims=nullptr) const;
-   // int can_be_generated_from(value_type const &values, bool allow_promotions, std::vector<int> *arg_dims=nullptr) const;
-   //
-    bool is_array_of(value_type const &e) const { return is_array() && elem_type() == e || elem_type().is_array_of(e); }
-
     // change any reference to fvt_any to nt
     value_type retype(value_type const &nt);
 };
