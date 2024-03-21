@@ -213,11 +213,11 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
         past_solved_nodes = resolve_nodes(debug_on);
     } while(past_solved_nodes != solved_nodes);
 
-
     check_node_types(debug_on) ||
     check_node_references(debug_on) ||
-    set_const_level() ||
-    cpp_generator(std::cout);
+    set_const_level();
+    if(error_count == 0)
+        cpp_generator(std::cout);
 
     return error_count;
 }
