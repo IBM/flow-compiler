@@ -89,7 +89,9 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                 case FTK_fun:
                     op_node = first_child(node);
                 default:
-                    //std::cerr << "VALX/op or VALX/fun " << node << "\n";
+                    // do not look up the function again if we already failed
+                    if(fun.has(first_child(node)))
+                        break;
                     for(unsigned a = 1, e = child_count(op_node); a < e; ++a) 
                         if(vtype.has(child(op_node, a))) 
                             avt.push_back(vtype.get(child(op_node, a)));
@@ -98,9 +100,9 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                         int fun_x = lookup_fun(&rvt, node_text(first_child(op_node)), avt, allow_promotions);
                         if(rvt.is_null() && check_errors) {
                             if(op_node == node) 
-                                error(at(child(op_node, 0)), stru::sfmt() << "no match for operator \"" << node_text(child(op_node, 0)) << "\" with these operands");
+                                error(at(child(op_node, 0)), stru::sfmt() << "no match for operator \"" << node_text(child(op_node, 0)) << "\" with operands ..");
                             else
-                                error(at(child(op_node, 0)), stru::sfmt() << "no match for function \"" << node_text(child(op_node, 0)) << "\" with these parameters");
+                                error(at(child(op_node, 0)), stru::sfmt() << "no match for function \"" << node_text(child(op_node, 0)) << "\" with these arguments");
                         }
                         fun.set(first_child(node), fun_x);
                     }
