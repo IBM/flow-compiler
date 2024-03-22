@@ -15,8 +15,10 @@
 #include <iostream>
 namespace {
     struct expression;
+    struct ecode;
 }
 static std::ostream &operator << (std::ostream &out, expression const &x);
+
 namespace {
 
 enum event_type {
@@ -57,6 +59,7 @@ std::string cv(std::string label) {
 std::string rx(std::string label, int node) {
     return stru::sfmt() << "rx_" << label << "_" << node;
 }
+
 struct expression {
     std::string src;
     //std::set<std::pair<std::string, int>> fam_refs;
@@ -69,6 +72,36 @@ struct expression {
     expression(char t, int n, std::string f, std::string u):
         unid(u), family(f), node(n), type(t) {}
 };
+enum ecode_op {
+    eop_nop,
+    eop_com,
+    eop_ret,
+    eop_push,
+    eop_cxpr, 
+    eop_axpr, 
+    eop_setf,
+    eop_brkif,
+    eop_finish,
+    eop_qcall,
+};
+struct ecode {
+    ecode_op op;
+    int arg1;
+    std::string arg;
+    std::string arg2;
+    ecode(ecode_op aop, int aarg1=0): op(aop), arg1(aarg1) {
+    }
+    ecode(ecode_op aop, std::string aarg, int aarg1=0): op(aop), arg1(aarg1), arg(aarg) {
+    }
+    ecode(ecode_op aop, std::string aarg, std::string barg): op(aop), arg1(0), arg(aarg), arg2(barg) {
+    }
+    std::ostream &print(std::ostream &out) {
+        out << int(op) << " " << arg1 << ", " << arg << ", " << arg2;
+        return out;
+    }
+};
+
+
 struct cpp_gen {
     // the AST
     fc::compiler const &ast;
@@ -82,9 +115,10 @@ struct cpp_gen {
     // input node name
     std::string input_name;
     // process info for each event
-    std::map<std::string, std::vector<std::string>> cases;
+    std::map<std::string, std::vector<std::string>> caseso;
+    std::map<std::string, std::vector<ecode>> cases;
     // process info for the entry 
-    std::vector<std::string> entry;
+    std::vector<ecode> entry;
     // node families that need to evaluate a condition expression
     std::set<std::string> conditions;
     // right expressions
@@ -193,22 +227,24 @@ int cpp_gen::entry_body(int entry_node) {
     auto refd_nf = ast.get_referenced_families(en_rvalx);
     refd_nf.erase(input_name);
 
+    std::cerr << "ENTRY STARTING " << entry_node << ": " << refd_nf << "\n";
+
     checkset_dim(0, en_rvalx);
     if(refd_nf.size() == 0) {
         // result doesn't depend on any nodes
-        entry.push_back(stru::sfmt() << "return mrx_" << en_rvalx << "();");
+        entry.emplace_back(eop_ret, en_rvalx);
     } else {
         // check availability of nodes, initiate processing if needed
         for(auto nf: refd_nf) {
             auto event_i = ev(ev_initiate, nf);
-            entry.push_back(stru::sfmt() << "evq.push(" << event_i << ");");
+            entry.emplace_back(eop_push, event_i);
             node_family(nf);
         }
         auto event_d = ev(ev_done, "");
         events.insert(event_d);
         process.insert(event_d);
         triggers[event_d] = ev(ev_available, refd_nf);
-        cases[event_d].push_back(stru::sfmt() << "return mrx_" << en_rvalx << "();");
+        cases[event_d].emplace_back(eop_ret, en_rvalx);
     }
     for(auto &te: triggers) {
         events.insert(te.first);
@@ -233,14 +269,14 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
         auto refd_nf = ast.get_referenced_families(n_cvalx);
         refd_nf.erase(input_name);
         for(auto nf: refd_nf) { 
-            body->push_back(stru::sfmt() << "evq.push(" << ev(ev_initiate, nf) << ");");
+            body->emplace_back(eop_push, ev(ev_initiate, nf));
             dep_families.insert(nf);
         }
         // create an event triggered when all the dependents have been gathered and 
         // continue processing there
         if(refd_nf.size() > 0) {
             auto event_c = ev(ev_condition, unid);
-            body->push_back(stru::sfmt() << "f_" << event_c << " = true;");
+            body->emplace_back(eop_setf, event_c);
             events.insert(event_c);
             triggers[event_c] = ev(ev_available, refd_nf);
             triggers[event_c].insert(event_c);
@@ -256,8 +292,10 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
     exprs.push_back(expression('c', node, family, unid));
     exprs.back().src = conditional_expr_method(n_cvalx, cond_xpr_label);
     exprs.back().fam_refs = ienfref;
-    body->push_back(stru::sfmt() << cond_var_name << " = c" << cond_xpr_label << "()? " << n_cvalx << ": 0;");
-    body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
+    body->emplace_back(eop_cxpr, cond_xpr_label, n_cvalx);
+
+    body->emplace_back(eop_com, stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
+    //body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
     return body_event;
 }
 std::string cpp_gen::node_event(std::string family, int node, std::string body_event) {
@@ -279,11 +317,11 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
     }
     if(refd_nf.size() > 0) {
         for(auto nf: refd_nf) {
-            body->push_back(stru::sfmt() << "evq.push(" << ev(ev_initiate, nf) << ");");
+            body->emplace_back(eop_push, ev(ev_initiate, nf));
             dep_families.insert(nf);
         }
         auto event_r = ev(ev_ready, unid);
-        body->push_back(stru::sfmt() << "f_" << event_r << " = true;");
+        body->emplace_back(eop_setf, event_r);
         events.insert(event_r);
         process.insert(event_r);
         triggers[event_r] = ev(ev_available, refd_nf);
@@ -297,17 +335,22 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
     switch(ast.node_type(action_node)) {
         case FTK_OUTPUT:
             mexpr_method(action_node, msgset_xpr_label);
-            body->push_back(stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
-            body->push_back(stru::sfmt() << "queue_call(r_" << unid << ", f_" << event_a << ");");
+            body->emplace_back(eop_axpr, unid, action_node);
+            //body->push_back(stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
+            body->emplace_back(eop_qcall, unid, event_a);
+            //body->push_back(stru::sfmt() << "queue_call(r_" << unid << ", f_" << event_a << ");");
             break;
         case FTK_RETURN:
             mexpr_method(action_node, msgset_xpr_label);
-            body->push_back(stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
-            body->push_back(stru::sfmt() << "f_" << event_a << " = true;");
-            body->push_back(stru::sfmt() << "evq.push(" << ev(ev_check_flags, "") << ");");
+            body->emplace_back(eop_axpr, unid, action_node);
+               // stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
+            body->emplace_back(eop_setf, event_a);
+            body->emplace_back(eop_push, ev(ev_check_flags, ""));
             break;
         case FTK_ERRCHK:
-            body->push_back(stru::sfmt() << "reactor->Finish(erx_" << unid << "());");
+            body->emplace_back(eop_finish, unid);
+
+            //body->push_back(stru::sfmt() << "reactor->Finish(erx_" << unid << "());");
             break;
     }
     return body_event;
@@ -332,14 +375,14 @@ int cpp_gen::node_family(std::string family) {
     auto *body = &cases[body_event];
 
     // allow for events to be requested more than once, but process only once. 
-    body->push_back(stru::sfmt() << "if(f_" << event_i << ") break;");
-    body->push_back(stru::sfmt() << "f_" << event_i << " = true;");
-    body->push_back(stru::sfmt() << "/** will do " << nodes << " */");
+    body->emplace_back(eop_brkif, event_i);
+    body->emplace_back(eop_setf, event_i);
+    body->emplace_back(eop_com, stru::sfmt() << "/** will do " << nodes << " */");
 
     int def_n = 0, cond_events = 0;
     for(int n: nodes) if(ast.node_type(ast.last_child(n)) == FTK_valx) {
         // process any condition for the node
-        body->push_back(stru::sfmt() << "/** condition for " << n << " */");
+        body->emplace_back(eop_com, stru::sfmt() << "/** condition for " << n << " */");
         
         std::string prev_body_event = body_event;
         body_event = condition_event(family, n, body_event);
@@ -354,11 +397,11 @@ int cpp_gen::node_family(std::string family) {
     if(def_n != 0) {
         if(cond_events) {
             events.insert(ev(ev_setup, ast.unid(def_n)));
-            body->push_back(stru::sfmt() << "evq.push(" << ev(ev_setup, ast.unid(def_n)) << ");");
+            body->emplace_back(eop_push, ev(ev_setup, ast.unid(def_n)));
         }
     } else {
-        body->push_back(stru::sfmt() << "f_" << event_a << " = true;");
-        body->push_back(stru::sfmt() << "evq.push(" << ev(ev_check_flags, "") << ");");
+        body->emplace_back(eop_setf, event_a);
+        body->emplace_back(eop_push, ev(ev_check_flags, ""));
         process.insert(event_i);
     }
     // process the default node first
@@ -521,6 +564,7 @@ int cpp_gen::mexpr_method(int node, std::string name) {
 }
 
 }
+std::ostream &operator << (std::ostream &out, ecode const &x);
 
 namespace fc {
 int compiler::cpp_generator(std::ostream &out_stream) const {
@@ -532,8 +576,8 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         if(ins.size() == 0) ins = get("//flow/INPUT");
 
         cpp_gen data(*this, node_text(child(ins[0], 0)));
-
         error_count += data.entry_body(en);
+
         for(auto pe: data.process) 
             if(data.events.count(pe) == 0 && data.triggers.find(pe) == data.triggers.end()) 
                 out << "//########### event \"" << pe << "\" is never generated!\n";
@@ -564,7 +608,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
             out << rx.second << "\n";
         }
         out.set_wrap_length(wrap_length);
-        /*
+        
         out << "grpc::Status " << rpc(en) << "(grpc::ServerContext *pcontext, const *pinput, *poutput) {  // with " << ins[0] << " \"" << data.input_name << "\"\n";
         ++out;
         if(data.flagvars.size() > 0)
@@ -578,7 +622,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "grpc::Status status = grpc::OK;\n";
         out << "\n";
         for(auto l: data.entry)
-            out << l << "\n";
+            l.print(out) << "\n";
         out << "\n";
         if(data.events.size() > 0) {
             out << "for(; !evq.empty(); evq.pop()) switch(evq.front()) {\n";
@@ -587,7 +631,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
                 out << "case " << e << ":\n" << stru::indent;
                 if(data.cases.find(e) != data.cases.end()) 
                     for(auto l: data.cases[e])
-                        out << l.c_str() << "\n";
+                        l.print(out) << "\n";
                 if(e == ev(ev_check_flags, "")) for(auto te: data.triggers) {
                     out << "if(" << stru::join(te.second, " && ", " && ", "", "f_") << ")\n";
                     out << stru::indent <<  "evq.push(" << te.first << ");\n" << stru::unindent;
@@ -603,7 +647,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "\n";
         for(auto x: data.exprs)
             out_stream << x << "\n";
-            */
+  
     }
     return error_count;
 }
