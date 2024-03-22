@@ -96,6 +96,38 @@ struct ecode {
     ecode(ecode_op aop, std::string aarg, std::string barg): op(aop), arg1(0), arg(aarg), arg2(barg) {
     }
     std::ostream &print(std::ostream &out) {
+        switch(op){
+            case eop_nop:
+                out << "nop";
+                break;
+            case eop_com:
+                out << "com";
+                break;
+            case eop_ret:
+                out << "ret";
+                break;
+            case eop_push:
+                out << "push";
+                break;
+            case eop_cxpr:
+                out << "cxpr";
+                break;
+            case eop_axpr:
+                out << "axpr";
+                break;
+            case eop_setf:
+                out << "setf";
+                break;
+            case eop_brkif:
+                out << "brkif";
+                break;
+            case eop_finish:
+                out << "finish";
+                break;
+            case eop_qcall:
+                out << "qcall";
+                break;
+        }
         out << int(op) << " " << arg1 << ", " << arg << ", " << arg2;
         return out;
     }
