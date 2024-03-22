@@ -157,8 +157,9 @@ int value_type::can_be_set_with(value_type const &values, bool allow_promotions,
     std::map<std::string, int> tmpad, &ads = arg_dims == nullptr? tmpad: *arg_dims;
     if(!is_struct() || !values.is_struct()) {
         std::cerr << "internal error: both types need to be of type struct\n"
-                     "left is " << *this << "\nright is " << values << "\n"; 
-        assert(false);
+                     "left is " << *this << "\nright is " << values << "\n";
+        return -1;
+        //assert(false);
     }
     unsigned match_count = 0;
     if(field_count() >= values.field_count()) for(unsigned f = 0, fe = values.field_count(); f < fe; ++f) {

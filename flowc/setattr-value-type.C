@@ -10,6 +10,7 @@
 #include "func-table.H"
 
 namespace fc {
+    /*
 int compiler::propagate_node_return_types(bool debug_on) {
     int irc = error_count;
     // Propagate the return type to the node/entry attribute
@@ -37,11 +38,13 @@ int compiler::propagate_node_return_types(bool debug_on) {
     }
     return error_count-irc;
 }
-value_type compiler::compute_value_type(int node, bool debug_on, bool check_errors) {
+*/
+value_type compiler::compute_value_type(int node, bool check_errors) {
     //auto const &n = at(node);
     std::vector<value_type> avt;
     value_type rvt;
     int op_node = node;
+    std::vector<std::string> field_names;
 
     switch(node_type(node)) {
         case FTK_list:
@@ -58,6 +61,17 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
             if(avt.size() == child_count(node)) 
                 rvt = value_type(avt.begin(), avt.end());
             break;
+        case FTK_fassgn: {
+            int amsg = ancestor(node, 2), cmsg = last_child(last_child(node));
+            if(amsg && cmsg && node_type(amsg) == FTK_msgexp && node_type(cmsg) == FTK_msgexp &&
+                         vtype.has(amsg) && !vtype.has(cmsg)) {
+                std::string fid = node_text(first_child(node));
+                vtype.set(cmsg, vtype(amsg).field_type(fid).zd_type());
+                if(vtype(cmsg).is_null())
+                    error(at(first_child(node)), stru::sfmt() << "unknown field \"" << fid << "\"");
+            }
+        }
+        break;
         case FTK_valx:
             switch(node_type(first_child(node))) {
                 case FTK_msgexp:
@@ -78,7 +92,6 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                     for(int n: get("//NODE")) if(node_text(first_child(n)) == node_text(first_child(first_child(node))) && vtype.has(n)) {
                         // TODO wait for all the nodes in the same family to be typed before attempting this
                         int ndid = first_child(node);
-                        std::vector<std::string> field_names;
                         for(unsigned ci = 1, ce = child_count(ndid); ci < ce; ++ci)
                             field_names.push_back(node_text(child(ndid, ci)));
                         rvt = value_type(vtype(n).dimension(), vtype(n).zd_type().field_type(field_names));
@@ -97,12 +110,12 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
                             avt.push_back(vtype.get(child(op_node, a)));
                     if(avt.size()+1 == child_count(op_node)) {
                         // lookup the function/operator all the arguments are available
-                        int fun_x = lookup_fun(&rvt, node_text(first_child(op_node)), avt, allow_promotions);
+                        int fun_x = lookup_fun(&rvt, node_text(first_child(op_node)), avt, opts.allow_int_promotions);
                         if(rvt.is_null() && check_errors) {
                             if(op_node == node) 
-                                error(at(child(op_node, 0)), stru::sfmt() << "no match for operator \"" << node_text(child(op_node, 0)) << "\" with operands ..");
+                                error(at(first_child(op_node)), stru::sfmt() << "no match for operator \"" << node_text(first_child(op_node)) << "\" with operands ..");
                             else
-                                error(at(child(op_node, 0)), stru::sfmt() << "no match for function \"" << node_text(child(op_node, 0)) << "\" with these arguments");
+                                error(at(first_child(op_node)), stru::sfmt() << "no match for function \"" << node_text(first_child(op_node)) << "\" with these arguments");
                         }
                         fun.set(first_child(node), fun_x);
                     }
@@ -114,13 +127,13 @@ value_type compiler::compute_value_type(int node, bool debug_on, bool check_erro
     }
     return rvt;
 } 
-int compiler::resolve_expressions(bool debug_on) {
+int compiler::resolve_expressions() {
     int count = 0, prev_count;
     do {
         prev_count = count;
-        for(int n: get("//(valx|msgexp/list)")) 
+        for(int n: get("//(valx|fassgn|msgexp/list)")) 
             if(!vtype.has(n)) {
-                auto n_vtype = compute_value_type(n, debug_on, true);
+                auto n_vtype = compute_value_type(n, true);
                 if(!n_vtype.is_null()) {
                     vtype.set(n, n_vtype);
                     ++count;
