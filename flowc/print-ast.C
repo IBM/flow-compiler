@@ -119,8 +119,8 @@ void compiler::print_ast(int node) const {
 }
 void compiler::print_ast(std::ostream &out, int node) const {
     for(auto p = begin(node), e = end(); p != e; ++p) {
-        out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
         auto node = at(*p);
+        out << std::string((p.level()-1)*4, ' ') << ANSI_BOLD << *p << ANSI_RESET << "-";
         out << node.token.file << ":" << node.token.line << ":" << node.token.column << " ";
         out << ANSI_BOLD << tk_to_string(node.type) << ANSI_RESET;
         if(node.children.size()) out << "[" << node.children.size() << "]";
