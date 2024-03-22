@@ -162,10 +162,11 @@ int cpp_gen::checkset_dim(int left_base_dim, int valx_node) {
         case FTK_ndid:
             std::cerr << "with ndid -- node alias -- need to check all node families\n";
             std::cerr << "LVT: " << ast.vtype(valx_node) << "\n";
-            std::cerr << "The family is ***" << ast.node_text(ast.descendant(valx_node, 0, 0)) << "***\n";
-            std::cerr << "The family is ***+ " << ast.get("0/0", valx_node) << " +***\n";
-            std::cerr << "The family is ***" << ast.node_text(ast.getf("0/0", valx_node)) << "***\n";
-            for(int fam_node: ast.node_family(ast.node_text(ast.descendant(valx_node, 0, 0)))) {
+            std::cerr << "The family is ***" << ast.node_text(ast.getf("1/1", valx_node)) << "***\n";
+            for(int fam_node: ast.node_family(ast.node_text(ast.getf("1/1", valx_node)))) {
+                std::cerr << "ENTRY NDID CHECK " << ast.vtype(ast.parent(valx_node)) << "\n"
+                          << "FROM "<< fam_node << ": " << ast.vtype(fam_node) << "\n";
+
                 bool can_assign = check_assign(left_base_dim, ast.vtype(valx_node), ast.vtype(fam_node));
                 std::cerr << "int dim = checkset_dim("<< left_base_dim << ", node="<<  fam_node << ")\n";
                 // one and only one action node
@@ -466,22 +467,22 @@ std::string cpp_gen::conditional_expr_method(int node, std::string name) {
     stru::indent_ostream out(out_sstream);
     out.set_wrap_length(0);
 
-    out << "bool c" << name << "() {\n";
+    //out << "bool c" << name << "() {\n";
     ++out;
     std::ostringstream asts; 
     ast.print_ast(asts, node);
-    out << "/*\n" << asts.str() << "*/\n\n";
+    //out << "/*\n" << asts.str() << "*/\n\n";
 
-    out << "/* calling inline_expr(" << node << ") */\n";
-    out << "auto val = ";
+    //out << "/* calling inline_expr(" << node << ") */\n";
+    //out << "auto val = ";
     ienfref.clear();
     std::string iexpr = inline_expr(node);
     out << stru::nowrap << iexpr << ";\n" << stru::wrap;
     if(ienfref.size() > 0)
         out << "/**** nfrefs: \n" << ienfref << "\n*/\n";
-    out << "return val;\n";
+    //out << "return val;\n";
     --out;
-    out << "};\n";
+    //out << "};\n";
 
     rexpr[name] = std::move(out_sstream).str();
     std::cerr << rexpr[name] << "\n";
@@ -495,26 +496,26 @@ int cpp_gen::mexpr_method(int node, std::string name) {
     // both OUTPUT and RETURN have one valx of type msgexp or ndid
     int valx_node = ast.child(node, 0);
     int msgexp_node = ast.child(valx_node, 0);
-    out << "void m" << name << "(" << ast.cmsg(msgexp_node) << " &msg_" << msgexp_node << ") {\n";
+    //out << "void m" << name << "(" << ast.cmsg(msgexp_node) << " &msg_" << msgexp_node << ") {\n";
     ++out;
 
     std::ostringstream asts; 
     ast.print_ast(asts, node);
-    out << "/*\n" << asts.str() << "*/\n\n";
+    //out << "/*\n" << asts.str() << "*/\n\n";
 
     if(ast.at(msgexp_node).type == FTK_ndid) {
         // direct node reference    
         std::string refd_node = ast.node_text(ast.child(msgexp_node, 0));   
-        out << "msg_" << msgexp_node << ".copyFrom(result_" << refd_node << ");\n";
+        //out << "msg_" << msgexp_node << ".copyFrom(result_" << refd_node << ");\n";
     } else {
         // setup message
         int list_node = ast.last_child(msgexp_node);
-        out << "// list at " << list_node << "\n";
+        //out << "// list at " << list_node << "\n";
     }
 
-    out << "return;\n";
+    //out << "return;\n";
     --out;
-    out << "};\n";
+    //out << "};\n";
     rexpr[name] = std::move(out_sstream).str();
     return 0;
 }
@@ -563,6 +564,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
             out << rx.second << "\n";
         }
         out.set_wrap_length(wrap_length);
+        /*
         out << "grpc::Status " << rpc(en) << "(grpc::ServerContext *pcontext, const *pinput, *poutput) {  // with " << ins[0] << " \"" << data.input_name << "\"\n";
         ++out;
         if(data.flagvars.size() > 0)
@@ -601,6 +603,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "\n";
         for(auto x: data.exprs)
             out_stream << x << "\n";
+            */
     }
     return error_count;
 }
