@@ -40,7 +40,6 @@ int compiler::propagate_node_return_types(bool debug_on) {
 }
 */
 value_type compiler::compute_value_type(int node, bool check_errors) {
-    //auto const &n = at(node);
     std::vector<value_type> avt;
     value_type rvt;
     int op_node = node;
@@ -48,7 +47,7 @@ value_type compiler::compute_value_type(int node, bool check_errors) {
 
     switch(node_type(node)) {
         case FTK_list:
-            for(unsigned a = 0, e = child_count(node); a < e; ++a) 
+            for(unsigned a = 0, e = child_count(node); a < e; ++a) {
                 if(node_type(child(node, a)) == FTK_fassgn) {
                     if(vtype.has(last_child(child(node, a)))) {
                         avt.push_back(vtype.get(last_child(child(node, a))));
@@ -58,20 +57,10 @@ value_type compiler::compute_value_type(int node, bool check_errors) {
                     if(vtype.has(child(node, a))) 
                         avt.push_back(vtype(child(node, a)));
                 }
+            }
             if(avt.size() == child_count(node)) 
                 rvt = value_type(avt.begin(), avt.end());
             break;
-        case FTK_fassgn: {
-            int amsg = ancestor(node, 2), cmsg = last_child(last_child(node));
-            if(amsg && cmsg && node_type(amsg) == FTK_msgexp && node_type(cmsg) == FTK_msgexp &&
-                         vtype.has(amsg) && !vtype.has(cmsg)) {
-                std::string fid = node_text(first_child(node));
-                vtype.set(cmsg, vtype(amsg).field_type(fid).zd_type());
-                if(vtype(cmsg).is_null())
-                    error(at(first_child(node)), stru::sfmt() << "unknown field \"" << fid << "\"");
-            }
-        }
-        break;
         case FTK_valx:
             switch(node_type(first_child(node))) {
                 case FTK_msgexp:
@@ -82,7 +71,7 @@ value_type compiler::compute_value_type(int node, bool check_errors) {
                         value_type r = node_type(parent(node)) == FTK_RETURN || node_type(parent(node)) == FTK_OUTPUT? vtype(parent(node)): m;
                         value_type v = rpc_type(r, m, t.inf, true);
                         if(!v.is_null()) 
-                            vtype.set(node, v);
+                            rvt = v;
                     }
                     break;
                 case FTK_did:
@@ -125,13 +114,30 @@ value_type compiler::compute_value_type(int node, bool check_errors) {
             std::cerr << "oooopsy!\n";
             assert(false);
     }
+    
     return rvt;
 } 
 int compiler::resolve_expressions() {
     int count = 0, prev_count;
+
+    // propagate the message types:
+    for(int node: get("//fassgn")) {
+        int amsg = ancestor(node, 2), cmsg = last_child(last_child(node));
+        if(amsg && cmsg && node_type(amsg) == FTK_msgexp && node_type(cmsg) == FTK_msgexp &&
+                vtype.has(amsg) && !vtype.has(cmsg)) {
+            std::string fid = node_text(first_child(node));
+            vtype.set(cmsg, vtype(amsg).field_type(fid).zd_type());
+            if(vtype(cmsg).is_null())
+                error(at(first_child(node)), stru::sfmt() << "unknown field \"" << fid << "\"");
+            else 
+                ++count;
+        }
+    }
+    std::cerr << "resolve_expressions start: " << count << " solved\n";
+
     do {
         prev_count = count;
-        for(int n: get("//(valx|fassgn|msgexp/list)")) 
+        for(int n: get("//(valx|msgexp/list)")) 
             if(!vtype.has(n)) {
                 auto n_vtype = compute_value_type(n, true);
                 if(!n_vtype.is_null()) {
