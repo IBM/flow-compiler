@@ -43,6 +43,15 @@ void handler(int sig) {
 
 void show_builtin_help(std::ostream &);
 
+void set_compiler_options(fc::compiler_options &op, helpo::opts const &opts) {
+    op.debug = opts.optb("debug", op.debug);
+    op.trace = opts.optb("trace", op.trace);
+
+    op.server = opts.optb("server", op.server);
+    op.build_server = opts.optb("build-server", op.build_server);
+    op.allow_int_promotions = opts.optb("allow-int-promotions", op.allow_int_promotions);
+}
+
 int main(int argc, char *argv[]) {
     signal(SIGABRT, handler);
     signal(SIGSEGV, handler);
@@ -93,20 +102,19 @@ int main(int argc, char *argv[]) {
     // Make sure we use appropriate coloring for errors and output
     std::cout << (opts.optb("color", isatty(fileno(stdout)))? ansi::on: ansi::off);
     std::cerr << (opts.optb("color", isatty(fileno(stderr)))? ansi::on: ansi::off);
-    // Debug flag
-    bool debug_on = opts.optb("debug", false);
+
     fc::compiler comp(&std::cerr);
-    bool trace_on = opts.have("trace");
     for(auto path: opts["proto-path"])
         comp.gstore.add_to_proto_path(path);
 
+    set_compiler_options(comp.opts, opts);
     // Compile the input file(s)
     int trc = 0;
     for(int c = 1; c < argc; ++c) {
         std::string flow_file = argv[c];
         std::cerr << flow_file << ":\n";
         comp.gstore.add_to_proto_path(filu::dirname(flow_file), "", true);
-        int rc = comp.compile(flow_file, debug_on, trace_on, opts.opt("input-symbol", "input"));
+        int rc = comp.compile(flow_file, opts.opt("input-symbol", "input"));
         if(rc != 0) 
             comp.note(argv[c], stru::sfmt() << rc << " error(s) generated");
         trc += rc;

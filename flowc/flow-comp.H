@@ -40,6 +40,15 @@ enum ast_nonterm {
 
 namespace fc {
 
+struct compiler_options {
+    bool allow_int_promotions = true;
+    bool server = false;
+    bool rest = false;
+    bool build_server = false;
+    bool debug = false;
+    bool trace = false;
+};
+
 class compiler: public ast::tree {
 public:
     ast::attribute<value_type> vtype;   // type expression for NODE, ENTRY, INPUT and valx
@@ -54,7 +63,7 @@ public:
     grpcu::store gstore;
 
     // options set from the command line
-    bool allow_promotions = true;
+    compiler_options opts;
 protected:
     std::ostream *errs;
 public:
@@ -111,7 +120,7 @@ public:
 
     /** Actions
      */
-    int compile(std::string filename, bool debug_on, bool trace_on, std::string default_input_symbol);
+    int compile(std::string filename, std::string default_input_symbol);
     void print_ast(std::ostream &out, int node) const;
     void print_ast(int node) const;
     void ast_to_json(std::ostream &out, int node) const;
@@ -121,24 +130,23 @@ public:
     /** Internal support
      */
 private:
-    int parse_file(struct yyParser *pp, std::string filename, bool trace_on);
-    int resolve_did_references(bool debug_on);
-    int resolve_input_references(bool debug_on);
-    int resolve_entries(bool debug_on);
-    int resolve_expressions(bool debug_on);
-    int resolve_nodes(bool debug_on);
-    value_type compute_value_type(int node, bool debug_on, bool check_errors);
+    int parse_file(struct yyParser *pp, std::string filename);
+    int resolve_did_references();
+    int resolve_input_references();
+    int resolve_entries();
+    int resolve_expressions();
+    int resolve_nodes();
+    value_type compute_value_type(int node, bool check_errors);
 
-    int check_node_types(bool debug_on);
-    int check_node_references(bool debug_on);
+    int check_node_types();
+    int check_node_references();
 
-    int resolve_field_types(bool debug_on);
-    int fixup_symbol_references(bool debug_on);
+    int resolve_field_types();
+    int fixup_symbol_references();
     int compute_value_type(int node);
     value_type compute_value_type(int node, std::map<std::string, int> const &fam_dims, bool check_errors=false);
 
-//    int propagate_value_types(bool debug_on);
-    int propagate_node_return_types(bool debug_on);
+    int propagate_node_return_types();
 
     int cpp_generator(std::ostream &buf) const;
 public:

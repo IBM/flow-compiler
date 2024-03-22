@@ -15,7 +15,7 @@
 #include "flow-parser.c"
 namespace fc {
 
-int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
+int compiler::parse_file(yyParser *pp, std::string filename) {
     input_filename = filename;
     filenames.push_back(filename);
 
@@ -40,7 +40,7 @@ int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
             break;
         }
         int ntok = node(t);
-        if(trace_on)
+        if(opts.trace)
             std::cerr << "TOKEN: " << tk_to_string(t.type) << "(" << t.line << ":" << t.column << ")<" << t.text << ">\n";
         flow_parser(pp, t.type, ntok, this);
         auto top = store.back().type;
@@ -53,14 +53,14 @@ int compiler::parse_file(yyParser *pp, std::string filename, bool trace_on) {
 
     return (int) store.size();
 }
-int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::string default_input_symbol) {
+int compiler::compile(std::string filename, std::string default_input_symbol) {
     yyParser *pp = (yyParser *) flow_parserAlloc(malloc);
-    if(trace_on)
+    if(opts.trace)
         flow_parserTrace(stderr, (char *) "parser: ");
 
     std::set<int> include_nodes;
     std::map<std::string, int> included;
-    int ptr = parse_file(pp, filename, trace_on);
+    int ptr = parse_file(pp, filename);
 
     while(get("//flow/INCLUDE", ptr).size() != include_nodes.size()) {
         for(int incln: get("//flow/INCLUDE")) if(include_nodes.find(incln) == include_nodes.end()) {
@@ -76,7 +76,7 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
                 continue;
             }
             included[value] = incln;
-            int itr = parse_file(pp, value, trace_on);
+            int itr = parse_file(pp, value);
             if(itr > 0 && get("flow", itr).size() > 0)
                 graft(parent(incln, ptr), get("flow", itr)[0], sibling_index(incln, ptr)+1);
         }
@@ -195,28 +195,29 @@ int compiler::compile(std::string filename, bool debug_on, bool trace_on, std::s
      */
     int rrc;
     // solve all entry rpcs and input and output types 
-    rrc = resolve_entries(debug_on);
+    rrc = resolve_entries();
     std::cerr << "RESOLVED " << rrc << " entries\n";
     // solve all node rpcs, and the explicit return nodes
-    rrc = resolve_nodes(debug_on);
+    rrc = resolve_nodes();
     std::cerr << "RESOLVED " << rrc << " nodes\n";
     // solve all indentifiers valx/did 
-    rrc = resolve_did_references(debug_on);
+    rrc = resolve_did_references();
     std::cerr << "RESOLVED " << rrc << " dids\n";
     // resolve input field references (valx/ndid)
-    rrc = resolve_input_references(debug_on);
+    rrc = resolve_input_references();
     std::cerr << "RESOLVED " << rrc << " input refs\n";
     int solved_nodes = 0, past_solved_nodes = 0;
     do {
         past_solved_nodes = solved_nodes;
-        resolve_expressions(debug_on);
-        past_solved_nodes = resolve_nodes(debug_on);
+        resolve_expressions();
+        past_solved_nodes = resolve_nodes();
     } while(past_solved_nodes != solved_nodes);
 
-    check_node_types(debug_on) ||
-    check_node_references(debug_on) ||
+    check_node_types() ||
+    check_node_references() ||
     set_const_level();
-    if(error_count == 0)
+
+    if((opts.server || opts.build_server) && error_count == 0)
         cpp_generator(std::cout);
 
     return error_count;
@@ -285,7 +286,7 @@ int compiler::get_deep_family_references(std::set<std::string> &refs, int n, std
  * Check nodes for circular references, and for inaccessibility.
  * Warn for unused nodes.
  */
-int compiler::check_node_references(bool debug_on) {
+int compiler::check_node_references() {
     int irc = error_count;
     std::map<std::string, std::set<int>> allrefs;
     for(int en: get("//ENTRY")) {
@@ -323,7 +324,7 @@ int compiler::check_node_references(bool debug_on) {
 /**
  * Check that all nodes return the same (or compatible) message type
  */
-int compiler::check_node_types(bool debug_on) {
+int compiler::check_node_types() {
     int irc = error_count;
     std::map<std::string, std::vector<int>> node_families;
     for(int n: get("//NODE"))
@@ -351,7 +352,7 @@ int compiler::check_node_types(bool debug_on) {
  * to either node local variables for this or other nodes, 
  * or enum values.
  */
-int compiler::resolve_did_references(bool debug_on) {
+int compiler::resolve_did_references() {
     int count = 0;
     // resolve references
     for(int p: get("//valx/did")) {
@@ -489,7 +490,7 @@ int compiler::resolve_did_references(bool debug_on) {
     }
     return count;
 }
-int compiler::resolve_input_references(bool debug_on) {
+int compiler::resolve_input_references() {
     int count = 0;
     for(int node: get("//valx/ndid")) {
         for(int input_node: get("//INPUT"))
@@ -513,7 +514,7 @@ int compiler::resolve_input_references(bool debug_on) {
 /**
  * Resolve the RPC for entries, along with their input and return type
  */
-int compiler::resolve_entries(bool debug_on) {
+int compiler::resolve_entries() {
     int first_auto_input_entry = 0;
     std::string auto_input_type;
     int count = 0;
@@ -536,8 +537,13 @@ int compiler::resolve_entries(bool debug_on) {
         ++count;
         // we have an unique match
         rpc.set(parent(p), matched_method);
-        // set the vtype attribute for ENTRY to the type of the result
-        vtype.set(parent(p), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
+        // set the vtype attribute for ENTRY/return to the type of the result
+        for(auto r: get("//RETURN", parent(p))) {
+            vtype.set(r, gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
+            for(auto m: get("valx/msgexp", r)) {
+                vtype.set(m, gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
+            }
+        }
         // if this entry has an input, set its type
         auto input_type = gstore.message_to_value_type(gstore.method_input_full_name(matched_method), "");
         bool input_type_set = false;
@@ -563,8 +569,9 @@ int compiler::resolve_entries(bool debug_on) {
     }
     return count;
 }
-int compiler::resolve_nodes(bool debug_on) {
+int compiler::resolve_nodes() {
     int count = 0;
+    // lookup gRPC methods
     for(auto o: get("//NODE/block/OUTPUT/valx/msgexp/did")) if(!rpc.has(ancestor(o, 5))) {
         //std::cerr << "NODE OUTPUT at " << o << "\n";
         auto ids = get_ids(o);
@@ -586,6 +593,7 @@ int compiler::resolve_nodes(bool debug_on) {
         vtype.set(ancestor(o, 3), gstore.message_to_value_type(gstore.method_output_full_name(matched_method), ""));
         vtype.set(ancestor(o, 1), gstore.message_to_value_type(gstore.method_input_full_name(matched_method), ""));
     }
+    // lookup gRPC messages for explicit RETURN 
     for(auto r: get("//(NODE|ENTRY)/block/RETURN/valx/msgexp/did")) if(!vtype.has(ancestor(r, 3))) {
         //std::cerr << "NODE/ENTRY RETURN at " << r << "\n";
         auto ids = get_ids(r);
@@ -605,6 +613,19 @@ int compiler::resolve_nodes(bool debug_on) {
         // node's zd type
         vtype.set(ancestor(r, 3), gstore.message_to_value_type(matched_message, ""));
         vtype.set(ancestor(r, 1), gstore.message_to_value_type(matched_message, ""));
+    }
+    // Now all nodes with an explicit RETURN or an OUTPUT have their return message set
+    // The ones without an explicit RETURN type can be inferred from their family members
+    for(auto r: get("//NODE/block/RETURN/valx/msgexp")) if(!vtype.has(ancestor(r, 2))) {
+        std::string node_name = node_text(get("ID", ancestor(r, 4))[0]);
+        for(auto s: get("//NODE/block/RETURN/valx/msgexp")) if(vtype.has(ancestor(s, 2))) {
+            std::string s_node_name = node_text(get("ID", ancestor(s, 4))[0]);
+            if(s_node_name == node_name) {
+                vtype.copy(ancestor(s, 2), ancestor(r, 2));
+                vtype.copy(s,r);
+                break;
+            }
+        }
     }
     for(auto v: get("//NODE/block/(RETURN|OUTPUT)/valx")) if(vtype.has(v) && !vtype.has(ancestor(v, 3))) {
         ++count;
@@ -672,31 +693,6 @@ std::vector<int> compiler::node_family(std::string family_name) const {
         nodes.push_back(d_node);
     return nodes;
 }
-/*
-int compiler::dep_tree(stru::indented_stream &indenter, int vn, std::string input_label, std::map<std::string, int> &visited, int depth) {
-    auto &out = indenter;
-    // iterate over all ndid children of vn
-    for(int n: all_of_type(FTK_ndid, vn)) {
-        std::string node_type = node_text(child(n, 0));
-        if(node_type == input_label || visited.find(node_type) != visited.end()) 
-            continue;
-        visited[node_type] = depth;
-        out << node_type << ": \n";
-        ++indenter;
-        for(int n: get("//NODE")) 
-            if(node_text(child(n, 0)) == node_type) {
-                for(int v: get("valx", n)) 
-                    dep_tree(indenter, v, input_label, visited, depth+1);
-                for(int v: get("//(ERRCHK|RETURN|OUTPUT)/valx", n)) 
-                    dep_tree(indenter, v, input_label, visited, depth+1);
-                for(int v: get("//HEADER/COLON/valx", n)) 
-                    dep_tree(indenter, v, input_label, visited, depth+1);
-            }
-        --indenter;
-    }
-    return 0; 
-}
-*/
 std::set<std::string> compiler::get_referenced_families(int valx_node) const {
     std::set<std::string> families;
     std::vector<int> refd;

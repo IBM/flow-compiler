@@ -23,6 +23,9 @@ DESCRIPTION
               and for "Kubernetes".
 OPTIONS
 
+       --allow-int-promotions
+              Allow integer to float automatic conversion
+
        --base-port=PORT, -P PORT
               Change the port used for the aggregator "gRPC" service. For "Docker Compose" port 
               numbers starting from this value are allocated for the each container.
