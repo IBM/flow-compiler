@@ -59,6 +59,12 @@ std::string cv(std::string label) {
 std::string rx(std::string label, int node) {
     return stru::sfmt() << "rx_" << label << "_" << node;
 }
+std::string ax(std::string label, int node) {
+    return stru::sfmt() << "ax_" << label << "_" << node;
+}
+std::string ex(std::string label, int node) {
+    return stru::sfmt() << "ex_" << label << "_" << node;
+}
 
 struct expression {
     std::string src;
@@ -83,6 +89,10 @@ enum ecode_op {
     eop_brkif,
     eop_finish,
     eop_qcall,
+    eop_if,
+    eop_endif,
+    eop_else,
+    eop_break,
 };
 struct ecode {
     ecode_op op;
@@ -93,7 +103,7 @@ struct ecode {
     }
     ecode(ecode_op aop, std::string aarg, int aarg1=0): op(aop), arg1(aarg1), arg(aarg) {
     }
-    ecode(ecode_op aop, std::string aarg, std::string barg): op(aop), arg1(0), arg(aarg), arg2(barg) {
+    ecode(ecode_op aop, std::string aarg, std::string barg, int carg=0): op(aop), arg1(carg), arg(aarg), arg2(barg) {
     }
     std::ostream &print(std::ostream &out) {
         switch(op){
@@ -127,8 +137,68 @@ struct ecode {
             case eop_qcall:
                 out << "qcall";
                 break;
+            case eop_endif:
+                out << "endif";
+                break;
+            case eop_if:
+                out << "if";
+                break;
+            case eop_else:
+                out << "else";
+                break;
+            case eop_break:
+                out << "break";
+                break;
         }
-        out << int(op) << " " << arg1 << ", " << arg << ", " << arg2;
+        out << "/" << int(op) << " " << arg1 << ", " << arg << ", " << arg2;
+        return out;
+    }
+    std::ostream &render(std::ostream &out) {
+        bool done = true;
+        switch(op){
+            case eop_nop:
+                break;
+            case eop_com:
+                out << "/* " << arg << "\n*/";
+                break;
+            case eop_brkif:
+                out << "if(f_" << arg << ")\n" << stru::indent << "break;" << stru::unindent;
+                break;
+            case eop_setf:
+                out << "f_" << arg << " = true;";
+                break;
+            case eop_cxpr:
+                out << arg2 << " = " << arg << "(" << arg1 << ");";
+                break;
+            case eop_if:
+                out << "if(" << arg << ") {" << stru::indent;
+                break;
+            case eop_endif:
+                out << stru::unindent << "}";
+                break;
+            case eop_break:
+                out << "break;";
+                break;
+            case eop_else:
+                out << stru::unindent << "} else {" << stru::indent;
+                break;
+            case eop_push:
+                out << "evq.push(" << arg << ");";
+                break;
+            case eop_finish:
+                out << "// reactor->Finish(" << arg << "());\n";
+                out << "return " << arg << "();";
+                break;
+            case eop_ret:
+                out << "return " << arg1 << ";";
+                break;
+            case eop_qcall:
+                out << "qcall(rpc_" << arg << ", " << arg2 << ");";
+                break;
+            case eop_axpr:
+                out << arg << "();";
+                break;
+        }
         return out;
     }
 };
@@ -309,6 +379,7 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
         if(refd_nf.size() > 0) {
             auto event_c = ev(ev_condition, unid);
             body->emplace_back(eop_setf, event_c);
+            body->emplace_back(eop_push, ev(ev_check_flags, ""));
             events.insert(event_c);
             triggers[event_c] = ev(ev_available, refd_nf);
             triggers[event_c].insert(event_c);
@@ -324,10 +395,13 @@ std::string cpp_gen::condition_event(std::string family, int node, std::string b
     exprs.push_back(expression('c', node, family, unid));
     exprs.back().src = conditional_expr_method(n_cvalx, cond_xpr_label);
     exprs.back().fam_refs = ienfref;
-    body->emplace_back(eop_cxpr, cond_xpr_label, n_cvalx);
+    body->emplace_back(eop_cxpr, cond_xpr_label, cond_var_name, node);
 
-    body->emplace_back(eop_com, stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
-    //body->push_back(stru::sfmt() << "if(" << cond_var_name << " != 0) {\n    evq.push(" << event_s << ");\n    break;\n}");
+    body->emplace_back(eop_if, cond_var_name);
+    body->emplace_back(eop_push, event_s);
+    body->emplace_back(eop_break);
+    body->emplace_back(eop_endif);
+
     return body_event;
 }
 std::string cpp_gen::node_event(std::string family, int node, std::string body_event) {
@@ -354,6 +428,7 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
         }
         auto event_r = ev(ev_ready, unid);
         body->emplace_back(eop_setf, event_r);
+        body->emplace_back(eop_push, ev(ev_check_flags, ""));
         events.insert(event_r);
         process.insert(event_r);
         triggers[event_r] = ev(ev_available, refd_nf);
@@ -367,22 +442,17 @@ std::string cpp_gen::node_event(std::string family, int node, std::string body_e
     switch(ast.node_type(action_node)) {
         case FTK_OUTPUT:
             mexpr_method(action_node, msgset_xpr_label);
-            body->emplace_back(eop_axpr, unid, action_node);
-            //body->push_back(stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
+            body->emplace_back(eop_axpr, ax(unid, action_node), action_node);
             body->emplace_back(eop_qcall, unid, event_a);
-            //body->push_back(stru::sfmt() << "queue_call(r_" << unid << ", f_" << event_a << ");");
             break;
         case FTK_RETURN:
             mexpr_method(action_node, msgset_xpr_label);
-            body->emplace_back(eop_axpr, unid, action_node);
-               // stru::sfmt() << "auto r_" << unid << " = mrx_" << unid << "_" << action_node << "();");
+            body->emplace_back(eop_axpr, ax(unid, action_node), action_node);
             body->emplace_back(eop_setf, event_a);
             body->emplace_back(eop_push, ev(ev_check_flags, ""));
             break;
         case FTK_ERRCHK:
-            body->emplace_back(eop_finish, unid);
-
-            //body->push_back(stru::sfmt() << "reactor->Finish(erx_" << unid << "());");
+            body->emplace_back(eop_finish, ex(unid, action_node));
             break;
     }
     return body_event;
@@ -409,13 +479,12 @@ int cpp_gen::node_family(std::string family) {
     // allow for events to be requested more than once, but process only once. 
     body->emplace_back(eop_brkif, event_i);
     body->emplace_back(eop_setf, event_i);
-    body->emplace_back(eop_com, stru::sfmt() << "/** will do " << nodes << " */");
+    body->emplace_back(eop_com, stru::sfmt() << "nodes " << family << ": " << nodes);
 
     int def_n = 0, cond_events = 0;
     for(int n: nodes) if(ast.node_type(ast.last_child(n)) == FTK_valx) {
         // process any condition for the node
-        body->emplace_back(eop_com, stru::sfmt() << "/** condition for " << n << " */");
-        
+        //body->emplace_back(eop_com, stru::sfmt() << "condition for ", n);
         std::string prev_body_event = body_event;
         body_event = condition_event(family, n, body_event);
         if(prev_body_event != body_event) {
@@ -654,7 +723,7 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "grpc::Status status = grpc::OK;\n";
         out << "\n";
         for(auto l: data.entry)
-            l.print(out) << "\n";
+            l.render(out) << "\n";
         out << "\n";
         if(data.events.size() > 0) {
             out << "for(; !evq.empty(); evq.pop()) switch(evq.front()) {\n";
@@ -662,8 +731,10 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
             for(auto e: data.events) {
                 out << "case " << e << ":\n" << stru::indent;
                 if(data.cases.find(e) != data.cases.end()) 
+
                     for(auto l: data.cases[e])
-                        l.print(out) << "\n";
+                        l.render(out) << "\n";
+
                 if(e == ev(ev_check_flags, "")) for(auto te: data.triggers) {
                     out << "if(" << stru::join(te.second, " && ", " && ", "", "f_") << ")\n";
                     out << stru::indent <<  "evq.push(" << te.first << ");\n" << stru::unindent;
@@ -679,7 +750,6 @@ int compiler::cpp_generator(std::ostream &out_stream) const {
         out << "\n";
         for(auto x: data.exprs)
             out_stream << x << "\n";
-  
     }
     return error_count;
 }
