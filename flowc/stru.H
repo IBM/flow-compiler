@@ -29,20 +29,6 @@ bool ends_with(std::string const &str, std::string const &with, std::string *pre
     return true;
 }
 inline static
-std::string strip1(std::string const &str, std::string const &strip_left, std::string const &strip_right) {
-    if(str.length() == 0) return str;
-    std::string s = str;
-    if(s.length() > 0 && strip_left.length() > 0 && strip_left.find(s[0]) != std::string::npos)
-        s = s.substr(1);
-    if(s.length() > 0 && strip_right.length() > 0 && strip_right.find(s[s.length()-1]) != std::string::npos)
-        s = s.substr(0, s.length()-1);
-    return s;
-}
-inline static
-std::string strip1(std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
-    return strip1(str, strip_chars, strip_chars);
-}
-inline static
 std::string strip(std::string const &str, std::string const &strip_chars="\t\r\a\b\v\f\n ") {
     auto b = str.find_first_not_of(strip_chars);
     if(b == std::string::npos) b = 0;
@@ -103,75 +89,32 @@ std::vector<std::string> const &split(std::vector<std::string> &buf, std::string
     return buf;
 }
 std::string remove_empty_lines(std::string const s);
+/* ASCII only is space
+ */
 bool isspace(std::string const &s);
-const 
-inline static
-std::string to_upper(std::string const &s) {
-    std::string u(s);
-    std::transform(s.begin(), s.end(), u.begin(), ::toupper);
-    return u;
-}
-inline static 
-bool string_to_bool(std::string const &s) {
-    std::string c = strip(s);
-    if(c.length() == 0) return false;
-    if(c.length() == 1) {
-        char t = c[0]; 
-        return t == 't' || (t > '0' && t <= '9') || t == 'y' || t == 'T' || t == 'Y';
-    }
-    c = to_upper(c);
-    if(c == "TRUE" || c == "ON" || c == "YES") return true;
-    return std::atof(c.c_str()) != 0;
-}
-inline static
-std::string to_lower(std::string const &s) {
-    std::string u(s);
-    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
-    return u;
-}
-inline static
-std::string to_option(std::string const &s, bool lower=true) {
-    std::string u(s);
-    if(lower)
-        std::transform(s.begin(), s.end(), u.begin(), ::tolower);
-    for(auto &c: u) if(c == '_')  c = '-';
-    return u;
-}
-inline static
-std::string to_cname(std::string const &s, bool lower=true) {
-    return to_option(s, lower);
-}
-inline static
-std::string to_underscore(std::string const &s) {
-    std::string u(s);
-    for(auto &c: u) if(c == '-' || c == '.')  c = '_';
-    return u;
-}
-inline static
-std::string underscore_to_space(std::string const &s) {
-    std::string u(s);
-    for(auto &c: u) if(c == '_')  c = ' ';
-    return u;
-}
-inline static
-std::string to_identifier(std::string const &s) {
-    std::string u(s);
-    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
-    for(auto &c: u) if(!isalnum(c)) c = '_';
-    if(u.length() == 0 || !isalpha(u[0]))
-        return std::string("X") + u;
-    return u;
-}
-inline static 
-std::string to_line_comment(std::string const &s, std::string const &comment_prefix) {
-    if(s.empty()) return s;
-    std::string r(comment_prefix);
-    for(auto c: s) switch (c) {
-        case '\n': r += "\n"; r += comment_prefix; break;
-        default: r += c; 
-    }
-    return r;
-}
+/* ASCII only to upper and lower
+ */
+std::string to_upper(std::string const &s);
+std::string to_lower(std::string const &s);
+/* string to boolean
+ * return true if yes, on, true, or conversion to float is not 0
+ */
+bool string_to_bool(std::string const &s);
+std::string to_option(std::string const &s, bool lower=true);
+/** convert to a valid DNS cname
+ */
+std::string to_cname(std::string const &s);
+/** change all '-', '.' and ' ' to underscore
+ */
+std::string to_underscore(std::string const &s);
+/** convert all underscores to space
+ */
+std::string underscore_to_space(std::string const &s);
+/** convert the string to a valid identifier 
+ */
+std::string to_identifier(std::string const &s);
+std::string to_line_comment(std::string const &s, std::string const &comment_prefix);
+
 std::string base64(std::string const &s);
 std::string base64d(std::string const &s);
 std::string sh_escape(std::string const &s);

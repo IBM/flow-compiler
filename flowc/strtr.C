@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <sstream>
 #include <utility>
+#include "stru.H"
 
 namespace stru {
 std::string html_escape(std::string const &s) {
@@ -177,4 +178,68 @@ std::string sub(std::string const s) {
         }
     return std::move(out).str();
 }
+std::string to_upper(std::string const &s) {
+    std::string u(s);
+    std::transform(s.begin(), s.end(), u.begin(), ::toupper);
+    return u;
+}
+std::string to_lower(std::string const &s) {
+    std::string u(s);
+    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    return u;
+}
+bool string_to_bool(std::string const &s) {
+    std::string c = strip(s);
+    if(c.length() == 0) 
+        return false;
+    if(c.length() == 1) {
+        char t = c[0]; 
+        return t == 't' || (t > '0' && t <= '9') || t == 'y' || t == 'T' || t == 'Y';
+    }
+    c = to_upper(c);
+    if(c == "FALSE" || c == "OFF" || c == "NO") 
+        return false;
+    if(c == "TRUE" || c == "ON" || c == "YES") 
+        return true;
+    return std::atof(c.c_str()) != 0;
+}
+std::string to_underscore(std::string const &s) {
+    std::string u(s);
+    for(auto &c: u) if(c == '-' || c == '.' || c == ' ')  c = '_';
+    return u;
+}
+std::string to_option(std::string const &s, bool lower) {
+    std::string u(s);
+    if(lower)
+        std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    for(auto &c: u) if(c == '_')  c = '-';
+    return u;
+}
+std::string to_cname(std::string const &s) {
+    std::string o = to_option(to_identifier(s));
+    return o;
+}
+std::string underscore_to_space(std::string const &s) {
+    std::string u(s);
+    for(auto &c: u) if(c == '_')  c = ' ';
+    return u;
+}
+std::string to_identifier(std::string const &s) {
+    std::string u(s);
+    std::transform(s.begin(), s.end(), u.begin(), ::tolower);
+    for(auto &c: u) if(!isalnum(c)) c = '_';
+    if(u.length() == 0 || !isalpha(u[0]))
+        return std::string("x") + u;
+    return u;
+}
+std::string to_line_comment(std::string const &s, std::string const &comment_prefix) {
+    if(s.empty()) return s;
+    std::string r(comment_prefix);
+    for(auto c: s) switch (c) {
+        case '\n': r += "\n"; r += comment_prefix; break;
+        default: r += c; 
+    }
+    return r;
+}
+
 }
