@@ -102,9 +102,9 @@ std::vector<std::string> const &split(std::vector<std::string> &buf, std::string
         buf.push_back(e == std::string::npos? str.substr(b): str.substr(b, e-b));
     return buf;
 }
-std::string remove_empty_lines(std::string s);
+std::string remove_empty_lines(std::string const s);
 bool isspace(std::string const &s);
-
+const 
 inline static
 std::string to_upper(std::string const &s) {
     std::string u(s);
@@ -271,7 +271,7 @@ std::string camelize(std::string const &s, bool capitalize_first=false);
 /** 
  * Unicode superscript and subscript for numbers
  */
-std::string sub(std::string s);
-std::string sup(std::string s);
+std::string sub(std::string const s);
+std::string sup(std::string const s);
 }
 #endif

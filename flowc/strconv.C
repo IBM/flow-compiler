@@ -87,7 +87,7 @@ bool isspace(std::string const &s) {
             return false;
     return true;
 }
-std::string remove_empty_lines(std::string s) {
+std::string remove_empty_lines(std::string const s) {
     std::ostringstream out;
     std::istringstream in(s);
     std::string line;
@@ -109,7 +109,7 @@ static char const *supn[] = {
     "\u2078",
     "\u2079",
 };
-std::string sup(std::string s) {
+std::string sup(std::string const s) {
     std::ostringstream out;
     for(char c: s) 
         switch(c) {
@@ -149,7 +149,7 @@ static char const *subn[] = {
     "\u2088",
     "\u2089",
 };
-std::string sub(std::string s) {
+std::string sub(std::string const s) {
     std::ostringstream out;
     for(char c: s) 
         switch(c) {
