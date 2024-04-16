@@ -152,63 +152,6 @@ int url_split(std::string const &url, std::string *scheme, std::string *host, st
     }
     return c;
 }
-static 
-bool cfg_line(std::string &name, std::string &value, std::string line, std::string separators, std::string unquote="") {
-    if(stru::split(&name, &value, line, separators) != 2)
-        return false;
-    name = stru::strip(name);
-    value = stru::strip(value);
-    if(!unquote.empty() && !value.empty()) {
-        auto lqp = unquote.find_first_of(*value.begin());
-        if(lqp != std::string::npos && lqp+1 < unquote.length() && *value.rbegin() == unquote[lqp+1]) {
-            if(unquote[lqp] == '"')
-                value = stru::json_unescape(value);
-            else 
-                value = value.substr(1, value.length()-2);
-        }
-    }
-    return true;
-}
-
-bool config(std::map<std::string, std::string> &cfg, std::istream &ins, std::string comment_triggers, bool case_sensitive, std::string separators) {
-    std::string line;
-    int errors = 0;
-    while(std::getline(ins, line)) {
-        auto p = line.find_first_not_of("\t\r\a\b\v\f\n ");
-        if(p == std::string::npos || comment_triggers.find_first_of(line[p]) != std::string::npos)
-            continue;
-        std::string name, value;
-        if(!cfg_line(name, value, line, separators, "\"\""))
-            ++errors;
-        if(case_sensitive) 
-            cfg[name] = value;
-        else
-            cfg[stru::to_lower(name)] = value;
-    }
-    return errors == 0;
-}
-
-bool config(std::map<std::string, std::string> &cfg, std::string name, bool search) {
-    std::string filename = name;
-    while(search) {
-        filename = std::string(".")+name;
-        if(is_reg(filename)) 
-            break;
-        filename = name+".cfg";
-        if(is_reg(filename)) 
-            break;
-        auto home = std::getenv("HOME");
-        if(home == nullptr)
-            break;
-        filename = path_join(home, std::string(".")+name);
-        if(is_reg(filename)) 
-            break;
-        filename = path_join(home, name+".cfg");
-        search = false;
-    }
-    std::ifstream inputs(filename.c_str());
-    return inputs.is_open() && config(cfg, inputs);
-}
 std::string path_split(std::string const &path, std::string *second) {
     if(path.empty()) return "";
     auto s = path.find_first_not_of("/");
@@ -230,38 +173,6 @@ std::string reads(std::istream &s) {
     std::stringstream buffer;
     buffer << s.rdbuf();
     return buffer.str();
-}
-/** Return true if the searched for section (rather than the global or default) is found
- */
-bool ini_section(std::string &result, std::istream &fs, std::string section) { 
-    std::ostringstream secs, defs;
-    bool in_section = false, in_default = false, in_global = true;
-    bool found_section = false;
-    std::string line;
-    while(std::getline(fs, line)) {
-        auto p = line.find_first_not_of("\t\r\a\b\v\f\n ");
-        if(p != std::string::npos && line[p] == '[') {
-            // found a section header
-            in_section = section.length() > 0 && line.substr(p, section.length()+2) == std::string("[") + section + "]";
-            if(in_section) 
-                found_section = true;
-            in_default = line.substr(p, strlen("[default]")) == "[default]";
-            if(in_default)
-                defs.str("");
-            in_global = false;
-            continue;
-        }
-        if(in_section)
-            secs << line << "\n";
-        if(in_default || in_global)
-            defs << line << "\n";
-    }
-    if(found_section) {
-        result = secs.str();
-        return true;
-    }
-    result = defs.str();
-    return false;
 }
 std::string pipe(std::string command, std::string input, int *rc, std::string *err, bool err2out) {
     // pipe descriptors for each in, out and err streams

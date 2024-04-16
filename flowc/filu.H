@@ -1,9 +1,9 @@
 #ifndef H_FILU_H
 #define H_FILU_H
 
-#include <map>
 #include <string>
 #include <utility>
+#include <iosfwd>
 
 namespace filu {
 /** Get the working directory from the PWD environment variable
@@ -26,7 +26,7 @@ int cp_p(std::string const &source, std::string const &dest);
 /** Wrapper for stdlib realpath
  */
 std::string realpath(std::string const &f);
-/** Search the directories in the <evn=PATH> environment variable for <command>
+/** Search the directories in the <envvn>(PATH) environment variable for <command>
  */
 std::string search_path(std::string const &bin, std::string const &envvn);
 inline static 
@@ -97,23 +97,9 @@ long gunzip(std::ostream &dest, std::istream &source, bool gz=false);
  * Return the number of bytes processed from the input stream or a negative number if an error occured.
  */
 long gzip(std::ostream &dest, std::istream &source, bool gz=false);
-
+/** Execute <command> and return stdout. Optionally mix stderr into the output or return it separately.
+ */
 std::string pipe(std::string command, std::string input, int *rc, std::string *err=nullptr, bool err2out=false);
-/** Look for a config file .name, name.cfg in the current directory and in the home directory.
- *  Read the configuration in a map as below.
- */
-bool config(std::map<std::string, std::string> &cfg, std::string name, bool search=true);
-/** Read a configuration file in the form:
- *      name: value 
- *      name = value 
- *  Allow <value> to be quoted. Ignore lines that start with #.
- */
-bool config(std::map<std::string, std::string> &cfg, std::istream &ins, std::string comment_triggers="#", bool case_sensitive=true, std::string separators=":=");
-/** Find an ini file section. 
- *  If section is 'default' or empty, and there is no section defined, return the entire file.
- */
-bool ini_section(std::string &section, std::istream &fs, std::string section_name);
-
 /** Read the entire stream into a string
  */
 std::string reads(std::istream &s);
