@@ -159,20 +159,9 @@ version.o: version.C build.id
 
 flow-compiler.o: flow-parser.c
 
-gc-conf.o: flow-templates.H
+gc-conf.o gc-server.o gc-client.o flowc.o version.o: flow-templates.H
 
-gc-server.o: flow-templates.H
-
-gc-client.o: flow-templates.H
-
-flowc.o: flow-templates.H
-
-version.o: flow-templates.H
-
-flow-parser.h: flow-parser.c
-	@echo $@ > /dev/null
-
-flow-parser.c: flow-parser.y
+flow-parser.h flow-parser.c &: flow-parser.y
 	$(LEMON) $<
 
 flow-scanner.C: flow-scanner.lex
