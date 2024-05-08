@@ -3,6 +3,7 @@
 
 #include <iosfwd>
 #include <string>
+#include <cstdint> 
 
 enum ANSI_ESCAPE {
     ANSI_NONE = 0,

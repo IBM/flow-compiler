@@ -2,6 +2,7 @@
 #include <string>
 #include <limits>
 #include <cmath>
+#include <cstdint> 
 #include "flow-ast.H"
 #include "grpc-helpers.H"
 #include "stru1.H"
