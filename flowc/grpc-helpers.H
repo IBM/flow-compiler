@@ -28,6 +28,14 @@ public:
     virtual void AddError(std::string const &filename, int line, int column, std::string const &message);
     virtual void AddWarning(std::string const &filename, int line, int column, std::string const &message);
     virtual void AddNote(std::string const &filename, int line, int column, std::string const &message);
+#ifdef ABSL_STRINGS_STRING_VIEW_H_
+    virtual void RecordError(absl::string_view filename, int line, int column, absl::string_view message) {
+        AddError(std::string(filename.data(), filename.size()), line, column, std::string(message.data(), message.size()));
+    }
+    virtual void RecordWarning(absl::string_view filename, int line, int column, absl::string_view message) {
+        AddWarning(std::string(filename.data(), filename.size()), line, column, std::string(message.data(), message.size()));
+    }
+#endif
     void AddError(std::string const &filename, flow_token const &token, std::string const &message) { 
         AddError(filename, token.line, token.column, message);
     }
@@ -54,6 +62,11 @@ public:
     ErrorPrinter(FErrorPrinter &mfec, std::string const &file): fperr(mfec), filename(file) {
     }
     virtual void AddError(int line, int column, std::string const & message);
+#ifdef ABSL_STRINGS_STRING_VIEW_H_
+    virtual void RecordError(int line, int column, absl::string_view message) {
+        AddError(line, column, std::string(message.data(), message.size()));
+    }
+#endif
 };
 inline static 
 std::string get_name(::google::protobuf::Descriptor const *dp) {

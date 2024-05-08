@@ -8,13 +8,13 @@ COPY runtimes/redhat-ubi9/centos-gpg-keys-9.0-24.el9.noarch.rpm /etc
 RUN rpm -i /etc/centos-gpg-keys-9.0-24.el9.noarch.rpm
 COPY runtimes/redhat-ubi9/centos9.repo /etc/yum.repos.d/
 
-RUN microdnf -y update && microdnf -y install bind-utils \
+RUN microdnf -y install --nobest bind-utils \
     jq unzip psmisc \
     iputils net-tools procps-ng glibc-langpack-en.x86_64 \
     git make autoconf automake pkgconfig libtool cmake zlib gdb \
     vim wget findutils gcc-c++ file \
-    openssl iproute uuid-devel libcurl-devel zlib-devel openssl-devel \
-  && microdnf -y upgrade && microdnf clean all
+    iproute uuid-devel libcurl-devel zlib-devel \
+    && microdnf clean all
 
 USER worker
 WORKDIR /home/worker
@@ -37,7 +37,7 @@ RUN cd /tmp && if [ "$GRPC_VERSION" == "latest" ]; then \
     && mkdir -p cmake/build && cd cmake/build \
     && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DABSL_PROPAGATE_CXX_STD=ON \
     -DgRPC_ABSL_PROVIDER=module     \
-    -DgRPC_SSL_PROVIDER=package \
+    -DgRPC_SSL_PROVIDER=module \
     -DgRPC_CARES_PROVIDER=module    \
     -DgRPC_PROTOBUF_PROVIDER=module \
     -DgRPC_RE2_PROVIDER=module     \
