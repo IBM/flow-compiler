@@ -35,7 +35,6 @@ static bool stringtobool(std::string const &s, bool default_value=false) {
 static std::string message_to_json(google::protobuf::Message const &message, bool pretty=true) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = pretty;
-    options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = true;
     std::string json_reply;
     google::protobuf::util::MessageToJsonString(message, &json_reply, options);

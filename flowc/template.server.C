@@ -1406,7 +1406,6 @@ static int protobuf_reply(struct mg_connection *conn, google::protobuf::Message 
 static int message_reply(struct mg_connection *conn, google::protobuf::Message const &message, std::string const &xtra_headers="") {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = false;
-    options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = false;
     std::string json_message;
     (void) google::protobuf::util::MessageToJsonString(message, &json_message, options);
