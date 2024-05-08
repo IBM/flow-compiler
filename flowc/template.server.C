@@ -678,7 +678,6 @@ static std::string log_abridge(std::string const &message, unsigned max_length=2
 static std::string log_abridge(google::protobuf::Message const &message, unsigned max_length=256) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = false;
-    options.always_print_primitive_fields = false;
     options.preserve_proto_field_names = true;
     std::string json_reply;
     (void) google::protobuf::util::MessageToJsonString(message, &json_reply, options);
