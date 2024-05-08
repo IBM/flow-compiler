@@ -20,7 +20,7 @@
 -include makefile.local
 
 HOST_OS:=$(shell uname -s)
-BUILD_VERSION?=0.23.0
+BUILD_VERSION?=0.23.1
 
 ifndef BUILD_ID
 
