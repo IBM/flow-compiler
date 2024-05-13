@@ -137,9 +137,9 @@ docker-info:
 $(IMAGE_PROXY): docs/{{MAIN_FILE}} {P:PROTO_FILE{docs/{{PROTO_FILE}} }P} {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile $(SERVER_XTRA_H) $(SERVER_XTRA_C) {{NAME}}-htdocs.tar.gz
 	@-docker rmi -f $(IMAGE_NAME):$(IMAGE_TAG) 2> /dev/null
 ifeq ($(DBG), yes)
-	docker build --build-arg DEBUG_IMAGE=$(DBG) --build-arg REST_API=$(REST) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f {{NAME}}.Dockerfile .
+	docker build --progress plain --build-arg DEBUG_IMAGE=$(DBG) --build-arg REST_API=$(REST) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f {{NAME}}.Dockerfile .
 else
-	cat {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile | docker build --build-arg DEBUG_IMAGE=$(DBG) --build-arg REST_API=$(REST) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f - .
+	cat {{NAME}}.Dockerfile {{NAME}}.slim.Dockerfile | docker build --progress plain --build-arg DEBUG_IMAGE=$(DBG) --build-arg REST_API=$(REST) --force-rm -t $(IMAGE_NAME):$(IMAGE_TAG) -f - .
 endif
 	docker image inspect $(IMAGE_NAME):$(IMAGE_TAG) > $@
 

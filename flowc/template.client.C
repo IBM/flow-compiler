@@ -37,7 +37,7 @@ static std::string message_to_json(google::protobuf::Message const &message, boo
     options.add_whitespace = pretty;
     options.preserve_proto_field_names = true;
     std::string json_reply;
-    google::protobuf::util::MessageToJsonString(message, &json_reply, options);
+    (void) google::protobuf::util::MessageToJsonString(message, &json_reply, options);
     return json_reply;
 }
 {I:GRPC_GENERATED_H{#include "{{GRPC_GENERATED_H}}"
