@@ -16,10 +16,8 @@ RUN microdnf -y install --nobest bind-utils \
     iproute uuid-devel libcurl-devel zlib-devel \
     && microdnf clean all
 
-ENV CXX=clang++
 USER worker
 WORKDIR /home/worker
-ENV CXX=clang++
 
 ## Build civetweb (https://github.com/civetweb/civetweb)
 RUN curl -L https://github.com/civetweb/civetweb/archive/v${CIVETWEB_VERSION}.tar.gz -o v${CIVETWEB_VERSION}.tar.gz
