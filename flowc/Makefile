@@ -136,7 +136,7 @@ OBJS:=filu.o flow-ast.o flow-compiler.o flow-opcodes.o flow-pgcc.o flow-template
 
 ## minimal set of files to portably build flow-compiler,
 ## includes intermediate files, but will require only the gRPC libraries to build
-MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-templates.H $(OBJS:.o=.C) rr-keys.sh rr-get.sh flow-parser.y flowc.help
+MINSRC_FILES:=Makefile flow-parser.c flow-parser.h $(wildcard *.H) flow-templates.H $(OBJS:.o=.C) rr-keys.sh rr-get.sh osver.sh flow-parser.y flowc.help
 
 %.o: %.C
 	@echo ${CXX} $(CCFLAGS) -std=c++17 -c $<
