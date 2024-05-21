@@ -21,7 +21,11 @@ std::set<std::string> available_runtimes() {
     return runtimes;
 }
 std::string get_system_info() {
+#ifdef BUILD_OS    
+    return BUILD_OS;
+#else
     utsname unb;
     uname(&unb);
     return std::string(unb.sysname)+" "+unb.release+" "+unb.version+", "+unb.machine;
+#endif
 }
