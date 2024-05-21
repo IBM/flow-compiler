@@ -161,8 +161,8 @@ bool flow_ast::can_cast(int node, int grpc_type) const {
         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
             if(n.type == FTK_INTEGER) return true;
             return ceil(n.token.float_value) == n.token.float_value && 
-                n.token.float_value >= std::numeric_limits<int64_t>::min() &&
-                n.token.float_value <= std::numeric_limits<int64_t>::max();
+                n.token.float_value >= (double) std::numeric_limits<int64_t>::min() &&
+                n.token.float_value <= (double) std::numeric_limits<int64_t>::max();
 
         case google::protobuf::FieldDescriptor::Type::TYPE_FIXED32:
         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
@@ -178,7 +178,7 @@ bool flow_ast::can_cast(int node, int grpc_type) const {
             if(n.type == FTK_INTEGER) return true;
             return ceil(n.token.float_value) == n.token.float_value &&
                 n.token.float_value >= 0 &&
-                n.token.float_value <= std::numeric_limits<uint64_t>::max();
+                n.token.float_value <= (double) std::numeric_limits<uint64_t>::max();
 
         default:
             break;

@@ -38,6 +38,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include <grpc++/grpc++.h>
@@ -88,6 +89,11 @@ inline static bool strtobool(char const *s, bool default_value=false) {
 }
 }
 namespace flowrt {
+std::string get_system_info() {
+    utsname unb;
+    uname(&unb);
+    return std::string(unb.sysname)+" "+unb.release+" "+unb.version+", "+unb.machine;
+}
 enum flow_type {INTEGER, FLOAT, STRING};
 inline static 
 std::string getenv(std::string const &name, std::string const &default_v="") {
@@ -2226,6 +2232,7 @@ static void print_banner(std::ostream &out) {
         << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n"
 #else
 #endif
+        << flowrt::get_system_info() << "\n"
         << std::flush;
 }
 static std::ostream &print_cfg(std::ostream &out, std::vector<std::string> const &cfg) {

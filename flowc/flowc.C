@@ -104,6 +104,7 @@ char const *get_version();
 char const *get_build_id();
 char const *get_default_runtime();
 std::set<std::string> available_runtimes();
+std::string get_system_info();
 #define FLOWC_NAME "flowc"
 
 flow_compiler::flow_compiler(): pcerr(std::cerr, &source_tree), importer(&source_tree, &pcerr), trace_on(false), verbose(false), input_dp(nullptr) {
@@ -706,6 +707,7 @@ int main(int argc, char *argv[]) {
             std::cout << "g++ " << __VERSION__ << " (" << __cplusplus << ")\n";
 #else
 #endif
+            std::cout << get_system_info() << "\n";
             if(available_runtimes().size() == 1) {
                 std::cout << "runtime: " << get_default_runtime() << "\n";
             } else {

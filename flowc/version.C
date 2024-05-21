@@ -1,6 +1,8 @@
 #include <string>
 #include <map>
 #include <set>
+#include <sys/utsname.h>
+
 #include "flow-templates.H"
 
 char const *get_version() {
@@ -17,4 +19,9 @@ std::set<std::string> available_runtimes() {
     for(auto &ss: templates::ztemplate_runtime_Dockerfile) 
         runtimes.insert(ss.first);
     return runtimes;
+}
+std::string get_system_info() {
+    utsname unb;
+    uname(&unb);
+    return std::string(unb.sysname)+" "+unb.release+" "+unb.version+", "+unb.machine;
 }
