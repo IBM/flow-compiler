@@ -65,9 +65,11 @@ ifeq ($(DBG), yes)
 	CCFLAGS?=-O0 -g
 	STACK_TRACE?=1
 	BUILD_ID:=$(BUILD_ID) dbg
+	BUILD_OS?=$(shell ./osver.sh -r)
 else
 	CCFLAGS?=-O3
 	STACK_TRACE?=0
+	BUILD_OS?=$(shell ./osver.sh)
 endif
 
 ## one of the runtimes alpine-3.x, ubuntu-x.04, redhat-ubix. Override in 'makefile.local'
@@ -152,8 +154,8 @@ flowc: $(OBJS)
 	@./$@ --version
 
 version.o: version.C build.id
-	@echo ${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" -O3 -std=c++17 -c $<
-	@${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" ${GRPC_INCS} -O3 -std=c++17 -c -MMD -MF $*.dep -o $@ $<
+	@echo ${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" "-DBUILD_OS=\"$(BUILD_OS)\"" -O3 -std=c++17 -c $<
+	@${CXX} "-DBUILD_ID=\"$(BUILD_ID)\"" "-DBUILD_VERSION=\"$(BUILD_VERSION)\"" "-DBASE_IMAGE=\"$(BASE_IMAGE)\"" "-DBUILD_OS=\"$(BUILD_OS)\""  ${GRPC_INCS} -O3 -std=c++17 -c -MMD -MF $*.dep -o $@ $<
 
 flow-compiler.o: flow-parser.c
 
