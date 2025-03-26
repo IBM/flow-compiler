@@ -6,7 +6,7 @@ RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install
     curl jq bc ssh vim unzip binutils \
     && apt-get clean
 
-ENV LANG C.UTF-8
+ENV LANG=C.UTF-8
 
 RUN useradd -u 1001 -m worker
 RUN chown -R worker  /home/worker

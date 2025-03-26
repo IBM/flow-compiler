@@ -1,8 +1,9 @@
 FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.16
 ARG GRPC_VERSION=latest
+ARG OPENSSL_VERSION=3.4.1
 
-user root
+USER root
 
 COPY runtimes/redhat-ubi9/centos-gpg-keys-9.0-24.el9.noarch.rpm /etc
 RUN rpm -i /etc/centos-gpg-keys-9.0-24.el9.noarch.rpm
@@ -28,9 +29,8 @@ ENV CIVETWEB_LIBS="/home/worker/civetweb-${CIVETWEB_VERSION}/libcivetweb.a -ldl 
 USER root
 
 WORKDIR /tmp
-RUN git clone -b openssl-3.3.0 git://git.openssl.org/openssl.git \
-    && cd openssl && ./Configure && make install \
-    && cd /tmp && rm -fr /tmp/openssl
+RUN curl -L https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz -o openssl-${OPENSSL_VERSION}.tar.gz && tar -xzvf openssl-${OPENSSL_VERSION}.tar.gz && rm openssl-${OPENSSL_VERSION}.tar.gz
+RUN cd openssl-${OPENSSL_VERSION} && ./Configure && make install && cd /tmp && rm -fr openssl-${OPENSSL_VERSION}
 
 ## Build and install grpc for C++
 RUN cd /tmp && if [ "$GRPC_VERSION" == "latest" ]; then \

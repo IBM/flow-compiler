@@ -7,4 +7,4 @@ RUN adduser --uid 1001 worker
 RUN chown -R worker  /home/worker
 USER worker
 
-ENV LANG C.UTF-8
+ENV LANG=C.UTF-8

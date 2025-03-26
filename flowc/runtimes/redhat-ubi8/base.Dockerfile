@@ -2,7 +2,7 @@ FROM flow-runtime AS flow-base
 ARG CIVETWEB_VERSION=1.16
 ARG GRPC_VERSION=latest
 
-user root
+USER root
 
 COPY runtimes/redhat-ubi8/RPM-GPG-KEY-CentOS-Official /etc/pki/rpm-gpg/
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-Official
