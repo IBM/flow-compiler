@@ -7,9 +7,14 @@
 #include <string>
 #include <vector>
 
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/compiler/cpp/cpp_generator.h>
 #include <google/protobuf/compiler/importer.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#if GOOGLE_PROTOBUF_VERSION < 4000000
+#include <google/protobuf/compiler/cpp/cpp_generator.h>
+#else 
+#include <google/protobuf/compiler/cpp/generator.h>
+#endif
+
 
 #include "flow-ast.H"
 #include "stru1.H"

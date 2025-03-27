@@ -114,11 +114,11 @@ RUNTIME_IMAGE?=flow-runtime:$(IMAGE_TAG)
 IMAGE_NAME:=$(shell echo "$(IMAGE)" | cut -d ':' -f1)
 IMAGE_TAG:=$(shell  echo "$(IMAGE)" | cut -d ':' -f2)
 
-GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
+GRPC_INCS?=$(shell pkg-config --cflags protobuf) $(shell pkg-config --cflags grpc++)
 ifeq ($(HOST_OS), Darwin)
 	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf) -framework CoreFoundation
 else
-	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs grpc++ protobuf)
+	GRPC_LIBS?=$(shell pkg-config --libs-only-L protobuf) -lprotoc $(shell pkg-config --libs protobuf) $(shell pkg-config --libs grpc++)
 endif
 
 RUNTIMES?=$(patsubst runtimes/%/template.runtime.Dockerfile,%,$(wildcard runtimes/*/template.runtime.Dockerfile))

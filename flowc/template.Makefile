@@ -28,11 +28,13 @@ IMAGE_TAG?=$(shell echo $(IMAGE) | sed 's/^.*://')
 IMAGE_PROXY?={{NAME}}-image-info.json
 HTDOCS_PATH?={{HTDOCS_PATH-}}
 
-GRPC_INCS?=$(shell pkg-config --cflags grpc++ protobuf)
+GRPC_INCS?=$(shell pkg-config --cflags protobuf) $(shell pkg-config --cflags grpc++)
 ifeq ($(HOST_OS), Darwin)
-GRPC_LIBS?=$(shell pkg-config --static --libs grpc++ protobuf) -lgrpc++_reflection -ldl -lresolv -framework CoreFoundation
+GRPC_LIBS?=-Wl,-dead_strip -Wl,-dead_strip_dylibs $(shell pkg-config --static --libs grpc++ protobuf) -lgrpc++_reflection -ldl -lresolv -framework CoreFoundation 
 else
-GRPC_LIBS?=$(shell pkg-config --libs-only-L grpc++ protobuf) -Wl,--no-as-needed -Wl,--whole-archive  -lgrpc++_reflection -ldl -Wl,--no-whole-archive -Wl,--as-needed $(shell pkg-config --static --libs grpc++ protobuf) 
+GRPC_LIBS?=$(shell pkg-config --libs-only-L grpc++) $(shell pkg-config --libs-only-L protobuf) \
+		   -Wl,--no-as-needed -Wl,--whole-archive -lgrpc++_reflection -ldl -Wl,--no-whole-archive -Wl,--as-needed \
+		   $(shell pkg-config --static --libs grpc++) $(shell pkg-config --static --libs protobuf)
 endif
 
 ifeq ($(REST), no)
